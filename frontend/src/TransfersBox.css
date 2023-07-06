@@ -1,0 +1,11 @@
+div.transfers-box {
+    height: 12em;
+}
+div.transfers-box-header {
+    font-size: 1em;
+    height: 1.5em;
+}
+div.transfers-box-content {
+    overflow-y: auto;
+    height: 10.5em;
+}

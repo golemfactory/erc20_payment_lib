@@ -1,0 +1,14 @@
+.date-container {
+    font-weight: normal;
+}
+.date-container .date-container-title {
+    font-size: 1em;
+    font-weight: bold;
+}
+.date-container .date-container-date {
+    font-size: 1em;
+}
+.date-container .date-container-msg {
+    font-size: 1em;
+    font-weight: bold;
+}

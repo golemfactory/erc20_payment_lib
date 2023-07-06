@@ -1,0 +1,20 @@
+table.transactions {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+table.transactions td,
+table.transactions th {
+    border: 1px solid #ddd;
+    padding: 2px;
+    font-size: 10px;
+}
+div.tx-33 {
+    padding: 5px;
+    margin: 5px;
+}
+
+div.tx-wrapper {
+    transition: all 1s;
+    overflow: hidden;
+}

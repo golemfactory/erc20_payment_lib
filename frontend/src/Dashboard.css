@@ -1,0 +1,21 @@
+.top-header {
+    display: flex;
+    align-items: center;
+    border-top: #dddddd 1px solid;
+    border-bottom: #dddddd 1px solid;
+}
+.top-header-title {
+    display: flex;
+    padding: 10px;
+    font-weight: bold;
+    margin-right: 30px;
+}
+.top-header-navigation {
+    display: flex;
+    padding: 10px;
+}
+
+.top-header-navigation a {
+    display: flex;
+    padding: 0px 10px;
+}

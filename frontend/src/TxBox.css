@@ -1,0 +1,170 @@
+div.tx-container-wrapper {
+    position: relative;
+    height: 14em;
+}
+div.tx-container-header {
+    background-color: black;
+    height: 0.1em;
+}
+
+div.tx-transfers {
+    top: 0.7em;
+    height: 12em;
+    width: 40em;
+    position: absolute;
+    font-size: 1em;
+    left: 45em;
+}
+
+div.tx-container {
+    top: 0.5em;
+    height: 12em;
+    width: 50em;
+    position: absolute;
+    font-size: 1em;
+}
+
+div.tx-id {
+    left: 2em;
+    top: 0.35em;
+    position: absolute;
+    font-size: 1em;
+    font-weight: bold;
+}
+
+div.chain-id {
+    left: 10em;
+    top: 0.1em;
+    position: absolute;
+    font-size: 1em;
+    font-weight: bold;
+}
+
+div.tx-created {
+    left: 0em;
+    top: 2em;
+    position: absolute;
+}
+div.tx-created div {
+    font-size: 0.9em;
+}
+
+div.tx-broadcast {
+    left: 10em;
+    top: 2em;
+    position: absolute;
+}
+div.tx-broadcast div {
+    font-size: 0.9em;
+}
+
+div.tx-confirmed {
+    left: 20em;
+    top: 2em;
+    position: absolute;
+}
+div.tx-confirmed div {
+    font-size: 0.9em;
+}
+
+div.tx-method {
+    left: 20em;
+    top: 0.35em;
+    position: absolute;
+    font-size: 1em;
+}
+div.tx-hash {
+    left: 0em;
+    top: 5.8em;
+    position: absolute;
+    font-size: 1em;
+}
+
+div.tx-nonce {
+    left: 0em;
+    top: 7.1em;
+    position: absolute;
+    font-size: 1em;
+}
+div.tx-gas-limit {
+    left: 7em;
+    top: 7.1em;
+    position: absolute;
+    font-size: 1em;
+}
+div.tx-fee {
+    left: 16.5em;
+    top: 7.1em;
+    position: absolute;
+    font-size: 1em;
+}
+div.tx-from {
+    left: 3.5em;
+    top: 8.5em;
+    position: absolute;
+    font-size: 1em;
+}
+div.tx-from-descr {
+    left: 0em;
+    top: 8.75em;
+    position: absolute;
+    font-size: 1em;
+}
+
+div.tx-from-descr span {
+    font-size: 0.8em;
+}
+
+div.tx-to {
+    left: 3.5em;
+    top: 10.1em;
+    position: absolute;
+    font-size: 1em;
+    font-family: Consolas, monaco, monospace;
+}
+div.tx-to-descr {
+    left: 0em;
+    top: 10.3em;
+    position: absolute;
+    font-size: 1em;
+}
+
+div.tx-processing {
+    top: 0em;
+    left: 0em;
+
+    position: absolute;
+    font-size: 1em;
+}
+
+div.tx-message {
+    top: 11.5em;
+    left: 2em;
+    position: absolute;
+    font-size: 1em;
+}
+.tx-ok-icon {
+    width: 1.8em;
+    height: 1.8em;
+    color: green;
+}
+.tx-wait-icon {
+    width: 1.8em;
+    height: 1.8em;
+    color: blue;
+}
+.tx-error-icon {
+    width: 1.8em;
+    height: 1.8em;
+    color: red;
+}
+
+.tx-loading {
+    width: 1.8em;
+    height: 1.8em;
+    color: blue;
+}
+
+div.tx-message span.tx-message-error {
+    color: red;
+}

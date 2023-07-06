@@ -1,0 +1,16 @@
+div.backend-settings {
+    padding: 10px;
+    margin: 10px;
+    border: 1px solid gray;
+}
+
+div.backend-settings input[type="text"] {
+    width: 30em;
+}
+
+div.backend-settings div.box-line {
+    padding-top: 10px;
+}
+div.backend-settings div.box-line input {
+    margin-right: 10px;
+}

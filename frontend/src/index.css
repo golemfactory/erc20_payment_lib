@@ -1,0 +1,28 @@
+body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 14px;
+}
+
+code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+.border {
+    border: 1px solid black;
+}
+
+.div {
+    background-color: #333333;
+}
+
+a:link,
+a:visited,
+a:hover,
+a:active {
+    text-decoration: none;
+    color: #00008b;
+}
+a:hover {
+    color: #1434b4;
+    background-color: #f2f2ff;
+}

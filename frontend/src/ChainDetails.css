@@ -1,0 +1,23 @@
+div.chain-details-chain {
+    display: inline-block;
+    background-color: #fefefe;
+    padding: 0.1em 0.15em 0em 0em;
+    color: #00008b;
+}
+div.chain-details-chain:hover {
+    display: inline-block;
+    background-color: #f2f2ff;
+    color: #1434b4;
+}
+
+div.chain-details-chain-name {
+    display: inline-block;
+    vertical-align: top;
+    padding-top: 0.1em;
+}
+
+.chain-details-chain-icon {
+    width: 1.2em;
+    height: 1.2em;
+    display: inline-block;
+}
