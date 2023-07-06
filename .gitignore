@@ -1,0 +1,6 @@
+/target
+/.env
+/db.sqlite
+/db.sqlite-shm
+/db.sqlite-wal
+/*.sqlite-journal

@@ -1,0 +1,80 @@
+[engine]
+service-sleep = 1
+process-sleep = 1
+automatic-recover = false
+
+[chain.rinkeby]
+chain-name = "Rinkeby"
+chain-id = 4
+rpc-endpoints = ["http://geth.testnet.golem.network:55555"]
+currency-symbol = "tETH"
+priority-fee = 1.5111
+max-fee-per-gas = 500.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 100
+token = { address = "0xd94e3DC39d4Cad1DAd634e7eb585A57A19dC7EFE", symbol = "tGLM", max-at-once = 10 }
+confirmation-blocks = 1
+block-explorer-url = "https://rinkeby.etherscan.io"
+
+[chain.goerli]
+chain-name = "Goerli"
+chain-id = 5
+rpc-endpoints = ["https://ethereum-goerli-rpc.allthatnode.com",
+    "https://rpc.goerli.mudit.blog",
+    "https://rpc.slock.it/goerli",
+    "https://www.ethercluster.com/goerli",
+    "https://rpc.ankr.com/eth_goerli"]
+currency-symbol = "tETH"
+priority-fee = 1.5111
+max-fee-per-gas = 500.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 100
+token = { address = "0x33af15c79d64b85ba14aaffaa4577949104b22e8", symbol = "tGLM" }
+multi-contract = { address = "0x7777784f803a7bf1d7f115f849d29ce5706da64a", max-at-once = 10 }
+confirmation-blocks = 1
+block-explorer-url = "https://goerli.etherscan.io"
+
+[chain.mumbai]
+chain-name = "Mumbai testnet"
+chain-id = 80001
+rpc-endpoints = ["https://matic-mumbai.chainstacklabs.com"]
+# rpc-endpoints = ["http://127.0.0.1:8545"]
+currency-symbol = "tMATIC"
+priority-fee = 1.5111
+max-fee-per-gas = 500.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 100
+token = { address = "0x2036807B0B3aaf5b1858EE822D0e111fDdac7018", symbol = "tGLM" }
+multi-contract = { address = "0x800010D7d0d315DCA795110ecCf0127cBd76b89f", max-at-once = 10 }
+confirmation-blocks = 1
+block-explorer-url = "https://mumbai.polygonscan.com"
+
+[chain.polygon]
+chain-name = "Polygon mainnet"
+chain-id = 137
+rpc-endpoints = ["https://polygon-rpc.com"]
+currency-symbol = "MATIC"
+priority-fee = 30.111
+max-fee-per-gas = 500.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 100
+token = { address = "0x2036807B0B3aaf5b1858EE822D0e111fDdac7018", symbol = "tGLM" }
+# multi-contract = { address = "0x50100d4faf5f3b09987dea36dc2eddd57a3e561b", max-at-once = 10 }
+confirmation-blocks = 1
+block-explorer-url = "https://polygonscan.com"
+
+[chain.dev]
+chain-name = "Golem testnet"
+chain-id = 987789
+rpc-endpoints = ["http://145.239.69.80:8546/web3/erc20"]
+currency-symbol = "tETH"
+priority-fee = 1.1
+max-fee-per-gas = 500.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 100
+token = { address = "0xEC9F23c207018A444f9351dF3D7937f609870667", symbol = "tGLM" }
+multi-contract = { address = "0xBCfe9736A4f5bF2E43620061fF3001eA0D003c0F", max-at-once = 10 }
+confirmation-blocks = 1
+faucet-eth-amount = 10.0
+faucet-glm-amount = 20.0
+block-explorer-url = "http://145.239.69.80:4000"

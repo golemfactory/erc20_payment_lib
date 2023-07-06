@@ -1,0 +1,78 @@
+[workspace]
+members = [
+    "crates/*",
+]
+
+[workspace.package]
+authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
+version = "0.1.9"
+edition = "2021"
+license = "MIT"
+
+[package]
+name = "erc20_processor"
+description = "Payment processor for ERC20 tokens"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+[workspace.dependencies]
+async-trait = "0.1.68"
+web3 = { version = "0.18.0" }
+tokio = { version = "^1.21", features = ["full"] }
+secp256k1 = "0.21.0" # version has to match web3
+sha3 = "0.10.6"
+lazy_static = "1.4.0"
+hex = "0.4.3"
+chrono = "0.4.22"
+log = "0.4.17"
+env_logger = "0.9.1"
+rand = "0.8.5"
+sqlx-core = { version = "=0.5.9", features = ["runtime-tokio-rustls"] }
+sqlx = { version = "=0.5.9", features = ["sqlite", "runtime-tokio-rustls", "chrono"] }
+libsqlite3-sys = { version = "=0.22.2", features = ["bundled"] }
+thiserror = "1.0.37"
+rustc-hex = "2.1.0"
+structopt = "0.3.26"
+dotenv = "0.15.0"
+serde = "^1.0.147"
+rust_decimal = { version = "1.26.1", features = ["serde-arbitrary-precision"] }
+toml = "0.5.9"
+actix-web = "^4.2.1"
+actix-cors = "0.6.4"
+actix-files = "0.6.2"
+serde_json = { version = "^1.0.85" }
+uuid = { version = "1.2.2", features = ["serde", "v4"] }
+csv = "1.2.1"
+eth-keystore = "=0.5.0"
+
+[dependencies]
+async-trait = { workspace = true }
+web3 = { workspace = true }
+tokio = { workspace = true }
+secp256k1 = { workspace = true }
+sha3 = { workspace = true }
+lazy_static = { workspace = true }
+hex = { workspace = true }
+chrono = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+rand = { workspace = true }
+thiserror = { workspace = true }
+rustc-hex = { workspace = true }
+structopt = { workspace = true }
+dotenv = { workspace = true }
+serde = { workspace = true }
+rust_decimal = { workspace = true }
+toml = { workspace = true }
+actix-web = { workspace = true }
+actix-cors = { workspace = true }
+actix-files = { workspace = true }
+uuid = { workspace = true }
+sqlx-core = { workspace = true }
+sqlx = { workspace = true }
+csv = { workspace = true }
+eth-keystore = { workspace = true }
+
+erc20_payment_lib = { path = "crates/erc20_payment_lib" }
