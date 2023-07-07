@@ -4,6 +4,9 @@ services:
       context: ..
       dockerfile: Dockerfile
     command: /bin/bash test_payments_1.sh
+    environment:
+      - ETH_PRIVATE_KEYS=f188692fd0f2e8e8af5478cb547245868f9cbae33f1a4aef3cf4912086057c2f
+      - DB_SQLITE_FILENAME=db.sqlite
   geth:
     build:
       context: ../yatestnet

@@ -44,7 +44,6 @@ ARG BUILD_TARGET
 COPY --from=builder /app/target/${BUILD_TARGET}/${BUILD_PROFILE}/erc20_processor /bin/erc20_processor
 COPY --from=builder /app/target/${BUILD_TARGET}/${BUILD_PROFILE}/examples/generate_transfers /bin/generate_transfers
 COPY ./config-payments-test.toml ./config-payments.toml
-COPY ./.test.env ./.env
 COPY ./scenarios/ .
 CMD ["sh", "-c",  "/wait && /bin/erc20_processor"]
 
