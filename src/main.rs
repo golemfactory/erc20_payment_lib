@@ -1,12 +1,11 @@
 mod options;
-use crate::options::{CliOptions, PaymentCommands, PaymentOptions};
+use crate::options::{PaymentCommands, PaymentOptions};
 use actix_web::Scope;
 use actix_web::{web, App, HttpServer};
 use csv::ReaderBuilder;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::ops::insert_token_transfer;
-use erc20_payment_lib::misc::load_public_addresses;
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::{
@@ -37,9 +36,6 @@ async fn main_internal() -> Result<(), PaymentError> {
     let (private_keys, _public_addrs) = load_private_keys(
         &env::var("ETH_PRIVATE_KEYS").expect("Specify ETH_PRIVATE_KEYS env variable"),
     )?;
-    let receiver_accounts = load_public_addresses(
-        &env::var("ETH_RECEIVERS").expect("Specify ETH_RECEIVERS env variable"),
-    )?;
     display_private_keys(&private_keys);
 
     let config = config::Config::load("config-payments.toml")?;
@@ -62,7 +58,6 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let sp = start_payment_engine(
                 &private_keys,
-                &receiver_accounts,
                 &db_filename,
                 config,
                 Some(conn.clone()),

@@ -1,0 +1,20 @@
+[engine]
+service-sleep = 1
+process-sleep = 1
+automatic-recover = false
+
+[chain.dev]
+chain-name = "Golem testnet"
+chain-id = 987789
+rpc-endpoints = ["http://geth:8545"]
+currency-symbol = "tETH"
+priority-fee = 1.1
+max-fee-per-gas = 500.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 100
+token = { address = "0xEC9F23c207018A444f9351dF3D7937f609870667", symbol = "tGLM" }
+multi-contract = { address = "0xBCfe9736A4f5bF2E43620061fF3001eA0D003c0F", max-at-once = 10 }
+confirmation-blocks = 1
+faucet-eth-amount = 10.0
+faucet-glm-amount = 20.0
+block-explorer-url = "http://127.0.0.1:4000"

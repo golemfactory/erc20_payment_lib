@@ -2,10 +2,7 @@ FROM ethereum/client-go as builder
 
 FROM nikolaik/python-nodejs:python3.10-nodejs18
 RUN apt-get update
-RUN apt-get install -y vim
-
-#install dependencies
-
+RUN apt-get install -y vim sqlite3
 RUN pip install web3 python-dotenv
 
 WORKDIR /runtime/contracts

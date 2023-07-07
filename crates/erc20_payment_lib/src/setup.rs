@@ -47,7 +47,6 @@ pub struct PaymentSetup {
     pub chain_setup: BTreeMap<i64, ChainSetup>,
     #[serde(skip_serializing)]
     pub secret_keys: Vec<SecretKey>,
-    pub receiver_accounts: Vec<Address>,
     //pub pub_address: Address,
     pub finish_when_done: bool,
     pub generate_tx_only: bool,
@@ -62,7 +61,6 @@ impl PaymentSetup {
     pub fn new(
         config: &Config,
         secret_keys: Vec<SecretKey>,
-        receiver_accounts: Vec<Address>,
         finish_when_done: bool,
         generate_txs_only: bool,
         skip_multi_contract_check: bool,
@@ -73,7 +71,6 @@ impl PaymentSetup {
         let mut ps = PaymentSetup {
             chain_setup: BTreeMap::new(),
             secret_keys,
-            receiver_accounts,
             //pub_address: get_eth_addr_from_secret(secret_key),
             finish_when_done,
             generate_tx_only: generate_txs_only,

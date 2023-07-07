@@ -42,8 +42,7 @@ async fn main_internal() -> Result<(), PaymentError> {
     let db_conn = env::var("DB_SQLITE_FILENAME").unwrap();
     let conn = create_sqlite_connection(Some(&db_conn), true).await?;
 
-    let payment_setup =
-        PaymentSetup::new(&config, vec![], vec![], true, false, false, 1, 1, false)?;
+    let payment_setup = PaymentSetup::new(&config, vec![], true, false, false, 1, 1, false)?;
     let ps = payment_setup.chain_setup.get(&cli.chain_id).unwrap();
     let txs = import_erc20_txs(
         &ps.providers[0].provider,

@@ -159,7 +159,6 @@ async fn process_cli(
 
 pub async fn start_payment_engine(
     secret_keys: &[SecretKey],
-    receiver_accounts: &[Address],
     db_filename: &str,
     config: config::Config,
     conn: Option<SqlitePool>,
@@ -169,7 +168,6 @@ pub async fn start_payment_engine(
     let payment_setup = PaymentSetup::new(
         &config,
         secret_keys.to_vec(),
-        receiver_accounts.to_vec(),
         !options.keep_running,
         options.generate_tx_only,
         options.skip_multi_contract_check,

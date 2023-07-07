@@ -4,3 +4,5 @@
 !/examples
 !/Cargo.toml
 !/Cargo.lock
+!/config-payments-test.toml
+!/.test.env

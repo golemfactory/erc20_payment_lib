@@ -21,14 +21,22 @@ RUN cargo chef cook --profile ${BUILD_PROFILE} --target ${BUILD_TARGET} --recipe
 # Build application
 COPY . .
 RUN cargo build --profile ${BUILD_PROFILE} --target ${BUILD_TARGET}
+RUN cargo build --profile ${BUILD_PROFILE} --target ${BUILD_TARGET} --examples
 
 
-FROM alpine:latest
+FROM nikolaik/python-nodejs:python3.10-nodejs18
+RUN apt-get update
+RUN apt-get install -y vim sqlite3
+RUN pip install web3 python-dotenv
+
+WORKDIR /app
 COPY --from=ghcr.io/ufoscout/docker-compose-wait:latest /wait /wait
 ARG BUILD_PROFILE
 ARG BUILD_TARGET
 COPY --from=builder /app/target/${BUILD_TARGET}/${BUILD_PROFILE}/erc20_processor /bin/erc20_processor
-
+COPY --from=builder /app/target/${BUILD_TARGET}/${BUILD_PROFILE}/examples/generate_transfers /bin/generate_transfers
+COPY ./config-payments-test.toml ./config-payments.toml
+COPY ./.test.env ./.env
 CMD ["sh", "-c",  "/wait && /bin/erc20_processor"]
 
 
