@@ -40,6 +40,11 @@ async def main():
     faucet_account = os.environ['FAUCET_ACCOUNT_PRIVATE_KEY']
     signer_account = os.environ['SIGNER_ACCOUNT_PRIVATE_KEY']
     keystore_password = os.environ['SIGNER_ACCOUNT_KEYSTORE_PASSWORD']
+    try:
+        period = int(os.environ['PERIOD_IN_SECONDS_INT'])
+    except Exception as ex:
+        print(f"PERIOD_IN_SECONDS_INT is not set or not int: {ex}")
+        period = 5
     keep_running = int(os.environ['KEEP_RUNNING']) == 1
 
     (main_address, main_account_private_key) = (
@@ -79,7 +84,7 @@ async def main():
                 "ArrowGlacierBlock": 0,
                 "GrayGlacierBlock": 0,
                 "clique": {
-                    "period": 5,
+                    "period": period,
                     "epoch": 0
                 }
             },

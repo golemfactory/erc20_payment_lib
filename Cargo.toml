@@ -19,8 +19,8 @@ authors.workspace = true
 
 [workspace.dependencies]
 async-trait = "0.1.68"
-web3 = { version = "0.18.0" }
-tokio = { version = "^1.21", features = ["full"] }
+web3 = { version = "0.18.0", default-features = false, features = ["signing", "http-rustls-tls"] }
+tokio = { version = "^1.21", features = ["macros"] }
 secp256k1 = "0.21.0" # version has to match web3
 sha3 = "0.10.6"
 lazy_static = "1.4.0"
@@ -39,7 +39,7 @@ dotenv = "0.15.0"
 serde = "^1.0.147"
 rust_decimal = { version = "1.26.1", features = ["serde-arbitrary-precision"] }
 toml = "0.5.9"
-actix-web = "^4.2.1"
+actix-web = { version="^4.2.1", default-features = false, features = ["macros"] }
 actix-cors = "0.6.4"
 actix-files = "0.6.2"
 serde_json = { version = "^1.0.85" }
@@ -76,3 +76,10 @@ csv = { workspace = true }
 eth-keystore = { workspace = true }
 
 erc20_payment_lib = { path = "crates/erc20_payment_lib" }
+
+[profile.release-lto]
+inherits = "release"
+codegen-units = 1
+lto = "fat"
+opt-level = 3
+panic = "abort"

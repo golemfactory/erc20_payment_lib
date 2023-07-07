@@ -19,7 +19,7 @@ async function main() {
         console.log("Account balance is 0. Exiting.");
         return;
     }
-    const erc20Factory = await hre.ethers.getContractFactory("ERC20");
+    const erc20Factory = await hre.ethers.getContractFactory("contracts/ERC20Contract.sol:ERC20");
     const BIG_18 = hre.ethers.BigNumber.from("1000000000000000000");
     const erc20Contract = await erc20Factory.deploy(pubAddr, BIG_18.mul(1000000000000));
     await erc20Contract.deployed();

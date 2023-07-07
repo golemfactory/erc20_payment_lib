@@ -699,7 +699,7 @@ pub fn runtime_web_scope(
     if frontend {
         log::info!("Frontend endpoint enabled");
         //This has to be on end, otherwise it catches requests to backend
-        let static_files = actix_files::Files::new("/frontend/", "./frontend")
+        let static_files = actix_files::Files::new("/frontend", "./frontend/dist")
             .index_file("index.html")
             .default_handler(|req: ServiceRequest| {
                 let (http_req, _payload) = req.into_parts();
