@@ -6,3 +6,4 @@
 !/Cargo.lock
 !/config-payments-test.toml
 !/.test.env
+!/scenarios

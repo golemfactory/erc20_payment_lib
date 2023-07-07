@@ -43,6 +43,8 @@ async function main() {
     const receipt = await res.wait();
     console.log("Approve result: ", receipt.status);
 
+    let wallet = new ethers.Wallet(process.env.MAIN_ACCOUNT_PRIVATE_KEY, provider)
+
     faucet_addr = process.env.FAUCET_ACCOUNT_PUBLIC_ADDRESS;
     let tx_sendEther = {
         from: process.env.MAIN_ACCOUNT_PUBLIC_ADDRESS,
@@ -50,10 +52,19 @@ async function main() {
         // Convert currency unit from ether to wei
         value: BIG_18.mul(100000000)
     }
-    let wallet = new ethers.Wallet(process.env.MAIN_ACCOUNT_PRIVATE_KEY, provider)
     await wallet.sendTransaction(tx_sendEther);
 
-    let addr_list = [faucet_addr];
+    {
+        let tx_sendEther = {
+            from: process.env.MAIN_ACCOUNT_PUBLIC_ADDRESS,
+            to: "0x8080Dd8cb6CBEc227d26EA402Cc97a482250Ee72",
+            // Convert currency unit from ether to wei
+            value: BIG_18.mul(100000000)
+        }
+        await wallet.sendTransaction(tx_sendEther);
+    }
+
+    let addr_list = [faucet_addr, "0x8080Dd8cb6CBEc227d26EA402Cc97a482250Ee72"];
     let amounts = [];
     for (let addr in addr_list) {
         amounts.push(BIG_18.mul(100000000000));

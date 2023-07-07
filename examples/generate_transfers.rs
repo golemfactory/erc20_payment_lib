@@ -31,6 +31,10 @@ async fn main_internal() -> Result<(), PaymentError> {
     if let Err(err) = dotenv::dotenv() {
         return Err(err_custom_create!("No .env file found: {}", err));
     }
+    env::set_var(
+        "RUST_LOG",
+        env::var("RUST_LOG").unwrap_or("info,sqlx::query=warn,web3=warn".to_string()),
+    );
     env_logger::init();
 
     let cli: TestOptions = TestOptions::from_args();
