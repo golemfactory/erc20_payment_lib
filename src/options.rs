@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::path::PathBuf;
 
 use structopt::StructOpt;
 
@@ -74,14 +75,35 @@ pub struct RunOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Import payment list")]
 pub struct ImportOptions {
-    #[structopt(long = "file", help = "File to import", default_value = "payments.csv")]
+    #[structopt(long = "file", help = "File to import")]
     pub file: String,
     #[structopt(long = "separator", help = "Separator", default_value = "|")]
     pub separator: char,
+}
 
-    //default is Mumbai for safety
-    #[structopt(long = "chain-name", default_value = "mumbai")]
+#[derive(StructOpt)]
+#[structopt(about = "Generate test payments")]
+pub struct GenerateTestPaymentsOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
     pub chain_name: String,
+
+    #[structopt(short = "n", long = "generate-count", default_value = "10")]
+    pub generate_count: usize,
+
+    #[structopt(long = "address-pool-size", default_value = "10")]
+    pub address_pool_size: usize,
+
+    #[structopt(long = "amounts-pool-size", default_value = "10")]
+    pub amounts_pool_size: usize,
+
+    #[structopt(short = "a", long = "append-to-db")]
+    pub append_to_db: bool,
+
+    #[structopt(long = "file", help = "File to export")]
+    pub file: Option<PathBuf>,
+
+    #[structopt(long = "separator", help = "Separator", default_value = "|")]
+    pub separator: char,
 }
 
 #[derive(StructOpt)]
@@ -105,10 +127,15 @@ pub enum PaymentCommands {
         #[structopt(flatten)]
         run_options: RunOptions,
     },
+    GenerateTestPayments {
+        #[structopt(flatten)]
+        generate_options: GenerateTestPaymentsOptions,
+    },
     ImportPayments {
         #[structopt(flatten)]
         import_options: ImportOptions,
     },
+
     DecryptKeyStore {
         #[structopt(flatten)]
         decrypt_options: DecryptKeyStoreOptions,

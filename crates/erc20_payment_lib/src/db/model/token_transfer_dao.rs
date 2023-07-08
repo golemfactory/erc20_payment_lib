@@ -1,6 +1,6 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
-#[derive(Serialize, sqlx::FromRow, Debug, Clone)]
+#[derive(Serialize, Deserialize, sqlx::FromRow, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenTransferDao {
     pub id: i64,

@@ -1,3 +1,4 @@
+use std::iter;
 use crate::db::ops::insert_token_transfer;
 use std::str::FromStr;
 use std::time::Instant;
@@ -15,6 +16,8 @@ use rand::Rng;
 use secp256k1::SecretKey;
 
 use web3::types::{Address, U256};
+use crate::db::model::TokenTransferDao;
+use crate::server::transfers;
 
 #[allow(unused)]
 pub fn null_address_pool() -> Result<Vec<Address>, PaymentError> {
@@ -51,22 +54,20 @@ pub fn create_test_amount_pool(size: usize) -> Result<Vec<U256>, PaymentError> {
     Ok(amount_pool)
 }
 
-pub async fn generate_transaction_batch(
-    conn: &SqlitePool,
+pub fn generate_transaction_batch<'a>(
     chain_id: i64,
-    from_addr_pool: &[Address],
+    from_addr_pool: &'a [Address],
     token_addr: Option<Address>,
-    addr_pool: &[Address],
-    amount_pool: &[U256],
-    number_of_transfers: usize,
-) -> Result<(), PaymentError> {
+    addr_pool: &'a [Address],
+    amount_pool: &'a [U256],
+) -> Result<impl Iterator<Item=TokenTransferDao> + 'a, PaymentError> {
     //thread rng
     let mut rng = rand::thread_rng();
     let max_block_db_interval = std::time::Duration::from_secs(1);
     let release_db_interval = std::time::Duration::from_secs(1);
 
     let mut last_time = Instant::now();
-    for transaction_no in 0..number_of_transfers {
+    Ok((0..).map(move |transaction_no| {
         let receiver = addr_pool[rng.gen_range(0..addr_pool.len())];
         let amount = amount_pool[rng.gen_range(0..amount_pool.len())];
         let from = from_addr_pool[rng.gen_range(0..from_addr_pool.len())];
@@ -79,34 +80,8 @@ pub async fn generate_transaction_batch(
             token_addr,
             amount,
         );
-        let _token_transfer = insert_token_transfer(conn, &token_transfer)
-            .await
-            .map_err(err_from!())?;
-        add_payment_request_2(
-            conn,
-            token_addr,
-            amount,
-            &payment_id,
-            from,
-            receiver,
-            chain_id,
-        )
-        .await?;
-        log::info!(
-            "Generated token transfer: from: {} to: {} {}/{}",
-            token_transfer.from_addr,
-            token_transfer.receiver_addr,
-            transaction_no,
-            number_of_transfers
-        );
-        let curr_time = Instant::now();
-        if curr_time - last_time > max_block_db_interval {
-            log::info!("Waiting for db to release");
-            tokio::time::sleep(release_db_interval).await;
-            last_time = Instant::now();
-        }
-    }
-    Ok(())
+        token_transfer
+    }))
 }
 
 pub fn load_private_keys(str: &str) -> Result<(Vec<SecretKey>, Vec<Address>), PaymentError> {

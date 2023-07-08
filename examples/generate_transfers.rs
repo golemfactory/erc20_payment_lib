@@ -56,7 +56,6 @@ async fn main_internal() -> Result<(), PaymentError> {
         Some(c.token.clone().unwrap().address),
         &addr_pool,
         &amount_pool,
-        cli.generate_count,
     )
     .await?;
 
