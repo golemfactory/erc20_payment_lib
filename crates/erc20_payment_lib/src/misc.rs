@@ -1,5 +1,6 @@
-use std::iter;
 use crate::db::ops::insert_token_transfer;
+use futures::{stream, Stream, StreamExt};
+use std::iter;
 use std::str::FromStr;
 use std::time::Instant;
 
@@ -14,10 +15,11 @@ use crate::service::add_payment_request_2;
 use crate::{err_custom_create, err_from};
 use rand::Rng;
 use secp256k1::SecretKey;
+use web3::Error;
 
-use web3::types::{Address, U256};
 use crate::db::model::TokenTransferDao;
 use crate::server::transfers;
+use web3::types::{Address, U256};
 
 #[allow(unused)]
 pub fn null_address_pool() -> Result<Vec<Address>, PaymentError> {
@@ -60,17 +62,17 @@ pub fn generate_transaction_batch<'a>(
     token_addr: Option<Address>,
     addr_pool: &'a [Address],
     amount_pool: &'a [U256],
-) -> Result<impl Iterator<Item=TokenTransferDao> + 'a, PaymentError> {
+) -> Result<impl Stream<Item = Result<TokenTransferDao, PaymentError>> + 'a, PaymentError> {
     //thread rng
-    let mut rng = rand::thread_rng();
+    let mut rng = fastrand::Rng::new();
     let max_block_db_interval = std::time::Duration::from_secs(1);
     let release_db_interval = std::time::Duration::from_secs(1);
 
     let mut last_time = Instant::now();
-    Ok((0..).map(move |transaction_no| {
-        let receiver = addr_pool[rng.gen_range(0..addr_pool.len())];
-        let amount = amount_pool[rng.gen_range(0..amount_pool.len())];
-        let from = from_addr_pool[rng.gen_range(0..from_addr_pool.len())];
+    Ok(stream::repeat(rng).then(move |mut rng| async move {
+        let receiver = addr_pool[rng.usize(0..addr_pool.len())];
+        let amount = amount_pool[rng.usize(0..amount_pool.len())];
+        let from = from_addr_pool[rng.usize(0..from_addr_pool.len())];
         let payment_id = uuid::Uuid::new_v4().to_string();
         let token_transfer = create_token_transfer(
             from,
@@ -80,7 +82,7 @@ pub fn generate_transaction_batch<'a>(
             token_addr,
             amount,
         );
-        token_transfer
+        Ok(token_transfer)
     }))
 }
 

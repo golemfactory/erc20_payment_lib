@@ -5,20 +5,29 @@ use actix_web::{web, App, HttpServer};
 use csv::{ReaderBuilder, WriterBuilder};
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
-use erc20_payment_lib::db::ops::insert_token_transfer;
+use erc20_payment_lib::db::model::{TokenTransferDao, TxDao};
+use erc20_payment_lib::db::ops::{get_transfer_count, insert_token_transfer};
+use erc20_payment_lib::misc::{
+    create_test_amount_pool, generate_transaction_batch, ordered_address_pool,
+};
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::transaction::create_token_transfer;
-use erc20_payment_lib::{config, err_create, err_custom_create, err_from, error::{CustomError, ErrorBag, PaymentError}, misc::{display_private_keys, load_private_keys}, runtime::start_payment_engine};
+use erc20_payment_lib::{
+    config, err_create, err_custom_create, err_from,
+    error::{CustomError, ErrorBag, PaymentError},
+    misc::{display_private_keys, load_private_keys},
+    runtime::start_payment_engine,
+};
+use futures::{StreamExt, TryStreamExt};
+use log::Record;
 use sqlx_core::sqlite::SqlitePool;
 use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
-use log::Record;
+use std::time::Duration;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::types::{Address, U256};
-use erc20_payment_lib::db::model::{TokenTransferDao, TxDao};
-use erc20_payment_lib::misc::{create_test_amount_pool, generate_transaction_batch, ordered_address_pool};
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -115,9 +124,22 @@ async fn main_internal() -> Result<(), PaymentError> {
             let amount_pool = create_test_amount_pool(generate_options.amounts_pool_size)?;
 
             let mut writer = if let Some(file) = generate_options.file {
-                Some(WriterBuilder::new()
-                    .delimiter(b'|')
-                    .from_writer(std::fs::File::create(&file).map_err(err_from!())?))
+                Some(
+                    WriterBuilder::new()
+                        .delimiter(b'|')
+                        .from_writer(std::fs::File::create(&file).map_err(err_from!())?),
+                )
+            } else {
+                None
+            };
+            let mut writer = Arc::new(Mutex::new(writer));
+
+            let conn = if generate_options.append_to_db {
+                let db_filename = env::var("DB_SQLITE_FILENAME")
+                    .expect("Specify DB_SQLITE_FILENAME env variable");
+                log::info!("connecting to sqlite file db: {}", db_filename);
+                let conn = create_sqlite_connection(Some(&db_filename), true).await?;
+                Some(conn)
             } else {
                 None
             };
@@ -128,21 +150,47 @@ async fn main_internal() -> Result<(), PaymentError> {
                 Some(chain_cfg.token.clone().unwrap().address),
                 &addr_pool,
                 &amount_pool,
-            )?.take(generate_options.generate_count)
-                .try_for_each(|tx|
-                if let Some(writer) = writer.as_mut() {
-                    writer.serialize(tx).map_err(
-                        |err|{
+            )?
+            .take(generate_options.generate_count)
+            .try_for_each(move |tx| {
+                let writer = writer.clone();
+                let conn = conn.clone();
+                async move {
+                    if let Some(interval) = generate_options.interval {
+                        tokio::time::sleep(Duration::from_secs_f64(interval)).await;
+                    }
+                    let mut writer = writer.lock().await;
+                    let res = if let Some(writer) = writer.as_mut() {
+                        writer.serialize(&tx).map_err(|err| {
                             log::error!("error writing csv record: {}", err);
-                            Err::<(), PaymentError>(err_custom_create!("error writing csv record: {err}"))
+                            err_custom_create!("error writing csv record: {err}")
+                        })
+                    } else {
+                        log::info!("Generated tx to: {}", tx.receiver_addr);
+                        Ok(())
+                    };
+                    if let Some(conn) = conn {
+                        if let Err(err) = insert_token_transfer(&conn, &tx).await {
+                            return Err(err_custom_create!("error writing record to db: {err}"));
                         }
-                    )
-                } else {
-                    log::info!("Generated tx to: {}", tx.receiver_addr);
-                    Ok(())
+                    }
+                    res
                 }
+            })
+            .await;
+        }
+        PaymentCommands::PaymentStatistics {
+            payment_statistics_options,
+        } => {
+            println!("payment statistics");
+            let db_filename =
+                env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
+            log::info!("connecting to sqlite file db: {}", db_filename);
+            let conn = create_sqlite_connection(Some(&db_filename), true).await?;
+            println!(
+                "Token transfer count: {}",
+                get_transfer_count(&conn, None, None, None).await.unwrap()
             );
-
         }
         PaymentCommands::ImportPayments { import_options } => {
             log::info!("importing payments from file: {}", import_options.file);
@@ -161,11 +209,21 @@ async fn main_internal() -> Result<(), PaymentError> {
             for (line_no, result) in deserialize.enumerate() {
                 match result {
                     Ok(token_transfer) => {
-                        let chain_cfg = config.chain.values().find(|el| el.chain_id == token_transfer.chain_id)
-                            .ok_or(err_custom_create!("Chain id {} not found in config file", token_transfer.chain_id))?;
+                        let chain_cfg = config
+                            .chain
+                            .values()
+                            .find(|el| el.chain_id == token_transfer.chain_id)
+                            .ok_or(err_custom_create!(
+                                "Chain id {} not found in config file",
+                                token_transfer.chain_id
+                            ))?;
 
-                        if let (Some(token_chain_cfg), Some(token_addr)) = (&chain_cfg.token, &token_transfer.token_addr) {
-                            if format!("{:#x}", token_chain_cfg.address) != token_addr.to_lowercase() {
+                        if let (Some(token_chain_cfg), Some(token_addr)) =
+                            (&chain_cfg.token, &token_transfer.token_addr)
+                        {
+                            if format!("{:#x}", token_chain_cfg.address)
+                                != token_addr.to_lowercase()
+                            {
                                 return Err(err_custom_create!(
                                     "Token address in line {} is different from default token address {} != {:#x}",
                                     line_no,

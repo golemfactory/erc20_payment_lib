@@ -1,3 +1,3 @@
 # Scenario: Test payments
-generate_transfers --chain-name dev --generate-count 100 --address-pool-size 100 --amounts-pool-size 10000
-erc20_processor run
+erc20_processor generate-test-payments -a -c dev --interval 0.4 --generate-count 1000000000 --address-pool-size 1000 --amounts-pool-size 100000 &
+erc20_processor run --keep-running

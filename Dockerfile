@@ -29,7 +29,6 @@ COPY ./Cargo.lock ./Cargo.lock
 COPY ./examples ./examples
 COPY ./crates ./crates
 RUN cargo build --profile ${BUILD_PROFILE} --target ${BUILD_TARGET}
-RUN cargo build --profile ${BUILD_PROFILE} --target ${BUILD_TARGET} --examples
 
 
 FROM nikolaik/python-nodejs:python3.10-nodejs18
@@ -42,7 +41,6 @@ COPY --from=ghcr.io/ufoscout/docker-compose-wait:latest /wait /wait
 ARG BUILD_PROFILE
 ARG BUILD_TARGET
 COPY --from=builder /app/target/${BUILD_TARGET}/${BUILD_PROFILE}/erc20_processor /bin/erc20_processor
-COPY --from=builder /app/target/${BUILD_TARGET}/${BUILD_PROFILE}/examples/generate_transfers /bin/generate_transfers
 COPY ./config-payments-test.toml ./config-payments.toml
 COPY ./scenarios/ .
 CMD ["sh", "-c",  "/wait && /bin/erc20_processor"]

@@ -82,6 +82,10 @@ pub struct ImportOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Payment statistics options")]
+pub struct PaymentStatisticsOptions {}
+
+#[derive(StructOpt)]
 #[structopt(about = "Generate test payments")]
 pub struct GenerateTestPaymentsOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
@@ -104,6 +108,9 @@ pub struct GenerateTestPaymentsOptions {
 
     #[structopt(long = "separator", help = "Separator", default_value = "|")]
     pub separator: char,
+
+    #[structopt(long = "interval", help = "Generate transactions interval in seconds")]
+    pub interval: Option<f64>,
 }
 
 #[derive(StructOpt)]
@@ -135,7 +142,10 @@ pub enum PaymentCommands {
         #[structopt(flatten)]
         import_options: ImportOptions,
     },
-
+    PaymentStatistics {
+        #[structopt(flatten)]
+        payment_statistics_options: PaymentStatisticsOptions,
+    },
     DecryptKeyStore {
         #[structopt(flatten)]
         decrypt_options: DecryptKeyStoreOptions,

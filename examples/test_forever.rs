@@ -1,7 +1,6 @@
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::misc::{
-    create_test_amount_pool, generate_transaction_batch,
-    ordered_address_pool,
+    create_test_amount_pool, generate_transaction_batch, ordered_address_pool,
 };
 use erc20_payment_lib::{
     config, err_custom_create,
