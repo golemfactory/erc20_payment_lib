@@ -1,24 +1,14 @@
-use crate::db::ops::insert_token_transfer;
-use futures::{stream, Stream, StreamExt};
-use std::iter;
-use std::str::FromStr;
-use std::time::Instant;
-
-use crate::transaction::create_token_transfer;
-
-use sqlx::SqlitePool;
-
+use crate::db::model::TokenTransferDao;
 use crate::error::PaymentError;
 use crate::error::*;
 use crate::eth::get_eth_addr_from_secret;
-use crate::service::add_payment_request_2;
+use crate::transaction::create_token_transfer;
 use crate::{err_custom_create, err_from};
-use rand::Rng;
+use futures::{stream, Stream, StreamExt};
 use secp256k1::SecretKey;
-use web3::Error;
-
-use crate::db::model::TokenTransferDao;
-use crate::server::transfers;
+use std::str::FromStr;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use web3::types::{Address, U256};
 
 #[allow(unused)]
@@ -64,25 +54,25 @@ pub fn generate_transaction_batch<'a>(
     amount_pool: &'a [U256],
 ) -> Result<impl Stream<Item = Result<TokenTransferDao, PaymentError>> + 'a, PaymentError> {
     //thread rng
-    let mut rng = fastrand::Rng::new();
-    let max_block_db_interval = std::time::Duration::from_secs(1);
-    let release_db_interval = std::time::Duration::from_secs(1);
-
-    let mut last_time = Instant::now();
-    Ok(stream::repeat(rng).then(move |mut rng| async move {
-        let receiver = addr_pool[rng.usize(0..addr_pool.len())];
-        let amount = amount_pool[rng.usize(0..amount_pool.len())];
-        let from = from_addr_pool[rng.usize(0..from_addr_pool.len())];
-        let payment_id = uuid::Uuid::new_v4().to_string();
-        let token_transfer = create_token_transfer(
-            from,
-            receiver,
-            chain_id,
-            Some(&payment_id),
-            token_addr,
-            amount,
-        );
-        Ok(token_transfer)
+    let rng = Arc::new(Mutex::new(fastrand::Rng::new()));
+    Ok(stream::repeat(0).then(move |_| {
+        let rng = rng.clone();
+        async move {
+            let mut rng = rng.lock().await;
+            let receiver = addr_pool[rng.usize(0..addr_pool.len())];
+            let amount = amount_pool[rng.usize(0..amount_pool.len())];
+            let from = from_addr_pool[rng.usize(0..from_addr_pool.len())];
+            let payment_id = uuid::Uuid::new_v4().to_string();
+            let token_transfer = create_token_transfer(
+                from,
+                receiver,
+                chain_id,
+                Some(&payment_id),
+                token_addr,
+                amount,
+            );
+            Ok(token_transfer)
+        }
     }))
 }
 

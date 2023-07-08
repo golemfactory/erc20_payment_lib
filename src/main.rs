@@ -5,29 +5,27 @@ use actix_web::{web, App, HttpServer};
 use csv::{ReaderBuilder, WriterBuilder};
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
-use erc20_payment_lib::db::model::{TokenTransferDao, TxDao};
+use erc20_payment_lib::db::model::TokenTransferDao;
 use erc20_payment_lib::db::ops::{get_transfer_count, insert_token_transfer};
 use erc20_payment_lib::misc::{
     create_test_amount_pool, generate_transaction_batch, ordered_address_pool,
 };
 use erc20_payment_lib::server::*;
-use erc20_payment_lib::transaction::create_token_transfer;
+
 use erc20_payment_lib::{
-    config, err_create, err_custom_create, err_from,
+    config, err_custom_create, err_from,
     error::{CustomError, ErrorBag, PaymentError},
     misc::{display_private_keys, load_private_keys},
     runtime::start_payment_engine,
 };
 use futures::{StreamExt, TryStreamExt};
-use log::Record;
-use sqlx_core::sqlite::SqlitePool;
+
 use std::env;
-use std::str::FromStr;
+
 use std::sync::Arc;
 use std::time::Duration;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
-use web3::types::{Address, U256};
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -123,16 +121,16 @@ async fn main_internal() -> Result<(), PaymentError> {
             let addr_pool = ordered_address_pool(generate_options.address_pool_size, false)?;
             let amount_pool = create_test_amount_pool(generate_options.amounts_pool_size)?;
 
-            let mut writer = if let Some(file) = generate_options.file {
+            let writer = if let Some(file) = generate_options.file {
                 Some(
                     WriterBuilder::new()
                         .delimiter(b'|')
-                        .from_writer(std::fs::File::create(&file).map_err(err_from!())?),
+                        .from_writer(std::fs::File::create(file).map_err(err_from!())?),
                 )
             } else {
                 None
             };
-            let mut writer = Arc::new(Mutex::new(writer));
+            let writer = Arc::new(Mutex::new(writer));
 
             let conn = if generate_options.append_to_db {
                 let db_filename = env::var("DB_SQLITE_FILENAME")
@@ -144,7 +142,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 None
             };
 
-            let transactions = generate_transaction_batch(
+            let _transactions = generate_transaction_batch(
                 chain_cfg.chain_id,
                 &public_addrs,
                 Some(chain_cfg.token.clone().unwrap().address),
@@ -180,7 +178,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             .await;
         }
         PaymentCommands::PaymentStatistics {
-            payment_statistics_options,
+            payment_statistics_options: _,
         } => {
             println!("payment statistics");
             let db_filename =
@@ -199,7 +197,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .delimiter(import_options.separator as u8)
                 .from_reader(std::fs::File::open(&import_options.file).map_err(err_from!())?);
 
-            let mut deserialize = rdr.deserialize::<TokenTransferDao>();
+            let deserialize = rdr.deserialize::<TokenTransferDao>();
             let db_filename =
                 env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
             log::info!("connecting to sqlite file db: {}", db_filename);

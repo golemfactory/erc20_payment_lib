@@ -1,9 +1,8 @@
+use erc20_payment_lib::config;
 use erc20_payment_lib::db::create_sqlite_connection;
-use erc20_payment_lib::{config, err_custom_create};
 
 use erc20_payment_lib::error::PaymentError;
 
-use erc20_payment_lib::error::{CustomError, ErrorBag};
 use erc20_payment_lib::misc::{display_private_keys, load_private_keys};
 
 use std::env;
