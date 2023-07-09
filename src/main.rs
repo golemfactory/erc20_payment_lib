@@ -12,18 +12,13 @@ use erc20_payment_lib::misc::{
 };
 use erc20_payment_lib::server::*;
 
-use erc20_payment_lib::{
-    config, err_custom_create, err_from,
-    error::{CustomError, ErrorBag, PaymentError},
-    misc::{display_private_keys, load_private_keys},
-    runtime::start_payment_engine,
-};
+use erc20_payment_lib::{config, err_create, err_custom_create, err_from, error::{CustomError, ErrorBag, PaymentError}, misc::{display_private_keys, load_private_keys}, runtime::start_payment_engine};
 use futures::{StreamExt, TryStreamExt};
 
 use std::env;
 
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use tokio::sync::Mutex;
 
@@ -142,6 +137,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                 None
             };
 
+            let started = Instant::now();
+
             match generate_transaction_batch(
                 chain_cfg.chain_id,
                 &public_addrs,
@@ -153,7 +150,17 @@ async fn main_internal() -> Result<(), PaymentError> {
             .try_for_each(move |(transfer_no, token_transfer)| {
                 let writer = writer.clone();
                 let conn = conn.clone();
+
                 async move {
+                    if let Some(limit_time) = generate_options.limit_time {
+                        // check how much time has passed since start
+                        let elapsed = started.elapsed();
+                        if elapsed.as_secs_f64() > limit_time {
+                            return Err(err_create!(
+                                elapsed
+                            ));
+                        }
+                    };
                     if let Some(interval) = generate_options.interval {
                         tokio::time::sleep(Duration::from_secs_f64(interval)).await;
                     }
@@ -164,24 +171,38 @@ async fn main_internal() -> Result<(), PaymentError> {
                             err_custom_create!("error writing csv record: {err}")
                         })
                     } else {
-                        log::info!("Generated tx no {} to: {}", transfer_no, token_transfer.receiver_addr);
+                        log::info!(
+                            "Generated tx no {} to: {}",
+                            transfer_no,
+                            token_transfer.receiver_addr
+                        );
                         Ok(())
                     };
                     if let Some(conn) = conn {
                         if let Err(err) = insert_token_transfer(&conn, &token_transfer).await {
-                            return Err(err_custom_create!("Error writing record to db no: {transfer_no}, err: {err}"));
+                            return Err(err_custom_create!(
+                                "Error writing record to db no: {transfer_no}, err: {err}"
+                            ));
                         }
                     }
                     res
                 }
             })
-            .await {
+            .await
+            {
                 Ok(_) => {
                     log::info!("All transactions generated successfully");
                 }
                 Err(err) => {
-                    return Err(err)
-                }
+                    match err.inner {
+                        ErrorBag::TimeLimitReached(d) => {
+                            log::info!("Time limit reached: {} seconds, exiting", d.as_secs_f64());
+                        }
+                        _ => {
+                            return Err(err)
+                        }
+                    }
+                },
             };
         }
         PaymentCommands::PaymentStatistics {

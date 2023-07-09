@@ -20,7 +20,7 @@ pub async fn create_sqlite_connection(
 
     let conn_opt = SqliteConnectOptions::from_str(&url)
         .map_err(err_from!())?
-        .auto_vacuum(SqliteAutoVacuum::Full)
+        .journal_mode(sqlx::sqlite::SqliteJournalMode::Delete)
         .create_if_missing(true);
 
     let pool = sqlx::sqlite::SqlitePoolOptions::new()

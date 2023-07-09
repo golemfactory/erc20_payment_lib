@@ -4,6 +4,7 @@ use crate::utils::ConversionError;
 use rustc_hex::FromHexError;
 use std::fmt::Display;
 use std::num::ParseIntError;
+use std::time::Duration;
 use web3::ethabi::ethereum_types::FromDecStrErr;
 
 /// Enum containing all possible errors used in the library
@@ -22,6 +23,7 @@ pub enum ErrorBag {
     FromHexError(FromHexError),
     NoAllowanceFound(AllowanceRequest),
     FromDecStrErr(FromDecStrErr),
+    TimeLimitReached(std::time::Duration),
 }
 
 impl Display for ErrorBag {
@@ -41,6 +43,7 @@ impl Display for ErrorBag {
             ErrorBag::FromHexError(from_hex_error) => write!(f, "{from_hex_error:?}"),
             ErrorBag::NoAllowanceFound(allowance_request) => write!(f, "{allowance_request:?}"),
             ErrorBag::FromDecStrErr(from_dec_str_err) => write!(f, "{from_dec_str_err:?}"),
+            ErrorBag::TimeLimitReached(duration) => write!(f, "Time limit reached: {duration:?}")
         }
     }
 }
@@ -116,5 +119,11 @@ impl From<AllowanceRequest> for ErrorBag {
 impl From<FromDecStrErr> for ErrorBag {
     fn from(err: FromDecStrErr) -> Self {
         ErrorBag::FromDecStrErr(err)
+    }
+}
+
+impl From<Duration> for ErrorBag {
+    fn from(err: Duration) -> Self {
+        ErrorBag::TimeLimitReached(err)
     }
 }

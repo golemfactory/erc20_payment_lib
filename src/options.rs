@@ -111,6 +111,9 @@ pub struct GenerateTestPaymentsOptions {
 
     #[structopt(long = "interval", help = "Generate transactions interval in seconds")]
     pub interval: Option<f64>,
+
+    #[structopt(long = "limit-time", help = "Limit time of running command in seconds")]
+    pub limit_time: Option<f64>,
 }
 
 #[derive(StructOpt)]
