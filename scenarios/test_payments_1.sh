@@ -1,3 +1,5 @@
 # Scenario: Test payments
-erc20_processor generate-test-payments -a -c dev --interval 0.4 --generate-count 1000000000 --address-pool-size 1000 --amounts-pool-size 100000 &
+export RUST_LOG=error
+erc20_processor generate-test-payments -a -c dev --generate-count 1000000000 --address-pool-size 1000 --amounts-pool-size 100000 &
+unset RUST_LOG
 erc20_processor run --keep-running

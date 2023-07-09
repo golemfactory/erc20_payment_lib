@@ -179,10 +179,19 @@ async fn main_internal() -> Result<(), PaymentError> {
                         Ok(())
                     };
                     if let Some(conn) = conn {
-                        if let Err(err) = insert_token_transfer(&conn, &token_transfer).await {
-                            return Err(err_custom_create!(
-                                "Error writing record to db no: {transfer_no}, err: {err}"
-                            ));
+                        loop {
+                            if let Err(err) = insert_token_transfer(&conn, &token_transfer).await {
+                                if let Some(db) = err.as_database_error() {
+                                    if db.message() == "database is locked" {
+                                        log::warn!("database is locked, trying again");
+                                        continue;
+                                    }
+                                }
+                                return Err(err_custom_create!(
+                                    "Error writing record to db no: {transfer_no}, err: {err}"
+                                ));
+                            }
+                            break;
                         }
                     }
                     res
