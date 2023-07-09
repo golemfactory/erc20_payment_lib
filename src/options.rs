@@ -134,6 +134,7 @@ pub enum PaymentCommands {
         #[structopt(flatten)]
         run_options: RunOptions,
     },
+    #[structopt(about = "Generate test payments")]
     GenerateTestPayments {
         #[structopt(flatten)]
         generate_options: GenerateTestPaymentsOptions,

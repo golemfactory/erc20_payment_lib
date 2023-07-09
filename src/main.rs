@@ -142,7 +142,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 None
             };
 
-            let _transactions = generate_transaction_batch(
+            match generate_transaction_batch(
                 chain_cfg.chain_id,
                 &public_addrs,
                 Some(chain_cfg.token.clone().unwrap().address),
@@ -150,7 +150,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 &amount_pool,
             )?
             .take(generate_options.generate_count)
-            .try_for_each(move |tx| {
+            .try_for_each(move |(transfer_no, token_transfer)| {
                 let writer = writer.clone();
                 let conn = conn.clone();
                 async move {
@@ -159,23 +159,30 @@ async fn main_internal() -> Result<(), PaymentError> {
                     }
                     let mut writer = writer.lock().await;
                     let res = if let Some(writer) = writer.as_mut() {
-                        writer.serialize(&tx).map_err(|err| {
+                        writer.serialize(&token_transfer).map_err(|err| {
                             log::error!("error writing csv record: {}", err);
                             err_custom_create!("error writing csv record: {err}")
                         })
                     } else {
-                        log::info!("Generated tx to: {}", tx.receiver_addr);
+                        log::info!("Generated tx no {} to: {}", transfer_no, token_transfer.receiver_addr);
                         Ok(())
                     };
                     if let Some(conn) = conn {
-                        if let Err(err) = insert_token_transfer(&conn, &tx).await {
-                            return Err(err_custom_create!("error writing record to db: {err}"));
+                        if let Err(err) = insert_token_transfer(&conn, &token_transfer).await {
+                            return Err(err_custom_create!("Error writing record to db no: {transfer_no}, err: {err}"));
                         }
                     }
                     res
                 }
             })
-            .await;
+            .await {
+                Ok(_) => {
+                    log::info!("All transactions generated successfully");
+                }
+                Err(err) => {
+                    return Err(err)
+                }
+            };
         }
         PaymentCommands::PaymentStatistics {
             payment_statistics_options: _,

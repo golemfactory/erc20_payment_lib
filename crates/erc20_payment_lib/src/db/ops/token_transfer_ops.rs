@@ -9,8 +9,8 @@ pub async fn insert_token_transfer(
 ) -> Result<TokenTransferDao, sqlx::Error> {
     let res = sqlx::query_as::<_, TokenTransferDao>(
         r"INSERT INTO token_transfer
-(payment_id, from_addr, receiver_addr, chain_id, token_addr, token_amount, tx_id, fee_paid, error)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
+(payment_id, from_addr, receiver_addr, chain_id, token_addr, token_amount, create_date, tx_id, fee_paid, error)
+VALUES ($1, $2, $3, $4, $5, $6, strftime('%Y-%m-%dT%H:%M:%f', 'now'), $7, $8, $9) RETURNING *;
 ",
     )
     .bind(&token_transfer.payment_id)

@@ -91,6 +91,7 @@ pub fn create_token_transfer(
         chain_id,
         token_addr: token_addr.map(|addr| format!("{addr:#x}")),
         token_amount: token_amount.to_string(),
+        create_date: chrono::Utc::now(),
         tx_id: None,
         fee_paid: None,
         error: None,

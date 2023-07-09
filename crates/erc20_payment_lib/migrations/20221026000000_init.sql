@@ -61,6 +61,7 @@ CREATE TABLE "token_transfer"
     chain_id            INTEGER     NOT NULL,
     token_addr          TEXT        NULL,
     token_amount        TEXT        NOT NULL,
+    create_date         DATETIME    NOT NULL,
     tx_id               INTEGER     NULL,
     fee_paid            TEXT        NULL,
     error               TEXT        NULL,

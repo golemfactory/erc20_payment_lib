@@ -52,10 +52,10 @@ pub fn generate_transaction_batch<'a>(
     token_addr: Option<Address>,
     addr_pool: &'a [Address],
     amount_pool: &'a [U256],
-) -> Result<impl Stream<Item = Result<TokenTransferDao, PaymentError>> + 'a, PaymentError> {
+) -> Result<impl Stream<Item = Result<(u64, TokenTransferDao), PaymentError>> + 'a, PaymentError> {
     //thread rng
     let rng = Arc::new(Mutex::new(fastrand::Rng::new()));
-    Ok(stream::repeat(0).then(move |_| {
+    Ok(stream::iter(0..).then(move |transfer_no| {
         let rng = rng.clone();
         async move {
             let mut rng = rng.lock().await;
@@ -71,7 +71,7 @@ pub fn generate_transaction_batch<'a>(
                 token_addr,
                 amount,
             );
-            Ok(token_transfer)
+            Ok((transfer_no, token_transfer))
         }
     }))
 }

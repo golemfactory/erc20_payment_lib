@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, sqlx::FromRow, Debug, Clone)]
@@ -10,6 +11,9 @@ pub struct TokenTransferDao {
     pub chain_id: i64,
     pub token_addr: Option<String>,
     pub token_amount: String,
+    /// The time when the record is inserted into the database
+    /// It is overriden when inserting new entry to db
+    pub create_date: DateTime<Utc>,
     pub tx_id: Option<i64>,
     pub fee_paid: Option<String>,
     pub error: Option<String>,
