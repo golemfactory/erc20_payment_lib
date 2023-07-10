@@ -43,7 +43,7 @@ impl Display for ErrorBag {
             ErrorBag::FromHexError(from_hex_error) => write!(f, "{from_hex_error:?}"),
             ErrorBag::NoAllowanceFound(allowance_request) => write!(f, "{allowance_request:?}"),
             ErrorBag::FromDecStrErr(from_dec_str_err) => write!(f, "{from_dec_str_err:?}"),
-            ErrorBag::TimeLimitReached(duration) => write!(f, "Time limit reached: {duration:?}")
+            ErrorBag::TimeLimitReached(duration) => write!(f, "Time limit reached: {duration:?}"),
         }
     }
 }

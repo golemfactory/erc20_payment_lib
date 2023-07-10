@@ -6,13 +6,18 @@ use csv::{ReaderBuilder, WriterBuilder};
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::TokenTransferDao;
-use erc20_payment_lib::db::ops::{get_transfer_count, insert_token_transfer};
+use erc20_payment_lib::db::ops::{do_db_operation, get_transfer_count, insert_token_transfer};
 use erc20_payment_lib::misc::{
     create_test_amount_pool, generate_transaction_batch, ordered_address_pool,
 };
 use erc20_payment_lib::server::*;
 
-use erc20_payment_lib::{config, err_create, err_custom_create, err_from, error::{CustomError, ErrorBag, PaymentError}, misc::{display_private_keys, load_private_keys}, runtime::start_payment_engine};
+use erc20_payment_lib::{
+    config, err_create, err_custom_create, err_from,
+    error::{CustomError, ErrorBag, PaymentError},
+    misc::{display_private_keys, load_private_keys},
+    runtime::start_payment_engine,
+};
 use futures::{StreamExt, TryStreamExt};
 
 use std::env;
@@ -156,9 +161,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                         // check how much time has passed since start
                         let elapsed = started.elapsed();
                         if elapsed.as_secs_f64() > limit_time {
-                            return Err(err_create!(
-                                elapsed
-                            ));
+                            return Err(err_create!(elapsed));
                         }
                     };
                     if let Some(interval) = generate_options.interval {
@@ -179,20 +182,14 @@ async fn main_internal() -> Result<(), PaymentError> {
                         Ok(())
                     };
                     if let Some(conn) = conn {
-                        loop {
-                            if let Err(err) = insert_token_transfer(&conn, &token_transfer).await {
-                                if let Some(db) = err.as_database_error() {
-                                    if db.message() == "database is locked" {
-                                        log::warn!("database is locked, trying again");
-                                        continue;
-                                    }
-                                }
-                                return Err(err_custom_create!(
-                                    "Error writing record to db no: {transfer_no}, err: {err}"
-                                ));
-                            }
-                            break;
-                        }
+                        let _token_transfer =
+                            do_db_operation(|| insert_token_transfer(&conn, &token_transfer))
+                                .await
+                                .map_err(|err| {
+                                    err_custom_create!(
+                                        "Error writing record to db no: {transfer_no}, err: {err}"
+                                    )
+                                })?;
                     }
                     res
                 }
@@ -202,15 +199,11 @@ async fn main_internal() -> Result<(), PaymentError> {
                 Ok(_) => {
                     log::info!("All transactions generated successfully");
                 }
-                Err(err) => {
-                    match err.inner {
-                        ErrorBag::TimeLimitReached(d) => {
-                            log::info!("Time limit reached: {} seconds, exiting", d.as_secs_f64());
-                        }
-                        _ => {
-                            return Err(err)
-                        }
+                Err(err) => match err.inner {
+                    ErrorBag::TimeLimitReached(d) => {
+                        log::info!("Time limit reached: {} seconds, exiting", d.as_secs_f64());
                     }
+                    _ => return Err(err),
                 },
             };
         }
