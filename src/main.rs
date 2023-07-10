@@ -1,4 +1,6 @@
 mod options;
+mod utils;
+
 use crate::options::{PaymentCommands, PaymentOptions};
 use actix_web::Scope;
 use actix_web::{web, App, HttpServer};
@@ -21,7 +23,8 @@ use erc20_payment_lib::{
 use futures::{StreamExt, TryStreamExt};
 use std::env;
 
-use std::sync::{atomic, Arc};
+use crate::utils::rate_limit_stream;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use tokio::sync::Mutex;
@@ -142,85 +145,60 @@ async fn main_internal() -> Result<(), PaymentError> {
             };
 
             let started = Instant::now();
-            let mut stream_delay = Arc::new(Mutex::new(0.0));
 
-            match generate_transaction_batch(
+            let transfers_stream = generate_transaction_batch(
                 chain_cfg.chain_id,
                 &public_addrs,
                 Some(chain_cfg.token.clone().unwrap().address),
                 &addr_pool,
                 &amount_pool,
-            )?
-            .then(|res| {
-                let stream_delay = stream_delay.clone();
-                async move {
-                    if let (Ok((transfer_no, _)), Some(interval)) =
-                        (&res, generate_options.interval)
-                    {
-                        const MAX_SLIPPAGE_INTERVALS: f64 = 10.0;
-                        let target_time_point =
-                            *transfer_no as f64 * interval + *stream_delay.lock().await;
-                        let elapsed = started.elapsed();
-                        let delta = target_time_point - elapsed.as_secs_f64();
-                        let wait_time_seconds = if delta > 0.0 {
-                            delta
-                        } else {
-                            //try to catch up, but not too much (up to twice as fast)
-                            interval * 0.5
-                        };
-                        if delta < -MAX_SLIPPAGE_INTERVALS * interval {
-                            *stream_delay.lock().await -= delta;
-                            log::warn!(
-                                "Stream is falling behind, current delay {}s",
-                                *stream_delay.lock().await
-                            );
-                        }
-                        tokio::time::sleep(Duration::from_secs_f64(wait_time_seconds)).await;
-                    }
-                    res
-                }
-            })
-            .take(generate_options.generate_count)
-            .try_for_each(move |(transfer_no, token_transfer)| {
-                let writer = writer.clone();
-                let conn = conn.clone();
+            )?;
+            let transfers_stream = rate_limit_stream(
+                transfers_stream,
+                generate_options.interval.map(Duration::from_secs_f64),
+            );
+            match transfers_stream
+                .take(generate_options.generate_count)
+                .try_for_each(move |(transfer_no, token_transfer)| {
+                    let writer = writer.clone();
+                    let conn = conn.clone();
 
-                async move {
-                    if let Some(limit_time) = generate_options.limit_time {
-                        // check how much time has passed since start
-                        let elapsed = started.elapsed();
-                        if elapsed.as_secs_f64() > limit_time {
-                            return Err(err_create!(elapsed));
-                        }
-                    };
-                    let mut writer = writer.lock().await;
-                    let res = if let Some(writer) = writer.as_mut() {
-                        writer.serialize(&token_transfer).map_err(|err| {
-                            log::error!("error writing csv record: {}", err);
-                            err_custom_create!("error writing csv record: {err}")
-                        })
-                    } else {
-                        log::info!(
-                            "Generated tx no {} to: {}",
-                            transfer_no,
-                            token_transfer.receiver_addr
-                        );
-                        Ok(())
-                    };
-                    if let Some(conn) = conn {
-                        let _token_transfer =
-                            do_db_operation(|| insert_token_transfer(&conn, &token_transfer))
-                                .await
-                                .map_err(|err| {
-                                    err_custom_create!(
+                    async move {
+                        if let Some(limit_time) = generate_options.limit_time {
+                            // check how much time has passed since start
+                            let elapsed = started.elapsed();
+                            if elapsed.as_secs_f64() > limit_time {
+                                return Err(err_create!(elapsed));
+                            }
+                        };
+                        let mut writer = writer.lock().await;
+                        let res = if let Some(writer) = writer.as_mut() {
+                            writer.serialize(&token_transfer).map_err(|err| {
+                                log::error!("error writing csv record: {}", err);
+                                err_custom_create!("error writing csv record: {err}")
+                            })
+                        } else {
+                            log::info!(
+                                "Generated tx no {} to: {}",
+                                transfer_no,
+                                token_transfer.receiver_addr
+                            );
+                            Ok(())
+                        };
+                        if let Some(conn) = conn {
+                            let _token_transfer =
+                                do_db_operation(|| insert_token_transfer(&conn, &token_transfer))
+                                    .await
+                                    .map_err(|err| {
+                                        err_custom_create!(
                                         "Error writing record to db no: {transfer_no}, err: {err}"
                                     )
-                                })?;
+                                    })?;
+                        }
+                        res
                     }
-                    res
-                }
-            })
-            .await
+                })
+                .await
             {
                 Ok(_) => {
                     log::info!("All transactions generated successfully");
