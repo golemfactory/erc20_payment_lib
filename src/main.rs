@@ -19,10 +19,9 @@ use erc20_payment_lib::{
     runtime::start_payment_engine,
 };
 use futures::{StreamExt, TryStreamExt};
-
 use std::env;
 
-use std::sync::Arc;
+use std::sync::{atomic, Arc};
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use tokio::sync::Mutex;
@@ -143,6 +142,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             };
 
             let started = Instant::now();
+            let mut stream_delay = Arc::new(Mutex::new(0.0));
 
             match generate_transaction_batch(
                 chain_cfg.chain_id,
@@ -151,6 +151,35 @@ async fn main_internal() -> Result<(), PaymentError> {
                 &addr_pool,
                 &amount_pool,
             )?
+            .then(|res| {
+                let stream_delay = stream_delay.clone();
+                async move {
+                    if let (Ok((transfer_no, _)), Some(interval)) =
+                        (&res, generate_options.interval)
+                    {
+                        const MAX_SLIPPAGE_INTERVALS: f64 = 10.0;
+                        let target_time_point =
+                            *transfer_no as f64 * interval + *stream_delay.lock().await;
+                        let elapsed = started.elapsed();
+                        let delta = target_time_point - elapsed.as_secs_f64();
+                        let wait_time_seconds = if delta > 0.0 {
+                            delta
+                        } else {
+                            //try to catch up, but not too much (up to twice as fast)
+                            interval * 0.5
+                        };
+                        if delta < -MAX_SLIPPAGE_INTERVALS * interval {
+                            *stream_delay.lock().await -= delta;
+                            log::warn!(
+                                "Stream is falling behind, current delay {}s",
+                                *stream_delay.lock().await
+                            );
+                        }
+                        tokio::time::sleep(Duration::from_secs_f64(wait_time_seconds)).await;
+                    }
+                    res
+                }
+            })
             .take(generate_options.generate_count)
             .try_for_each(move |(transfer_no, token_transfer)| {
                 let writer = writer.clone();
@@ -164,9 +193,6 @@ async fn main_internal() -> Result<(), PaymentError> {
                             return Err(err_create!(elapsed));
                         }
                     };
-                    if let Some(interval) = generate_options.interval {
-                        tokio::time::sleep(Duration::from_secs_f64(interval)).await;
-                    }
                     let mut writer = writer.lock().await;
                     let res = if let Some(writer) = writer.as_mut() {
                         writer.serialize(&token_transfer).map_err(|err| {
