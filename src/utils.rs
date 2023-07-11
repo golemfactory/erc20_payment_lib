@@ -3,13 +3,20 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 
-pub fn rate_limit_stream<R, E>(
-    str: impl Stream<Item = Result<R, E>>,
+
+//
+
+//rate_limit_stream(stream::iter(0..)).;
+
+pub fn rate_limit_stream<St>(
+    str: St,
     interval: Option<Duration>,
-) -> impl Stream<Item = Result<R, E>> {
+) -> impl Stream<Item = St::Item>
+where St: futures::Stream
+{
     // Ref cells are ok here, because we are only ever accessing them from the same thread
     // additionally elements are processed one by one, not in parallel
-    let stream_delay = Rc::new(RefCell::new(0.0));
+    let mut stream_delay = Rc::new(RefCell::new(0.0));
     let current_item = Rc::new(RefCell::new(0));
     let started = std::time::Instant::now();
 

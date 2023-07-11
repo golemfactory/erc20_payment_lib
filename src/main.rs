@@ -23,11 +23,11 @@ use erc20_payment_lib::{
 use futures::{StreamExt, TryStreamExt};
 use std::env;
 
-use crate::utils::rate_limit_stream;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use structopt::StructOpt;
 use tokio::sync::Mutex;
+use crate::utils::rate_limit_stream;
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -146,17 +146,13 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let started = Instant::now();
 
-            let transfers_stream = generate_transaction_batch(
+            let transfers_stream = rate_limit_stream(generate_transaction_batch(
                 chain_cfg.chain_id,
                 &public_addrs,
                 Some(chain_cfg.token.clone().unwrap().address),
                 &addr_pool,
                 &amount_pool,
-            )?;
-            let transfers_stream = rate_limit_stream(
-                transfers_stream,
-                generate_options.interval.map(Duration::from_secs_f64),
-            );
+            )?, generate_options.interval.map(Duration::from_secs_f64));
             match transfers_stream
                 .take(generate_options.generate_count)
                 .try_for_each(move |(transfer_no, token_transfer)| {
