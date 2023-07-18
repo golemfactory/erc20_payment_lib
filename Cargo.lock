@@ -829,6 +829,7 @@ dependencies = [
  "sha3 0.10.6",
  "sqlx",
  "sqlx-core",
+ "stream-rate-limiter",
  "structopt",
  "thiserror",
  "tokio",
@@ -2469,6 +2470,17 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "stream-rate-limiter"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe4b4617491cb6acff48cf95be23fd4bf66930cb89211da75d42379fdc3cc7df"
+dependencies = [
+ "futures-core",
+ "pin-project-lite",
+ "tokio",
+]
 
 [[package]]
 name = "stringprep"

@@ -1,5 +1,4 @@
 mod options;
-mod utils;
 
 use crate::options::{PaymentCommands, PaymentOptions};
 use actix_web::Scope;
@@ -24,10 +23,10 @@ use futures::{StreamExt, TryStreamExt};
 use std::env;
 
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
+use stream_rate_limiter::{RateLimitOptions, StreamBehavior, StreamRateLimitExt};
 use structopt::StructOpt;
 use tokio::sync::Mutex;
-use crate::utils::rate_limit_stream;
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -146,55 +145,70 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let started = Instant::now();
 
-            let transfers_stream = rate_limit_stream(generate_transaction_batch(
+            let rate_limit_options = RateLimitOptions::empty();
+            let rate_limit_options = if let Some(limit_time) = generate_options.limit_time {
+                rate_limit_options
+                    .with_interval_sec(limit_time)
+                    .on_stream_delayed(|current_delay, total_delay| {
+                        log::warn!(
+                            "Generate options stream is falling behind, current delay {}s",
+                            total_delay + current_delay
+                        );
+                        StreamBehavior::Delay(current_delay)
+                    })
+            } else {
+                rate_limit_options
+            };
+
+            match generate_transaction_batch(
                 chain_cfg.chain_id,
                 &public_addrs,
                 Some(chain_cfg.token.clone().unwrap().address),
                 &addr_pool,
                 &amount_pool,
-            )?, generate_options.interval.map(Duration::from_secs_f64));
-            match transfers_stream
-                .take(generate_options.generate_count)
-                .try_for_each(move |(transfer_no, token_transfer)| {
-                    let writer = writer.clone();
-                    let conn = conn.clone();
+            )?
+            .rate_limit(rate_limit_options)
+            .take(generate_options.generate_count)
+            .try_for_each(move |(transfer_no, token_transfer)| {
+                let writer = writer.clone();
+                let conn = conn.clone();
 
-                    async move {
-                        if let Some(limit_time) = generate_options.limit_time {
-                            // check how much time has passed since start
-                            let elapsed = started.elapsed();
-                            if elapsed.as_secs_f64() > limit_time {
-                                return Err(err_create!(elapsed));
-                            }
-                        };
-                        let mut writer = writer.lock().await;
-                        let res = if let Some(writer) = writer.as_mut() {
-                            writer.serialize(&token_transfer).map_err(|err| {
-                                log::error!("error writing csv record: {}", err);
-                                err_custom_create!("error writing csv record: {err}")
-                            })
-                        } else {
-                            log::info!(
-                                "Generated tx no {} to: {}",
-                                transfer_no,
-                                token_transfer.receiver_addr
-                            );
-                            Ok(())
-                        };
-                        if let Some(conn) = conn {
-                            let _token_transfer =
-                                do_db_operation(|| insert_token_transfer(&conn, &token_transfer))
-                                    .await
-                                    .map_err(|err| {
-                                        err_custom_create!(
+                async move {
+                    if let Some(limit_time) = generate_options.limit_time {
+                        // check how much time has passed since start
+                        let elapsed = started.elapsed();
+                        if elapsed.as_secs_f64() > limit_time {
+                            return Err(err_create!(elapsed));
+                        }
+                    };
+                    let mut writer = writer.lock().await;
+                    let res = if let Some(writer) = writer.as_mut() {
+                        writer.serialize(&token_transfer).map_err(|err| {
+                            log::error!("error writing csv record: {}", err);
+                            err_custom_create!("error writing csv record: {err}")
+                        })
+                    } else {
+                        log::info!(
+                            "Generated tx no {} to: {}",
+                            transfer_no,
+                            token_transfer.receiver_addr
+                        );
+                        Ok(())
+                    };
+                    if let Some(conn) = conn {
+                        let _token_transfer =
+                            do_db_operation(|| insert_token_transfer(&conn, &token_transfer))
+                                .await
+                                .map_err(|err| {
+                                    err_custom_create!(
                                         "Error writing record to db no: {transfer_no}, err: {err}"
                                     )
-                                    })?;
-                        }
-                        res
+                                })?;
                     }
-                })
-                .await
+                    res
+                }
+            })
+            .await
             {
                 Ok(_) => {
                     log::info!("All transactions generated successfully");
