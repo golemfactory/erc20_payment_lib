@@ -21,4 +21,4 @@ RUN npm run compile
 
 #copy python scripts
 WORKDIR /runtime
-COPY *.py .
+COPY *.py ./
