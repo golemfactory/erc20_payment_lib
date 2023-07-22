@@ -9,9 +9,10 @@ use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::TokenTransferDao;
 use erc20_payment_lib::db::ops::{do_db_operation, get_transfer_count, insert_token_transfer};
 use erc20_payment_lib::misc::{
-    create_test_amount_pool, generate_transaction_batch, ordered_address_pool,
+    create_test_amount_pool, generate_transaction_batch, ordered_address_pool, random_address_pool,
 };
 use erc20_payment_lib::server::*;
+use std::cell::RefCell;
 
 use erc20_payment_lib::{
     config, err_create, err_custom_create, err_from,
@@ -21,6 +22,7 @@ use erc20_payment_lib::{
 };
 use futures::{StreamExt, TryStreamExt};
 use std::env;
+use std::rc::Rc;
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -119,7 +121,15 @@ async fn main_internal() -> Result<(), PaymentError> {
                         "Chain {} not found in config file",
                         generate_options.chain_name
                     ))?;
-            let addr_pool = ordered_address_pool(generate_options.address_pool_size, false)?;
+
+            let mut rng = fastrand::Rng::new();
+
+            let addr_pool =
+                if let Some(receivers_random_pool) = generate_options.receivers_random_pool {
+                    random_address_pool(&mut rng, receivers_random_pool)
+                } else {
+                    ordered_address_pool(generate_options.receivers_ordered_pool, false)?
+                };
             let amount_pool = create_test_amount_pool(generate_options.amounts_pool_size)?;
 
             let writer = if let Some(file) = generate_options.file {
@@ -146,13 +156,13 @@ async fn main_internal() -> Result<(), PaymentError> {
             let started = Instant::now();
 
             let rate_limit_options = RateLimitOptions::empty();
-            let rate_limit_options = if let Some(interval) = generate_options.interval {
-                if interval > 0.01 {
-                    rate_limit_options.with_min_interval_sec(interval / 2.0)
+            let rate_limit_options = if let Some(limit_time) = generate_options.interval {
+                if limit_time > 0.01 {
+                    rate_limit_options.with_min_interval_sec(limit_time / 2.0)
                 } else {
                     rate_limit_options
                 }
-                .with_interval_sec(interval)
+                .with_interval_sec(limit_time)
                 .on_stream_delayed(|sdi| {
                     log::warn!(
                         "Generate options stream is falling behind, current delay {}s",
@@ -165,10 +175,12 @@ async fn main_internal() -> Result<(), PaymentError> {
             };
 
             match generate_transaction_batch(
+                Rc::new(RefCell::new(rng)),
                 chain_cfg.chain_id,
                 &public_addrs,
                 Some(chain_cfg.token.clone().unwrap().address),
                 &addr_pool,
+                generate_options.random_receivers,
                 &amount_pool,
             )?
             .rate_limit(rate_limit_options)

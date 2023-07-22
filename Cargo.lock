@@ -817,6 +817,7 @@ dependencies = [
  "env_logger",
  "erc20_payment_lib",
  "eth-keystore",
+ "fastrand",
  "futures",
  "hex",
  "lazy_static",

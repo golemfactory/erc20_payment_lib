@@ -6,9 +6,9 @@ use crate::transaction::create_token_transfer;
 use crate::{err_custom_create, err_from};
 use futures::{stream, Stream, StreamExt};
 use secp256k1::SecretKey;
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::str::FromStr;
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use web3::types::{Address, U256};
 
 #[allow(unused)]
@@ -16,7 +16,17 @@ pub fn null_address_pool() -> Result<Vec<Address>, PaymentError> {
     ordered_address_pool(1, true)
 }
 
-#[allow(unused)]
+pub fn generate_unique_random_addr(rng: &mut fastrand::Rng) -> Address {
+    Address::from_str(&format!(
+        "0x{:010x}{:010x}{:010x}{:010x}",
+        rng.u64(0..0x10000000000),
+        rng.u64(0..0x10000000000),
+        rng.u64(0..0x10000000000),
+        rng.u64(0..0x10000000000),
+    ))
+    .unwrap()
+}
+
 pub fn ordered_address_pool(
     size: usize,
     include_null_address: bool,
@@ -37,31 +47,37 @@ pub fn ordered_address_pool(
     Ok(addr_pool)
 }
 
-#[allow(unused)]
+pub fn random_address_pool(rng: &mut fastrand::Rng, size: usize) -> Vec<Address> {
+    (0..size)
+        .map(|_| generate_unique_random_addr(rng))
+        .collect()
+}
+
 pub fn create_test_amount_pool(size: usize) -> Result<Vec<U256>, PaymentError> {
-    let mut amount_pool = Vec::<U256>::new();
-    for i in 0..size {
-        amount_pool.push(U256::from(i + 100));
-    }
-    Ok(amount_pool)
+    Ok((0..size).map(|i| U256::from(i + 100)).collect())
 }
 
 pub fn generate_transaction_batch<'a>(
+    rng: Rc<RefCell<fastrand::Rng>>,
     chain_id: i64,
     from_addr_pool: &'a [Address],
     token_addr: Option<Address>,
     addr_pool: &'a [Address],
+    random_target_addr: bool,
     amount_pool: &'a [U256],
 ) -> Result<impl Stream<Item = Result<(u64, TokenTransferDao), PaymentError>> + 'a, PaymentError> {
     //thread rng
-    let rng = Arc::new(Mutex::new(fastrand::Rng::new()));
     Ok(stream::iter(0..).then(move |transfer_no| {
         let rng = rng.clone();
         async move {
-            let mut rng = rng.lock().await;
-            let receiver = addr_pool[rng.usize(0..addr_pool.len())];
-            let amount = amount_pool[rng.usize(0..amount_pool.len())];
-            let from = from_addr_pool[rng.usize(0..from_addr_pool.len())];
+            let receiver = if !random_target_addr {
+                addr_pool[rng.borrow_mut().usize(0..addr_pool.len())]
+            } else {
+                generate_unique_random_addr(&mut rng.borrow_mut())
+            };
+            let amount = amount_pool[rng.borrow_mut().usize(0..amount_pool.len())];
+            let from = from_addr_pool[rng.borrow_mut().usize(0..from_addr_pool.len())];
+
             let payment_id = uuid::Uuid::new_v4().to_string();
             let token_transfer = create_token_transfer(
                 from,

@@ -94,8 +94,15 @@ pub struct GenerateTestPaymentsOptions {
     #[structopt(short = "n", long = "generate-count", default_value = "10")]
     pub generate_count: usize,
 
-    #[structopt(long = "address-pool-size", default_value = "10")]
-    pub address_pool_size: usize,
+    #[structopt(long = "random-receivers")]
+    pub random_receivers: bool,
+
+    #[structopt(long = "receivers-ordered-pool", default_value = "10")]
+    pub receivers_ordered_pool: usize,
+
+    /// Set to generate random receivers pool instead of ordered pool
+    #[structopt(long = "receivers-random-pool")]
+    pub receivers_random_pool: Option<usize>,
 
     #[structopt(long = "amounts-pool-size", default_value = "10")]
     pub amounts_pool_size: usize,

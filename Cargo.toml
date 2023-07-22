@@ -85,6 +85,7 @@ sqlx = { workspace = true }
 csv = { workspace = true }
 eth-keystore = { workspace = true }
 stream-rate-limiter = { workspace = true }
+fastrand = { workspace = true }
 
 erc20_payment_lib = { path = "crates/erc20_payment_lib" }
 
