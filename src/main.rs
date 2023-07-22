@@ -146,16 +146,20 @@ async fn main_internal() -> Result<(), PaymentError> {
             let started = Instant::now();
 
             let rate_limit_options = RateLimitOptions::empty();
-            let rate_limit_options = if let Some(limit_time) = generate_options.limit_time {
-                rate_limit_options
-                    .with_interval_sec(limit_time)
-                    .on_stream_delayed(|current_delay, total_delay| {
-                        log::warn!(
-                            "Generate options stream is falling behind, current delay {}s",
-                            total_delay + current_delay
-                        );
-                        StreamBehavior::Delay(current_delay)
-                    })
+            let rate_limit_options = if let Some(interval) = generate_options.interval {
+                if interval > 0.01 {
+                    rate_limit_options.with_min_interval_sec(interval / 2.0)
+                } else {
+                    rate_limit_options
+                }
+                .with_interval_sec(interval)
+                .on_stream_delayed(|sdi| {
+                    log::warn!(
+                        "Generate options stream is falling behind, current delay {}s",
+                        sdi.total_delay + sdi.current_delay
+                    );
+                    StreamBehavior::Delay(sdi.current_delay)
+                })
             } else {
                 rate_limit_options
             };

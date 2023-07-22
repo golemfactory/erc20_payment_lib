@@ -2473,9 +2473,9 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stream-rate-limiter"
-version = "0.2.2"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe4b4617491cb6acff48cf95be23fd4bf66930cb89211da75d42379fdc3cc7df"
+checksum = "473ca5b1ff80869694e3179c0c76744f05421fb671ee2e33fc4a2c6f2893fadf"
 dependencies = [
  "futures-core",
  "pin-project-lite",
