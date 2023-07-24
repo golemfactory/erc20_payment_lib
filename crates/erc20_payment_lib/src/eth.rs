@@ -1,12 +1,74 @@
-use crate::contracts::encode_erc20_allowance;
+use crate::contracts::{encode_erc20_allowance, encode_erc20_balance_of};
 use crate::error::*;
-use crate::{err_custom_create, err_from};
+use crate::{err_create, err_custom_create, err_from};
 use secp256k1::{PublicKey, SecretKey};
+use serde::Serialize;
 use sha3::Digest;
 use sha3::Keccak256;
 use web3::transports::Http;
 use web3::types::{Address, Bytes, CallRequest, U256};
 use web3::Web3;
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetBalanceResult {
+    pub gas_balance: Option<U256>,
+    pub token_balance: Option<U256>,
+}
+
+pub async fn get_balance(
+    web3: &Web3<Http>,
+    token_address: Option<Address>,
+    address: Address,
+    check_gas: bool,
+) -> Result<GetBalanceResult, PaymentError> {
+    let gas_balance = if check_gas {
+        Some(
+            web3.eth()
+                .balance(address, None)
+                .await
+                .map_err(err_from!())?,
+        )
+    } else {
+        None
+    };
+
+    let token_balance = if let Some(token_address) = token_address {
+        let call_data = encode_erc20_balance_of(address).map_err(err_from!())?;
+        let res = web3
+            .eth()
+            .call(
+                CallRequest {
+                    from: None,
+                    to: Some(token_address),
+                    gas: None,
+                    gas_price: None,
+                    value: None,
+                    data: Some(Bytes::from(call_data)),
+                    transaction_type: None,
+                    access_list: None,
+                    max_fee_per_gas: None,
+                    max_priority_fee_per_gas: None,
+                },
+                None,
+            )
+            .await
+            .map_err(err_from!())?;
+        if res.0.len() != 32 {
+            return Err(err_create!(TransactionFailedError::new(&format!(
+                "Invalid balance response: {:?}",
+                res.0
+            ))));
+        };
+        Some(U256::from_big_endian(&res.0))
+    } else {
+        None
+    };
+    Ok(GetBalanceResult {
+        gas_balance,
+        token_balance,
+    })
+}
 
 pub async fn get_transaction_count(
     address: Address,

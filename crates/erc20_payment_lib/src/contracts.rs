@@ -51,11 +51,7 @@ where
 
 #[allow(dead_code)]
 pub fn encode_erc20_balance_of(address: Address) -> Result<Vec<u8>, web3::ethabi::Error> {
-    contract_encode(
-        &ERC20_CONTRACT_TEMPLATE,
-        "balance_of",
-        (address.to_string(),),
-    )
+    contract_encode(&ERC20_CONTRACT_TEMPLATE, "balanceOf", (address,))
 }
 
 pub fn encode_erc20_transfer(

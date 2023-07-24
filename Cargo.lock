@@ -827,6 +827,7 @@ dependencies = [
  "rustc-hex",
  "secp256k1",
  "serde",
+ "serde_json",
  "sha3 0.10.6",
  "sqlx",
  "sqlx-core",

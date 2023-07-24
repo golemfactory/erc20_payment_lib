@@ -86,6 +86,33 @@ pub struct ImportOptions {
 pub struct PaymentStatisticsOptions {}
 
 #[derive(StructOpt)]
+#[structopt(about = "Payment statistics options")]
+pub struct AccountBalanceOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
+    pub chain_name: String,
+
+    ///list of accounts separated by comma
+    #[structopt(short = "a", long = "accounts")]
+    pub accounts: String,
+
+    #[structopt(short = "g", long = "show-gas")]
+    pub show_gas: bool,
+
+    #[structopt(short = "t", long = "show-token")]
+    pub show_token: bool,
+
+    #[structopt(long = "block-number")]
+    pub block_number: Option<u64>,
+
+    #[structopt(long = "tasks", default_value = "1")]
+    pub tasks: usize,
+
+    #[structopt(long = "interval")]
+    pub interval: Option<f64>,
+
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Generate test payments")]
 pub struct GenerateTestPaymentsOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
@@ -148,6 +175,10 @@ pub enum PaymentCommands {
     GenerateTestPayments {
         #[structopt(flatten)]
         generate_options: GenerateTestPaymentsOptions,
+    },
+    AccountBalance {
+        #[structopt(flatten)]
+        account_balance_options: AccountBalanceOptions,
     },
     ImportPayments {
         #[structopt(flatten)]
