@@ -28,6 +28,7 @@ use std::str::FromStr;
 
 use erc20_payment_lib::eth::get_balance;
 use erc20_payment_lib::setup::PaymentSetup;
+use erc20_payment_lib::utils::u256_to_rust_dec;
 use serde_json::json;
 use std::sync::Arc;
 use std::time::Instant;
@@ -179,16 +180,43 @@ async fn main_internal() -> Result<(), PaymentError> {
                     let job = jobs[i];
                     let result_map = result_map_.clone();
                     async move {
-                        log::info!("Getting balance for account: {}", job);
+                        log::info!("Getting balance for account: {:#x}", job);
                         let balance =
                             get_balance(web3, token, job, account_balance_options.show_gas)
                                 .await
                                 .unwrap();
+
+                        let gas_balance = balance.gas_balance.map(|b| b.to_string());
+                        let token_balance = balance.token_balance.map(|b| b.to_string());
+                        let gas_balance_decimal = balance
+                            .gas_balance
+                            .map(|v| u256_to_rust_dec(v, None).unwrap().to_string());
+                        let token_balance_decimal = balance
+                            .token_balance
+                            .map(|v| u256_to_rust_dec(v, None).unwrap().to_string());
+                        let gas_balance_human = gas_balance_decimal.clone().map(|v| {
+                            format!(
+                                "{:.02} {}",
+                                f64::from_str(&v).unwrap_or(0.0),
+                                &chain_cfg.currency_symbol
+                            )
+                        });
+                        let token_balance_human = token_balance_decimal.clone().map(|v| {
+                            format!(
+                                "{:.02} {}",
+                                f64::from_str(&v).unwrap_or(0.0),
+                                &chain_cfg.token.clone().unwrap().symbol
+                            )
+                        });
                         result_map.borrow_mut().insert(
                             format!("{:#x}", job),
                             json!({
-                                "gas": balance.gas_balance.map(|b| b.to_string()),
-                                "token": balance.token_balance.map(|b| b.to_string()),
+                                "gas": gas_balance,
+                                "gasDecimal": gas_balance_decimal,
+                                "gasHuman": gas_balance_human,
+                                "token": token_balance,
+                                "tokenDecimal": token_balance_decimal,
+                                "tokenHuman": token_balance_human,
                             }),
                         );
                     }

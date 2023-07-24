@@ -109,7 +109,6 @@ pub struct AccountBalanceOptions {
 
     #[structopt(long = "interval")]
     pub interval: Option<f64>,
-
 }
 
 #[derive(StructOpt)]

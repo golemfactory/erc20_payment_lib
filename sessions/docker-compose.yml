@@ -8,6 +8,8 @@ services:
       - ETH_PRIVATE_KEYS=f188692fd0f2e8e8af5478cb547245868f9cbae33f1a4aef3cf4912086057c2f
       - DB_SQLITE_FILENAME=db.sqlite
   geth:
+    volumes:
+      - ./genesis/:/runtime/tmp
     build:
       context: ../yatestnet
       dockerfile: Dockerfile
@@ -27,4 +29,4 @@ services:
       - GLM_CONTRACT_ADDRESS=${GLM_CONTRACT_ADDRESS}
       - MULTI_PAYMENT_CONTRACT_ADDRESS=${MULTI_PAYMENT_CONTRACT_ADDRESS}
       - DISTRIBUTE_CONTRACT_ADDRESS=${DISTRIBUTE_CONTRACT_ADDRESS}
-      - PERIOD_IN_SECONDS_INT=1
+      - PERIOD_IN_SECONDS_INT=2
