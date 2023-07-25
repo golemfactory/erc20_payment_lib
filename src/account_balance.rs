@@ -1,5 +1,3 @@
-use crate::options::AccountBalanceOptions;
-use crate::CustomError;
 use erc20_payment_lib::error::ErrorBag;
 use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::eth::get_balance;
@@ -14,6 +12,8 @@ use std::rc::Rc;
 use std::str::FromStr;
 use stream_rate_limiter::{RateLimitOptions, StreamRateLimitExt};
 use web3::types::Address;
+use crate::options::AccountBalanceOptions;
+use erc20_payment_lib::error::CustomError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -94,12 +94,14 @@ pub async fn account_balance(
 
                 let gas_balance = balance.gas_balance.map(|b| b.to_string());
                 let token_balance = balance.token_balance.map(|b| b.to_string());
+                println!("{:#x} gas: {:?}", job, gas_balance);
+                println!("{:#x} token: {:?}", job, token_balance);
                 let gas_balance_decimal = balance
                     .gas_balance
-                    .map(|v| u256_to_rust_dec(v, None).unwrap().to_string());
+                    .map(|v| u256_to_rust_dec(v, None).unwrap_or_default().to_string());
                 let token_balance_decimal = balance
                     .token_balance
-                    .map(|v| u256_to_rust_dec(v, None).unwrap().to_string());
+                    .map(|v| u256_to_rust_dec(v, None).unwrap_or_default().to_string());
                 let gas_balance_human = gas_balance_decimal.clone().map(|v| {
                     format!(
                         "{:.02} {}",

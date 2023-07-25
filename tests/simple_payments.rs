@@ -1,13 +1,20 @@
 use bollard::container;
 use bollard::container::StopContainerOptions;
-use erc20_payment_lib::config;
+use erc20_payment_lib::{config, err_custom_create};
+use erc20_payment_lib::error::*;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::misc::{display_private_keys, load_private_keys};
 use erc20_payment_lib::runtime::start_payment_engine;
 use futures_util::TryStreamExt;
 use std::collections::HashMap;
+use std::env;
+use std::time::Duration;
+use bollard::models::{PortBinding, PortMap};
 use tokio::time::Instant;
+use erc20_payment_lib::setup::PaymentSetup;
+use erc20_processor::account_balance::{account_balance};
+use erc20_processor::options::AccountBalanceOptions;
 
 pub struct ImageName {
     pub user: Option<String>,
@@ -127,10 +134,13 @@ impl ImageName {
 
 #[tokio::test]
 async fn spawn_docker() -> Result<(), anyhow::Error> {
+    env::set_var("RUST_LOG", env::var("RUST_LOG").unwrap_or("info".to_string()));
+    env_logger::init();
+
     let current = Instant::now();
 
     use bollard::{image, service::HostConfig, Docker};
-    let image_name = "geth2".to_string();
+    let image_name = "scx1332/geth".to_string();
     println!("Building image: {}", image_name);
     let docker = match Docker::connect_with_local_defaults() {
         Ok(docker) => docker,
@@ -212,8 +222,14 @@ async fn spawn_docker() -> Result<(), anyhow::Error> {
         "MAIN_ACCOUNT_PUBLIC_ADDRESS=0x4D6947E072C1Ac37B64600B885772Bd3f27D3E91".to_string(),
         "FAUCET_ACCOUNT_PRIVATE_KEY=078d8f6c16446cdb8efbee80535ce8cb32d5b69563bca33e5e6bc0f13f0666b3".to_string()];
 
-    let mut port_mapping = HashMap::new();
-    port_mapping.insert("8545/tcp".to_string(), HashMap::<(), ()>::new());
+    let mut port_mapping = PortMap::new();
+    port_mapping.insert("8545/tcp".to_string(), Some(vec![PortBinding {
+        host_ip: Some("0.0.0.0".to_string()),
+        host_port: Some("8545".to_string())
+    }]));
+    let mut exposed_ports = HashMap::new();
+    exposed_ports.insert("8545/tcp".to_string(), HashMap::<(),()>::new());
+
     let container = docker
         .create_container::<String, String>(
             None,
@@ -221,9 +237,10 @@ async fn spawn_docker() -> Result<(), anyhow::Error> {
                 image: Some(image_id.clone()),
                 host_config: Some(HostConfig {
                     auto_remove: Some(true),
+                    port_bindings: Some(port_mapping),
                     ..Default::default()
                 }),
-                exposed_ports: Some(port_mapping),
+                exposed_ports: Some(exposed_ports),
                 env: Some(env_opt),
                 cmd: Some(vec![
                     "python".to_string(),
@@ -249,9 +266,9 @@ async fn spawn_docker() -> Result<(), anyhow::Error> {
     );
 
     let conn = create_sqlite_connection(Some(&"db_test.sqlite"), true).await?;
-    let config = config::Config::load("config-payments.toml")?;
+    let config = config::Config::load("config-payments-local.toml")?;
 
-    let (private_keys, public_addrs) =
+    let (private_keys, _public_addrs) =
         load_private_keys("a8a2548c69a9d1eb7fdacb37ee64554a0896a6205d564508af00277247075e8f")?;
     display_private_keys(&private_keys);
 
@@ -260,19 +277,44 @@ async fn spawn_docker() -> Result<(), anyhow::Error> {
         generate_tx_only: false,
         skip_multi_contract_check: false,
     };
-    let sp = start_payment_engine(
+    let _sp = start_payment_engine(
         &private_keys,
         &"db_test.sqlite",
-        config,
+        config.clone(),
         Some(conn.clone()),
         Some(add_opt),
     )
     .await?;
 
-    println!(
-        " -- Payment engine started in {:.2}s",
-        current.elapsed().as_secs_f64()
-    );
+    let account_balance_options = AccountBalanceOptions {
+        chain_name: "dev".to_string(),
+        accounts: "0x4d6947e072c1ac37b64600b885772bd3f27d3e91".to_string(),
+        show_gas: true,
+        show_token: true,
+        block_number: None,
+        tasks: 1,
+        interval: None,
+    };
+
+    let chain_cfg = config
+        .chain
+        .get(&account_balance_options.chain_name)
+        .ok_or(err_custom_create!(
+            "Chain {} not found in config file",
+            account_balance_options.chain_name
+        ))?;
+
+    let payment_setup = PaymentSetup::new(&config, vec![], true, false, false, 1, 1, false)?;
+
+    let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
+
+    while web3.eth().block_number().await.is_err() {
+        tokio::time::sleep(Duration::from_secs_f64(0.1)).await;
+    }
+
+    let res = account_balance(account_balance_options, &config).await?;
+
+    println!(" -- Account balance: {:?}", res);
 
     docker
         .stop_container(&container_id, Some(StopContainerOptions { t: 0 }))

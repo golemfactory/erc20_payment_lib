@@ -3,6 +3,14 @@ members = [
     "crates/*",
 ]
 
+[[bin]]
+name = "erc20_processor"
+path = "src/main.rs"
+
+[lib]
+name = "erc20_processor"
+path = "src/lib.rs"
+
 [workspace.package]
 authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
 version = "0.1.9"

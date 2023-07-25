@@ -2,7 +2,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
-use web3::types::U256;
+use web3::types::{U256};
 
 #[derive(Debug, Clone)]
 pub struct ConversionError {
@@ -104,6 +104,13 @@ pub fn u256_to_rust_dec(
     }
 
     let dec_base = compute_base(num_decimals);
+
+    //max value supported by rust_decimal
+    if amount >= U256::from(79228162514264337593543950336_u128) {
+        return Err(ConversionError {
+            msg: "Amount greater than max rust_decimal".to_string(),
+        });
+    }
 
     Ok(Decimal::from(amount.as_u128()) / dec_base)
 }
