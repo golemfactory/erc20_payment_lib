@@ -18,6 +18,7 @@ license.workspace = true
 authors.workspace = true
 
 [workspace.dependencies]
+anyhow = "1.0.71"
 async-trait = "0.1.68"
 web3 = { version = "0.18.0", default-features = false, features = ["signing", "http-rustls-tls"] }
 tokio = { version = "^1.21", features = ["macros"] }
@@ -25,6 +26,7 @@ secp256k1 = "0.21.0" # version has to match web3
 sha3 = "0.10.6"
 lazy_static = "1.4.0"
 futures = "0.3.17"
+futures-util = "0.3.28"
 hex = "0.4.3"
 humantime = "2.1"
 chrono = "0.4.22"
@@ -57,12 +59,14 @@ eth-keystore = "=0.5.0"
 stream-rate-limiter = "0.3"
 
 [dependencies]
+anyhow = { workspace = true }
 async-trait = { workspace = true }
 web3 = { workspace = true }
 tokio = { workspace = true }
 secp256k1 = { workspace = true }
 sha3 = { workspace = true }
 futures = { workspace = true }
+futures-util = { workspace = true }
 lazy_static = { workspace = true }
 hex = { workspace = true }
 chrono = { workspace = true }
@@ -89,6 +93,10 @@ stream-rate-limiter = { workspace = true }
 fastrand = { workspace = true }
 
 erc20_payment_lib = { path = "crates/erc20_payment_lib" }
+
+[dev-dependencies]
+
+bollard = "0.14.0"
 
 [profile.release-lto]
 inherits = "release"
