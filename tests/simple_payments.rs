@@ -1,5 +1,13 @@
 use bollard::container;
+use bollard::container::StopContainerOptions;
+use erc20_payment_lib::config;
+use erc20_payment_lib::config::AdditionalOptions;
+use erc20_payment_lib::db::create_sqlite_connection;
+use erc20_payment_lib::misc::{display_private_keys, load_private_keys};
+use erc20_payment_lib::runtime::start_payment_engine;
 use futures_util::TryStreamExt;
+use std::collections::HashMap;
+use tokio::time::Instant;
 
 pub struct ImageName {
     pub user: Option<String>,
@@ -119,8 +127,10 @@ impl ImageName {
 
 #[tokio::test]
 async fn spawn_docker() -> Result<(), anyhow::Error> {
+    let current = Instant::now();
+
     use bollard::{image, service::HostConfig, Docker};
-    let image_name = "geth".to_string();
+    let image_name = "geth2".to_string();
     println!("Building image: {}", image_name);
     let docker = match Docker::connect_with_local_defaults() {
         Ok(docker) => docker,
@@ -201,6 +211,9 @@ async fn spawn_docker() -> Result<(), anyhow::Error> {
         "FAUCET_ACCOUNT_PUBLIC_ADDRESS=0xafca53fc9628F0E7603bb2bf8E75F07Ee6442cE6".to_string(),
         "MAIN_ACCOUNT_PUBLIC_ADDRESS=0x4D6947E072C1Ac37B64600B885772Bd3f27D3E91".to_string(),
         "FAUCET_ACCOUNT_PRIVATE_KEY=078d8f6c16446cdb8efbee80535ce8cb32d5b69563bca33e5e6bc0f13f0666b3".to_string()];
+
+    let mut port_mapping = HashMap::new();
+    port_mapping.insert("8545/tcp".to_string(), HashMap::<(), ()>::new());
     let container = docker
         .create_container::<String, String>(
             None,
@@ -210,6 +223,7 @@ async fn spawn_docker() -> Result<(), anyhow::Error> {
                     auto_remove: Some(true),
                     ..Default::default()
                 }),
+                exposed_ports: Some(port_mapping),
                 env: Some(env_opt),
                 cmd: Some(vec![
                     "python".to_string(),
@@ -227,6 +241,41 @@ async fn spawn_docker() -> Result<(), anyhow::Error> {
 
     docker
         .start_container::<String>(&container_id, None)
+        .await?;
+
+    println!(
+        " -- Container started in {:.2}s",
+        current.elapsed().as_secs_f64()
+    );
+
+    let conn = create_sqlite_connection(Some(&"db_test.sqlite"), true).await?;
+    let config = config::Config::load("config-payments.toml")?;
+
+    let (private_keys, public_addrs) =
+        load_private_keys("a8a2548c69a9d1eb7fdacb37ee64554a0896a6205d564508af00277247075e8f")?;
+    display_private_keys(&private_keys);
+
+    let add_opt = AdditionalOptions {
+        keep_running: false,
+        generate_tx_only: false,
+        skip_multi_contract_check: false,
+    };
+    let sp = start_payment_engine(
+        &private_keys,
+        &"db_test.sqlite",
+        config,
+        Some(conn.clone()),
+        Some(add_opt),
+    )
+    .await?;
+
+    println!(
+        " -- Payment engine started in {:.2}s",
+        current.elapsed().as_secs_f64()
+    );
+
+    docker
+        .stop_container(&container_id, Some(StopContainerOptions { t: 0 }))
         .await?;
 
     Ok(())

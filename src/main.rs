@@ -1,3 +1,4 @@
+mod account_balance;
 mod options;
 
 use crate::options::{PaymentCommands, PaymentOptions};
@@ -13,7 +14,6 @@ use erc20_payment_lib::misc::{
 };
 use erc20_payment_lib::server::*;
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashSet};
 
 use erc20_payment_lib::{
     config, err_create, err_custom_create, err_from,
@@ -21,21 +21,16 @@ use erc20_payment_lib::{
     misc::{display_private_keys, load_private_keys},
     runtime::start_payment_engine,
 };
-use futures::{stream, StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt};
 use std::env;
 use std::rc::Rc;
-use std::str::FromStr;
 
-use erc20_payment_lib::eth::get_balance;
-use erc20_payment_lib::setup::PaymentSetup;
-use erc20_payment_lib::utils::u256_to_rust_dec;
-use serde_json::json;
+use crate::account_balance::account_balance;
 use std::sync::Arc;
 use std::time::Instant;
 use stream_rate_limiter::{RateLimitOptions, StreamBehavior, StreamRateLimitExt};
 use structopt::StructOpt;
 use tokio::sync::Mutex;
-use web3::types::Address;
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -122,112 +117,12 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::AccountBalance {
             account_balance_options,
         } => {
-            let chain_cfg = config
-                .chain
-                .get(&account_balance_options.chain_name)
-                .ok_or(err_custom_create!(
-                    "Chain {} not found in config file",
-                    account_balance_options.chain_name
-                ))?;
-
-            let payment_setup =
-                PaymentSetup::new(&config, vec![], true, false, false, 1, 1, false)?;
-
-            let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
-
-            let token = if account_balance_options.show_token {
-                Some(
-                    chain_cfg
-                        .token
-                        .clone()
-                        .ok_or(err_custom_create!("Token not found in config"))?
-                        .address,
-                )
-            } else {
-                None
-            };
-
-            //deduplicate accounts using hashset
-            let accounts = HashSet::<String>::from_iter(
-                account_balance_options
-                    .accounts
-                    .split(',')
-                    .map(|s| s.trim().to_lowercase()),
-            );
-
-            let result_map = Rc::new(RefCell::new(BTreeMap::<String, serde_json::Value>::new()));
-            let result_map_ = result_map.clone();
-            let mut jobs = Vec::new();
-            for account in accounts {
-                let addr = Address::from_str(&account).map_err(|_| {
-                    err_custom_create!(
-                        "Invalid account address: {}",
-                        account_balance_options.accounts
-                    )
-                })?;
-                jobs.push(addr);
-            }
-
-            let rate_limit_options = if let Some(interval) = account_balance_options.interval {
-                RateLimitOptions::empty().with_min_interval_sec(interval)
-            } else {
-                RateLimitOptions::empty()
-            };
-
-            stream::iter(0..jobs.len())
-                .rate_limit(rate_limit_options)
-                .for_each_concurrent(account_balance_options.tasks, |i| {
-                    let job = jobs[i];
-                    let result_map = result_map_.clone();
-                    async move {
-                        log::info!("Getting balance for account: {:#x}", job);
-                        let balance =
-                            get_balance(web3, token, job, account_balance_options.show_gas)
-                                .await
-                                .unwrap();
-
-                        let gas_balance = balance.gas_balance.map(|b| b.to_string());
-                        let token_balance = balance.token_balance.map(|b| b.to_string());
-                        let gas_balance_decimal = balance
-                            .gas_balance
-                            .map(|v| u256_to_rust_dec(v, None).unwrap().to_string());
-                        let token_balance_decimal = balance
-                            .token_balance
-                            .map(|v| u256_to_rust_dec(v, None).unwrap().to_string());
-                        let gas_balance_human = gas_balance_decimal.clone().map(|v| {
-                            format!(
-                                "{:.02} {}",
-                                f64::from_str(&v).unwrap_or(0.0),
-                                &chain_cfg.currency_symbol
-                            )
-                        });
-                        let token_balance_human = token_balance_decimal.clone().map(|v| {
-                            format!(
-                                "{:.02} {}",
-                                f64::from_str(&v).unwrap_or(0.0),
-                                &chain_cfg.token.clone().unwrap().symbol
-                            )
-                        });
-                        result_map.borrow_mut().insert(
-                            format!("{:#x}", job),
-                            json!({
-                                "gas": gas_balance,
-                                "gasDecimal": gas_balance_decimal,
-                                "gasHuman": gas_balance_human,
-                                "token": token_balance,
-                                "tokenDecimal": token_balance_decimal,
-                                "tokenHuman": token_balance_human,
-                            }),
-                        );
-                    }
-                })
-                .await;
-
+            let result = account_balance(account_balance_options, &config).await?;
             println!(
                 "{}",
-                serde_json::to_string_pretty(&result_map.take()).map_err(
-                    |err| err_custom_create!("Something went wrong when serializing to json {err}")
-                )?
+                serde_json::to_string_pretty(&result).map_err(|err| err_custom_create!(
+                    "Something went wrong when serializing to json {err}"
+                ))?
             );
         }
         PaymentCommands::GenerateTestPayments { generate_options } => {
