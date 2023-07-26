@@ -13,8 +13,7 @@ use std::time::Duration;
 use bollard::models::{PortBinding, PortMap};
 use tokio::time::Instant;
 use erc20_payment_lib::setup::PaymentSetup;
-use erc20_processor::account_balance::{account_balance};
-use erc20_processor::options::AccountBalanceOptions;
+use erc20_payment_lib_extra::{AccountBalanceOptions, account_balance};
 
 pub struct ImageName {
     pub user: Option<String>,
@@ -134,7 +133,7 @@ impl ImageName {
 
 #[tokio::test]
 async fn spawn_docker() -> Result<(), anyhow::Error> {
-    env::set_var("RUST_LOG", env::var("RUST_LOG").unwrap_or("info".to_string()));
+    env::set_var("RUST_LOG", env::var("RUST_LOG").unwrap_or("info,sqlx::query=warn,web3=warn".to_string()));
     env_logger::init();
 
     let current = Instant::now();

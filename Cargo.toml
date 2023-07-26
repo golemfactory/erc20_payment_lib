@@ -7,10 +7,6 @@ members = [
 name = "erc20_processor"
 path = "src/main.rs"
 
-[lib]
-name = "erc20_processor"
-path = "src/lib.rs"
-
 [workspace.package]
 authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
 version = "0.1.9"
@@ -101,10 +97,12 @@ stream-rate-limiter = { workspace = true }
 fastrand = { workspace = true }
 
 erc20_payment_lib = { path = "crates/erc20_payment_lib" }
+erc20_payment_lib_extra = { path = "crates/erc20_payment_lib_extra" }
 
 [dev-dependencies]
 
 bollard = "0.14.0"
+erc20_payment_lib_test = { path = "crates/erc20_payment_lib_test" }
 
 [profile.release-lto]
 inherits = "release"

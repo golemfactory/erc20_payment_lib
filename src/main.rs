@@ -1,4 +1,3 @@
-mod account_balance;
 mod options;
 
 use crate::options::{PaymentCommands, PaymentOptions};
@@ -25,7 +24,7 @@ use futures::{StreamExt, TryStreamExt};
 use std::env;
 use std::rc::Rc;
 
-use crate::account_balance::account_balance;
+use erc20_payment_lib_extra::account_balance;
 use std::sync::Arc;
 use std::time::Instant;
 use stream_rate_limiter::{RateLimitOptions, StreamBehavior, StreamRateLimitExt};

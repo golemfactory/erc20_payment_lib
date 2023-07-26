@@ -849,6 +849,71 @@ dependencies = [
 ]
 
 [[package]]
+name = "erc20_payment_lib_extra"
+version = "0.1.9"
+dependencies = [
+ "actix-files",
+ "actix-web",
+ "async-trait",
+ "chrono",
+ "dotenv",
+ "erc20_payment_lib",
+ "fastrand",
+ "futures",
+ "futures-util",
+ "hex",
+ "humantime",
+ "lazy_static",
+ "log",
+ "rand",
+ "rust_decimal",
+ "rustc-hex",
+ "secp256k1",
+ "serde",
+ "serde_json",
+ "sha3 0.10.6",
+ "sqlx",
+ "sqlx-core",
+ "stream-rate-limiter",
+ "structopt",
+ "tokio",
+ "toml",
+ "uuid 1.3.0",
+ "web3",
+]
+
+[[package]]
+name = "erc20_payment_lib_test"
+version = "0.1.9"
+dependencies = [
+ "actix-files",
+ "actix-web",
+ "async-trait",
+ "chrono",
+ "dotenv",
+ "fastrand",
+ "futures",
+ "hex",
+ "humantime",
+ "lazy_static",
+ "log",
+ "rand",
+ "rust_decimal",
+ "rustc-hex",
+ "secp256k1",
+ "serde",
+ "serde_json",
+ "sha3 0.10.6",
+ "sqlx",
+ "sqlx-core",
+ "structopt",
+ "tokio",
+ "toml",
+ "uuid 1.3.0",
+ "web3",
+]
+
+[[package]]
 name = "erc20_processor"
 version = "0.1.9"
 dependencies = [
@@ -863,6 +928,8 @@ dependencies = [
  "dotenv",
  "env_logger",
  "erc20_payment_lib",
+ "erc20_payment_lib_extra",
+ "erc20_payment_lib_test",
  "eth-keystore",
  "fastrand",
  "futures",
