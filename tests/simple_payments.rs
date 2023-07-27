@@ -139,7 +139,7 @@ async fn spawn_docker() -> Result<(), anyhow::Error> {
     let current = Instant::now();
 
     use bollard::{image, service::HostConfig, Docker};
-    let image_name = "scx1332/geth".to_string();
+    let image_name = "scx1332/geth:lean".to_string();
     println!("Building image: {}", image_name);
     let docker = match Docker::connect_with_local_defaults() {
         Ok(docker) => docker,
@@ -226,7 +226,12 @@ async fn spawn_docker() -> Result<(), anyhow::Error> {
         host_ip: Some("0.0.0.0".to_string()),
         host_port: Some("8545".to_string())
     }]));
+    port_mapping.insert("8544/tcp".to_string(), Some(vec![PortBinding {
+        host_ip: Some("0.0.0.0".to_string()),
+        host_port: Some("8544".to_string())
+    }]));
     let mut exposed_ports = HashMap::new();
+    exposed_ports.insert("8544/tcp".to_string(), HashMap::<(),()>::new());
     exposed_ports.insert("8545/tcp".to_string(), HashMap::<(),()>::new());
 
     let container = docker
@@ -241,11 +246,7 @@ async fn spawn_docker() -> Result<(), anyhow::Error> {
                 }),
                 exposed_ports: Some(exposed_ports),
                 env: Some(env_opt),
-                cmd: Some(vec![
-                    "python".to_string(),
-                    "-u".to_string(),
-                    "setup_chain.py".to_string(),
-                ]),
+                cmd: None,
 
                 ..Default::default()
             },
@@ -265,7 +266,9 @@ async fn spawn_docker() -> Result<(), anyhow::Error> {
     );
 
     let conn = create_sqlite_connection(Some(&"db_test.sqlite"), true).await?;
-    let config = config::Config::load("config-payments-local.toml")?;
+    let mut config = config::Config::load("config-payments-local.toml")?;
+    config.chain.get_mut("dev").unwrap().rpc_endpoints = vec!["http://127.0.0.1:8544/web3/dupa".to_string()];
+
 
     let (private_keys, _public_addrs) =
         load_private_keys("a8a2548c69a9d1eb7fdacb37ee64554a0896a6205d564508af00277247075e8f")?;
@@ -287,7 +290,7 @@ async fn spawn_docker() -> Result<(), anyhow::Error> {
 
     let account_balance_options = AccountBalanceOptions {
         chain_name: "dev".to_string(),
-        accounts: "0x4d6947e072c1ac37b64600b885772bd3f27d3e91".to_string(),
+        accounts: "0xB1C4D937A1b9bfC17a2Eb92D3577F8b66763bfC1".to_string(),
         show_gas: true,
         show_token: true,
         block_number: None,
@@ -307,9 +310,11 @@ async fn spawn_docker() -> Result<(), anyhow::Error> {
 
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
 
+    println!("Connecting to geth... {:.2}s", current.elapsed().as_secs_f64());
     while web3.eth().block_number().await.is_err() {
-        tokio::time::sleep(Duration::from_secs_f64(0.1)).await;
+        tokio::time::sleep(Duration::from_secs_f64(0.04)).await;
     }
+    println!("Connected to geth after {:.2}s", current.elapsed().as_secs_f64());
 
     let res = account_balance(account_balance_options, &config).await?;
 

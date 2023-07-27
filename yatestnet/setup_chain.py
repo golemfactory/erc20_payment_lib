@@ -29,11 +29,11 @@ def capture_output(process):
 async def main():
     load_dotenv()
     chain_num = 987789
-    tmp_dir = 'tmp/chaindata'
-    chain_dir = f"{tmp_dir}/chain{chain_num}"
-    genesis_file = f"{tmp_dir}/genesis{chain_num}.json"
-    signer_password_file = f"{tmp_dir}/password{chain_num}.json"
-    geth_command_file = f"{tmp_dir}/geth-command{chain_num}.sh"
+    data_dir = 'genesis/chaindata'
+    chain_dir = f"{data_dir}/chain{chain_num}"
+    genesis_file = f"{data_dir}/genesis{chain_num}.json"
+    signer_password_file = f"{data_dir}/password{chain_num}.json"
+    geth_command_file = f"{data_dir}/geth-command{chain_num}.sh"
 
     # get private key from env
     main_account = os.environ['MAIN_ACCOUNT_PRIVATE_KEY']
@@ -61,10 +61,10 @@ async def main():
         signer_account)
 
     deploy_contracts = False
-    if not os.path.exists(tmp_dir):
+    if not os.path.exists(data_dir):
         deploy_contracts = True
 
-        os.makedirs(tmp_dir)
+        os.makedirs(data_dir)
 
         print(f"Loaded signer account: {signer_address}")
 

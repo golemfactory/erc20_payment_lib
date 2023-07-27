@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     command: python -u setup_chain.py
     volumes:
-      - ./genesis/:/runtime/tmp
+      - ./genesis/:/runtime/chaindata
     ports:
       - '8545:8545'
     environment:

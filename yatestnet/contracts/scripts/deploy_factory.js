@@ -38,6 +38,11 @@ async function main() {
     await faucetDistr.deployed();
     console.log("Distribute contract deployed to:", faucetDistr.address);
 
+    const donothing = await hre.ethers.getContractFactory("DoNothingContract");
+
+    const donothingDeployed = await donothing.deploy();
+    await donothingDeployed.deployed();
+    console.log("Do nothing contract deployed to:", donothingDeployed.address);
 
     const res = await erc20Contract.approve(multiTransfer.address, BIG_18.mul(1000000000000));
     const receipt = await res.wait();
