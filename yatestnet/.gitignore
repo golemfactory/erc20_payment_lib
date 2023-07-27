@@ -2,3 +2,4 @@
 /.ethash
 /genesis
 /sessions/.env
+/.idea
