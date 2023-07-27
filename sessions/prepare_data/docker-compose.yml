@@ -1,18 +1,18 @@
 services:
-  geth:
+  geth_snapshot_prepare:
+    volumes:
+      - ./genesis/:/runtime/genesis/
     build:
-      context: .
+      context: ../../yatestnet
       dockerfile: Dockerfile
     command: python -u setup_chain.py
-    volumes:
-      - ./genesis/:/runtime/chaindata
     ports:
       - '8545:8545'
     environment:
       - CHAIN_ID=987789
       - CHAIN_NAME=Golem test chain
       - CHAIN_TYPE=local
-      - KEEP_RUNNING=1
+      - KEEP_RUNNING=0
       - SIGNER_ACCOUNT_PRIVATE_KEY=${SIGNER_ACCOUNT_PRIVATE_KEY}
       - MAIN_ACCOUNT_PRIVATE_KEY=${MAIN_ACCOUNT_PRIVATE_KEY}
       - SIGNER_ACCOUNT_KEYSTORE_PASSWORD=${SIGNER_ACCOUNT_KEYSTORE_PASSWORD}
@@ -21,9 +21,4 @@ services:
       - GLM_CONTRACT_ADDRESS=${GLM_CONTRACT_ADDRESS}
       - MULTI_PAYMENT_CONTRACT_ADDRESS=${MULTI_PAYMENT_CONTRACT_ADDRESS}
       - DISTRIBUTE_CONTRACT_ADDRESS=${DISTRIBUTE_CONTRACT_ADDRESS}
-  prometheus:
-    image: prom/prometheus
-    ports:
-      - "10008:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - PERIOD_IN_SECONDS_INT=2
