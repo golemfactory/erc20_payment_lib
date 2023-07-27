@@ -1,0 +1,24 @@
+services:
+  geth_snapshot_prepare:
+    volumes:
+      - ./genesis/:/runtime/genesis/
+    build:
+      context: ../../yatestnet
+      dockerfile: Dockerfile
+    command: python -u setup_chain.py
+    ports:
+      - '8545:8545'
+    environment:
+      - CHAIN_ID=987789
+      - CHAIN_NAME=Golem test chain
+      - CHAIN_TYPE=local
+      - KEEP_RUNNING=0
+      - SIGNER_ACCOUNT_PRIVATE_KEY=${SIGNER_ACCOUNT_PRIVATE_KEY}
+      - MAIN_ACCOUNT_PRIVATE_KEY=${MAIN_ACCOUNT_PRIVATE_KEY}
+      - SIGNER_ACCOUNT_KEYSTORE_PASSWORD=${SIGNER_ACCOUNT_KEYSTORE_PASSWORD}
+      - FAUCET_ACCOUNT_PRIVATE_KEY=${FAUCET_ACCOUNT_PRIVATE_KEY}
+      - FAUCET_ACCOUNT_PUBLIC_ADDRESS=${FAUCET_ACCOUNT_PUBLIC_ADDRESS}
+      - GLM_CONTRACT_ADDRESS=${GLM_CONTRACT_ADDRESS}
+      - MULTI_PAYMENT_CONTRACT_ADDRESS=${MULTI_PAYMENT_CONTRACT_ADDRESS}
+      - DISTRIBUTE_CONTRACT_ADDRESS=${DISTRIBUTE_CONTRACT_ADDRESS}
+      - PERIOD_IN_SECONDS_INT=2
