@@ -18,8 +18,10 @@ use std::time::Duration;
 use tokio::join;
 use tokio::time::Instant;
 
+///It's getting balances of predefined list of accounts.
+///Accounts are checked for GLM and ETH balances.
 #[tokio::test(flavor = "multi_thread")]
-async fn spawn_docker() -> Result<(), anyhow::Error> {
+async fn test_starting_balances() -> Result<(), anyhow::Error> {
     let current = Instant::now();
     env::set_var(
         "RUST_LOG",
@@ -151,7 +153,8 @@ async fn spawn_docker() -> Result<(), anyhow::Error> {
 
     for (key, val) in &res {
         if let Some(el) = accounts_map_ref.get(key.as_str()) {
-            assert_eq!(val.gas_decimal.clone().unwrap(), *el);
+            assert_eq!(val.gas_decimal, Some(el.to_string()));
+            assert_eq!(val.token_decimal, Some("1000".to_string()));
         } else {
             bail!("Account {} not found in config file", key);
         }
