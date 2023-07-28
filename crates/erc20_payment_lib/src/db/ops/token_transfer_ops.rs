@@ -3,10 +3,13 @@ use sqlx::SqlitePool;
 use sqlx_core::executor::Executor;
 use sqlx_core::sqlite::Sqlite;
 
-pub async fn insert_token_transfer(
-    conn: &SqlitePool,
+pub async fn insert_token_transfer<'c, E>(
+    executor: E,
     token_transfer: &TokenTransferDao,
-) -> Result<TokenTransferDao, sqlx::Error> {
+) -> Result<TokenTransferDao, sqlx::Error>
+    where
+        E: Executor<'c, Database = Sqlite>,
+{
     let res = sqlx::query_as::<_, TokenTransferDao>(
         r"INSERT INTO token_transfer
 (payment_id, from_addr, receiver_addr, chain_id, token_addr, token_amount, create_date, tx_id, fee_paid, error)
@@ -22,7 +25,7 @@ VALUES ($1, $2, $3, $4, $5, $6, strftime('%Y-%m-%dT%H:%M:%f', 'now'), $7, $8, $9
     .bind(token_transfer.tx_id)
     .bind(&token_transfer.fee_paid)
     .bind(&token_transfer.error)
-    .fetch_one(conn)
+    .fetch_one(executor)
     .await?;
     Ok(res)
 }

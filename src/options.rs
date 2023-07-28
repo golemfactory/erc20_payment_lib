@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 use std::path::PathBuf;
 
-use structopt::StructOpt;
 use erc20_payment_lib_extra::AccountBalanceOptions;
+use structopt::StructOpt;
 
 #[derive(StructOpt)]
 #[structopt(about = "Payment admin tool - run options")]
@@ -85,7 +85,6 @@ pub struct ImportOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Payment statistics options")]
 pub struct PaymentStatisticsOptions {}
-
 
 #[derive(StructOpt)]
 #[structopt(about = "Generate test payments")]

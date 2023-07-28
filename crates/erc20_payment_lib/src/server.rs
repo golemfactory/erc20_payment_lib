@@ -612,7 +612,7 @@ pub async fn faucet(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Respo
                 faucet_eth_amount,
             );
             let db_conn = data.db_connection.lock().await;
-            return_on_error!(insert_token_transfer(&db_conn, &tt).await)
+            return_on_error!(insert_token_transfer(&*db_conn, &tt).await)
         };
         let token_transfer_glm = {
             let tt = create_token_transfer(
@@ -624,7 +624,7 @@ pub async fn faucet(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Respo
                 faucet_glm_amount,
             );
             let db_conn = data.db_connection.lock().await;
-            return_on_error!(insert_token_transfer(&db_conn, &tt).await)
+            return_on_error!(insert_token_transfer(&*db_conn, &tt).await)
         };
 
         return web::Json(json!({
