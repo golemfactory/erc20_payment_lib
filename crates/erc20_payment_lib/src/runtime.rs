@@ -181,7 +181,7 @@ pub async fn start_payment_engine(
     let conn = if let Some(conn) = conn {
         conn
     } else {
-        create_sqlite_connection(Some(db_filename), true).await?
+        create_sqlite_connection(Some(db_filename), None, true).await?
     };
 
     //process_cli(&mut conn, &cli, &payment_setup.secret_key).await?;

@@ -62,7 +62,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             let db_filename =
                 env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
             log::info!("connecting to sqlite file db: {}", db_filename);
-            let conn = create_sqlite_connection(Some(&db_filename), true).await?;
+            let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
 
             let sp = start_payment_engine(
                 &private_keys,
@@ -159,7 +159,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 let db_filename = env::var("DB_SQLITE_FILENAME")
                     .expect("Specify DB_SQLITE_FILENAME env variable");
                 log::info!("connecting to sqlite file db: {}", db_filename);
-                let conn = create_sqlite_connection(Some(&db_filename), true).await?;
+                let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
                 Some(conn)
             } else {
                 None
@@ -227,12 +227,12 @@ async fn main_internal() -> Result<(), PaymentError> {
                         let mut t = conn.begin().await.unwrap();
 
                         insert_token_transfer(&mut t, &token_transfer)
-                        .await
-                        .map_err(|err| {
-                            err_custom_create!(
-                                "Error writing record to db no: {transfer_no}, err: {err}"
-                            )
-                        })?;
+                            .await
+                            .map_err(|err| {
+                                err_custom_create!(
+                                    "Error writing record to db no: {transfer_no}, err: {err}"
+                                )
+                            })?;
                         t.commit().await.unwrap();
                     }
                     res
@@ -258,7 +258,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             let db_filename =
                 env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
             log::info!("connecting to sqlite file db: {}", db_filename);
-            let conn = create_sqlite_connection(Some(&db_filename), true).await?;
+            let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
             println!(
                 "Token transfer count: {}",
                 get_transfer_count(&conn, None, None, None).await.unwrap()
@@ -275,7 +275,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             let db_filename =
                 env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
             log::info!("connecting to sqlite file db: {}", db_filename);
-            let conn = create_sqlite_connection(Some(&db_filename), true).await?;
+            let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
 
             let mut token_transfer_list = vec![];
             for (line_no, result) in deserialize.enumerate() {
