@@ -1,10 +1,9 @@
 use bollard::container::StopContainerOptions;
 use bollard::models::{PortBinding, PortMap};
 use bollard::{container, image, service::HostConfig, Docker};
-use chrono::Duration;
 use futures_util::TryStreamExt;
 use std::collections::HashMap;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
 
 pub struct ImageName {
@@ -138,7 +137,7 @@ impl SetupGethOptions {
             image_name: "scx1332/geth:lean".to_string(),
             web3_port: None,
             web3_proxy_port: None,
-            max_docker_lifetime: Duration::seconds(60),
+            max_docker_lifetime: Duration::from_secs_f64(60.0),
         }
     }
 }
@@ -323,12 +322,29 @@ impl GethContainer {
             .await?;
 
         log::info!(
-            " -- Container from image {} started in {:.2}s, web3_proxy port: {}, geth rpc port: {}",
+            "Container from image {} started in {:.2}s, web3_proxy port: {}, geth rpc port: {}",
             image_name,
             current.elapsed().as_secs_f64(),
             web3_proxy_port,
             geth_rpc_port
         );
+
+        log::debug!(
+            "Connecting to geth... {:.2}s",
+            current.elapsed().as_secs_f64()
+        );
+        let web3 = web3::Web3::new(web3::transports::Http::new(&format!(
+            "http://127.0.0.1:{}",
+            geth_rpc_port
+        ))?);
+        while web3.eth().block_number().await.is_err() {
+            tokio::time::sleep(Duration::from_secs_f64(0.04)).await;
+        }
+        log::info!(
+            "Blockchain RPC ready in {:.2}s",
+            current.elapsed().as_secs_f64()
+        );
+
         Ok(GethContainer {
             docker,
             container_id,

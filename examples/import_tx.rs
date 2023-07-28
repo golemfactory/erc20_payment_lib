@@ -35,13 +35,13 @@ async fn main_internal() -> Result<(), PaymentError> {
 
     let cli: ImportTxOptions = ImportTxOptions::from_args();
 
-    let config = config::Config::load("config-payments.toml")?;
+    let config = config::Config::load("config-payments.toml").await?;
 
     let (private_keys, _public_addrs) = load_private_keys(&env::var("ETH_PRIVATE_KEYS").unwrap())?;
     display_private_keys(&private_keys);
 
     let db_conn = env::var("DB_SQLITE_FILENAME").unwrap();
-    let conn = create_sqlite_connection(Some(&db_conn), true).await?;
+    let conn = create_sqlite_connection(Some(&db_conn), None, true).await?;
 
     let payment_setup = PaymentSetup::new(&config, vec![], true, false, false, 1, 1, false)?;
     let ps = payment_setup.chain_setup.get(&cli.chain_id).unwrap();

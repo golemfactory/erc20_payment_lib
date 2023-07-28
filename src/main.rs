@@ -46,7 +46,7 @@ async fn main_internal() -> Result<(), PaymentError> {
     )?;
     display_private_keys(&private_keys);
 
-    let config = config::Config::load("config-payments.toml")?;
+    let config = config::Config::load("config-payments.toml").await?;
 
     match cli.commands {
         PaymentCommands::Run { run_options } => {

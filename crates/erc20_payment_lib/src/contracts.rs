@@ -12,6 +12,7 @@ use web3::types::{Address, U256};
 use web3::{Transport, Web3};
 
 ///!todo remove DUMMY_RPC_PROVIDER and use ABI instead
+/// todo change to once_cell
 lazy_static! {
     pub static ref DUMMY_RPC_PROVIDER: Web3<Http> = {
         let transport = web3::transports::Http::new("http://noconn").unwrap();

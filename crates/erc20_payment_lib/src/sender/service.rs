@@ -276,8 +276,8 @@ pub async fn service_loop(
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
 ) {
-    let process_transactions_interval = 5;
-    let gather_transactions_interval = 20;
+    let process_transactions_interval = payment_setup.process_sleep as i64;
+    let gather_transactions_interval = payment_setup.process_sleep as i64;
     let mut last_update_time1 =
         chrono::Utc::now() - chrono::Duration::seconds(process_transactions_interval);
     let mut last_update_time2 =
@@ -337,6 +337,7 @@ pub async fn service_loop(
                 Ok(count) => {
                     if count > 0 {
                         process_tx_needed = true;
+                        process_tx_instantly = true;
                     } else {
                         log::info!("No new transfers to process");
                     }

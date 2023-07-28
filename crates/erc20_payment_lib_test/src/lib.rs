@@ -1,3 +1,5 @@
-mod setup;
+mod accounts;
+mod blockchain_setup;
 
-pub use setup::{GethContainer, SetupGethOptions};
+pub use accounts::{get_map_address_amounts, get_test_accounts};
+pub use blockchain_setup::{GethContainer, SetupGethOptions};
