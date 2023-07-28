@@ -1,3 +1,4 @@
+use erc20_payment_lib::error::CustomError;
 use erc20_payment_lib::error::ErrorBag;
 use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::eth::get_balance;
@@ -11,9 +12,8 @@ use std::collections::{BTreeMap, HashSet};
 use std::rc::Rc;
 use std::str::FromStr;
 use stream_rate_limiter::{RateLimitOptions, StreamRateLimitExt};
-use web3::types::Address;
 use structopt::StructOpt;
-use erc20_payment_lib::error::CustomError;
+use web3::types::Address;
 
 #[derive(StructOpt)]
 #[structopt(about = "Payment statistics options")]

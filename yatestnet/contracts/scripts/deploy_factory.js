@@ -66,6 +66,7 @@ async function main() {
             // Convert currency unit from ether to wei
             value: BIG_18.mul(100000000)
         }
+
         await wallet.sendTransaction(tx_sendEther);
     }
 

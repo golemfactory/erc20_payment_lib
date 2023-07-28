@@ -224,14 +224,16 @@ async fn main_internal() -> Result<(), PaymentError> {
                         Ok(())
                     };
                     if let Some(conn) = conn {
-                        let _token_transfer =
-                            do_db_operation(|| insert_token_transfer(&conn, &token_transfer))
-                                .await
-                                .map_err(|err| {
-                                    err_custom_create!(
-                                        "Error writing record to db no: {transfer_no}, err: {err}"
-                                    )
-                                })?;
+                        let mut t = conn.begin().await.unwrap();
+
+                        insert_token_transfer(&mut t, &token_transfer)
+                        .await
+                        .map_err(|err| {
+                            err_custom_create!(
+                                "Error writing record to db no: {transfer_no}, err: {err}"
+                            )
+                        })?;
+                        t.commit().await.unwrap();
                     }
                     res
                 }

@@ -37,7 +37,7 @@ block-explorer-url = "https://goerli.etherscan.io"
 [chain.mumbai]
 chain-name = "Mumbai testnet"
 chain-id = 80001
-rpc-endpoints = ["https://matic-mumbai.chainstacklabs.com"]
+rpc-endpoints = ["https://rpc-mumbai.maticvigil.com/v1/fd04db1066cae0f44d3461ae6d6a7cbbdd46e4a5"]
 # rpc-endpoints = ["http://127.0.0.1:8545"]
 currency-symbol = "tMATIC"
 priority-fee = 1.5111
@@ -58,7 +58,7 @@ priority-fee = 30.111
 max-fee-per-gas = 500.0
 gas-left-warning-limit = 1000000
 transaction-timeout = 100
-token = { address = "0x2036807B0B3aaf5b1858EE822D0e111fDdac7018", symbol = "tGLM" }
+token = { address = "0x0B220b82F3eA3B7F6d9A1D8ab58930C064A2b5Bf", symbol = "GLM" }
 # multi-contract = { address = "0x50100d4faf5f3b09987dea36dc2eddd57a3e561b", max-at-once = 10 }
 confirmation-blocks = 1
 block-explorer-url = "https://polygonscan.com"
