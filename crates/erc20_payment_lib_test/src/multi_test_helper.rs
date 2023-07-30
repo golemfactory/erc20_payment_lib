@@ -8,14 +8,15 @@ use crate::{GethContainer, SetupGethOptions};
 static GLOBAL_ASYNC_TEST_COUNT: AtomicUsize = AtomicUsize::new(0);
 static DEINIT_COUNT: AtomicUsize = AtomicUsize::new(0);
 
+//test helper is used for RAII reference counting
 pub struct TestHelper {
-    a: usize,
+    _a: usize,
 }
 
 impl TestHelper {
     fn new() -> Self {
         GLOBAL_ASYNC_TEST_COUNT.fetch_add(1, Ordering::SeqCst);
-        TestHelper { a: 1 }
+        TestHelper { _a: 1 }
     }
 }
 
@@ -44,8 +45,9 @@ async fn init_once() -> Arc<Mutex<GethContainer>> {
 }
 
 async fn teardown_once() {
-    let mut geth_container = ONCE.get_or_init(init_once).await;
-    geth_container.lock().await.stop().await;
+    if let Err(err) = ONCE.get_or_init(init_once).await.lock().await.stop().await {
+        panic!("Failed to stop geth container: {}", err);
+    }
 }
 
 impl Drop for TestHelper {

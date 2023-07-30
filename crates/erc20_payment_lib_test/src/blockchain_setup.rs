@@ -2,7 +2,6 @@ use bollard::container::StopContainerOptions;
 use bollard::models::{PortBinding, PortMap};
 use bollard::{container, image, service::HostConfig, Docker};
 use futures_util::TryStreamExt;
-use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
