@@ -1,29 +1,20 @@
-use bollard::container::StopContainerOptions;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::error::*;
-use erc20_payment_lib::misc::{display_private_keys, load_private_keys};
+use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::start_payment_engine;
 use erc20_payment_lib::{config, err_custom_create};
 
-use anyhow::{anyhow, bail};
-use bollard::models::{PortBinding, PortMap};
 use erc20_payment_lib::db::ops::insert_token_transfer;
-use erc20_payment_lib::service::add_payment_request_2;
-use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_extra::{account_balance, AccountBalanceOptions};
-use erc20_payment_lib_test::{
-    get_map_address_amounts, get_test_accounts, GethContainer, SetupGethOptions,
-};
+use erc20_payment_lib_test::{GethContainer, SetupGethOptions};
 use std::env;
 use std::str::FromStr;
-use std::sync::{Arc, Once};
-use std::time::Duration;
-use tokio::join;
+use std::sync::Arc;
 use tokio::sync::OnceCell;
-use tokio::time::Instant;
 use web3::types::{Address, U256};
+use erc20_payment_lib_test::multi_test_helper::common_geth_init;
 
 async fn init_once() -> Arc<GethContainer> {
     env::set_var(
@@ -31,7 +22,11 @@ async fn init_once() -> Arc<GethContainer> {
         env::var("RUST_LOG").unwrap_or("info,sqlx::query=warn,web3=warn".to_string()),
     );
     env_logger::init();
-    Arc::new(GethContainer::create(SetupGethOptions::new()).await.unwrap())
+    Arc::new(
+        GethContainer::create(SetupGethOptions::new())
+            .await
+            .unwrap(),
+    )
 }
 static ONCE: OnceCell<Arc<GethContainer>> = OnceCell::const_new();
 
@@ -40,9 +35,9 @@ async fn init() -> Arc<GethContainer> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn gas_transfer() -> Result<(), anyhow::Error> {
-    let _geth_container = init().await;
-    let conn = create_sqlite_connection(None, None, true).await?;
+async fn test_gas_transfer() -> Result<(), anyhow::Error> {
+    let _geth = common_geth_init().await;
+    let conn = create_sqlite_connection(None, Some("test_gas_transfer.sqlite"), true).await?;
 
     let mut config = config::Config::load("config-payments-local.toml").await?;
     config.chain.get_mut("dev").unwrap().rpc_endpoints =
@@ -51,9 +46,7 @@ async fn gas_transfer() -> Result<(), anyhow::Error> {
     let chain_cfg = config
         .chain
         .get("dev")
-        .ok_or(err_custom_create!(
-            "Chain dev not found in config file",
-        ))?;
+        .ok_or(err_custom_create!("Chain dev not found in config file",))?;
 
     //account 0x653b48E1348F480149047AA3a58536eb0dbBB2E2
     let private_keys =
@@ -69,7 +62,8 @@ async fn gas_transfer() -> Result<(), anyhow::Error> {
             None,
             U256::from(456000000000000222_u128),
         ),
-    ).await?;
+    )
+    .await?;
 
     let sp = start_payment_engine(
         &private_keys.0,
@@ -87,7 +81,9 @@ async fn gas_transfer() -> Result<(), anyhow::Error> {
 
     let account_balance_options = AccountBalanceOptions {
         chain_name: "dev".to_string(),
-        accounts: "0x653b48E1348F480149047AA3a58536eb0dbBB2E2,0x41162E565ebBF1A52eC904c7365E239c40d82568".to_string(),
+        accounts:
+            "0x653b48E1348F480149047AA3a58536eb0dbBB2E2,0x41162E565ebBF1A52eC904c7365E239c40d82568"
+                .to_string(),
         show_gas: true,
         show_token: true,
         block_number: None,
@@ -97,8 +93,14 @@ async fn gas_transfer() -> Result<(), anyhow::Error> {
 
     let res = account_balance(account_balance_options.clone(), &config).await?;
 
-    assert_eq!(res["0x41162e565ebbf1a52ec904c7365e239c40d82568"].gas_decimal, Some("0.456000000000000222".to_string()));
-    assert_eq!(res["0x41162e565ebbf1a52ec904c7365e239c40d82568"].token_decimal, Some("0".to_string()));
+    assert_eq!(
+        res["0x41162e565ebbf1a52ec904c7365e239c40d82568"].gas_decimal,
+        Some("0.456000000000000222".to_string())
+    );
+    assert_eq!(
+        res["0x41162e565ebbf1a52ec904c7365e239c40d82568"].token_decimal,
+        Some("0".to_string())
+    );
 
     //it's good idea to close sqlite connection before exit, thus we are sure that all transactions were written to db
     //TODO: wrap into RAII async drop hack
@@ -107,9 +109,9 @@ async fn gas_transfer() -> Result<(), anyhow::Error> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn erc20_transfer() -> Result<(), anyhow::Error> {
-    let _geth_container = init().await;
-    let conn = create_sqlite_connection(None, None, true).await?;
+async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
+    let _geth = common_geth_init().await;
+    let conn = create_sqlite_connection(None, Some("test_erc20_transfer.sqlite"), true).await?;
 
     let mut config = config::Config::load("config-payments-local.toml").await?;
     config.chain.get_mut("dev").unwrap().rpc_endpoints =
@@ -118,9 +120,7 @@ async fn erc20_transfer() -> Result<(), anyhow::Error> {
     let chain_cfg = config
         .chain
         .get("dev")
-        .ok_or(err_custom_create!(
-            "Chain dev not found in config file",
-        ))?;
+        .ok_or(err_custom_create!("Chain dev not found in config file",))?;
 
     //account 0x653b48E1348F480149047AA3a58536eb0dbBB2E2
     let private_keys =
@@ -136,7 +136,8 @@ async fn erc20_transfer() -> Result<(), anyhow::Error> {
             Some(chain_cfg.token.clone().unwrap().address),
             U256::from(2222000000000000222_u128),
         ),
-    ).await?;
+    )
+    .await?;
 
     let sp = start_payment_engine(
         &private_keys.0,
@@ -149,12 +150,14 @@ async fn erc20_transfer() -> Result<(), anyhow::Error> {
             skip_multi_contract_check: false,
         }),
     )
-        .await?;
+    .await?;
     sp.runtime_handle.await?;
 
     let account_balance_options = AccountBalanceOptions {
         chain_name: "dev".to_string(),
-        accounts: "0x653b48E1348F480149047AA3a58536eb0dbBB2E2,0xf2f86a61b769c91fc78f15059a5bd2c189b84be2".to_string(),
+        accounts:
+            "0x653b48E1348F480149047AA3a58536eb0dbBB2E2,0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"
+                .to_string(),
         show_gas: true,
         show_token: true,
         block_number: None,
@@ -164,13 +167,21 @@ async fn erc20_transfer() -> Result<(), anyhow::Error> {
 
     let res = account_balance(account_balance_options.clone(), &config).await?;
 
-    assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].gas, Some("0".to_string()));
-    assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].token_decimal, Some("2.222000000000000222".to_string()));
-    assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].token_human, Some("2.22 tGLM".to_string()));
+    assert_eq!(
+        res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].gas,
+        Some("0".to_string())
+    );
+    assert_eq!(
+        res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].token_decimal,
+        Some("2.222000000000000222".to_string())
+    );
+    assert_eq!(
+        res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].token_human,
+        Some("2.22 tGLM".to_string())
+    );
 
     //it's good idea to close sqlite connection before exit, thus we are sure that all transactions were written to db
     //TODO: wrap into RAII async drop hack
     conn.close().await;
     Ok(())
 }
-

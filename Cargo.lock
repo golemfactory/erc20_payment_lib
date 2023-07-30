@@ -895,6 +895,7 @@ dependencies = [
  "bollard",
  "chrono",
  "dotenv",
+ "env_logger",
  "fastrand",
  "futures",
  "futures-util",

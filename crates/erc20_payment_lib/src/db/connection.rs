@@ -16,7 +16,7 @@ pub async fn create_sqlite_connection(
     let url = if let Some(file_name) = file_name {
         format!("sqlite://{file_name}")
     } else {
-        format!("sqlite::memory:{}", memory_name.unwrap_or(""))
+        format!("file:{}?mode=memory", memory_name.unwrap_or("mem"))
     };
 
     let conn_opt = SqliteConnectOptions::from_str(&url)
