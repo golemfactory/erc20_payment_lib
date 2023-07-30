@@ -27,7 +27,6 @@ async fn test5() {
     let _geth = common_geth_init().await;
 }
 
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test6() {
     let _geth = common_geth_init().await;

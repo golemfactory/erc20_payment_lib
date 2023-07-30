@@ -1,9 +1,9 @@
+use crate::{GethContainer, SetupGethOptions};
 use std::env;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::{Mutex, OnceCell};
-use crate::{GethContainer, SetupGethOptions};
 
 static GLOBAL_ASYNC_TEST_COUNT: AtomicUsize = AtomicUsize::new(0);
 static DEINIT_COUNT: AtomicUsize = AtomicUsize::new(0);

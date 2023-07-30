@@ -8,31 +8,9 @@ use erc20_payment_lib::{config, err_custom_create};
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_extra::{account_balance, AccountBalanceOptions};
-use erc20_payment_lib_test::{GethContainer, SetupGethOptions};
-use std::env;
-use std::str::FromStr;
-use std::sync::Arc;
-use tokio::sync::OnceCell;
-use web3::types::{Address, U256};
 use erc20_payment_lib_test::multi_test_helper::common_geth_init;
-
-async fn init_once() -> Arc<GethContainer> {
-    env::set_var(
-        "RUST_LOG",
-        env::var("RUST_LOG").unwrap_or("info,sqlx::query=warn,web3=warn".to_string()),
-    );
-    env_logger::init();
-    Arc::new(
-        GethContainer::create(SetupGethOptions::new())
-            .await
-            .unwrap(),
-    )
-}
-static ONCE: OnceCell<Arc<GethContainer>> = OnceCell::const_new();
-
-async fn init() -> Arc<GethContainer> {
-    ONCE.get_or_init(init_once).await.clone()
-}
+use std::str::FromStr;
+use web3::types::{Address, U256};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_gas_transfer() -> Result<(), anyhow::Error> {

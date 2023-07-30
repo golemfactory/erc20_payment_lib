@@ -3,16 +3,8 @@ use erc20_payment_lib::db::create_sqlite_connection;
 
 use anyhow::bail;
 use erc20_payment_lib_extra::{account_balance, AccountBalanceOptions};
-use erc20_payment_lib_test::{
-    get_map_address_amounts, get_test_accounts, GethContainer, SetupGethOptions,
-};
-use lazy_static::lazy_static;
-use std::env;
-use std::sync::Arc;
-use tokio::join;
-use tokio::sync::OnceCell;
-use tokio::time::Instant;
 use erc20_payment_lib_test::multi_test_helper::common_geth_init;
+use erc20_payment_lib_test::{get_map_address_amounts, get_test_accounts};
 
 ///It's getting balances of predefined list of accounts.
 ///Accounts are checked for GLM and ETH balances.
