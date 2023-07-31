@@ -124,6 +124,33 @@ impl ImageName {
     }
 }
 
+use std::net::TcpListener;
+use anyhow::anyhow;
+use web3::types::Res;
+
+
+async fn get_available_port_pair() -> Result<(u16, u16), anyhow::Error> {
+    let mut port1 = 8544;
+    let mut port2 = 8545;
+
+    for i in 0..100 {
+        let random_skew = rand::random::<u16>() % 1000 * 2;
+        match tokio::join!(port_is_available(port1 + random_skew), port_is_available(port2 + random_skew)) {
+            (true, true) => return Ok((port1 + random_skew, port2 + random_skew)),
+            _ => {
+            }
+        }
+    }
+    Err(anyhow!("Cannot find available port pair"))
+}
+
+async fn port_is_available(port: u16) -> bool {
+    match tokio::net::TcpListener::bind(("127.0.0.1", port)).await {
+        Ok(_) => true,
+        Err(_) => false,
+    }
+}
+
 pub struct SetupGethOptions {
     pub image_name: String,
     pub web3_port: Option<u16>,
@@ -152,6 +179,8 @@ pub struct GethContainer {
     pub docker: Docker,
     pub container_id: String,
     pub container_stopped: bool,
+    pub web3_rpc_port: u16,
+    pub web3_proxy_port: u16,
 }
 
 impl Drop for GethContainer {
@@ -270,9 +299,7 @@ impl GethContainer {
             "MAIN_ACCOUNT_PUBLIC_ADDRESS=0x4D6947E072C1Ac37B64600B885772Bd3f27D3E91".to_string(),
             "FAUCET_ACCOUNT_PRIVATE_KEY=078d8f6c16446cdb8efbee80535ce8cb32d5b69563bca33e5e6bc0f13f0666b3".to_string()];
 
-        let web3_proxy_port = 8544;
-        let geth_rpc_port = 8545;
-
+        let (web3_proxy_port, geth_rpc_port) = get_available_port_pair().await?;
         //let web3_proxy_port_str = format!("{web3_proxy_port}/tcp");
         //let geth_rpc_port_str = format!("{geth_rpc_port}/tcp");
 
@@ -349,6 +376,8 @@ impl GethContainer {
             docker,
             container_id,
             container_stopped: false,
+            web3_rpc_port: geth_rpc_port,
+            web3_proxy_port: web3_proxy_port,
         })
     }
 }

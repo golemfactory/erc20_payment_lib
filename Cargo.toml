@@ -39,12 +39,12 @@ env_logger = "0.10.0"
 rand = "0.8.5"
 fastrand = "2.0.0"
 # newest version that can be used by yagna without hibernate update
-#sqlx-core = { version = "=0.5.9", features = ["runtime-tokio-rustls"] }
-#sqlx = { version = "=0.5.9", features = ["sqlite", "runtime-tokio-rustls", "chrono"] }
+sqlx-core = { version = "=0.5.9", features = ["runtime-tokio-rustls"] }
+sqlx = { version = "=0.5.9", features = ["sqlite", "runtime-tokio-rustls", "chrono"] }
 
 # newest version that compiles
-sqlx-core = { version = "0.6", default-features=false, features = ["runtime-tokio-rustls"] }
-sqlx = { version = "0.6", default-features=false, features = ["migrate", "macros", "sqlite", "runtime-tokio-rustls", "chrono"] }
+#sqlx-core = { version = "0.6", default-features=false, features = ["runtime-tokio-rustls"] }
+#sqlx = { version = "0.6", default-features=false, features = ["migrate", "macros", "sqlite", "runtime-tokio-rustls", "chrono"] }
 #libsqlite3-sys = { version = "=0.22.2", features = ["bundled"] }
 thiserror = "1.0.37"
 rustc-hex = "2.1.0"
