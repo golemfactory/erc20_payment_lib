@@ -163,6 +163,11 @@ impl SetupGethOptions {
             max_docker_lifetime: Duration::from_secs_f64(60.0),
         }
     }
+
+    pub fn max_docker_lifetime(mut self, max_docker_lifetime: Duration) -> Self {
+        self.max_docker_lifetime = max_docker_lifetime;
+        self
+    }
 }
 
 impl Default for SetupGethOptions {
@@ -207,7 +212,7 @@ impl GethContainer {
         Ok(())
     }
 
-    pub async fn create(_opt: SetupGethOptions) -> anyhow::Result<GethContainer> {
+    pub async fn create(opt: SetupGethOptions) -> anyhow::Result<GethContainer> {
         let current = Instant::now();
 
         let image_name = "scx1332/geth:lean".to_string();
@@ -279,6 +284,7 @@ impl GethContainer {
         log::debug!("Image id extracted {}", image_id);
 
         let env_opt = vec![
+            format!("GETH_MAX_LIFESPAN={}", opt.max_docker_lifetime.as_secs()),
             "CHAIN_ID=987789".to_string(),
             "CHAIN_NAME=GolemTestChain".to_string(),
             "CHAIN_TYPE=local".to_string(),

@@ -381,8 +381,7 @@ pub async fn web3(
                                     problems.send_transaction_but_report_failure_chance * 100.0
                                 );
                                 StatusCode::from_u16(500).unwrap()
-                            }
-                            else if problems.malformed_response_chance > 0.0
+                            } else if problems.malformed_response_chance > 0.0
                                 && rng.gen_range(0.0..1.0) < problems.malformed_response_chance
                             {
                                 log::info!(
@@ -430,10 +429,10 @@ pub async fn web3(
         };
 
         let mut shared_data = server_data.shared_data.lock().await;
-        let mut key_data = return_on_error_resp!(shared_data
+        let key_data = return_on_error_resp!(shared_data
             .keys
             .get_mut(key)
-            .ok_or("Key not found - something went really wrong, beacue it should be here"));
+            .ok_or("Key not found - something went really wrong, because it should be here"));
         key_data.total_calls += 1;
 
         if !key_data.calls.is_empty() {
@@ -477,6 +476,19 @@ pub async fn set_problems(
     //req.
     log::error!("set_problems: {:?}", body);
     let mut shared_data = server_data.shared_data.lock().await;
+
+    if shared_data.keys.get_mut(key).is_none() {
+        let key_data = KeyData {
+            key: key.to_string(),
+            value: "1".to_string(),
+            total_calls: 0,
+            total_requests: 0,
+            calls: VecDeque::new(),
+            problems: EndpointSimulateProblems::default(),
+        };
+        shared_data.keys.insert(key.to_string(), key_data);
+    }
+
     let key_data = return_on_error_json!(shared_data.keys.get_mut(key).ok_or("Key not found"));
     key_data.problems = body.into_inner();
     web::Json(json!({"status": "ok"}))

@@ -5,29 +5,85 @@ use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::start_payment_engine;
 use erc20_payment_lib::{config, err_custom_create};
 
+use awc::Client;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_extra::{account_balance, AccountBalanceOptions};
 use erc20_payment_lib_test::one_docker_per_test_helper::exclusive_geth_init;
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::time::Duration;
+use tokio::task;
 use web3::types::{Address, U256};
+use test_case::test_case;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EndpointSimulateProblems {
+    pub timeout_chance: f64,
+    pub error_chance: f64,
+    pub malformed_response_chance: f64,
+    pub skip_sending_raw_transaction_chance: f64,
+    pub send_transaction_but_report_failure_chance: f64,
+    pub allow_only_parsed_calls: bool,
+    pub allow_only_single_calls: bool,
+}
+
+
+#[test_case(0.5; "low error probability")]
+#[test_case(0.6  ; "medium error probability")]
+#[test_case(0.7  ; "high error probability")]
 #[tokio::test(flavor = "multi_thread")]
-async fn test_gas_transfer() -> Result<(), anyhow::Error> {
-    let geth_container = exclusive_geth_init(Duration::from_secs(30)).await;
+async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> {
+    let geth_container = exclusive_geth_init(Duration::from_secs(600)).await;
     let conn = create_sqlite_connection(None, Some("test_gas_transfer.sqlite"), true).await?;
 
     let mut config = config::Config::load("config-payments-local.toml").await?;
+    let proxy_key = "erc20_transfer";
     config.chain.get_mut("dev").unwrap().rpc_endpoints = vec![format!(
-        "http://127.0.0.1:{}/web3/erc20_transfer",
-        geth_container.web3_proxy_port
+        "http://127.0.0.1:{}/web3/{}",
+        geth_container.web3_proxy_port, proxy_key
     )];
 
     let chain_cfg = config
         .chain
         .get("dev")
         .ok_or(err_custom_create!("Chain dev not found in config file",))?;
+
+    let local = task::LocalSet::new();
+
+    let endp_sim_prob = EndpointSimulateProblems {
+        timeout_chance: 0.0,
+        error_chance: error_probability,
+        malformed_response_chance: 0.0,
+        skip_sending_raw_transaction_chance: 0.0,
+        send_transaction_but_report_failure_chance: 0.0,
+        allow_only_parsed_calls: false,
+        allow_only_single_calls: false,
+    };
+
+    local
+        .run_until(async move {
+            let mut client = Client::default();
+            let mut res = client
+                .post(format!(
+                    "http://127.0.0.1:{}/api/problems/set/{}",
+                    geth_container.web3_proxy_port, proxy_key
+                ))
+                .insert_header(("Content-Type", "application/json"))
+                .send_body(serde_json::to_string(&endp_sim_prob).unwrap())
+                .await
+                .unwrap();
+            println!(
+                "Response: {}: {}",
+                res.status(),
+                res.body()
+                    .await
+                    .map(|b| String::from_utf8_lossy(&b.clone()).to_string())
+                    .unwrap_or_default()
+            );
+        })
+        .await;
 
     //account 0x653b48E1348F480149047AA3a58536eb0dbBB2E2
     let private_keys =
@@ -72,6 +128,12 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
         interval: Some(0.001),
     };
 
+    config.chain.get_mut("dev").unwrap().rpc_endpoints = vec![format!(
+        "http://127.0.0.1:{}/web3/{}",
+        geth_container.web3_proxy_port,
+        "check"
+    )];
+
     let res = account_balance(account_balance_options.clone(), &config).await?;
 
     assert_eq!(
@@ -91,7 +153,7 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
-    let geth_container = exclusive_geth_init(Duration::from_secs(30)).await;
+    let geth_container = exclusive_geth_init(Duration::from_secs(600)).await;
     let conn = create_sqlite_connection(None, Some("test_erc20_transfer.sqlite"), true).await?;
 
     let mut config = config::Config::load("config-payments-local.toml").await?;
@@ -147,6 +209,8 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
         tasks: 4,
         interval: Some(0.001),
     };
+
+
 
     let res = account_balance(account_balance_options.clone(), &config).await?;
 
