@@ -10,5 +10,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Build and run tests
+      - name: Build tests
+        run: cargo test --profile=release-fast --no-run
+
+      - name: Run tests
         run: cargo test --profile=release-fast -- --test-threads=10
