@@ -168,6 +168,16 @@ impl SetupGethOptions {
         self.max_docker_lifetime = max_docker_lifetime;
         self
     }
+
+    pub fn web3_port(mut self, web3_port: u16) -> Self {
+        self.web3_port = Some(web3_port);
+        self
+    }
+
+    pub fn web3_proxy_port(mut self, web3_proxy_port: u16) -> Self {
+        self.web3_proxy_port = Some(web3_proxy_port);
+        self
+    }
 }
 
 impl Default for SetupGethOptions {
@@ -301,7 +311,11 @@ impl GethContainer {
             "MAIN_ACCOUNT_PUBLIC_ADDRESS=0x4D6947E072C1Ac37B64600B885772Bd3f27D3E91".to_string(),
             "FAUCET_ACCOUNT_PRIVATE_KEY=078d8f6c16446cdb8efbee80535ce8cb32d5b69563bca33e5e6bc0f13f0666b3".to_string()];
 
-        let (web3_proxy_port, geth_rpc_port) = get_available_port_pair().await?;
+        let (web3_proxy_port, geth_rpc_port) = if let (Some(web3_proxy_port), Some(geth_rpc_port)) = (opt.web3_proxy_port, opt.web3_port) {
+            (web3_proxy_port, geth_rpc_port)
+        } else {
+            get_available_port_pair().await?
+        };
         //let web3_proxy_port_str = format!("{web3_proxy_port}/tcp");
         //let geth_rpc_port_str = format!("{geth_rpc_port}/tcp");
 

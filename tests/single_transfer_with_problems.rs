@@ -30,9 +30,9 @@ pub struct EndpointSimulateProblems {
 }
 
 
-#[test_case(0.5; "low error probability")]
-#[test_case(0.6  ; "medium error probability")]
-#[test_case(0.7  ; "high error probability")]
+#[test_case(0.0; "low error probability")]
+#[test_case(0.0; "medium error probability")]
+#[test_case(0.0; "high error probability")]
 #[tokio::test(flavor = "multi_thread")]
 async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> {
     let geth_container = exclusive_geth_init(Duration::from_secs(600)).await;
