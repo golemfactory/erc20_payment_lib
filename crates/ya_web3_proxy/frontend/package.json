@@ -1,0 +1,47 @@
+{
+    "name": "ya-web-proxy-frontend",
+    "version": "0.1.1",
+    "homepage": ".",
+    "private": true,
+    "dependencies": {
+        "luxon": "^3.0",
+        "react": "^18.2",
+        "react-confirm-box": "^1.2.0",
+        "react-dom": "^18.2",
+        "react-icons": "^4.7",
+        "react-json-tree": "^0.18.0",
+        "react-loading-icons": "^1.1",
+        "react-router": "^6.3",
+        "react-router-dom": "^6.3",
+        "react-tabs": "^6.0.0"
+    },
+    "devDependencies": {
+        "@types/jest": "^28.1",
+        "@types/luxon": "^3.0",
+        "@types/node": "^18.7",
+        "@types/react": "^18.0",
+        "@types/react-dom": "^18.0",
+        "@types/react-plotly.js": "^2.5",
+        "@typescript-eslint/eslint-plugin": "^5.48",
+        "@typescript-eslint/parser": "^5.48",
+        "@vitejs/plugin-react-swc": "^3.0",
+        "eslint": "^8.31",
+        "eslint-config-prettier": "^8.6",
+        "eslint-plugin-import": "^2.26",
+        "eslint-plugin-jsx-a11y": "^6.6",
+        "eslint-plugin-react": "^7.31",
+        "prettier": "^2.8",
+        "typescript": "^4.9",
+        "vite": "^4.0",
+        "serve": "^14.2"
+    },
+    "scripts": {
+        "dev": "vite",
+        "check": "tsc",
+        "build": "tsc && vite build",
+        "preview": "vite preview",
+        "lint": "eslint . --ext .ts,.tsx",
+        "prettier": "prettier --write .",
+        "serve": "serve"
+    }
+}

@@ -1,0 +1,14 @@
+.call-box {
+    margin-bottom: 1rem;
+}
+.latest-calls-box {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    max-width: 12rem;
+    min-width: 12rem;
+}
+.latest-calls-box h3 {
+    margin-top: 0rem;
+    margin-bottom: 0.7rem;
+
+}

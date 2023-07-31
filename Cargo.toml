@@ -22,46 +22,51 @@ license.workspace = true
 authors.workspace = true
 
 [workspace.dependencies]
+actix-cors = "0.6.4"
+actix-files = "0.6.2"
+actix-web = { version = "^4.2.1", default-features = false, features = ["macros"] }
 anyhow = "1.0.71"
 async-trait = "0.1.68"
-web3 = { version = "0.18.0", default-features = false, features = ["signing", "http-rustls-tls"] }
-tokio = { version = "^1.21", features = ["macros"] }
-secp256k1 = "0.21.0" # version has to match web3
-sha3 = "0.10.6"
-lazy_static = "1.4.0"
+awc = "3.1.1"
+base64 = "0.21.2"
+bollard = "0.14.0"
+chrono = "0.4.22"
+csv = "1.2.1"
+dotenv = "0.15.0"
+env_logger = "0.10.0"
+eth-keystore = "=0.5.0"
+fastrand = "2.0.0"
 futures = "0.3.17"
 futures-util = "0.3.28"
 hex = "0.4.3"
 humantime = "2.1"
-chrono = "0.4.22"
+lazy_static = "1.4.0"
 log = "0.4.17"
-env_logger = "0.10.0"
+mime_guess = "2.0.3"
 rand = "0.8.5"
-fastrand = "2.0.0"
-# newest version that can be used by yagna without hibernate update
-sqlx-core = { version = "=0.5.9", features = ["runtime-tokio-rustls"] }
+rust-embed = "6.8.1"
+rust_decimal = { version = "1.26.1", features = ["serde-arbitrary-precision"] }
+rustc-hex = "2.1.0"
+secp256k1 = "0.21.0" # version has to match web3
+serde = "^1.0.147"
+serde_json = { version = "^1.0.85" }
+sha3 = "0.10.6"
+# newest version that can be used by yagna without diesel update
 sqlx = { version = "=0.5.9", features = ["sqlite", "runtime-tokio-rustls", "chrono"] }
-
+sqlx-core = { version = "=0.5.9", features = ["runtime-tokio-rustls"] }
 # newest version that compiles
 #sqlx-core = { version = "0.6", default-features=false, features = ["runtime-tokio-rustls"] }
 #sqlx = { version = "0.6", default-features=false, features = ["migrate", "macros", "sqlite", "runtime-tokio-rustls", "chrono"] }
 #libsqlite3-sys = { version = "=0.22.2", features = ["bundled"] }
-thiserror = "1.0.37"
-rustc-hex = "2.1.0"
-structopt = "0.3.26"
-dotenv = "0.15.0"
-serde = "^1.0.147"
-rust_decimal = { version = "1.26.1", features = ["serde-arbitrary-precision"] }
-toml = "0.5.9"
-actix-web = { version = "^4.2.1", default-features = false, features = ["macros"] }
-actix-cors = "0.6.4"
-actix-files = "0.6.2"
-serde_json = { version = "^1.0.85" }
-uuid = { version = "1.2.2", features = ["serde", "v4"] }
-csv = "1.2.1"
-eth-keystore = "=0.5.0"
 stream-rate-limiter = "0.3"
-bollard = "0.14.0"
+structopt = "0.3.26"
+thiserror = "1.0.37"
+tokio = { version = "^1.21", features = ["macros"] }
+toml = "0.5.9"
+uuid = { version = "1.2.2", features = ["serde", "v4"] }
+web3 = { version = "0.18.0", default-features = false, features = ["signing", "http-rustls-tls"] }
+
+
 
 [dependencies]
 anyhow = { workspace = true }

@@ -1,0 +1,55 @@
+body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 14px;
+}
+
+code {
+    font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+.border {
+    border: 1px solid black;
+}
+
+.div {
+    background-color: #333333;
+}
+
+a:link,
+a:visited,
+a:hover,
+a:active {
+    text-decoration: none;
+    color: #00008b;
+}
+a:hover {
+    color: #1434b4;
+    background-color: #f2f2ff;
+}
+
+button {
+    display: inline-block;
+    outline: none;
+    cursor: pointer;
+    border: 1px solid #0f62fe;
+    text-align: left;
+    vertical-align: top;
+    padding: calc(0.875rem - 3px) 63px calc(0.875rem - 3px) 15px;
+    background-color: #00000000;
+    font-size: 1em;
+    min-height: 2rem;
+    color: #0f62fe;
+}
+
+button:hover {
+    transition: all 0.3s ease-out;
+    background-color: #0353e9;
+    color: #fff;
+}
+button:disabled,
+button[disabled] {
+    border: 1px solid #999999;
+    background-color: #cccccc;
+    color: #666666;
+    cursor: default;
+}
