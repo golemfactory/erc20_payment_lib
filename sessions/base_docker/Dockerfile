@@ -1,16 +1,11 @@
 FROM ethereum/client-go:v1.12.0 as go_client
-
-FROM rust:1.71-alpine3.18 as proxy_builder
-RUN apk add --no-cache musl-dev
-RUN cargo install --target=x86_64-unknown-linux-musl ya_web3_proxy
-
-
+FROM scx1332/web3_test_proxy:v0.2.0 as proxy_builder
 FROM alpine:3.18.2
 
 WORKDIR /runtime
 
 COPY --from=go_client /usr/local/bin/geth /usr/local/bin/geth
-COPY --from=proxy_builder /usr/local/cargo/bin/ya_web3_proxy /usr/local/bin/ya_web3_proxy
+COPY --from=proxy_builder /usr/local/bin/web3_test_proxy /usr/local/bin/web3_test_proxy
 COPY genesis ./genesis
 COPY start.sh ./
 

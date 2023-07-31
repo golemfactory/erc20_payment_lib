@@ -1,5 +1,5 @@
 [package]
-name = "erc20_web3_test_proxy"
+name = "web3_test_proxy"
 description = "Simple proxy for web3 for listing latest web3 traffic"
 version = "0.2.0"
 edition = "2021"
