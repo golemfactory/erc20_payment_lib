@@ -46,7 +46,7 @@ async fn tx_chain_test() -> sqlx::Result<()> {
     println!("Start tx_chain_test...");
 
     use crate::db::create_sqlite_connection;
-    let conn = create_sqlite_connection(None, true).await.unwrap();
+    let conn = create_sqlite_connection(None, None, true).await.unwrap();
 
     println!("In memory DB created");
 

@@ -34,14 +34,14 @@ async fn main_internal() -> Result<(), PaymentError> {
 
     let _cli: TestOptions = TestOptions::from_args();
 
-    let _config = config::Config::load("config-payments.toml")?;
+    let _config = config::Config::load("config-payments.toml").await?;
 
     let (private_keys, _public_addrs) = load_private_keys(&env::var("ETH_PRIVATE_KEYS").unwrap())?;
     display_private_keys(&private_keys);
 
     let db_conn = env::var("DB_SQLITE_FILENAME").unwrap();
 
-    let _conn = create_sqlite_connection(Some(&db_conn), true).await?;
+    let _conn = create_sqlite_connection(Some(&db_conn), None, true).await?;
 
     Ok(())
 }

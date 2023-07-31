@@ -10,12 +10,13 @@ static MIGRATOR: Migrator = sqlx::migrate!();
 
 pub async fn create_sqlite_connection(
     file_name: Option<&str>,
+    memory_name: Option<&str>,
     run_migrations: bool,
 ) -> Result<SqlitePool, PaymentError> {
     let url = if let Some(file_name) = file_name {
         format!("sqlite://{file_name}")
     } else {
-        "sqlite::memory:".to_string()
+        format!("file:{}?mode=memory", memory_name.unwrap_or("mem"))
     };
 
     let conn_opt = SqliteConnectOptions::from_str(&url)

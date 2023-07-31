@@ -177,11 +177,11 @@ pub async fn start_payment_engine(
     )?;
     log::debug!("Starting payment engine: {:#?}", payment_setup);
 
-    log::info!("connecting to sqlite file db: {}", db_filename);
     let conn = if let Some(conn) = conn {
         conn
     } else {
-        create_sqlite_connection(Some(db_filename), true).await?
+        log::info!("connecting to sqlite file db: {}", db_filename);
+        create_sqlite_connection(Some(db_filename), None, true).await?
     };
 
     //process_cli(&mut conn, &cli, &payment_setup.secret_key).await?;

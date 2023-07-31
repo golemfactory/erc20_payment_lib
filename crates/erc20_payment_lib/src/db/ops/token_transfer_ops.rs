@@ -7,8 +7,8 @@ pub async fn insert_token_transfer<'c, E>(
     executor: E,
     token_transfer: &TokenTransferDao,
 ) -> Result<TokenTransferDao, sqlx::Error>
-    where
-        E: Executor<'c, Database = Sqlite>,
+where
+    E: Executor<'c, Database = Sqlite>,
 {
     let res = sqlx::query_as::<_, TokenTransferDao>(
         r"INSERT INTO token_transfer

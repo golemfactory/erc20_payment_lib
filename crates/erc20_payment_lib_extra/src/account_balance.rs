@@ -15,7 +15,7 @@ use stream_rate_limiter::{RateLimitOptions, StreamRateLimitExt};
 use structopt::StructOpt;
 use web3::types::Address;
 
-#[derive(StructOpt)]
+#[derive(Clone, StructOpt)]
 #[structopt(about = "Payment statistics options")]
 pub struct AccountBalanceOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
@@ -113,15 +113,15 @@ pub async fn account_balance(
             let job = jobs[i];
             let result_map = result_map_.clone();
             async move {
-                log::info!("Getting balance for account: {:#x}", job);
+                log::debug!("Getting balance for account: {:#x}", job);
                 let balance = get_balance(web3, token, job, account_balance_options.show_gas)
                     .await
                     .unwrap();
 
                 let gas_balance = balance.gas_balance.map(|b| b.to_string());
                 let token_balance = balance.token_balance.map(|b| b.to_string());
-                println!("{:#x} gas: {:?}", job, gas_balance);
-                println!("{:#x} token: {:?}", job, token_balance);
+                log::debug!("{:#x} gas: {:?}", job, gas_balance);
+                log::debug!("{:#x} token: {:?}", job, token_balance);
                 let gas_balance_decimal = balance
                     .gas_balance
                     .map(|v| u256_to_rust_dec(v, None).unwrap_or_default().to_string());

@@ -1,10 +1,10 @@
+use anyhow::anyhow;
 use bollard::container::StopContainerOptions;
 use bollard::models::{PortBinding, PortMap};
 use bollard::{container, image, service::HostConfig, Docker};
-use chrono::Duration;
 use futures_util::TryStreamExt;
 use std::collections::HashMap;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
 
 pub struct ImageName {
@@ -14,6 +14,7 @@ pub struct ImageName {
 }
 
 impl ImageName {
+    #[allow(dead_code)]
     pub fn to_base_name(&self) -> String {
         let mut res = String::new();
         if let Some(user) = &self.user {
@@ -24,6 +25,7 @@ impl ImageName {
         res
     }
 
+    #[allow(dead_code)]
     pub fn to_normalized_name(&self) -> String {
         let mut res = String::new();
         if let Some(user) = &self.user {
@@ -123,6 +125,28 @@ impl ImageName {
     }
 }
 
+async fn get_available_port_pair() -> Result<(u16, u16), anyhow::Error> {
+    let port1 = 8544;
+    let port2 = 8545;
+
+    for _i in 0..100 {
+        let random_skew = rand::random::<u16>() % 1000 * 2;
+        if let (true, true) = tokio::join!(
+            port_is_available(port1 + random_skew),
+            port_is_available(port2 + random_skew)
+        ) {
+            return Ok((port1 + random_skew, port2 + random_skew));
+        }
+    }
+    Err(anyhow!("Cannot find available port pair"))
+}
+
+async fn port_is_available(port: u16) -> bool {
+    tokio::net::TcpListener::bind(("127.0.0.1", port))
+        .await
+        .is_ok()
+}
+
 pub struct SetupGethOptions {
     pub image_name: String,
     pub web3_port: Option<u16>,
@@ -136,8 +160,14 @@ impl SetupGethOptions {
             image_name: "scx1332/geth:lean".to_string(),
             web3_port: None,
             web3_proxy_port: None,
-            max_docker_lifetime: Duration::seconds(60),
+            max_docker_lifetime: Duration::from_secs_f64(60.0),
         }
+    }
+}
+
+impl Default for SetupGethOptions {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -145,6 +175,8 @@ pub struct GethContainer {
     pub docker: Docker,
     pub container_id: String,
     pub container_stopped: bool,
+    pub web3_rpc_port: u16,
+    pub web3_proxy_port: u16,
 }
 
 impl Drop for GethContainer {
@@ -175,11 +207,11 @@ impl GethContainer {
         Ok(())
     }
 
-    pub async fn create(opt: SetupGethOptions) -> anyhow::Result<GethContainer> {
+    pub async fn create(_opt: SetupGethOptions) -> anyhow::Result<GethContainer> {
         let current = Instant::now();
 
         let image_name = "scx1332/geth:lean".to_string();
-        println!("Building image: {}", image_name);
+        log::debug!("Building image: {}", image_name);
         let docker = match Docker::connect_with_local_defaults() {
             Ok(docker) => docker,
             Err(err) => {
@@ -189,7 +221,7 @@ impl GethContainer {
         };
         match docker.version().await {
             Ok(version) => {
-                println!(
+                log::debug!(
                     " -- connected to docker engine platform: {} version: {}",
                     version.platform.map(|pv| pv.name).unwrap_or("".to_string()),
                     version.version.unwrap_or_default()
@@ -209,10 +241,13 @@ impl GethContainer {
         let image = docker.inspect_image(&image_name).await;
         //let image_id = image.id.unwrap();
         let image = if let Ok(image) = image {
-            println!("Image found {}", image_name);
+            log::debug!("Image found {}", image_name);
             image
         } else {
-            println!("Image not found, downloading: {}", image_name);
+            log::info!(
+                "Image not found, downloading (it may take a while): {}",
+                image_name
+            );
             match docker
                 .create_image(
                     Some(image::CreateImageOptions {
@@ -241,7 +276,7 @@ impl GethContainer {
             return Err(anyhow::anyhow!("Image id is not sha256: {}", image_id));
         };
 
-        println!("Image id extracted {}", image_id);
+        log::debug!("Image id extracted {}", image_id);
 
         let env_opt = vec![
             "CHAIN_ID=987789".to_string(),
@@ -260,19 +295,23 @@ impl GethContainer {
             "MAIN_ACCOUNT_PUBLIC_ADDRESS=0x4D6947E072C1Ac37B64600B885772Bd3f27D3E91".to_string(),
             "FAUCET_ACCOUNT_PRIVATE_KEY=078d8f6c16446cdb8efbee80535ce8cb32d5b69563bca33e5e6bc0f13f0666b3".to_string()];
 
+        let (web3_proxy_port, geth_rpc_port) = get_available_port_pair().await?;
+        //let web3_proxy_port_str = format!("{web3_proxy_port}/tcp");
+        //let geth_rpc_port_str = format!("{geth_rpc_port}/tcp");
+
         let mut port_mapping = PortMap::new();
         port_mapping.insert(
             "8545/tcp".to_string(),
             Some(vec![PortBinding {
                 host_ip: Some("0.0.0.0".to_string()),
-                host_port: Some("8545".to_string()),
+                host_port: Some(geth_rpc_port.to_string()),
             }]),
         );
         port_mapping.insert(
             "8544/tcp".to_string(),
             Some(vec![PortBinding {
                 host_ip: Some("0.0.0.0".to_string()),
-                host_port: Some("8544".to_string()),
+                host_port: Some(web3_proxy_port.to_string()),
             }]),
         );
         let mut exposed_ports = HashMap::new();
@@ -299,20 +338,42 @@ impl GethContainer {
             .await?;
         let container_id = container.id;
 
-        println!(" -- Container id: {}", &container_id[0..12]);
+        log::debug!(" -- Container id: {}", &container_id[0..12]);
 
         docker
             .start_container::<String>(&container_id, None)
             .await?;
 
-        println!(
-            " -- Container started in {:.2}s",
+        log::info!(
+            "Container from image {} started in {:.2}s, web3_proxy port: {}, geth rpc port: {}",
+            image_name,
+            current.elapsed().as_secs_f64(),
+            web3_proxy_port,
+            geth_rpc_port
+        );
+
+        log::debug!(
+            "Connecting to geth... {:.2}s",
             current.elapsed().as_secs_f64()
         );
+        let web3 = web3::Web3::new(web3::transports::Http::new(&format!(
+            "http://127.0.0.1:{}",
+            geth_rpc_port
+        ))?);
+        while web3.eth().block_number().await.is_err() {
+            tokio::time::sleep(Duration::from_secs_f64(0.04)).await;
+        }
+        log::info!(
+            "Blockchain RPC ready in {:.2}s",
+            current.elapsed().as_secs_f64()
+        );
+
         Ok(GethContainer {
-            docker: docker,
-            container_id: container_id,
+            docker,
+            container_id,
             container_stopped: false,
+            web3_rpc_port: geth_rpc_port,
+            web3_proxy_port,
         })
     }
 }
