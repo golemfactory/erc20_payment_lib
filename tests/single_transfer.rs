@@ -8,7 +8,6 @@ use erc20_payment_lib::{config, err_custom_create};
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_extra::{account_balance, AccountBalanceOptions};
-use erc20_payment_lib_test::multi_test_one_docker_helper::common_geth_init;
 use erc20_payment_lib_test::one_docker_per_test_helper::exclusive_geth_init;
 use std::str::FromStr;
 use web3::types::{Address, U256};
@@ -19,8 +18,10 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
     let conn = create_sqlite_connection(None, Some("test_gas_transfer.sqlite"), true).await?;
 
     let mut config = config::Config::load("config-payments-local.toml").await?;
-    config.chain.get_mut("dev").unwrap().rpc_endpoints =
-        vec![format!("http://127.0.0.1:{}/web3/erc20_transfer", geth_container.web3_proxy_port)];
+    config.chain.get_mut("dev").unwrap().rpc_endpoints = vec![format!(
+        "http://127.0.0.1:{}/web3/erc20_transfer",
+        geth_container.web3_proxy_port
+    )];
 
     let chain_cfg = config
         .chain
@@ -93,8 +94,10 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
     let conn = create_sqlite_connection(None, Some("test_erc20_transfer.sqlite"), true).await?;
 
     let mut config = config::Config::load("config-payments-local.toml").await?;
-    config.chain.get_mut("dev").unwrap().rpc_endpoints =
-        vec![format!("http://127.0.0.1:{}/web3/erc20_transfer", geth_container.web3_proxy_port)];
+    config.chain.get_mut("dev").unwrap().rpc_endpoints = vec![format!(
+        "http://127.0.0.1:{}/web3/erc20_transfer",
+        geth_container.web3_proxy_port
+    )];
 
     let chain_cfg = config
         .chain

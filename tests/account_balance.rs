@@ -32,8 +32,8 @@ async fn test_starting_balances() -> Result<(), anyhow::Error> {
 
     let res = account_balance(account_balance_options.clone(), &config).await?;
 
-    assert_eq!(res.iter().count(), 41);
-    assert_eq!(accounts_map_ref.iter().count(), 41);
+    assert_eq!(res.len(), 41);
+    assert_eq!(accounts_map_ref.len(), 41);
 
     for (key, val) in &res {
         if let Some(el) = accounts_map_ref.get(key.as_str()) {

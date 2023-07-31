@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use bollard::container::StopContainerOptions;
 use bollard::models::{PortBinding, PortMap};
 use bollard::{container, image, service::HostConfig, Docker};
@@ -124,31 +125,26 @@ impl ImageName {
     }
 }
 
-use std::net::TcpListener;
-use anyhow::anyhow;
-use web3::types::Res;
-
-
 async fn get_available_port_pair() -> Result<(u16, u16), anyhow::Error> {
-    let mut port1 = 8544;
-    let mut port2 = 8545;
+    let port1 = 8544;
+    let port2 = 8545;
 
-    for i in 0..100 {
+    for _i in 0..100 {
         let random_skew = rand::random::<u16>() % 1000 * 2;
-        match tokio::join!(port_is_available(port1 + random_skew), port_is_available(port2 + random_skew)) {
-            (true, true) => return Ok((port1 + random_skew, port2 + random_skew)),
-            _ => {
-            }
+        if let (true, true) = tokio::join!(
+            port_is_available(port1 + random_skew),
+            port_is_available(port2 + random_skew)
+        ) {
+            return Ok((port1 + random_skew, port2 + random_skew));
         }
     }
     Err(anyhow!("Cannot find available port pair"))
 }
 
 async fn port_is_available(port: u16) -> bool {
-    match tokio::net::TcpListener::bind(("127.0.0.1", port)).await {
-        Ok(_) => true,
-        Err(_) => false,
-    }
+    tokio::net::TcpListener::bind(("127.0.0.1", port))
+        .await
+        .is_ok()
 }
 
 pub struct SetupGethOptions {
@@ -211,7 +207,7 @@ impl GethContainer {
         Ok(())
     }
 
-    pub async fn create(opt: SetupGethOptions) -> anyhow::Result<GethContainer> {
+    pub async fn create(_opt: SetupGethOptions) -> anyhow::Result<GethContainer> {
         let current = Instant::now();
 
         let image_name = "scx1332/geth:lean".to_string();
@@ -377,7 +373,7 @@ impl GethContainer {
             container_id,
             container_stopped: false,
             web3_rpc_port: geth_rpc_port,
-            web3_proxy_port: web3_proxy_port,
+            web3_proxy_port,
         })
     }
 }
