@@ -65,7 +65,7 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
 
     local
         .run_until(async move {
-            let mut client = Client::default();
+            let client = Client::default();
             let mut res = client
                 .post(format!(
                     "http://127.0.0.1:{}/api/problems/set/{}",
@@ -80,7 +80,7 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
                 res.status(),
                 res.body()
                     .await
-                    .map(|b| String::from_utf8_lossy(&b.clone()).to_string())
+                    .map(|b| String::from_utf8_lossy(&b).to_string())
                     .unwrap_or_default()
             );
         })
