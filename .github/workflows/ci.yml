@@ -3,6 +3,15 @@ name: Test
 on: push
 
 jobs:
+  clippy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
   payment_tests:
     runs-on: ubuntu-latest
 
