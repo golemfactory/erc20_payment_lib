@@ -3,7 +3,7 @@ name: Test
 on: push
 
 jobs:
-  build_arm:
+  payment_tests:
     runs-on: ubuntu-latest
 
     steps:
