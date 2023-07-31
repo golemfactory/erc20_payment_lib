@@ -1,0 +1,49 @@
+.monitor-appkey-lister {
+    display: flex;
+    flex-direction: row;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.monitor-filter {
+    margin: 1.0rem;
+}
+.monitor-filter-row1 {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+.monitor-filter-row2 {
+    display: flex;
+    flex-direction: row;
+    margin-top: 0.5rem;
+    width: 100%;
+    justify-content: stretch;
+}
+.monitor-filter-row3 {
+    display: flex;
+    flex-direction: row;
+    margin-top: 0.5rem;
+    width: 100%;
+}
+
+.monitor-filter-row2 div:first-of-type {
+    margin-top: 0.1rem;
+}
+.monitor-filter-row3 div:first-of-type {
+    margin-top: 0.1rem;
+}
+
+.monitor-filter-row2-el2 {
+    flex-grow: 1;
+    padding: 0;
+}
+.monitor-filter-row3-el2 {
+    padding: 0;
+    max-width: 3rem;
+}
+
+.monitor-filter-el1 {
+    min-width: 9rem;
+}

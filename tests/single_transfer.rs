@@ -10,11 +10,12 @@ use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_extra::{account_balance, AccountBalanceOptions};
 use erc20_payment_lib_test::one_docker_per_test_helper::exclusive_geth_init;
 use std::str::FromStr;
+use std::time::Duration;
 use web3::types::{Address, U256};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_gas_transfer() -> Result<(), anyhow::Error> {
-    let geth_container = exclusive_geth_init().await;
+    let geth_container = exclusive_geth_init(Duration::from_secs(30)).await;
     let conn = create_sqlite_connection(None, Some("test_gas_transfer.sqlite"), true).await?;
 
     let mut config = config::Config::load("config-payments-local.toml").await?;
@@ -90,7 +91,7 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
-    let geth_container = exclusive_geth_init().await;
+    let geth_container = exclusive_geth_init(Duration::from_secs(30)).await;
     let conn = create_sqlite_connection(None, Some("test_erc20_transfer.sqlite"), true).await?;
 
     let mut config = config::Config::load("config-payments-local.toml").await?;

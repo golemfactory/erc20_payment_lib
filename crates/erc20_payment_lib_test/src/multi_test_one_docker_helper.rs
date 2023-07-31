@@ -38,7 +38,7 @@ async fn init_once() -> Arc<Mutex<GethContainer>> {
     );
     env_logger::init();
     Arc::new(Mutex::new(
-        GethContainer::create(SetupGethOptions::new())
+        GethContainer::create(SetupGethOptions::new().web3_port(8545).web3_proxy_port(8544))
             .await
             .unwrap(),
     ))

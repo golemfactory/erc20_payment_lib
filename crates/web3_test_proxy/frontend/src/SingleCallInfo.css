@@ -1,0 +1,16 @@
+.single-call-info {
+    padding: 1rem;
+}
+.single-call-info textarea {
+    width: 100%;
+    height: 5rem;
+}
+.single-call-info table {
+    width: 30rem;
+    border-collapse: collapse;
+}
+.single-call-info th,
+.single-call-info td {
+    padding: 0.3rem;
+    border: 1px solid black;
+}

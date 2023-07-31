@@ -1,0 +1,44 @@
+[package]
+name = "web3_test_proxy"
+description = "Simple proxy for web3 for listing latest web3 traffic"
+version = "0.2.1"
+edition = "2021"
+license = "MIT"
+authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
+
+[[bin]]
+name = "web3_test_proxy"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-cors = { version = "0.6.4" }
+actix-files = { version = "0.6.2" }
+actix-web = { version = "^4.2.1", default-features = false, features = ["macros"] }
+awc =  "3.1.1"
+base64 = "0.21.2"
+chrono = { version="0.4.22", features = ["serde"] }
+dotenv = "0.15.0"
+env_logger = "0.10.0"
+hex = "0.4.3"
+lazy_static = "1.4.0"
+log = "0.4.17"
+mime_guess = "2.0.3"
+rand = "0.8.5"
+rust-embed = "6.8.1"
+rust_decimal = { version = "1.26.1", features = ["serde-arbitrary-precision"] }
+rustc-hex = "2.1.0"
+serde = { version = "1.0.147", features = ["derive"] }
+serde_json = { version = "^1.0.85" }
+sha3 = "0.10.6"
+structopt = "0.3.26"
+tokio = { version = "^1.21", features = ["macros"] }
+toml = "0.7.6"
+uuid = { version = "1.2.2", features = ["serde", "v4"] }
+
+[profile.release-lto]
+inherits = "release"
+codegen-units = 1
+lto = "fat"
+opt-level = 3
+panic = "abort"
