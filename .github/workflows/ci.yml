@@ -3,7 +3,7 @@ name: Test
 on: push
 
 jobs:
-  clippy:
+  fmt_and_clippy:
     runs-on: ubuntu-latest
 
     steps:

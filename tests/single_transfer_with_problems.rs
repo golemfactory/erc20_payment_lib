@@ -13,9 +13,9 @@ use erc20_payment_lib_test::one_docker_per_test_helper::exclusive_geth_init;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::time::Duration;
+use test_case::test_case;
 use tokio::task;
 use web3::types::{Address, U256};
-use test_case::test_case;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,7 +28,6 @@ pub struct EndpointSimulateProblems {
     pub allow_only_parsed_calls: bool,
     pub allow_only_single_calls: bool,
 }
-
 
 #[test_case(0.5; "low error probability")]
 #[test_case(0.6; "medium error probability")]
@@ -131,8 +130,7 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
 
     config.chain.get_mut("dev").unwrap().rpc_endpoints = vec![format!(
         "http://127.0.0.1:{}/web3/{}",
-        geth_container.web3_proxy_port,
-        "check"
+        geth_container.web3_proxy_port, "check"
     )];
 
     let res = account_balance(account_balance_options.clone(), &config).await?;
