@@ -1,6 +1,8 @@
 [workspace]
 members = [
-    "crates/*",
+    "crates/erc20_payment_lib",
+    "crates/erc20_payment_lib_extra",
+    "crates/erc20_payment_lib_test",
 ]
 
 [[bin]]
