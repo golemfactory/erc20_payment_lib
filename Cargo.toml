@@ -112,6 +112,11 @@ erc20_payment_lib_test = { path = "crates/erc20_payment_lib_test" }
 awc = { workspace = true }
 test-case = "3.1.0"
 
+[profile.release-fast]
+inherits = "release"
+opt-level = 1
+panic = "unwind"
+
 [profile.release-lto]
 inherits = "release"
 codegen-units = 1
