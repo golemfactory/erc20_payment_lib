@@ -109,13 +109,13 @@ erc20_payment_lib_extra = { path = "crates/erc20_payment_lib_extra" }
 
 [dev-dependencies]
 bollard = { workspace = true}
-web3_test_proxy = { path = "crates/web3_test_proxy" }
 erc20_payment_lib_test = { path = "crates/erc20_payment_lib_test" }
 awc = { workspace = true }
 test-case = "3.1.0"
 
 [profile.release-fast]
 inherits = "release"
+incremental = false
 opt-level = 1
 panic = "unwind"
 
