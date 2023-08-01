@@ -1,0 +1,14 @@
+[package]
+name = "web3_test_proxy_client"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = { workspace = true }
+awc = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+tokio = { workspace = true }

@@ -9,10 +9,12 @@ use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_extra::{account_balance, AccountBalanceOptions};
 use erc20_payment_lib_test::one_docker_per_test_helper::exclusive_geth_init;
+use rustc_hex::FromHex;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
-use web3_test_proxy_client::get_methods;
+use web3_test_proxy_client::JSONRPCResult;
+use web3_test_proxy_client::{get_calls, get_methods};
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_gas_transfer() -> Result<(), anyhow::Error> {
@@ -74,6 +76,9 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
         interval: Some(0.001),
     };
 
+    config.chain.get_mut("dev").unwrap().rpc_endpoints =
+        vec![format!("{}/web3/{}", proxy_url_base, "check_balance")];
+
     let res = account_balance(account_balance_options.clone(), &config).await?;
 
     assert_eq!(
@@ -85,23 +90,54 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
         Some("0".to_string())
     );
 
-    let mut methods = get_methods(&proxy_url_base, proxy_key).await?;
+    let mut calls = get_calls(&proxy_url_base, proxy_key).await?;
 
-    methods.methods.sort_by(|a, b| a.date.cmp(&b.date));
-    let first_time = methods.methods.first().unwrap().date;
-    for (no, method) in methods.methods.into_iter().enumerate() {
-        let method_p = if method.method == "eth_call" {
-            method.parsed_call.unwrap().method
+    calls.calls.sort_by(|a, b| a.date.cmp(&b.date));
+    let first_time = calls.calls.first().unwrap().date;
+    for (no, call) in calls.calls.into_iter().enumerate() {
+        let c = call.parsed_request.get(0).expect("Expected parsed request");
+        let mut result_int: Option<u64> = None;
+        let method_human = if c.method == "eth_call" {
+            c.parsed_call.clone().unwrap().method
+        } else if c.method == "eth_getTransactionCount" {
+            result_int = Some(
+                u64::from_str_radix(
+                    &serde_json::from_str::<JSONRPCResult>(&call.response.clone().unwrap())
+                        .unwrap()
+                        .result
+                        .unwrap()
+                        .replace("0x", ""),
+                    16,
+                )
+                .unwrap(),
+            );
+
+            if c.params.get(1).unwrap() == "pending" {
+                "eth_getTransactionCount (pending)".to_string()
+            } else if c.params.get(1).unwrap() == "latest" {
+                "eth_getTransactionCount (latest)".to_string()
+            } else {
+                panic!("Unexpected eth_getTransactionCount param");
+            }
         } else {
-            method.method
+            c.method.clone()
         };
-        let time_diff = (method.date - first_time).num_milliseconds();
+
+        let result = if let Some(result_int) = result_int {
+            result_int.to_string()
+        } else {
+            serde_json::from_str::<JSONRPCResult>(&call.response.unwrap())
+                .unwrap()
+                .result
+                .unwrap()
+        };
+        let time_diff = (call.date - first_time).num_milliseconds();
         log::info!(
-            "web3 call no. {} {}s {} : {}",
+            "web3 call no. {} {:.03}s : {} -> {}",
             no,
             time_diff as f64 / 1000.0,
-            method.date,
-            method_p
+            method_human,
+            result
         );
     }
     //it's good idea to close sqlite connection before exit, thus we are sure that all transactions were written to db
