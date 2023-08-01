@@ -7,6 +7,7 @@ use erc20_payment_lib::{config, err_custom_create};
 
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::transaction::create_token_transfer;
+use erc20_payment_lib::utils::{rust_dec_to_u256, u256_to_rust_dec};
 use erc20_payment_lib_extra::{account_balance, AccountBalanceOptions};
 use erc20_payment_lib_test::one_docker_per_test_helper::exclusive_geth_init;
 use rustc_hex::FromHex;
@@ -97,21 +98,11 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
     for (no, call) in calls.calls.into_iter().enumerate() {
         let c = call.parsed_request.get(0).expect("Expected parsed request");
         let mut result_int: Option<u64> = None;
+        let mut result_balance: Option<U256> = None;
+
         let method_human = if c.method == "eth_call" {
             c.parsed_call.clone().unwrap().method
         } else if c.method == "eth_getTransactionCount" {
-            result_int = Some(
-                u64::from_str_radix(
-                    &serde_json::from_str::<JSONRPCResult>(&call.response.clone().unwrap())
-                        .unwrap()
-                        .result
-                        .unwrap()
-                        .replace("0x", ""),
-                    16,
-                )
-                .unwrap(),
-            );
-
             if c.params.get(1).unwrap() == "pending" {
                 "eth_getTransactionCount (pending)".to_string()
             } else if c.params.get(1).unwrap() == "latest" {
@@ -123,13 +114,48 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
             c.method.clone()
         };
 
+        if c.method == "eth_getTransactionCount"
+            || c.method == "eth_estimateGas"
+            || c.method == "eth_blockNumber"
+        {
+            result_int = Some(
+                u64::from_str_radix(
+                    &serde_json::from_str::<JSONRPCResult>(&call.response.clone().unwrap())
+                        .unwrap()
+                        .result
+                        .unwrap()
+                        .replace("0x", ""),
+                    16,
+                )
+                .unwrap(),
+            );
+        }
+        if c.method == "eth_getBalance" {
+            result_balance = Some(
+                U256::from_str_radix(
+                    &serde_json::from_str::<JSONRPCResult>(&call.response.clone().unwrap())
+                        .unwrap()
+                        .result
+                        .unwrap()
+                        .replace("0x", ""),
+                    16,
+                )
+                .unwrap(),
+            );
+        }
+
         let result = if let Some(result_int) = result_int {
             result_int.to_string()
+        } else if let Some(result_balance) = result_balance {
+            u256_to_rust_dec(result_balance, Some(18))
+                .unwrap()
+                .to_string()
         } else {
-            serde_json::from_str::<JSONRPCResult>(&call.response.unwrap())
-                .unwrap()
-                .result
-                .unwrap()
+            if c.method == "eth_getTransactionReceipt" {
+                "details?".to_string()
+            } else {
+                serde_json::from_str::<JSONRPCResult>(&call.response.unwrap()).map(|r| r.result.unwrap()).unwrap_or("failed_to_parse".to_string())
+            }
         };
         let time_diff = (call.date - first_time).num_milliseconds();
         log::info!(
