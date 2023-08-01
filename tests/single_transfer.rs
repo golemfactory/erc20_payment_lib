@@ -12,17 +12,19 @@ use erc20_payment_lib_test::one_docker_per_test_helper::exclusive_geth_init;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
+use web3_test_proxy_client::get_methods;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_gas_transfer() -> Result<(), anyhow::Error> {
     let geth_container = exclusive_geth_init(Duration::from_secs(30)).await;
     let conn = create_sqlite_connection(None, Some("test_gas_transfer.sqlite"), true).await?;
 
+    let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
+    let proxy_key = "erc20_transfer";
+
     let mut config = config::Config::load("config-payments-local.toml").await?;
-    config.chain.get_mut("dev").unwrap().rpc_endpoints = vec![format!(
-        "http://127.0.0.1:{}/web3/erc20_transfer",
-        geth_container.web3_proxy_port
-    )];
+    config.chain.get_mut("dev").unwrap().rpc_endpoints =
+        vec![format!("{}/web3/{}", proxy_url_base, proxy_key)];
 
     let chain_cfg = config
         .chain
@@ -83,6 +85,25 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
         Some("0".to_string())
     );
 
+    let mut methods = get_methods(&proxy_url_base, proxy_key).await?;
+
+    methods.methods.sort_by(|a, b| a.date.cmp(&b.date));
+    let first_time = methods.methods.first().unwrap().date;
+    for (no, method) in methods.methods.into_iter().enumerate() {
+        let method_p = if method.method == "eth_call" {
+            method.parsed_call.unwrap().method
+        } else {
+            method.method
+        };
+        let time_diff = (method.date - first_time).num_milliseconds();
+        log::info!(
+            "web3 call no. {} {}s {} : {}",
+            no,
+            time_diff as f64 / 1000.0,
+            method.date,
+            method_p
+        );
+    }
     //it's good idea to close sqlite connection before exit, thus we are sure that all transactions were written to db
     //TODO: wrap into RAII async drop hack
     conn.close().await;

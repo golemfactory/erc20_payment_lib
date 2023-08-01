@@ -1082,6 +1082,7 @@ dependencies = [
  "toml",
  "uuid 1.4.1",
  "web3",
+ "web3_test_proxy_client",
 ]
 
 [[package]]
@@ -3434,6 +3435,18 @@ dependencies = [
  "serde_json",
  "tiny-keccak",
  "url",
+]
+
+[[package]]
+name = "web3_test_proxy_client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "awc",
+ "chrono",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

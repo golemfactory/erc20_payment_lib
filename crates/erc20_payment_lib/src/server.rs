@@ -541,7 +541,7 @@ pub async fn faucet(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Respo
 
         {
             let mut shared_state = data.shared_state.lock().await;
-            let mut faucet_data = match shared_state.faucet {
+            let faucet_data = match shared_state.faucet {
                 Some(ref mut faucet_data) => faucet_data,
                 None => {
                     shared_state.faucet = Some(FaucetData {
