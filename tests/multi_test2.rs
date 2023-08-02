@@ -1,6 +1,6 @@
 //demonstration of running multiple tests in parallel that are using one common initialization/finalization pattern
 
-use erc20_payment_lib_test::one_docker_per_test_helper::exclusive_geth_init;
+use erc20_payment_lib_test::exclusive_geth_init;
 use std::time::Duration;
 
 #[tokio::test(flavor = "multi_thread")]

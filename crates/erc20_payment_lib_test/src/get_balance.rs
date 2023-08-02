@@ -3,7 +3,7 @@ use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib_extra::{account_balance, AccountBalanceOptions, AccountBalanceResult};
 use std::collections::BTreeMap;
 
-pub async fn get_balance(
+pub async fn test_get_balance(
     proxy_url_base: &str,
     accounts: &str,
 ) -> Result<BTreeMap<String, AccountBalanceResult>, PaymentError> {

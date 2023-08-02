@@ -37,19 +37,3 @@ pub async fn create_sqlite_connection(
     Ok(pool)
 }
 
-/// Convenient function for use in testing
-pub async fn setup_random_memory_sqlite_conn() -> SqlitePool {
-    use rand::distributions::Alphanumeric;
-    use rand::Rng;
-
-    let s: String = rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(10)
-        .map(char::from)
-        .collect();
-
-    let db_name = format!("mem_{}", s);
-    create_sqlite_connection(None, Some(&db_name), true)
-        .await
-        .unwrap()
-}

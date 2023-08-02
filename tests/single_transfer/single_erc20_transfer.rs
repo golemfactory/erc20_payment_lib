@@ -1,12 +1,9 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
-use erc20_payment_lib::db::setup_random_memory_sqlite_conn;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::start_payment_engine;
 use erc20_payment_lib::transaction::create_token_transfer;
-use erc20_payment_lib_test::config_setup::create_default_config_setup;
-use erc20_payment_lib_test::get_balance::get_balance;
-use erc20_payment_lib_test::one_docker_per_test_helper::exclusive_geth_init;
+use erc20_payment_lib_test::*;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
@@ -59,7 +56,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
 
     {
         // *** RESULT CHECK ***
-        let res = get_balance(&proxy_url_base, "0x653b48E1348F480149047AA3a58536eb0dbBB2E2,0xf2f86a61b769c91fc78f15059a5bd2c189b84be2").await?;
+        let res = test_get_balance(&proxy_url_base, "0x653b48E1348F480149047AA3a58536eb0dbBB2E2,0xf2f86a61b769c91fc78f15059a5bd2c189b84be2").await?;
         assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].gas,           Some("0".to_string()));
         assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].token_decimal, Some("2.222000000000000222".to_string()));
         assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].token_human,   Some("2.22 tGLM".to_string()));

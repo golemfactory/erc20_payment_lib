@@ -1,9 +1,14 @@
 mod accounts;
 mod blockchain_setup;
-pub mod config_setup;
-pub mod get_balance;
-pub mod multi_test_one_docker_helper;
-pub mod one_docker_per_test_helper;
+mod config_setup;
+mod get_balance;
+mod multi_test_one_docker_helper;
+mod one_docker_per_test_helper;
 
 pub use accounts::{get_map_address_amounts, get_test_accounts};
 pub use blockchain_setup::{GethContainer, SetupGethOptions};
+pub use config_setup::create_default_config_setup;
+pub use get_balance::test_get_balance;
+pub use multi_test_one_docker_helper::common_geth_init;
+pub use one_docker_per_test_helper::exclusive_geth_init;
+pub use config_setup::setup_random_memory_sqlite_conn;
