@@ -1,6 +1,6 @@
-use sqlx_core::sqlite::SqlitePool;
 use erc20_payment_lib::config;
 use erc20_payment_lib::db::create_sqlite_connection;
+use sqlx_core::sqlite::SqlitePool;
 
 pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) -> config::Config {
     let mut config = config::Config::load("config-payments-local.toml")

@@ -36,4 +36,3 @@ pub async fn create_sqlite_connection(
 
     Ok(pool)
 }
-
