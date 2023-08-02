@@ -1017,6 +1017,7 @@ dependencies = [
  "chrono",
  "dotenv",
  "env_logger",
+ "erc20_payment_lib",
  "fastrand",
  "futures",
  "futures-util",
@@ -3444,9 +3445,11 @@ dependencies = [
  "anyhow",
  "awc",
  "chrono",
+ "erc20_payment_lib",
  "serde",
  "serde_json",
  "tokio",
+ "web3",
 ]
 
 [[package]]

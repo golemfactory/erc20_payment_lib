@@ -1,5 +1,5 @@
 use erc20_payment_lib::config;
-use erc20_payment_lib::db::create_sqlite_connection;
+use erc20_payment_lib::db::{create_sqlite_connection, setup_random_memory_sqlite_conn};
 
 use anyhow::bail;
 use erc20_payment_lib_extra::{account_balance, AccountBalanceOptions};
@@ -11,7 +11,7 @@ use erc20_payment_lib_test::{get_map_address_amounts, get_test_accounts};
 #[tokio::test(flavor = "multi_thread")]
 async fn test_starting_balances() -> Result<(), anyhow::Error> {
     let _geth = common_geth_init().await;
-    let conn = create_sqlite_connection(None, Some("test_starting_balances"), true).await?;
+    let conn = setup_random_memory_sqlite_conn().await;
 
     let mut config = config::Config::load("config-payments-local.toml").await?;
     config.chain.get_mut("dev").unwrap().rpc_endpoints =

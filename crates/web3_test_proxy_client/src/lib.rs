@@ -1,8 +1,11 @@
+mod list_txs;
 mod problems;
 
 use awc::Client;
 use serde::Deserialize;
 use tokio::task;
+
+pub use list_txs::list_transactions_human;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -1,5 +1,5 @@
 use erc20_payment_lib::config::AdditionalOptions;
-use erc20_payment_lib::db::create_sqlite_connection;
+use erc20_payment_lib::db::{create_sqlite_connection, setup_random_memory_sqlite_conn};
 use erc20_payment_lib::error::*;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::start_payment_engine;
@@ -35,8 +35,7 @@ pub struct EndpointSimulateProblems {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> {
     let geth_container = exclusive_geth_init(Duration::from_secs(600)).await;
-    let rand_db_name = format!("test_gas_transfer_{}.sqlite", rand::random::<u64>());
-    let conn = create_sqlite_connection(None, Some(&rand_db_name), true).await?;
+    let conn = setup_random_memory_sqlite_conn().await;
 
     let mut config = config::Config::load("config-payments-local.toml").await?;
     let proxy_key = "erc20_transfer";
