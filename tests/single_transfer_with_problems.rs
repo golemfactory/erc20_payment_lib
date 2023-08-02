@@ -1,5 +1,5 @@
 use erc20_payment_lib::config::AdditionalOptions;
-use erc20_payment_lib::db::{create_sqlite_connection, setup_random_memory_sqlite_conn};
+use erc20_payment_lib::db::setup_random_memory_sqlite_conn;
 use erc20_payment_lib::error::*;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::start_payment_engine;

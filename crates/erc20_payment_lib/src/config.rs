@@ -90,7 +90,7 @@ impl Config {
     }
 
     pub async fn change_rpc_endpoints(
-        self: &mut Self,
+        &mut self,
         chain: &str,
         rpc_endpoints: Vec<String>,
     ) -> Result<(), PaymentError> {

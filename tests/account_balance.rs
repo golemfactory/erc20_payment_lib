@@ -1,5 +1,5 @@
 use erc20_payment_lib::config;
-use erc20_payment_lib::db::{create_sqlite_connection, setup_random_memory_sqlite_conn};
+use erc20_payment_lib::db::setup_random_memory_sqlite_conn;
 
 use anyhow::bail;
 use erc20_payment_lib_extra::{account_balance, AccountBalanceOptions};

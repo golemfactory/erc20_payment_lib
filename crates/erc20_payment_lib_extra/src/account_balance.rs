@@ -52,7 +52,6 @@ pub struct AccountBalanceResult {
     pub token_human: Option<String>,
 }
 
-
 pub async fn account_balance(
     account_balance_options: AccountBalanceOptions,
     config: &config::Config,

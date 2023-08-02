@@ -1,20 +1,15 @@
-
 use erc20_payment_lib::config::AdditionalOptions;
+use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::db::setup_random_memory_sqlite_conn;
-use erc20_payment_lib::error::*;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::start_payment_engine;
-use erc20_payment_lib::{config, err_custom_create};
-
-use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::transaction::create_token_transfer;
-use erc20_payment_lib_extra::{account_balance, AccountBalanceOptions};
+use erc20_payment_lib_test::config_setup::create_default_config_setup;
+use erc20_payment_lib_test::get_balance::get_balance;
 use erc20_payment_lib_test::one_docker_per_test_helper::exclusive_geth_init;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
-use erc20_payment_lib_test::config_setup::create_default_config_setup;
-use erc20_payment_lib_test::get_balance::get_balance;
 use web3_test_proxy_client::list_transactions_human;
 
 #[tokio::test(flavor = "multi_thread")]
@@ -44,9 +39,8 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
                 Some("test_payment"),
                 Some(config.chain.get("dev").unwrap().token.clone().unwrap().address),
                 U256::from(2222000000000000222_u128),
-            ),
-        )
-            .await?;
+            )
+        ).await?;
 
         // *** TEST RUN ***
 
@@ -59,9 +53,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
                 keep_running: false,
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
-            }),
-        )
-            .await?;
+            })).await?;
         sp.runtime_handle.await?;
     }
 

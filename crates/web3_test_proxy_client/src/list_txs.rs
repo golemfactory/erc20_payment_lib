@@ -72,14 +72,12 @@ pub async fn list_transactions_human(proxy_url_base: &str, proxy_key: &str) -> V
             u256_to_rust_dec(result_balance, Some(18))
                 .unwrap()
                 .to_string()
+        } else if c.method == "eth_getTransactionReceipt" {
+            "details?".to_string()
         } else {
-            if c.method == "eth_getTransactionReceipt" {
-                "details?".to_string()
-            } else {
-                serde_json::from_str::<JSONRPCResult>(&call.response.unwrap())
-                    .map(|r| r.result.unwrap())
-                    .unwrap_or("failed_to_parse".to_string())
-            }
+            serde_json::from_str::<JSONRPCResult>(&call.response.unwrap())
+                .map(|r| r.result.unwrap())
+                .unwrap_or("failed_to_parse".to_string())
         };
         let time_diff = (call.date - first_time).num_milliseconds();
         results.push(format!(
