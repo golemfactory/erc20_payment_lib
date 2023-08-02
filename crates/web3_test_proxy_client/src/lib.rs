@@ -6,6 +6,7 @@ use serde::Deserialize;
 use tokio::task;
 
 pub use list_txs::list_transactions_human;
+pub use problems::EndpointSimulateProblems;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -40,30 +40,32 @@ pub async fn list_transactions_human(proxy_url_base: &str, proxy_key: &str) -> V
             || c.method == "eth_estimateGas"
             || c.method == "eth_blockNumber"
         {
-            result_int = Some(
-                u64::from_str_radix(
-                    &serde_json::from_str::<JSONRPCResult>(&call.response.clone().unwrap())
-                        .unwrap()
-                        .result
-                        .unwrap()
-                        .replace("0x", ""),
-                    16,
-                )
-                .unwrap(),
-            );
+            if call.status_code != 200 {
+            } else {
+                result_int = Some(
+                    u64::from_str_radix(
+                        &serde_json::from_str::<JSONRPCResult>(&call.response.clone().unwrap())
+                            .map(|f| f.result.unwrap_or("-1".to_string()).replace("0x", ""))
+                            .unwrap_or("baad".to_string()),
+                        16,
+                    )
+                    .unwrap(),
+                );
+            }
         }
         if c.method == "eth_getBalance" {
-            result_balance = Some(
-                U256::from_str_radix(
-                    &serde_json::from_str::<JSONRPCResult>(&call.response.clone().unwrap())
-                        .unwrap()
-                        .result
-                        .unwrap()
-                        .replace("0x", ""),
-                    16,
-                )
-                .unwrap(),
-            );
+            if call.status_code != 200 {
+            } else {
+                result_balance = Some(
+                    U256::from_str_radix(
+                        &serde_json::from_str::<JSONRPCResult>(&call.response.clone().unwrap())
+                            .map(|f| f.result.unwrap_or("-1".to_string()).replace("0x", ""))
+                            .unwrap_or("baad".to_string()),
+                        16,
+                    )
+                    .unwrap(),
+                );
+            }
         }
 
         let result = if let Some(result_int) = result_int {
@@ -74,6 +76,8 @@ pub async fn list_transactions_human(proxy_url_base: &str, proxy_key: &str) -> V
                 .to_string()
         } else if c.method == "eth_getTransactionReceipt" {
             "details?".to_string()
+        } else if call.status_code != 200 {
+            format!("failed: {}", call.status_code)
         } else {
             serde_json::from_str::<JSONRPCResult>(&call.response.unwrap())
                 .map(|r| r.result.unwrap())
