@@ -1018,6 +1018,7 @@ dependencies = [
  "dotenv",
  "env_logger",
  "erc20_payment_lib",
+ "erc20_payment_lib_extra",
  "fastrand",
  "futures",
  "futures-util",
