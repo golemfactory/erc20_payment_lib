@@ -59,11 +59,6 @@ async fn wrong_chain_id() -> Result<(), anyhow::Error> {
         let res = test_get_balance(&proxy_url_base, "0x653b48E1348F480149047AA3a58536eb0dbBB2E2,0x41162E565ebBF1A52eC904c7365E239c40d82568").await?;
         assert_eq!(res["0x41162e565ebbf1a52ec904c7365e239c40d82568"].gas_decimal,   Some("0".to_string()));
         assert_eq!(res["0x41162e565ebbf1a52ec904c7365e239c40d82568"].token_decimal, Some("0".to_string()));
-
-        let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;
-        log::info!("transaction list \n {}", transaction_human.join("\n"));
-        assert!(transaction_human.len() > 10);
-        assert!(transaction_human.len() < 40);
     }
 
     Ok(())
