@@ -338,7 +338,10 @@ pub async fn check_transaction(
         Ok(())
     } else {
         log::debug!("Check transaction with gas estimation: {:?}", call_request);
-        let gas_est = match web3.eth().estimate_gas(call_request.clone(), None).await {
+        let mut loc_call_request = call_request.clone();
+        loc_call_request.max_fee_per_gas = None;
+        loc_call_request.max_priority_fee_per_gas = None;
+        let gas_est = match web3.eth().estimate_gas(loc_call_request, None).await {
             Ok(gas_est) => gas_est,
             Err(e) => {
                 if e.to_string().contains("gas required exceeds allowance") {

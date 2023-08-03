@@ -45,7 +45,7 @@ pub async fn list_transactions_human(proxy_url_base: &str, proxy_key: &str) -> V
                 result_int = Some(
                     u64::from_str_radix(
                         &serde_json::from_str::<JSONRPCResult>(&call.response.clone().unwrap())
-                            .map(|f| f.result.unwrap_or("-1".to_string()).replace("0x", ""))
+                            .map(|f| f.result.unwrap_or("baad".to_string()).replace("0x", ""))
                             .unwrap_or("baad".to_string()),
                         16,
                     )
@@ -80,7 +80,7 @@ pub async fn list_transactions_human(proxy_url_base: &str, proxy_key: &str) -> V
             format!("failed: {}", call.status_code)
         } else {
             serde_json::from_str::<JSONRPCResult>(&call.response.unwrap())
-                .map(|r| r.result.unwrap())
+                .map(|r| r.result.unwrap_or("failed_to_parse".to_string()))
                 .unwrap_or("failed_to_parse".to_string())
         };
         let time_diff = (call.date - first_time).num_milliseconds();
