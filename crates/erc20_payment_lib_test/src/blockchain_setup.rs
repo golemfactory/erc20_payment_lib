@@ -2,7 +2,6 @@ use anyhow::anyhow;
 use bollard::container::StopContainerOptions;
 use bollard::models::{PortBinding, PortMap};
 use bollard::{container, image, service::HostConfig, Docker};
-use fastrand::bool;
 use futures_util::TryStreamExt;
 use std::collections::HashMap;
 use std::env;
