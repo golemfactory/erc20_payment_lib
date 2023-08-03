@@ -2,8 +2,11 @@ use anyhow::anyhow;
 use bollard::container::StopContainerOptions;
 use bollard::models::{PortBinding, PortMap};
 use bollard::{container, image, service::HostConfig, Docker};
+use fastrand::bool;
 use futures_util::TryStreamExt;
 use std::collections::HashMap;
+use std::env;
+use std::str::FromStr;
 use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
 
@@ -199,6 +202,11 @@ impl Drop for GethContainer {
         let docker = self.docker.clone();
         let container_id = self.container_id.clone();
 
+        if env::var("KEEP_DOCKER_CONTAINERS").is_ok_and(|f| f == "1" || f.to_lowercase() == "true")
+        {
+            return;
+        }
+
         // This is async drop - probably good but not sure, need further investigation
         // it work only if multithreaded runtime is used
         if !self.container_stopped {
@@ -293,8 +301,16 @@ impl GethContainer {
 
         log::debug!("Image id extracted {}", image_id);
 
+        let max_docker_lifetime = if env::var("KEEP_DOCKER_CONTAINERS")
+            .is_ok_and(|f| bool::from_str(&f).unwrap_or_default())
+        {
+            30 * 24 * 3600
+        } else {
+            opt.max_docker_lifetime.as_secs()
+        };
+
         let env_opt = vec![
-            format!("GETH_MAX_LIFESPAN={}", opt.max_docker_lifetime.as_secs()),
+            format!("GETH_MAX_LIFESPAN={}", max_docker_lifetime),
             "CHAIN_ID=987789".to_string(),
             "CHAIN_NAME=GolemTestChain".to_string(),
             "CHAIN_TYPE=local".to_string(),
