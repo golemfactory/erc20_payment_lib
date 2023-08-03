@@ -3,6 +3,7 @@ members = [
     "crates/erc20_payment_lib",
     "crates/erc20_payment_lib_extra",
     "crates/erc20_payment_lib_test",
+    "crates/web3_test_proxy_client",
 ]
 
 [[bin]]
@@ -110,6 +111,7 @@ erc20_payment_lib_extra = { path = "crates/erc20_payment_lib_extra" }
 [dev-dependencies]
 bollard = { workspace = true}
 erc20_payment_lib_test = { path = "crates/erc20_payment_lib_test" }
+web3_test_proxy_client = { path = "crates/web3_test_proxy_client" }
 awc = { workspace = true }
 test-case = "3.1.0"
 

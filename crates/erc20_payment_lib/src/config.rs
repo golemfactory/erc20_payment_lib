@@ -88,4 +88,16 @@ impl Config {
             Err(e) => Err(err_custom_create!("Failed to parse toml {}: {}", path, e)),
         }
     }
+
+    pub async fn change_rpc_endpoints(
+        &mut self,
+        chain: &str,
+        rpc_endpoints: Vec<String>,
+    ) -> Result<(), PaymentError> {
+        self.chain
+            .get_mut(chain)
+            .ok_or(err_custom_create!("Chain {} not found", chain))?
+            .rpc_endpoints = rpc_endpoints;
+        Ok(())
+    }
 }

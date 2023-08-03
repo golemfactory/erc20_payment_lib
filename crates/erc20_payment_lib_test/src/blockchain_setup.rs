@@ -4,6 +4,8 @@ use bollard::models::{PortBinding, PortMap};
 use bollard::{container, image, service::HostConfig, Docker};
 use futures_util::TryStreamExt;
 use std::collections::HashMap;
+use std::env;
+use std::str::FromStr;
 use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
 
@@ -199,6 +201,11 @@ impl Drop for GethContainer {
         let docker = self.docker.clone();
         let container_id = self.container_id.clone();
 
+        if env::var("KEEP_DOCKER_CONTAINERS").is_ok_and(|f| f == "1" || f.to_lowercase() == "true")
+        {
+            return;
+        }
+
         // This is async drop - probably good but not sure, need further investigation
         // it work only if multithreaded runtime is used
         if !self.container_stopped {
@@ -293,8 +300,16 @@ impl GethContainer {
 
         log::debug!("Image id extracted {}", image_id);
 
+        let max_docker_lifetime = if env::var("KEEP_DOCKER_CONTAINERS")
+            .is_ok_and(|f| bool::from_str(&f).unwrap_or_default())
+        {
+            30 * 24 * 3600
+        } else {
+            opt.max_docker_lifetime.as_secs()
+        };
+
         let env_opt = vec![
-            format!("GETH_MAX_LIFESPAN={}", opt.max_docker_lifetime.as_secs()),
+            format!("GETH_MAX_LIFESPAN={}", max_docker_lifetime),
             "CHAIN_ID=987789".to_string(),
             "CHAIN_NAME=GolemTestChain".to_string(),
             "CHAIN_TYPE=local".to_string(),
@@ -311,7 +326,9 @@ impl GethContainer {
             "MAIN_ACCOUNT_PUBLIC_ADDRESS=0x4D6947E072C1Ac37B64600B885772Bd3f27D3E91".to_string(),
             "FAUCET_ACCOUNT_PRIVATE_KEY=078d8f6c16446cdb8efbee80535ce8cb32d5b69563bca33e5e6bc0f13f0666b3".to_string()];
 
-        let (web3_proxy_port, geth_rpc_port) = if let (Some(web3_proxy_port), Some(geth_rpc_port)) = (opt.web3_proxy_port, opt.web3_port) {
+        let (web3_proxy_port, geth_rpc_port) = if let (Some(web3_proxy_port), Some(geth_rpc_port)) =
+            (opt.web3_proxy_port, opt.web3_port)
+        {
             (web3_proxy_port, geth_rpc_port)
         } else {
             get_available_port_pair().await?

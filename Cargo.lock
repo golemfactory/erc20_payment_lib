@@ -966,7 +966,7 @@ dependencies = [
  "sqlx-core",
  "structopt",
  "tokio",
- "toml 0.5.11",
+ "toml",
  "uuid 1.4.1",
  "web3",
 ]
@@ -1000,7 +1000,7 @@ dependencies = [
  "stream-rate-limiter",
  "structopt",
  "tokio",
- "toml 0.5.11",
+ "toml",
  "uuid 1.4.1",
  "web3",
 ]
@@ -1017,6 +1017,8 @@ dependencies = [
  "chrono",
  "dotenv",
  "env_logger",
+ "erc20_payment_lib",
+ "erc20_payment_lib_extra",
  "fastrand",
  "futures",
  "futures-util",
@@ -1035,7 +1037,7 @@ dependencies = [
  "sqlx-core",
  "structopt",
  "tokio",
- "toml 0.5.11",
+ "toml",
  "uuid 1.4.1",
  "web3",
 ]
@@ -1079,10 +1081,10 @@ dependencies = [
  "test-case",
  "thiserror",
  "tokio",
- "toml 0.5.11",
+ "toml",
  "uuid 1.4.1",
  "web3",
- "web3_test_proxy",
+ "web3_test_proxy_client",
 ]
 
 [[package]]
@@ -2113,7 +2115,7 @@ version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d6ea3c4595b96363c13943497db34af4460fb474a95c43f4446ad341b8c9785"
 dependencies = [
- "toml 0.5.11",
+ "toml",
 ]
 
 [[package]]
@@ -2379,40 +2381,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rust-embed"
-version = "6.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a36224c3276f8c4ebc8c20f158eca7ca4359c8db89991c4925132aaaf6702661"
-dependencies = [
- "rust-embed-impl",
- "rust-embed-utils",
- "walkdir",
-]
-
-[[package]]
-name = "rust-embed-impl"
-version = "6.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49b94b81e5b2c284684141a2fb9e2a31be90638caf040bf9afbc5a0416afe1ac"
-dependencies = [
- "proc-macro2",
- "quote",
- "rust-embed-utils",
- "syn 2.0.28",
- "walkdir",
-]
-
-[[package]]
-name = "rust-embed-utils"
-version = "7.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d38ff6bf570dc3bb7100fce9f7b60c33fa71d80e88da3f2580df4ff2bdded74"
-dependencies = [
- "sha2 0.10.7",
- "walkdir",
-]
-
-[[package]]
 name = "rust_decimal"
 version = "1.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2523,15 +2491,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "same-file"
-version = "1.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
-dependencies = [
- "winapi-util",
-]
-
-[[package]]
 name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2639,15 +2598,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.28",
-]
-
-[[package]]
-name = "serde_spanned"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96426c9936fd7a0124915f9185ea1d20aa9445cc9821142f0a73bc9207a2e186"
-dependencies = [
- "serde",
 ]
 
 [[package]]
@@ -3191,25 +3141,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "toml"
-version = "0.7.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c17e963a819c331dcacd7ab957d80bc2b9a9c1e71c804826d2f283dd65306542"
-dependencies = [
- "serde",
- "serde_spanned",
- "toml_datetime",
- "toml_edit",
-]
-
-[[package]]
 name = "toml_datetime"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7cda73e2f1397b1262d6dfdcef8aafae14d1de7748d66822d3bfeeb6d03e5e4b"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "toml_edit"
@@ -3218,8 +3153,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8123f27e969974a3dfba720fdb560be359f57b44302d280ba72e76a74480e8a"
 dependencies = [
  "indexmap 2.0.0",
- "serde",
- "serde_spanned",
  "toml_datetime",
  "winnow",
 ]
@@ -3379,16 +3312,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
-name = "walkdir"
-version = "2.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "36df944cda56c7d8d8b7496af378e6b16de9284591917d307c9b4d313c44e698"
-dependencies = [
- "same-file",
- "winapi-util",
-]
-
-[[package]]
 name = "want"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3517,32 +3440,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "web3_test_proxy"
-version = "0.2.1"
+name = "web3_test_proxy_client"
+version = "0.1.0"
 dependencies = [
- "actix-cors",
- "actix-files",
- "actix-web",
+ "anyhow",
  "awc",
- "base64 0.21.2",
  "chrono",
- "dotenv",
- "env_logger",
- "hex",
- "lazy_static",
- "log",
- "mime_guess",
- "rand",
- "rust-embed",
- "rust_decimal",
- "rustc-hex",
+ "erc20_payment_lib",
  "serde",
  "serde_json",
- "sha3 0.10.8",
- "structopt",
  "tokio",
- "toml 0.7.6",
- "uuid 1.4.1",
+ "web3",
 ]
 
 [[package]]
