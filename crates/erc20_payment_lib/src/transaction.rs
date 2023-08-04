@@ -3,6 +3,7 @@ use crate::db::model::*;
 use crate::error::*;
 use crate::eth::get_eth_addr_from_secret;
 use crate::multi::pack_transfers_for_multi_contract;
+use crate::runtime::{send_driver_event, DriverEvent, DriverEventContent, TransactionStuckReason};
 use crate::signer::Signer;
 use crate::utils::ConversionError;
 use crate::{err_custom_create, err_from};
@@ -16,7 +17,6 @@ use web3::types::{
     H256, U256, U64,
 };
 use web3::Web3;
-use crate::runtime::{DriverEvent, DriverEventContent, send_driver_event, TransactionStuckReason};
 
 fn decode_data_to_bytes(web3_tx_dao: &TxDao) -> Result<Option<Bytes>, PaymentError> {
     Ok(if let Some(data) = &web3_tx_dao.call_data {
@@ -442,7 +442,11 @@ pub async fn send_transaction(
                 web3::Error::Rpc(e) => {
                     log::error!("Error sending transaction: {:#?}", e);
                     if e.message.contains("insufficient funds") {
-                        send_driver_event(&event_sender, DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas)).await;
+                        send_driver_event(
+                            &event_sender,
+                            DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas),
+                        )
+                        .await;
                     }
                 }
                 _ => {

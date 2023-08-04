@@ -13,7 +13,9 @@ use web3::Web3;
 
 use crate::db::model::TxDao;
 use crate::eth::get_transaction_count;
-use crate::runtime::{DriverEvent, DriverEventContent, send_driver_event, SharedState, TransactionStuckReason};
+use crate::runtime::{
+    send_driver_event, DriverEvent, DriverEventContent, SharedState, TransactionStuckReason,
+};
 use crate::setup::PaymentSetup;
 use crate::signer::Signer;
 use crate::transaction::check_transaction;
@@ -139,7 +141,11 @@ pub async fn process_transaction(
             log::warn!("Time changed?? time diff lower than 0");
         }
         if diff.num_seconds() > chain_setup.transaction_timeout as i64 {
-            send_driver_event(&event_sender, DriverEventContent::TransactionStuck(TransactionStuckReason::GasPriceLow) ).await;
+            send_driver_event(
+                &event_sender,
+                DriverEventContent::TransactionStuck(TransactionStuckReason::GasPriceLow),
+            )
+            .await;
             log::warn!("Transaction timeout for tx id: {}", web3_tx_dao.id);
             //return Ok(ProcessTransactionResult::NeedRetry("Timeout".to_string()));
         }

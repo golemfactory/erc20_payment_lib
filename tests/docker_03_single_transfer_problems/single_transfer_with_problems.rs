@@ -2,7 +2,7 @@ use awc::Client;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::DriverEventContent::TransferFinished;
+use erc20_payment_lib::runtime::DriverEventContent::{TransactionStuck, TransferFinished};
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::u256_to_rust_dec;
@@ -39,6 +39,10 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
                 TransferFinished(transfer_dao) => {
                     transfer_finished_message_count += 1;
                     fee_paid += U256::from_dec_str(&transfer_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
+                }
+                TransactionStuck(reason) => {
+                    //todo - dont ignore it check if proper status
+                    log::info!("Transaction stuck: {:?}", reason);
                 }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
