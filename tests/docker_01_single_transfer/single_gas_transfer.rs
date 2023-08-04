@@ -20,6 +20,7 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
     let proxy_key = "erc20_transfer";
 
+    let (sender, receiver) = tokio::sync::mpsc::channel(1);
     {
         let config = create_default_config_setup(&proxy_url_base, proxy_key).await;
 
@@ -50,7 +51,9 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
                 keep_running: false,
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
-            })).await?;
+            }),
+            Some(sender)
+            ).await?;
         sp.runtime_handle.await?;
     }
 

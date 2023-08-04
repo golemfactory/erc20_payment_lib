@@ -70,6 +70,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 config,
                 Some(conn.clone()),
                 Some(add_opt),
+                None
             )
             .await?;
 

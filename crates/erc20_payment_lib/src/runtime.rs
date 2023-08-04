@@ -1,5 +1,5 @@
 use crate::db::create_sqlite_connection;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap};
 
 use crate::error::PaymentError;
 
@@ -17,6 +17,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use web3::types::{Address, U256};
+use crate::db::model::{AllowanceDao, TokenTransferDao};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedInfoTx {
@@ -32,8 +33,19 @@ pub struct FaucetData {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub enum DriverEventContent {
+    TransferFinished(TokenTransferDao),
+    ApproveFinished(AllowanceDao)
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DriverEvent {
+    pub create_date: DateTime<Utc>,
+    pub content: DriverEventContent,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct SharedState {
-    /// Additional engine info about processed transactions
     pub current_tx_info: BTreeMap<i64, SharedInfoTx>,
     pub faucet: Option<FaucetData>,
     pub inserted: usize,
@@ -55,6 +67,7 @@ impl SharedState {
             );
         }
     }
+
     pub fn set_tx_error(&mut self, id: i64, error: Option<String>) {
         if let Some(info) = self.current_tx_info.get_mut(&id) {
             info.error = error;
@@ -130,6 +143,7 @@ pub struct PaymentRuntime {
     pub conn: SqlitePool,
 }
 
+
 /*
 async fn process_cli(
     conn: &SqlitePool,
@@ -157,12 +171,25 @@ async fn process_cli(
 }
 */
 
+pub async fn send_driver_event(event_sender: &Option<tokio::sync::mpsc::Sender<DriverEvent>>, event: DriverEventContent) {
+    if let Some(event_sender) = event_sender {
+        let event = DriverEvent {
+            create_date: Utc::now(),
+            content: event,
+        };
+        if let Err(e) = event_sender.send(event).await {
+            log::error!("Error sending event: {}", e);
+        }
+    }
+}
+
 pub async fn start_payment_engine(
     secret_keys: &[SecretKey],
     db_filename: &str,
     config: config::Config,
     conn: Option<SqlitePool>,
     options: Option<AdditionalOptions>,
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
 ) -> Result<PaymentRuntime, PaymentError> {
     let options = options.unwrap_or_default();
     let payment_setup = PaymentSetup::new(
@@ -196,12 +223,12 @@ pub async fn start_payment_engine(
     }));
     let shared_state_clone = shared_state.clone();
     let conn_ = conn.clone();
-    let jh = tokio::spawn(async move { service_loop(shared_state_clone, &conn_, &ps).await });
+    let jh = tokio::spawn(async move { service_loop( shared_state_clone, &conn_, &ps, event_sender).await });
 
     Ok(PaymentRuntime {
         runtime_handle: jh,
         setup: payment_setup,
         shared_state,
-        conn,
+        conn
     })
 }
