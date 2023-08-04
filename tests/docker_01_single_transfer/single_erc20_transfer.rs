@@ -23,14 +23,13 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
     let proxy_key = "erc20_transfer";
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
-    let mut receiver_loop = tokio::spawn(async move {
+    let receiver_loop = tokio::spawn(async move {
         let mut transfer_finished_message_count = 0;
         let mut approve_contract_message_count = 0;
         let mut fee_paid = U256::from(0_u128);
         while let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
 
-            #[allow(clippy::unreachable_patterns)]
             match msg.content {
                 TransferFinished(transfer_dao) => {
                     transfer_finished_message_count += 1;

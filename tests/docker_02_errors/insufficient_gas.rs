@@ -1,17 +1,18 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::start_payment_engine;
+use erc20_payment_lib::runtime::{DriverEvent, start_payment_engine};
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
+use erc20_payment_lib::runtime::DriverEventContent::{ApproveFinished, TransferFinished};
 use web3_test_proxy_client::list_transactions_human;
 
 #[tokio::test(flavor = "multi_thread")]
 #[rustfmt::skip]
-async fn test_gas_transfer() -> Result<(), anyhow::Error> {
+async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
 
     let geth_container = exclusive_geth_init(Duration::from_secs(300)).await;
@@ -20,6 +21,34 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
     let proxy_key = "erc20_transfer";
 
+    let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
+    let receiver_loop = tokio::spawn(async move {
+        let mut transfer_finished_message_count = 0;
+        let mut approve_contract_message_count = 0;
+        let mut fee_paid = U256::from(0_u128);
+        while let Some(msg) = receiver.recv().await {
+            log::info!("Received message: {:?}", msg);
+
+            match msg.content {
+                TransferFinished(transfer_dao) => {
+                    transfer_finished_message_count += 1;
+                    fee_paid += U256::from_dec_str(&transfer_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
+                }
+                ApproveFinished(allowance_dao) => {
+                    approve_contract_message_count += 1;
+                    fee_paid += U256::from_dec_str(&allowance_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
+                }
+                _ => {
+                    //maybe remove this if caused too much hassle to maintain
+                    panic!("Unexpected message: {:?}", msg);
+                }
+            }
+        }
+
+        assert_eq!(transfer_finished_message_count, 0);
+        assert_eq!(approve_contract_message_count, 0);
+        fee_paid
+    });
     {
         let mut config = create_default_config_setup(&proxy_url_base, proxy_key).await;
         config.chain.get_mut("dev").unwrap().priority_fee = 1.0;
@@ -52,7 +81,10 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
                 keep_running: false,
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
-            })).await?;
+            }),
+            Some(sender)
+        ).await?;
+	    
         tokio::time::sleep(Duration::from_secs(5)).await;
         if sp.runtime_handle.is_finished() {
             panic!("runtime finished too early");
