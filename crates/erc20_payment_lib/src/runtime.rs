@@ -1,5 +1,5 @@
 use crate::db::create_sqlite_connection;
-use std::collections::{BTreeMap};
+use std::collections::BTreeMap;
 
 use crate::error::PaymentError;
 
@@ -10,6 +10,7 @@ use secp256k1::SecretKey;
 use sqlx::SqlitePool;
 
 use crate::config::AdditionalOptions;
+use crate::db::model::{AllowanceDao, TokenTransferDao};
 use crate::sender::service_loop;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -17,7 +18,6 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use web3::types::{Address, U256};
-use crate::db::model::{AllowanceDao, TokenTransferDao};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedInfoTx {
@@ -35,7 +35,7 @@ pub struct FaucetData {
 #[derive(Debug, Clone, Serialize)]
 pub enum DriverEventContent {
     TransferFinished(TokenTransferDao),
-    ApproveFinished(AllowanceDao)
+    ApproveFinished(AllowanceDao),
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -143,7 +143,6 @@ pub struct PaymentRuntime {
     pub conn: SqlitePool,
 }
 
-
 /*
 async fn process_cli(
     conn: &SqlitePool,
@@ -171,7 +170,10 @@ async fn process_cli(
 }
 */
 
-pub async fn send_driver_event(event_sender: &Option<tokio::sync::mpsc::Sender<DriverEvent>>, event: DriverEventContent) {
+pub async fn send_driver_event(
+    event_sender: &Option<tokio::sync::mpsc::Sender<DriverEvent>>,
+    event: DriverEventContent,
+) {
     if let Some(event_sender) = event_sender {
         let event = DriverEvent {
             create_date: Utc::now(),
@@ -223,12 +225,15 @@ pub async fn start_payment_engine(
     }));
     let shared_state_clone = shared_state.clone();
     let conn_ = conn.clone();
-    let jh = tokio::spawn(async move { service_loop( shared_state_clone, &conn_, &ps, event_sender).await });
+    let jh =
+        tokio::spawn(
+            async move { service_loop(shared_state_clone, &conn_, &ps, event_sender).await },
+        );
 
     Ok(PaymentRuntime {
         runtime_handle: jh,
         setup: payment_setup,
         shared_state,
-        conn
+        conn,
     })
 }

@@ -1,14 +1,14 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::{DriverEvent, start_payment_engine};
+use erc20_payment_lib::runtime::DriverEventContent::TransferFinished;
+use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
 use erc20_payment_lib::transaction::create_token_transfer;
-use erc20_payment_lib::runtime::DriverEventContent::{TransferFinished};
+use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
-use erc20_payment_lib::utils::u256_to_rust_dec;
 use web3_test_proxy_client::list_transactions_human;
 
 #[tokio::test(flavor = "multi_thread")]

@@ -11,7 +11,7 @@ use crate::utils::ConversionError;
 use crate::err_from;
 use crate::setup::PaymentSetup;
 
-use crate::runtime::{DriverEvent, DriverEventContent, send_driver_event, SharedState};
+use crate::runtime::{send_driver_event, DriverEvent, DriverEventContent, SharedState};
 use crate::sender::batching::{gather_transactions_post, gather_transactions_pre};
 use crate::sender::process_allowance;
 use crate::signer::{PrivateKeySigner, Signer};
@@ -53,7 +53,11 @@ pub async fn update_token_transfer_result(
             db_transaction.commit().await.map_err(err_from!())?;
             //if transaction is committed emit events:
             for token_transfer in token_transfers {
-                send_driver_event(&event_sender, DriverEventContent::TransferFinished(token_transfer)).await;
+                send_driver_event(
+                    &event_sender,
+                    DriverEventContent::TransferFinished(token_transfer),
+                )
+                .await;
             }
         }
         ProcessTransactionResult::NeedRetry(err) => {
@@ -129,7 +133,11 @@ pub async fn update_approve_result(
                 .map_err(err_from!())?;
             db_transaction.commit().await.map_err(err_from!())?;
             //if transaction is committed emit events:
-            send_driver_event(&event_sender, DriverEventContent::ApproveFinished(allowance)).await;
+            send_driver_event(
+                &event_sender,
+                DriverEventContent::ApproveFinished(allowance),
+            )
+            .await;
         }
         ProcessTransactionResult::NeedRetry(err) => {
             tx.processing = 0;
@@ -257,7 +265,8 @@ pub async fn process_transactions(
                 || tx.method == "transfer"
             {
                 log::debug!("Updating token transfer result");
-                update_token_transfer_result(event_sender.clone(), conn, tx, &process_t_res).await?;
+                update_token_transfer_result(event_sender.clone(), conn, tx, &process_t_res)
+                    .await?;
             } else if tx.method == "ERC20.approve" {
                 log::debug!("Updating token approve result");
                 update_approve_result(event_sender.clone(), conn, tx, &process_t_res).await?;
@@ -284,7 +293,7 @@ pub async fn service_loop(
     shared_state: Arc<Mutex<SharedState>>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
-    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
 ) {
     let process_transactions_interval = payment_setup.process_sleep as i64;
     let gather_transactions_interval = payment_setup.process_sleep as i64;
@@ -314,7 +323,14 @@ pub async fn service_loop(
                 log::warn!("Skipping processing transactions...");
                 process_tx_needed = false;
             } else {
-                match process_transactions(event_sender.clone(), shared_state.clone(), conn, payment_setup, &signer).await
+                match process_transactions(
+                    event_sender.clone(),
+                    shared_state.clone(),
+                    conn,
+                    payment_setup,
+                    &signer,
+                )
+                .await
                 {
                     Ok(_) => {
                         //all pending transactions processed
