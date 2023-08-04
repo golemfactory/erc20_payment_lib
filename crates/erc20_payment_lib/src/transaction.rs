@@ -16,6 +16,7 @@ use web3::types::{
     H256, U256, U64,
 };
 use web3::Web3;
+use crate::runtime::{DriverEvent, DriverEventContent, send_driver_event, TransactionStuckReason};
 
 fn decode_data_to_bytes(web3_tx_dao: &TxDao) -> Result<Option<Bytes>, PaymentError> {
     Ok(if let Some(data) = &web3_tx_dao.call_data {
@@ -421,6 +422,7 @@ pub async fn sign_transaction_with_callback(
 }
 
 pub async fn send_transaction(
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     web3: &Web3<Http>,
     web3_tx_dao: &mut TxDao,
 ) -> Result<(), PaymentError> {
@@ -433,7 +435,20 @@ pub async fn send_transaction(
         let result = web3.eth().send_raw_transaction(bytes).await;
         web3_tx_dao.broadcast_date = Some(chrono::Utc::now());
         if let Err(e) = result {
-            log::error!("Error sending transaction: {:#?}", e);
+            //if e.message.contains("insufficient funds") {
+            //    send_driver_event(&event_sender, DriverEvent::InsufficientFunds).await;
+            //
+            match e {
+                web3::Error::Rpc(e) => {
+                    log::error!("Error sending transaction: {:#?}", e);
+                    if e.message.contains("insufficient funds") {
+                        send_driver_event(&event_sender, DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas)).await;
+                    }
+                }
+                _ => {
+                    log::error!("Error sending transaction: {:#?}", e);
+                }
+            }
         }
     } else {
         return Err(err_custom_create!("No signed raw data"));

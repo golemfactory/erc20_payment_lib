@@ -1,8 +1,8 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::DriverEventContent::{ApproveFinished, TransferFinished};
-use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
+use erc20_payment_lib::runtime::DriverEventContent::{TransactionStuck, TransferFinished};
+use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent, TransactionStuckReason};
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
@@ -24,7 +24,7 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
     let receiver_loop = tokio::spawn(async move {
         let mut transfer_finished_message_count = 0;
-        let mut approve_contract_message_count = 0;
+        let mut transaction_stuck_count = 0;
         let mut fee_paid = U256::from(0_u128);
         while let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
@@ -34,9 +34,9 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
                     transfer_finished_message_count += 1;
                     fee_paid += U256::from_dec_str(&transfer_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
                 }
-                ApproveFinished(allowance_dao) => {
-                    approve_contract_message_count += 1;
-                    fee_paid += U256::from_dec_str(&allowance_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
+                TransactionStuck(reason) => {
+                    assert_eq!(reason, TransactionStuckReason::GasPriceLow);
+                    transaction_stuck_count += 1;
                 }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
@@ -45,8 +45,8 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
             }
         }
 
+        assert!(transaction_stuck_count > 0);
         assert_eq!(transfer_finished_message_count, 1);
-        assert_eq!(approve_contract_message_count, 1);
         fee_paid
     });
     {

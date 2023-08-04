@@ -35,6 +35,7 @@ pub struct FaucetData {
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub enum TransactionStuckReason {
     NoGas,
+    GasPriceLow,
 }
 
 #[derive(Debug, Clone, Serialize)]

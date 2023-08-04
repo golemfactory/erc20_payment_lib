@@ -232,6 +232,7 @@ pub async fn process_transactions(
                     .await
                     .set_tx_message(tx.id, "Processing".to_string());
                 match process_transaction(
+                    event_sender.clone(),
                     shared_state.clone(),
                     conn,
                     tx,
