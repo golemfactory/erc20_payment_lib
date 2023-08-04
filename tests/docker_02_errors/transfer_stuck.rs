@@ -89,6 +89,8 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
 
     {
         // *** RESULT CHECK ***
+        let _ = receiver_loop.await.unwrap();
+
         let res = test_get_balance(&proxy_url_base, "0x653b48E1348F480149047AA3a58536eb0dbBB2E2,0x41162E565ebBF1A52eC904c7365E239c40d82568").await?;
         assert_eq!(res["0x41162e565ebbf1a52ec904c7365e239c40d82568"].gas_decimal,   Some("0".to_string()));
         assert_eq!(res["0x41162e565ebbf1a52ec904c7365e239c40d82568"].token_decimal, Some("0".to_string()));

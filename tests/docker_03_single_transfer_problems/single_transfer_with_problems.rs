@@ -35,7 +35,6 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
         while let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
 
-            #[allow(clippy::unreachable_patterns)]
             match msg.content {
                 TransferFinished(transfer_dao) => {
                     transfer_finished_message_count += 1;

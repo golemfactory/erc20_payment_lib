@@ -32,10 +32,16 @@ pub struct FaucetData {
     pub last_cleanup: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub enum TransactionStuckReason {
+    NoGas,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub enum DriverEventContent {
     TransferFinished(TokenTransferDao),
     ApproveFinished(AllowanceDao),
+    TransactionStuck(TransactionStuckReason),
 }
 
 #[derive(Debug, Clone, Serialize)]
