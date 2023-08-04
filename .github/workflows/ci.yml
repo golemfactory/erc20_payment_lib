@@ -4,6 +4,8 @@ on: push
 
 jobs:
   fmt_and_clippy:
+    timeout-minutes: 5
+
     runs-on: ubuntu-latest
 
     steps:
@@ -16,6 +18,8 @@ jobs:
       - name: Clippy
         run: cargo clippy -- -D warnings
   payment_tests:
+    timeout-minutes: 20
+
     runs-on: ubuntu-latest
 
     steps:
