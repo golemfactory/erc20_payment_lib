@@ -33,7 +33,7 @@ pub async fn update_token_transfer_result(
                 .await
                 .map_err(err_from!())?;
             let token_transfers_count = U256::from(token_transfers.len() as u64);
-            for mut token_transfer in token_transfers.iter_mut() {
+            for token_transfer in token_transfers.iter_mut() {
                 if let Some(fee_paid) = tx.fee_paid.clone() {
                     let val = U256::from_dec_str(&fee_paid)
                         .map_err(|_err| ConversionError::from("failed to parse fee paid".into()))
