@@ -17,6 +17,10 @@ jobs:
 
       - name: Clippy
         run: cargo clippy -- -D warnings
+
+      - name: Clippy all
+        run: cargo clippy --all-targets --all-features --all -- -D warnings
+
   payment_tests:
     timeout-minutes: 20
 
