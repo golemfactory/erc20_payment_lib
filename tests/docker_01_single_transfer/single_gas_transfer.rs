@@ -35,7 +35,8 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
                     transfer_finished_message_count += 1;
                     fee_paid += U256::from_dec_str(&transfer_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
                 },
-                TransactionConfirmed(_tx_dao) => {
+                TransactionConfirmed(tx_dao) => {
+                    assert_eq!(tx_dao.gas_limit, Some(21000));
                     tx_confirmed_message_count += 1;
                 },
                 _ => {

@@ -98,8 +98,8 @@ pub async fn process_transaction(
         nonce
     };
 
-    //this block is optional, just to warn user about low gas
-    let perform_balance_check = true;
+    //this block is garbage, move it somewhere else and change logic of low gas warnings
+    let perform_balance_check = false;
     if perform_balance_check {
         shared_state
             .lock()

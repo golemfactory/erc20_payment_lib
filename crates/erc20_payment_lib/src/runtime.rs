@@ -39,6 +39,7 @@ pub enum TransactionStuckReason {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[allow(clippy::large_enum_variant)]
 pub enum DriverEventContent {
     TransactionConfirmed(TxDao),
     TransferFinished(TokenTransferDao),
