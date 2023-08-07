@@ -10,7 +10,7 @@ use secp256k1::SecretKey;
 use sqlx::SqlitePool;
 
 use crate::config::AdditionalOptions;
-use crate::db::model::{AllowanceDao, TokenTransferDao};
+use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
 use crate::sender::service_loop;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -40,6 +40,7 @@ pub enum TransactionStuckReason {
 
 #[derive(Debug, Clone, Serialize)]
 pub enum DriverEventContent {
+    TransactionConfirmed(TxDao),
     TransferFinished(TokenTransferDao),
     ApproveFinished(AllowanceDao),
     TransactionStuck(TransactionStuckReason),

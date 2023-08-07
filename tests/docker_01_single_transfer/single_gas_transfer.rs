@@ -1,7 +1,7 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::DriverEventContent::TransferFinished;
+use erc20_payment_lib::runtime::DriverEventContent::{*};
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::u256_to_rust_dec;
@@ -25,6 +25,7 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
     let receiver_loop = tokio::spawn(async move {
         let mut transfer_finished_message_count = 0;
+        let mut tx_confirmed_message_count = 0;
         let mut fee_paid = U256::from(0_u128);
         while let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
@@ -33,7 +34,10 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
                 TransferFinished(transfer_dao) => {
                     transfer_finished_message_count += 1;
                     fee_paid += U256::from_dec_str(&transfer_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
-                }
+                },
+                TransactionConfirmed(_tx_dao) => {
+                    tx_confirmed_message_count += 1;
+                },
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
                     panic!("Unexpected message: {:?}", msg);
@@ -41,6 +45,7 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
             }
         }
 
+        assert_eq!(tx_confirmed_message_count, 1);
         assert_eq!(transfer_finished_message_count, 1);
         fee_paid
     });

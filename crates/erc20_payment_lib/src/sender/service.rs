@@ -277,6 +277,9 @@ pub async fn process_transactions(
             }
             match process_t_res {
                 ProcessTransactionResult::Unknown => {}
+                ProcessTransactionResult::Confirmed => {
+                    send_driver_event(&event_sender, DriverEventContent::TransactionConfirmed(tx.clone())).await;
+                }
                 _ => {
                     shared_state.lock().await.current_tx_info.remove(&tx.id);
                 }
