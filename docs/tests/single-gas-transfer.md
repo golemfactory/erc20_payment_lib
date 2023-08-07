@@ -2,7 +2,7 @@
 
 ### Source file
 
-[single_erc20_transfer.rs](../../tests/docker_01_single_transfer/single_erc20_transfer.rs)
+[single_gas_transfer.rs](../../tests/docker_01_single_transfer/single_gas_transfer.rs)
 
 ### Description
 
@@ -27,5 +27,5 @@ Test is performing the simplest possible transfer of native (ETH or MATIC) token
  - Expected runtime under 10 seconds
  - Expected fee paid: 0.000025336024875
  - No batching is used in this test.
- - No contract should be deployed.
+ - No approve should be run.
  - No multi payment contract should be used.
