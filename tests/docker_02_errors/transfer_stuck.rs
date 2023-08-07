@@ -1,7 +1,7 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::DriverEventContent::{*};
+use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent, TransactionStuckReason};
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_test::*;

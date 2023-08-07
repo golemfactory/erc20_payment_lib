@@ -1,7 +1,7 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::DriverEventContent::{*};
+use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::u256_to_rust_dec;
@@ -10,7 +10,6 @@ use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
 use web3_test_proxy_client::list_transactions_human;
-
 
 #[rustfmt::skip]
 async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::Error> {
@@ -24,17 +23,14 @@ async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::E
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
     let receiver_loop = tokio::spawn(async move {
-        let mut tx_confirmed_message_count = 0;
         let mut transfer_finished_message_count = 0;
         let mut approve_contract_message_count = 0;
+        let mut tx_confirmed_message_count = 0;
         let mut fee_paid = U256::from(0_u128);
         while let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
 
             match msg.content {
-                TransactionConfirmed(_tx_dao) => {
-                    tx_confirmed_message_count += 1;
-                }
                 TransferFinished(transfer_dao) => {
                     transfer_finished_message_count += 1;
                     fee_paid += U256::from_dec_str(&transfer_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
@@ -43,6 +39,9 @@ async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::E
                     approve_contract_message_count += 1;
                     fee_paid += U256::from_dec_str(&allowance_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
                 }
+                TransactionConfirmed(_tx_dao) => {
+                    tx_confirmed_message_count += 1;
+                },
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
                     panic!("Unexpected message: {:?}", msg);
@@ -69,8 +68,8 @@ async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::E
         ("0x0000000000000000000000000000000000000009", 600000000000000678_u128)];
 
     {
-        let mut config = create_default_config_setup(&proxy_url_base, proxy_key).await;
-        config.chain.get_mut("dev").unwrap().confirmation_blocks = 0;
+        let config = create_default_config_setup(&proxy_url_base, proxy_key).await;
+        //config.chain.get_mut("dev").unwrap().confirmation_blocks = 0;
 
         //load private key for account 0xbfb29b133aa51c4b45b49468f9a22958eafea6fa
         let private_keys = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963")?;
@@ -149,7 +148,6 @@ async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::E
 
     Ok(())
 }
-
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multi_erc20_transfer_2() -> Result<(), anyhow::Error> {
