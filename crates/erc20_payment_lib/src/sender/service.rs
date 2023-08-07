@@ -11,7 +11,7 @@ use crate::utils::ConversionError;
 use crate::err_from;
 use crate::setup::PaymentSetup;
 
-use crate::runtime::SharedState;
+use crate::runtime::{send_driver_event, DriverEvent, DriverEventContent, SharedState};
 use crate::sender::batching::{gather_transactions_post, gather_transactions_pre};
 use crate::sender::process_allowance;
 use crate::signer::{PrivateKeySigner, Signer};
@@ -19,6 +19,7 @@ use sqlx::SqlitePool;
 use web3::types::U256;
 
 pub async fn update_token_transfer_result(
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     conn: &SqlitePool,
     tx: &mut TxDao,
     process_t_res: &ProcessTransactionResult,
@@ -28,11 +29,11 @@ pub async fn update_token_transfer_result(
             tx.processing = 0;
 
             let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-            let token_transfers = get_token_transfers_by_tx(&mut db_transaction, tx.id)
+            let mut token_transfers = get_token_transfers_by_tx(&mut db_transaction, tx.id)
                 .await
                 .map_err(err_from!())?;
             let token_transfers_count = U256::from(token_transfers.len() as u64);
-            for mut token_transfer in token_transfers {
+            for token_transfer in token_transfers.iter_mut() {
                 if let Some(fee_paid) = tx.fee_paid.clone() {
                     let val = U256::from_dec_str(&fee_paid)
                         .map_err(|_err| ConversionError::from("failed to parse fee paid".into()))
@@ -42,7 +43,7 @@ pub async fn update_token_transfer_result(
                 } else {
                     token_transfer.fee_paid = None;
                 }
-                update_token_transfer(&mut db_transaction, &token_transfer)
+                update_token_transfer(&mut db_transaction, token_transfer)
                     .await
                     .map_err(err_from!())?;
             }
@@ -50,6 +51,14 @@ pub async fn update_token_transfer_result(
                 .await
                 .map_err(err_from!())?;
             db_transaction.commit().await.map_err(err_from!())?;
+            //if transaction is committed emit events:
+            for token_transfer in token_transfers {
+                send_driver_event(
+                    &event_sender,
+                    DriverEventContent::TransferFinished(token_transfer),
+                )
+                .await;
+            }
         }
         ProcessTransactionResult::NeedRetry(err) => {
             tx.processing = 0;
@@ -102,6 +111,7 @@ pub async fn update_token_transfer_result(
 }
 
 pub async fn update_approve_result(
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     conn: &SqlitePool,
     tx: &mut TxDao,
     process_t_res: &ProcessTransactionResult,
@@ -122,6 +132,12 @@ pub async fn update_approve_result(
                 .await
                 .map_err(err_from!())?;
             db_transaction.commit().await.map_err(err_from!())?;
+            //if transaction is committed emit events:
+            send_driver_event(
+                &event_sender,
+                DriverEventContent::ApproveFinished(allowance),
+            )
+            .await;
         }
         ProcessTransactionResult::NeedRetry(err) => {
             tx.processing = 0;
@@ -194,6 +210,7 @@ pub async fn update_tx_result(
 }
 
 pub async fn process_transactions(
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     shared_state: Arc<Mutex<SharedState>>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
@@ -215,6 +232,7 @@ pub async fn process_transactions(
                     .await
                     .set_tx_message(tx.id, "Processing".to_string());
                 match process_transaction(
+                    event_sender.clone(),
                     shared_state.clone(),
                     conn,
                     tx,
@@ -248,10 +266,11 @@ pub async fn process_transactions(
                 || tx.method == "transfer"
             {
                 log::debug!("Updating token transfer result");
-                update_token_transfer_result(conn, tx, &process_t_res).await?;
+                update_token_transfer_result(event_sender.clone(), conn, tx, &process_t_res)
+                    .await?;
             } else if tx.method == "ERC20.approve" {
                 log::debug!("Updating token approve result");
-                update_approve_result(conn, tx, &process_t_res).await?;
+                update_approve_result(event_sender.clone(), conn, tx, &process_t_res).await?;
             } else {
                 log::debug!("Updating plain tx result");
                 update_tx_result(conn, tx, &process_t_res).await?;
@@ -275,6 +294,7 @@ pub async fn service_loop(
     shared_state: Arc<Mutex<SharedState>>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
 ) {
     let process_transactions_interval = payment_setup.process_sleep as i64;
     let gather_transactions_interval = payment_setup.process_sleep as i64;
@@ -304,7 +324,14 @@ pub async fn service_loop(
                 log::warn!("Skipping processing transactions...");
                 process_tx_needed = false;
             } else {
-                match process_transactions(shared_state.clone(), conn, payment_setup, &signer).await
+                match process_transactions(
+                    event_sender.clone(),
+                    shared_state.clone(),
+                    conn,
+                    payment_setup,
+                    &signer,
+                )
+                .await
                 {
                     Ok(_) => {
                         //all pending transactions processed

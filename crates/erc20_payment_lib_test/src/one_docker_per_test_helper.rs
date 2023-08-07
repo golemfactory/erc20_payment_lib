@@ -19,7 +19,8 @@ pub async fn exclusive_geth_init(geth_min_lifespan: Duration) -> GethContainer {
 async fn init_once() {
     env::set_var(
         "RUST_LOG",
-        env::var("RUST_LOG").unwrap_or("info,sqlx::query=warn,web3=warn".to_string()),
+        env::var("RUST_LOG")
+            .unwrap_or("info,sqlx::query=warn,web3=warn,erc20_payment_lib=info".to_string()),
     );
     env_logger::init();
 }

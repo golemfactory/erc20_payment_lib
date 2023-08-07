@@ -4,6 +4,8 @@ on: push
 
 jobs:
   fmt_and_clippy:
+    timeout-minutes: 5
+
     runs-on: ubuntu-latest
 
     steps:
@@ -15,7 +17,25 @@ jobs:
 
       - name: Clippy
         run: cargo clippy -- -D warnings
+
+      - name: Clippy all
+        run: cargo clippy --all-targets --all-features --all -- -D warnings
+
+  erc20_processor:
+    timeout-minutes: 20
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Build erc20 processor
+        run: cargo build --profile=release-lto
+
   payment_tests:
+    timeout-minutes: 20
+
     runs-on: ubuntu-latest
 
     steps:

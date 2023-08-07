@@ -1,7 +1,8 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::start_payment_engine;
+use erc20_payment_lib::runtime::DriverEventContent::TransactionStuck;
+use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent, TransactionStuckReason};
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
@@ -11,7 +12,7 @@ use web3_test_proxy_client::list_transactions_human;
 
 #[tokio::test(flavor = "multi_thread")]
 #[rustfmt::skip]
-async fn test_gas_transfer() -> Result<(), anyhow::Error> {
+async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
 
     let geth_container = exclusive_geth_init(Duration::from_secs(300)).await;
@@ -20,6 +21,28 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
     let proxy_key = "erc20_transfer";
 
+    let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
+    let receiver_loop = tokio::spawn(async move {
+        let mut missing_gas_message_count = 0;
+        let fee_paid = U256::from(0_u128);
+        while let Some(msg) = receiver.recv().await {
+            log::info!("Received message: {:?}", msg);
+
+            match msg.content {
+                TransactionStuck(reason) => {
+                    missing_gas_message_count += 1;
+                    assert_eq!(reason, TransactionStuckReason::NoGas);
+                }
+                _ => {
+                    //maybe remove this if caused too much hassle to maintain
+                    panic!("Unexpected message: {:?}", msg);
+                }
+            }
+        }
+
+        assert!(missing_gas_message_count > 0);
+        fee_paid
+    });
     {
         let mut config = create_default_config_setup(&proxy_url_base, proxy_key).await;
         config.chain.get_mut("dev").unwrap().priority_fee = 1.0;
@@ -52,12 +75,16 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
                 keep_running: false,
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
-            })).await?;
+            }),
+            Some(sender)
+        ).await?;
+	    
         tokio::time::sleep(Duration::from_secs(5)).await;
         if sp.runtime_handle.is_finished() {
             panic!("runtime finished too early");
         }
         sp.runtime_handle.abort();
+        let _ = receiver_loop.await.unwrap();
 
         let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;
         log::info!("transaction list \n {}", transaction_human.join("\n"));

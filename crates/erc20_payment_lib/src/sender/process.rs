@@ -13,7 +13,9 @@ use web3::Web3;
 
 use crate::db::model::TxDao;
 use crate::eth::get_transaction_count;
-use crate::runtime::SharedState;
+use crate::runtime::{
+    send_driver_event, DriverEvent, DriverEventContent, SharedState, TransactionStuckReason,
+};
 use crate::setup::PaymentSetup;
 use crate::signer::Signer;
 use crate::transaction::check_transaction;
@@ -38,6 +40,7 @@ pub async fn get_provider(url: &str) -> Result<Web3<Http>, PaymentError> {
 }
 
 pub async fn process_transaction(
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     shared_state: Arc<Mutex<SharedState>>,
     conn: &SqlitePool,
     web3_tx_dao: &mut TxDao,
@@ -138,6 +141,11 @@ pub async fn process_transaction(
             log::warn!("Time changed?? time diff lower than 0");
         }
         if diff.num_seconds() > chain_setup.transaction_timeout as i64 {
+            send_driver_event(
+                &event_sender,
+                DriverEventContent::TransactionStuck(TransactionStuckReason::GasPriceLow),
+            )
+            .await;
             log::warn!("Transaction timeout for tx id: {}", web3_tx_dao.id);
             //return Ok(ProcessTransactionResult::NeedRetry("Timeout".to_string()));
         }
@@ -190,7 +198,7 @@ pub async fn process_transaction(
             .lock()
             .await
             .set_tx_message(web3_tx_dao.id, "Sending transaction".to_string());
-        send_transaction(web3, web3_tx_dao).await?;
+        send_transaction(event_sender.clone(), web3, web3_tx_dao).await?;
         web3_tx_dao.broadcast_count += 1;
         update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
         log::info!(
@@ -327,7 +335,7 @@ pub async fn process_transaction(
                 .await
                 .set_tx_message(web3_tx_dao.id, "Resending transaction".to_string());
 
-            send_transaction(web3, web3_tx_dao).await?;
+            send_transaction(event_sender.clone(), web3, web3_tx_dao).await?;
             web3_tx_dao.broadcast_count += 1;
             update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
             tokio::time::sleep(wait_duration).await;

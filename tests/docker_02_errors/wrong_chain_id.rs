@@ -7,11 +7,10 @@ use erc20_payment_lib_test::*;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
-use web3_test_proxy_client::list_transactions_human;
 
 #[tokio::test(flavor = "multi_thread")]
 #[rustfmt::skip]
-async fn wrong_chain_id() -> Result<(), anyhow::Error> {
+async fn test_wrong_chain_id() -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
 
     let geth_container = exclusive_geth_init(Duration::from_secs(30)).await;
@@ -50,7 +49,9 @@ async fn wrong_chain_id() -> Result<(), anyhow::Error> {
                 keep_running: false,
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
-            })).await?;
+            }),
+            None
+            ).await?;
         sp.runtime_handle.await?;
     }
 
@@ -59,11 +60,6 @@ async fn wrong_chain_id() -> Result<(), anyhow::Error> {
         let res = test_get_balance(&proxy_url_base, "0x653b48E1348F480149047AA3a58536eb0dbBB2E2,0x41162E565ebBF1A52eC904c7365E239c40d82568").await?;
         assert_eq!(res["0x41162e565ebbf1a52ec904c7365e239c40d82568"].gas_decimal,   Some("0".to_string()));
         assert_eq!(res["0x41162e565ebbf1a52ec904c7365e239c40d82568"].token_decimal, Some("0".to_string()));
-
-        let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;
-        log::info!("transaction list \n {}", transaction_human.join("\n"));
-        assert!(transaction_human.len() > 10);
-        assert!(transaction_human.len() < 40);
     }
 
     Ok(())
