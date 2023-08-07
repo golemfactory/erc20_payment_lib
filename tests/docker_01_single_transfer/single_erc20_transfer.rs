@@ -8,6 +8,7 @@ use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
 use std::time::Duration;
+use rust_decimal::prelude::ToPrimitive;
 use web3::types::{Address, U256};
 use web3_test_proxy_client::list_transactions_human;
 
@@ -93,8 +94,10 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
 
     {
         // *** RESULT CHECK ***
-        let fee_paid = receiver_loop.await.unwrap();
-        log::info!("fee paid: {}", u256_to_rust_dec(fee_paid, None).unwrap());
+        let fee_paid_u256 = receiver_loop.await.unwrap();
+        let fee_paid = u256_to_rust_dec(fee_paid_u256,None).unwrap();
+        log::info!("fee paid: {}", fee_paid);
+        assert!(fee_paid.to_f64().unwrap() > 0.00008 && fee_paid.to_f64().unwrap() < 0.00015);
 
         let res = test_get_balance(&proxy_url_base, "0xbfb29b133aa51c4b45b49468f9a22958eafea6fa,0xf2f86a61b769c91fc78f15059a5bd2c189b84be2").await?;
         assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].gas,           Some("0".to_string()));
@@ -102,7 +105,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
         assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].token_human,   Some("2.22 tGLM".to_string()));
 
         let gas_left = U256::from_dec_str(&res["0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"].gas.clone().unwrap()).unwrap();
-        assert_eq!(gas_left + fee_paid, U256::from(536870912000000000000_u128));
+        assert_eq!(gas_left + fee_paid_u256, U256::from(536870912000000000000_u128));
 
         let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;
         log::info!("transaction list \n {}", transaction_human.join("\n"));
