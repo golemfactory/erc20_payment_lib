@@ -358,9 +358,14 @@ pub async fn check_transaction(
             }
         };
 
-        let add_gas_safety_margin: U256 = U256::from(20000);
-        let gas_limit = gas_est + add_gas_safety_margin;
-        log::info!("Set gas limit basing on gas estimation: {gas_est}");
+        let gas_limit = if gas_est.as_u64() == 21000 {
+            gas_est
+        } else {
+            let gas_safety_margin: U256 = U256::from(20000);
+            gas_est + gas_safety_margin
+        };
+
+        log::info!("Set gas limit basing on gas estimation: {gas_limit}");
         web3_tx_dao.gas_limit = Some(gas_limit.as_u64() as i64);
 
         Ok(())

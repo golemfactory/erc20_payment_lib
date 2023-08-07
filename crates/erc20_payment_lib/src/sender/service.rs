@@ -8,13 +8,13 @@ use crate::sender::process::{process_transaction, ProcessTransactionResult};
 
 use crate::utils::ConversionError;
 
-use crate::err_from;
-use crate::setup::PaymentSetup;
-
+use crate::error::*;
 use crate::runtime::{send_driver_event, DriverEvent, DriverEventContent, SharedState};
 use crate::sender::batching::{gather_transactions_post, gather_transactions_pre};
 use crate::sender::process_allowance;
+use crate::setup::PaymentSetup;
 use crate::signer::{PrivateKeySigner, Signer};
+use crate::{err_custom_create, err_from};
 use sqlx::SqlitePool;
 use web3::types::U256;
 
@@ -32,17 +32,51 @@ pub async fn update_token_transfer_result(
             let mut token_transfers = get_token_transfers_by_tx(&mut db_transaction, tx.id)
                 .await
                 .map_err(err_from!())?;
-            let token_transfers_count = U256::from(token_transfers.len() as u64);
-            for token_transfer in token_transfers.iter_mut() {
-                if let Some(fee_paid) = tx.fee_paid.clone() {
-                    let val = U256::from_dec_str(&fee_paid)
-                        .map_err(|_err| ConversionError::from("failed to parse fee paid".into()))
-                        .map_err(err_from!())?;
-                    let val2 = val / token_transfers_count;
-                    token_transfer.fee_paid = Some(val2.to_string());
-                } else {
-                    token_transfer.fee_paid = None;
+
+            if token_transfers.is_empty() {
+                log::error!("Transaction {} has no token transfers", tx.id);
+                return Err(err_custom_create!(
+                    "Transaction has no attached token transfers in db {}",
+                    tx.id
+                ));
+            }
+
+            //This is a bit complicated, but we need to distribute the fee paid by the user in transaction
+            //to all token transfers in the transaction in the way that sum of fees is correct
+            //Implementation is a bit rough, but it works
+            let mut distribute_fee: Vec<Option<U256>> = Vec::with_capacity(token_transfers.len());
+            if let Some(fee_paid) = tx.fee_paid.clone() {
+                let val = U256::from_dec_str(&fee_paid)
+                    .map_err(|_err| ConversionError::from("failed to parse fee paid".into()))
+                    .map_err(err_from!())?;
+                let mut fee_left = val;
+                let val_share = val / U256::from(token_transfers.len() as u64);
+                for _tt in &token_transfers {
+                    fee_left -= val_share;
+                    distribute_fee.push(Some(val_share));
                 }
+                let fee_left = fee_left.as_u64() as usize;
+                if fee_left >= token_transfers.len() {
+                    panic!(
+                        "fee left is too big, critical error when distributing fee {}/{}",
+                        fee_left,
+                        token_transfers.len()
+                    );
+                }
+                //distribute the rest of the fee by adding one am much time as needed
+                distribute_fee.iter_mut().take(fee_left).for_each(|item| {
+                    let val = item.unwrap();
+                    *item = Some(val + U256::from(1));
+                });
+            } else {
+                for _tt in &token_transfers {
+                    distribute_fee.push(None);
+                }
+            }
+
+            for (token_transfer, fee_paid) in token_transfers.iter_mut().zip(distribute_fee) {
+                token_transfer.fee_paid = fee_paid.map(|v| v.to_string());
+
                 update_token_transfer(&mut db_transaction, token_transfer)
                     .await
                     .map_err(err_from!())?;
@@ -277,6 +311,13 @@ pub async fn process_transactions(
             }
             match process_t_res {
                 ProcessTransactionResult::Unknown => {}
+                ProcessTransactionResult::Confirmed => {
+                    send_driver_event(
+                        &event_sender,
+                        DriverEventContent::TransactionConfirmed(tx.clone()),
+                    )
+                    .await;
+                }
                 _ => {
                     shared_state.lock().await.current_tx_info.remove(&tx.id);
                 }

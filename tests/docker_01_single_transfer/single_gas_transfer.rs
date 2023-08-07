@@ -1,11 +1,12 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::DriverEventContent::TransferFinished;
+use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_test::*;
+use rust_decimal::prelude::ToPrimitive;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
@@ -25,6 +26,7 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
     let receiver_loop = tokio::spawn(async move {
         let mut transfer_finished_message_count = 0;
+        let mut tx_confirmed_message_count = 0;
         let mut fee_paid = U256::from(0_u128);
         while let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
@@ -33,7 +35,11 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
                 TransferFinished(transfer_dao) => {
                     transfer_finished_message_count += 1;
                     fee_paid += U256::from_dec_str(&transfer_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
-                }
+                },
+                TransactionConfirmed(tx_dao) => {
+                    assert_eq!(tx_dao.gas_limit, Some(21000));
+                    tx_confirmed_message_count += 1;
+                },
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
                     panic!("Unexpected message: {:?}", msg);
@@ -41,6 +47,7 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
             }
         }
 
+        assert_eq!(tx_confirmed_message_count, 1);
         assert_eq!(transfer_finished_message_count, 1);
         fee_paid
     });
@@ -82,14 +89,16 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
 
     {
         // *** RESULT CHECK ***
-        let fee_paid = receiver_loop.await.unwrap();
-        log::info!("fee paid: {}", u256_to_rust_dec(fee_paid, None).unwrap());
+        let fee_paid_u256 = receiver_loop.await.unwrap();
+        let fee_paid = u256_to_rust_dec(fee_paid_u256,None).unwrap();
+        log::info!("fee paid: {}", fee_paid);
+        assert!(fee_paid.to_f64().unwrap() > 0.00002 && fee_paid.to_f64().unwrap() < 0.00003);
         let res = test_get_balance(&proxy_url_base, "0x653b48e1348f480149047aa3a58536eb0dbbb2e2,0x41162e565ebbf1a52ec904c7365e239c40d82568").await?;
         assert_eq!(res["0x41162e565ebbf1a52ec904c7365e239c40d82568"].gas_decimal,   Some("0.456000000000000222".to_string()));
         assert_eq!(res["0x41162e565ebbf1a52ec904c7365e239c40d82568"].token_decimal, Some("0".to_string()));
 
         let gas_left = U256::from_dec_str(&res["0x653b48e1348f480149047aa3a58536eb0dbbb2e2"].gas.clone().unwrap()).unwrap();
-        assert_eq!(gas_left + fee_paid + U256::from(456000000000000222_u128), U256::from(1073741824000000000000_u128));
+        assert_eq!(gas_left + fee_paid_u256 + U256::from(456000000000000222_u128), U256::from(1073741824000000000000_u128));
         let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;
         log::info!("transaction list \n {}", transaction_human.join("\n"));
         assert!(transaction_human.len() > 10);
