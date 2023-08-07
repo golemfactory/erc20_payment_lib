@@ -6,9 +6,9 @@ use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_test::*;
+use rust_decimal::prelude::ToPrimitive;
 use std::str::FromStr;
 use std::time::Duration;
-use rust_decimal::prelude::ToPrimitive;
 use web3::types::{Address, U256};
 use web3_test_proxy_client::list_transactions_human;
 
