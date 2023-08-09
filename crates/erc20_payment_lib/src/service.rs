@@ -9,7 +9,6 @@ use crate::error::{ErrorBag, PaymentError};
 use crate::transaction::find_receipt_extended;
 use crate::utils::ConversionError;
 
-use crate::error::CustomError;
 use crate::setup::{ChainSetup, PaymentSetup};
 use crate::{err_custom_create, err_from};
 
