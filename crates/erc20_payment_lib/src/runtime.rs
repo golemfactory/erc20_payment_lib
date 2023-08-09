@@ -152,33 +152,6 @@ pub struct PaymentRuntime {
     pub conn: SqlitePool,
 }
 
-/*
-async fn process_cli(
-    conn: &SqlitePool,
-    cli: &ValidatedOptions,
-    secret_key: &SecretKey,
-) -> Result<(), PaymentError> {
-    let from_addr = get_eth_addr_from_secret(secret_key);
-    for transaction_no in 0..cli.receivers.len() {
-        let receiver = cli.receivers[transaction_no];
-        let amount = cli.amounts[transaction_no];
-        let token_transfer = create_token_transfer(
-            from_addr,
-            receiver,
-            cli.chain_id as u64,
-            cli.token_addr,
-            amount,
-        );
-        let _token_transfer = insert_token_transfer(conn, &token_transfer)
-            .await
-            .map_err(err_from!())?;
-    }
-    Ok(())
-
-    //service_loop(&mut conn, &web3, &secret_key).await;
-}
-*/
-
 pub async fn send_driver_event(
     event_sender: &Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     event: DriverEventContent,
