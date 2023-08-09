@@ -1,8 +1,10 @@
 use crate::db::create_sqlite_connection;
-use crate::err_custom_create;
+use crate::db::ops::insert_token_transfer;
+use crate::transaction::create_token_transfer;
+use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
 
-use crate::error::PaymentError;
+use crate::error::{ErrorBag, PaymentError};
 
 use crate::setup::PaymentSetup;
 
@@ -205,6 +207,36 @@ impl PaymentRuntime {
             .ok_or(err_custom_create!("get_balance didn't yield gas_balance"))?;
 
         Ok(gas_balance)
+    }
+
+    pub async fn transfer(
+        &self,
+        chain_name: &str,
+        from: Address,
+        receiver: Address,
+        token_addr: Address,
+        amount: U256,
+        payment_id: &str,
+    ) -> Result<(), PaymentError> {
+        let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
+            "Chain {} not found in config file",
+            chain_name
+        ))?;
+
+        let token_transfer = create_token_transfer(
+            from,
+            receiver,
+            chain_cfg.chain_id,
+            Some(payment_id),
+            Some(token_addr),
+            amount,
+        );
+
+        insert_token_transfer(&self.conn, &token_transfer)
+            .await
+            .map_err(err_from!())?;
+
+        Ok(())
     }
 }
 
