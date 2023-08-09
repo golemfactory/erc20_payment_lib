@@ -17,7 +17,7 @@ macro_rules! err_create {
 macro_rules! err_custom_create {
     ($($t:tt)*) => {
         PaymentError {
-            inner: ErrorBag::from(CustomError::from_owned_string(format!($($t)*))),
+            inner: $crate::error::ErrorBag::from($crate::error::CustomError::from_owned_string(format!($($t)*))),
             msg: None,
             file: file!(),
             line: line!(),
