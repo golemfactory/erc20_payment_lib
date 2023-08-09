@@ -979,6 +979,7 @@ dependencies = [
  "actix-web",
  "async-trait",
  "chrono",
+ "csv",
  "dotenv",
  "erc20_payment_lib",
  "fastrand",

@@ -1,7 +1,6 @@
 use std::fmt::Debug;
-use std::path::PathBuf;
 
-use erc20_payment_lib_extra::AccountBalanceOptions;
+use erc20_payment_lib_extra::{AccountBalanceOptions, GenerateTestPaymentsOptions};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -85,44 +84,6 @@ pub struct ImportOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Payment statistics options")]
 pub struct PaymentStatisticsOptions {}
-
-#[derive(StructOpt)]
-#[structopt(about = "Generate test payments")]
-pub struct GenerateTestPaymentsOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
-    pub chain_name: String,
-
-    #[structopt(short = "n", long = "generate-count", default_value = "10")]
-    pub generate_count: usize,
-
-    #[structopt(long = "random-receivers")]
-    pub random_receivers: bool,
-
-    #[structopt(long = "receivers-ordered-pool", default_value = "10")]
-    pub receivers_ordered_pool: usize,
-
-    /// Set to generate random receivers pool instead of ordered pool
-    #[structopt(long = "receivers-random-pool")]
-    pub receivers_random_pool: Option<usize>,
-
-    #[structopt(long = "amounts-pool-size", default_value = "10")]
-    pub amounts_pool_size: usize,
-
-    #[structopt(short = "a", long = "append-to-db")]
-    pub append_to_db: bool,
-
-    #[structopt(long = "file", help = "File to export")]
-    pub file: Option<PathBuf>,
-
-    #[structopt(long = "separator", help = "Separator", default_value = "|")]
-    pub separator: char,
-
-    #[structopt(long = "interval", help = "Generate transactions interval in seconds")]
-    pub interval: Option<f64>,
-
-    #[structopt(long = "limit-time", help = "Limit time of running command in seconds")]
-    pub limit_time: Option<f64>,
-}
 
 #[derive(StructOpt)]
 #[structopt(about = "Import payment list")]

@@ -3,31 +3,23 @@ mod options;
 use crate::options::{PaymentCommands, PaymentOptions};
 use actix_web::Scope;
 use actix_web::{web, App, HttpServer};
-use csv::{ReaderBuilder, WriterBuilder};
+use csv::ReaderBuilder;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::TokenTransferDao;
 use erc20_payment_lib::db::ops::{get_transfer_count, insert_token_transfer};
-use erc20_payment_lib::misc::{
-    create_test_amount_pool, generate_transaction_batch, ordered_address_pool, random_address_pool,
-};
 use erc20_payment_lib::server::*;
-use std::cell::RefCell;
 
 use erc20_payment_lib::{
-    config, err_create, err_custom_create, err_from,
+    config, err_custom_create, err_from,
     error::{CustomError, ErrorBag, PaymentError},
     misc::{display_private_keys, load_private_keys},
     runtime::start_payment_engine,
 };
-use futures::{StreamExt, TryStreamExt};
 use std::env;
-use std::rc::Rc;
 
-use erc20_payment_lib_extra::account_balance;
+use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use std::sync::Arc;
-use std::time::Instant;
-use stream_rate_limiter::{RateLimitOptions, StreamBehavior, StreamRateLimitExt};
 use structopt::StructOpt;
 use tokio::sync::Mutex;
 
@@ -126,131 +118,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             );
         }
         PaymentCommands::GenerateTestPayments { generate_options } => {
-            let chain_cfg =
-                config
-                    .chain
-                    .get(&generate_options.chain_name)
-                    .ok_or(err_custom_create!(
-                        "Chain {} not found in config file",
-                        generate_options.chain_name
-                    ))?;
-
-            let mut rng = fastrand::Rng::new();
-
-            let addr_pool =
-                if let Some(receivers_random_pool) = generate_options.receivers_random_pool {
-                    random_address_pool(&mut rng, receivers_random_pool)
-                } else {
-                    ordered_address_pool(generate_options.receivers_ordered_pool, false)?
-                };
-            let amount_pool = create_test_amount_pool(generate_options.amounts_pool_size)?;
-
-            let writer = if let Some(file) = generate_options.file {
-                Some(
-                    WriterBuilder::new()
-                        .delimiter(b'|')
-                        .from_writer(std::fs::File::create(file).map_err(err_from!())?),
-                )
-            } else {
-                None
-            };
-            let writer = Arc::new(Mutex::new(writer));
-
-            let conn = if generate_options.append_to_db {
-                let db_filename = env::var("DB_SQLITE_FILENAME")
-                    .expect("Specify DB_SQLITE_FILENAME env variable");
-                log::info!("connecting to sqlite file db: {}", db_filename);
-                let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
-                Some(conn)
-            } else {
-                None
-            };
-
-            let started = Instant::now();
-
-            let rate_limit_options = RateLimitOptions::empty();
-            let rate_limit_options = if let Some(limit_time) = generate_options.interval {
-                if limit_time > 0.01 {
-                    rate_limit_options.with_min_interval_sec(limit_time / 2.0)
-                } else {
-                    rate_limit_options
-                }
-                .with_interval_sec(limit_time)
-                .on_stream_delayed(|sdi| {
-                    log::warn!(
-                        "Generate options stream is falling behind, current delay {}s",
-                        sdi.total_delay + sdi.current_delay
-                    );
-                    StreamBehavior::Delay(sdi.current_delay)
-                })
-            } else {
-                rate_limit_options
-            };
-
-            match generate_transaction_batch(
-                Rc::new(RefCell::new(rng)),
-                chain_cfg.chain_id,
-                &public_addrs,
-                Some(chain_cfg.token.clone().unwrap().address),
-                &addr_pool,
-                generate_options.random_receivers,
-                &amount_pool,
-            )?
-            .rate_limit(rate_limit_options)
-            .take(generate_options.generate_count)
-            .try_for_each(move |(transfer_no, token_transfer)| {
-                let writer = writer.clone();
-                let conn = conn.clone();
-
-                async move {
-                    if let Some(limit_time) = generate_options.limit_time {
-                        // check how much time has passed since start
-                        let elapsed = started.elapsed();
-                        if elapsed.as_secs_f64() > limit_time {
-                            return Err(err_create!(elapsed));
-                        }
-                    };
-                    let mut writer = writer.lock().await;
-                    let res = if let Some(writer) = writer.as_mut() {
-                        writer.serialize(&token_transfer).map_err(|err| {
-                            log::error!("error writing csv record: {}", err);
-                            err_custom_create!("error writing csv record: {err}")
-                        })
-                    } else {
-                        log::info!(
-                            "Generated tx no {} to: {}",
-                            transfer_no,
-                            token_transfer.receiver_addr
-                        );
-                        Ok(())
-                    };
-                    if let Some(conn) = conn {
-                        let mut t = conn.begin().await.unwrap();
-
-                        insert_token_transfer(&mut t, &token_transfer)
-                            .await
-                            .map_err(|err| {
-                                err_custom_create!(
-                                    "Error writing record to db no: {transfer_no}, err: {err}"
-                                )
-                            })?;
-                        t.commit().await.unwrap();
-                    }
-                    res
-                }
-            })
-            .await
-            {
-                Ok(_) => {
-                    log::info!("All transactions generated successfully");
-                }
-                Err(err) => match err.inner {
-                    ErrorBag::TimeLimitReached(d) => {
-                        log::info!("Time limit reached: {} seconds, exiting", d.as_secs_f64());
-                    }
-                    _ => return Err(err),
-                },
-            };
+            generate_test_payments(generate_options, &config, public_addrs).await?;
         }
         PaymentCommands::PaymentStatistics {
             payment_statistics_options: _,
