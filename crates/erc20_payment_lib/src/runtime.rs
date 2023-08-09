@@ -1,11 +1,12 @@
 use crate::db::create_sqlite_connection;
+use crate::err_custom_create;
 use std::collections::BTreeMap;
 
 use crate::error::PaymentError;
 
 use crate::setup::PaymentSetup;
 
-use crate::config;
+use crate::config::{self, Config};
 use secp256k1::SecretKey;
 use sqlx::SqlitePool;
 
@@ -150,6 +151,61 @@ pub struct PaymentRuntime {
     pub setup: PaymentSetup,
     pub shared_state: Arc<Mutex<SharedState>>,
     pub conn: SqlitePool,
+    config: Config,
+}
+
+impl PaymentRuntime {
+    pub async fn get_token_balance(
+        &self,
+        chain_name: String,
+        token_address: Address,
+        address: Address,
+    ) -> Result<U256, PaymentError> {
+        let chain_cfg = self
+            .config
+            .chain
+            .get(&chain_name)
+            .ok_or(err_custom_create!(
+                "Chain {} not found in config file",
+                chain_name
+            ))?;
+
+        let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
+
+        let balance_result =
+            crate::eth::get_balance(web3, Some(token_address), address, true).await?;
+
+        let token_balance = balance_result
+            .token_balance
+            .ok_or(err_custom_create!("get_balance didn't yield token_balance"))?;
+
+        Ok(token_balance)
+    }
+
+    pub async fn get_gas_balance(
+        &self,
+        chain_name: String,
+        address: Address,
+    ) -> Result<U256, PaymentError> {
+        let chain_cfg = self
+            .config
+            .chain
+            .get(&chain_name)
+            .ok_or(err_custom_create!(
+                "Chain {} not found in config file",
+                chain_name
+            ))?;
+
+        let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
+
+        let balance_result = crate::eth::get_balance(web3, None, address, true).await?;
+
+        let gas_balance = balance_result
+            .gas_balance
+            .ok_or(err_custom_create!("get_balance didn't yield gas_balance"))?;
+
+        Ok(gas_balance)
+    }
 }
 
 pub async fn send_driver_event(
@@ -217,5 +273,6 @@ pub async fn start_payment_engine(
         setup: payment_setup,
         shared_state,
         conn,
+        config,
     })
 }
