@@ -15,6 +15,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
+use sqlx_core::sqlite::SqlitePool;
 use stream_rate_limiter::{RateLimitOptions, StreamBehavior, StreamRateLimitExt};
 use structopt::StructOpt;
 use tokio::sync::Mutex;
@@ -62,6 +63,7 @@ pub async fn generate_test_payments(
     generate_options: GenerateTestPaymentsOptions,
     config: &config::Config,
     from_addrs: Vec<Address>,
+    sqlite_pool: Option<SqlitePool>
 ) -> Result<(), PaymentError> {
     let chain_cfg = config
         .chain
@@ -92,11 +94,15 @@ pub async fn generate_test_payments(
     let writer = Arc::new(Mutex::new(writer));
 
     let conn = if generate_options.append_to_db {
-        let db_filename =
-            env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
-        log::info!("connecting to sqlite file db: {}", db_filename);
-        let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
-        Some(conn)
+        if let Some(sqlite_pool) = sqlite_pool {
+            Some(sqlite_pool)
+        } else {
+            let db_filename =
+                env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
+            log::info!("connecting to sqlite file db: {}", db_filename);
+            let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
+            Some(conn)
+        }
     } else {
         None
     };

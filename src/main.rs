@@ -118,7 +118,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             );
         }
         PaymentCommands::GenerateTestPayments { generate_options } => {
-            generate_test_payments(generate_options, &config, public_addrs).await?;
+            generate_test_payments(generate_options, &config, public_addrs, None).await?;
         }
         PaymentCommands::PaymentStatistics {
             payment_statistics_options: _,

@@ -3,6 +3,7 @@ use erc20_payment_lib::config::{Chain, Config, Engine, MultiContractSettings, To
 use erc20_payment_lib::db::create_sqlite_connection;
 use sqlx_core::sqlite::SqlitePool;
 use std::collections::BTreeMap;
+use std::env;
 use std::str::FromStr;
 use web3::types::Address;
 
@@ -53,8 +54,13 @@ pub async fn setup_random_memory_sqlite_conn() -> SqlitePool {
         .map(char::from)
         .collect();
 
-    let db_name = format!("mem_{}", s);
-    create_sqlite_connection(None, Some(&db_name), true)
-        .await
-        .unwrap()
+    if env::var("USE_DISK_DB_INSTEAD_OF_MEM").is_ok_and(|f| f == "1" || f.to_lowercase() == "true") {
+        create_sqlite_connection(Some(&format!("test_{}.sqlite", s)), None,true)
+            .await
+            .unwrap()
+    } else {
+        create_sqlite_connection(None, Some(&format!("mem_{}", s)), true)
+            .await
+            .unwrap()
+    }
 }

@@ -9,6 +9,7 @@ use erc20_payment_lib_test::*;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
+use erc20_payment_lib_extra::{generate_test_payments, GenerateTestPaymentsOptions};
 use web3_test_proxy_client::list_transactions_human;
 
 #[rustfmt::skip]
@@ -17,11 +18,12 @@ async fn test_durability() -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
     let payment_count = 3;
 
-    let geth_container = exclusive_geth_init(Duration::from_secs(30)).await;
+    let geth_container = exclusive_geth_init(Duration::from_secs(3600)).await;
     let conn = setup_random_memory_sqlite_conn().await;
 
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
     let proxy_key = "erc20_transfer";
+
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
     let receiver_loop = tokio::spawn(async move {
@@ -75,8 +77,23 @@ async fn test_durability() -> Result<(), anyhow::Error> {
         //config.chain.get_mut("dev").unwrap().confirmation_blocks = 0;
 
         //load private key for account 0xbfb29b133aa51c4b45b49468f9a22958eafea6fa
-        let private_keys = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963")?;
+        let (private_keys, public_keys) = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963")?;
 
+
+        let gtp = GenerateTestPaymentsOptions {
+            chain_name: "dev".to_string(),
+            generate_count: 10000,
+            random_receivers: false,
+            receivers_ordered_pool: 100000,
+            receivers_random_pool: None,
+            amounts_pool_size: 100000,
+            append_to_db: true,
+            file: None,
+            separator: ',',
+            interval: None,
+            limit_time: None,
+        };
+        generate_test_payments(gtp, &config, public_keys, Some(conn.clone())).await?;
         //add single erc20 transaction to database
         for (addr, val) in test_receivers.iter().take(payment_count)
         {
@@ -96,7 +113,7 @@ async fn test_durability() -> Result<(), anyhow::Error> {
         // *** TEST RUN ***
 
         let sp = start_payment_engine(
-            &private_keys.0,
+            &private_keys,
             "",
             config.clone(),
             Some(conn.clone()),
