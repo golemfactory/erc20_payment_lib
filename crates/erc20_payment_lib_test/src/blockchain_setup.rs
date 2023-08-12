@@ -299,7 +299,8 @@ impl GethContainer {
 
         log::debug!("Image id extracted {}", image_id);
 
-        let max_docker_lifetime = if env::var("KEEP_DOCKER_CONTAINERS").is_ok_and(|f| f == "1" || f.to_lowercase() == "true")
+        let max_docker_lifetime = if env::var("KEEP_DOCKER_CONTAINERS")
+            .is_ok_and(|f| f == "1" || f.to_lowercase() == "true")
         {
             30 * 24 * 3600
         } else {

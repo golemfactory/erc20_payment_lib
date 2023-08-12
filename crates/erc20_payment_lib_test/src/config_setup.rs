@@ -54,8 +54,9 @@ pub async fn setup_random_memory_sqlite_conn() -> SqlitePool {
         .map(char::from)
         .collect();
 
-    if env::var("USE_DISK_DB_INSTEAD_OF_MEM").is_ok_and(|f| f == "1" || f.to_lowercase() == "true") {
-        create_sqlite_connection(Some(&format!("test_{}.sqlite", s)), None,true)
+    if env::var("USE_DISK_DB_INSTEAD_OF_MEM").is_ok_and(|f| f == "1" || f.to_lowercase() == "true")
+    {
+        create_sqlite_connection(Some(&format!("test_{}.sqlite", s)), None, true)
             .await
             .unwrap()
     } else {

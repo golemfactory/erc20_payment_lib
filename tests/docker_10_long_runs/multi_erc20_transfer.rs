@@ -1,15 +1,14 @@
 use erc20_payment_lib::config::AdditionalOptions;
-use erc20_payment_lib::db::ops::insert_token_transfer;
+use erc20_payment_lib::db::ops::{get_transfer_stats};
+use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
-use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::u256_to_rust_dec;
-use erc20_payment_lib_test::*;
-use std::str::FromStr;
-use std::time::Duration;
-use web3::types::{Address, U256};
 use erc20_payment_lib_extra::{generate_test_payments, GenerateTestPaymentsOptions};
+use erc20_payment_lib_test::*;
+use std::time::Duration;
+use web3::types::U256;
 use web3_test_proxy_client::list_transactions_human;
 
 #[rustfmt::skip]
@@ -45,7 +44,7 @@ async fn test_durability() -> Result<(), anyhow::Error> {
                 }
                 TransactionConfirmed(_tx_dao) => {
                     tx_confirmed_message_count += 1;
-                },
+                }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
                     panic!("Unexpected message: {:?}", msg);
@@ -83,48 +82,73 @@ async fn test_durability() -> Result<(), anyhow::Error> {
         let gtp = GenerateTestPaymentsOptions {
             chain_name: "dev".to_string(),
             generate_count: 10000,
-            random_receivers: false,
-            receivers_ordered_pool: 100000,
+            random_receivers: true,
+            receivers_ordered_pool: 1,
             receivers_random_pool: None,
             amounts_pool_size: 100000,
             append_to_db: true,
             file: None,
             separator: ',',
-            interval: None,
+            interval: Some(1.0),
             limit_time: None,
+            quiet: true,
         };
-        generate_test_payments(gtp, &config, public_keys, Some(conn.clone())).await?;
-        //add single erc20 transaction to database
-        for (addr, val) in test_receivers.iter().take(payment_count)
-        {
-            insert_token_transfer(
-                &conn,
-                &create_token_transfer(
-                    Address::from_str("0xbfb29b133aa51c4b45b49468f9a22958eafea6fa").unwrap(),
-                    Address::from_str(addr).unwrap(),
-                    config.chain.get("dev").unwrap().chain_id,
-                    Some("test_payment"),
-                    Some(config.chain.get("dev").unwrap().token.clone().unwrap().address),
-                    U256::from(*val),
-                )
-            ).await?;
-        }
+
+        let local_set = tokio::task::LocalSet::new();
+
+        let config_ = config.clone();
+        let conn_ = conn.clone();
+        log::info!("Spawning local task");
+
+        local_set.spawn_local(
+            async move {
+                log::info!("Generating test payments");
+                generate_test_payments(gtp, &config_, public_keys, Some(conn_)).await?;
+                log::info!("Finished generating test payments");
+                Ok::<(), PaymentError>(())
+            }
+        );
 
         // *** TEST RUN ***
+        let conn_ = conn.clone();
+        let jh = tokio::spawn(
+            async move {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+                let sp = start_payment_engine(
+                    &private_keys,
+                    "",
+                    config.clone(),
+                    Some(conn_.clone()),
+                    Some(AdditionalOptions {
+                        keep_running: false,
+                        generate_tx_only: false,
+                        skip_multi_contract_check: false,
+                    }),
+                    Some(sender),
+                ).await.unwrap();
+                sp.runtime_handle.await.unwrap();
+            }
+        );
 
-        let sp = start_payment_engine(
-            &private_keys,
-            "",
-            config.clone(),
-            Some(conn.clone()),
-            Some(AdditionalOptions {
-                keep_running: false,
-                generate_tx_only: false,
-                skip_multi_contract_check: false,
-            }),
-            Some(sender)
-        ).await?;
-        sp.runtime_handle.await?;
+        let conn_ = conn.clone();
+        let stats = tokio::spawn(async move {
+            loop {
+                let stats = match get_transfer_stats(&conn_).await {
+                    Ok(stats) => stats,
+                    Err(err) => {
+                        log::error!("Error from get_transfer_stats {err}");
+                        panic!("Error from get_transfer_stats {err}");
+                    }
+                };
+
+                log::warn!("Stats: {:?}", stats.per_sender.iter().next().map(|(_, val)| &val.all));
+                tokio::time::sleep(Duration::from_secs(3)).await;
+            }
+        });
+
+        local_set.await;
+        log::info!("Waiting for local task to finish");
+        let r = jh.await;
     }
 
     {
@@ -132,23 +156,22 @@ async fn test_durability() -> Result<(), anyhow::Error> {
         let fee_paid = receiver_loop.await.unwrap();
         log::info!("fee paid: {}", u256_to_rust_dec(fee_paid, None).unwrap());
 
-
         //intersperse is joining strings with separator
         use itertools::Itertools;
         #[allow(unstable_name_collisions)]
-        let res = test_get_balance(&proxy_url_base,
-           &(test_receivers
-               .iter()
-               .take(payment_count)
-               .map(|el| el.0)
-               .intersperse(",")
-               .collect::<String>() + ",0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"))
+            let res = test_get_balance(&proxy_url_base,
+                                       &(test_receivers
+                                           .iter()
+                                           .take(payment_count)
+                                           .map(|el| el.0)
+                                           .intersperse(",")
+                                           .collect::<String>() + ",0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"))
             .await.expect("get balance should work");
 
         for (addr, val) in test_receivers.into_iter().take(payment_count)
         {
-            assert_eq!(res[addr].gas,           Some("0".to_string()));
-            assert_eq!(res[addr].token,         Some(val.to_string()));
+            assert_eq!(res[addr].gas, Some("0".to_string()));
+            assert_eq!(res[addr].token, Some(val.to_string()));
         }
 
         let gas_left = U256::from_dec_str(&res["0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"].gas.clone().unwrap()).unwrap();

@@ -9,13 +9,13 @@ use erc20_payment_lib::misc::{
 use erc20_payment_lib::{config, err_create, err_custom_create, err_from};
 use futures_util::StreamExt;
 use futures_util::TryStreamExt;
+use sqlx_core::sqlite::SqlitePool;
 use std::cell::RefCell;
 use std::env;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
-use sqlx_core::sqlite::SqlitePool;
 use stream_rate_limiter::{RateLimitOptions, StreamBehavior, StreamRateLimitExt};
 use structopt::StructOpt;
 use tokio::sync::Mutex;
@@ -57,13 +57,16 @@ pub struct GenerateTestPaymentsOptions {
 
     #[structopt(long = "limit-time", help = "Limit time of running command in seconds")]
     pub limit_time: Option<f64>,
+
+    #[structopt(long = "quiet", help = "Do not log anything")]
+    pub quiet: bool,
 }
 
 pub async fn generate_test_payments(
     generate_options: GenerateTestPaymentsOptions,
     config: &config::Config,
     from_addrs: Vec<Address>,
-    sqlite_pool: Option<SqlitePool>
+    sqlite_pool: Option<SqlitePool>,
 ) -> Result<(), PaymentError> {
     let chain_cfg = config
         .chain
@@ -158,11 +161,13 @@ pub async fn generate_test_payments(
                     err_custom_create!("error writing csv record: {err}")
                 })
             } else {
-                log::info!(
-                    "Generated tx no {} to: {}",
-                    transfer_no,
-                    token_transfer.receiver_addr
-                );
+                if !generate_options.quiet {
+                    log::info!(
+                        "Generated tx no {} to: {}",
+                        transfer_no,
+                        token_transfer.receiver_addr
+                    );
+                }
                 Ok(())
             };
             if let Some(conn) = conn {
