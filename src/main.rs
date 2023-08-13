@@ -16,7 +16,7 @@ use std::cell::RefCell;
 
 use erc20_payment_lib::{
     config, err_create, err_custom_create, err_from,
-    error::{CustomError, ErrorBag, PaymentError},
+    error::{ErrorBag, PaymentError},
     misc::{display_private_keys, load_private_keys},
     runtime::start_payment_engine,
 };
