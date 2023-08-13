@@ -2,7 +2,7 @@
 
 ### Source file
 
-[single_gas_transfer.rs](../../tests/docker_01_single_transfer/single_gas_transfer.rs)
+[single_gas_transfer.rs](../../tests/docker_01_basic/single_gas_transfer.rs)
 
 ### Description
 
