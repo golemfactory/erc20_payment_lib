@@ -11,12 +11,19 @@ use std::time::Duration;
 use web3::types::U256;
 use web3_test_proxy_client::list_transactions_human;
 
-#[rustfmt::skip]
 #[tokio::test(flavor = "multi_thread")]
-async fn test_durability() -> Result<(), anyhow::Error> {
-    // *** TEST SETUP ***
-    let payment_count = 3;
+async fn test_durability_3() -> Result<(), anyhow::Error> {
+    test_durability(3).await
+}
 
+#[tokio::test(flavor = "multi_thread")]
+async fn test_durability_1000() -> Result<(), anyhow::Error> {
+    test_durability(10000).await
+}
+
+#[rustfmt::skip]
+async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
+    // *** TEST SETUP ***
     let geth_container = exclusive_geth_init(Duration::from_secs(3600)).await;
     let conn = setup_random_memory_sqlite_conn().await;
 
@@ -29,6 +36,8 @@ async fn test_durability() -> Result<(), anyhow::Error> {
         let mut approve_contract_message_count = 0;
         let mut tx_confirmed_message_count = 0;
         let mut fee_paid = U256::from(0_u128);
+        let mut fee_paid_approve = U256::from(0_u128);
+
         while let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
 
@@ -39,7 +48,7 @@ async fn test_durability() -> Result<(), anyhow::Error> {
                 }
                 ApproveFinished(allowance_dao) => {
                     approve_contract_message_count += 1;
-                    fee_paid += U256::from_dec_str(&allowance_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
+                    fee_paid_approve += U256::from_dec_str(&allowance_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
                 }
                 TransactionConfirmed(_tx_dao) => {
                     tx_confirmed_message_count += 1;
@@ -51,24 +60,12 @@ async fn test_durability() -> Result<(), anyhow::Error> {
             }
         }
 
-        assert_eq!(tx_confirmed_message_count, 2);
-        assert_eq!(transfer_finished_message_count, payment_count);
+        assert!(tx_confirmed_message_count > 0);
+        assert_eq!(transfer_finished_message_count, generate_count);
         assert_eq!(approve_contract_message_count, 1);
-        fee_paid
+        (fee_paid, fee_paid_approve)
     });
 
-
-    let test_receivers = [
-        ("0xf2f86a61b769c91fc78f15059a5bd2c189b84be2", 50600000000000000000_u128),
-        ("0x0000000000000000000000000000000000000001", 40600000000000000678_u128),
-        ("0x0000000000000000000000000000000000000002", 30600000000000000678_u128),
-        ("0x0000000000000000000000000000000000000003", 20600000000000000678_u128),
-        ("0x0000000000000000000000000000000000000004", 10600000000000000678_u128),
-        ("0x0000000000000000000000000000000000000005", 600000000000000678_u128),
-        ("0x0000000000000000000000000000000000000006", 10600000000000000678_u128),
-        ("0x0000000000000000000000000000000000000007", 600000000000000678_u128),
-        ("0x0000000000000000000000000000000000000008", 10600000000000000678_u128),
-        ("0x0000000000000000000000000000000000000009", 600000000000000678_u128)];
 
     {
         let config = create_default_config_setup(&proxy_url_base, proxy_key).await;
@@ -80,7 +77,7 @@ async fn test_durability() -> Result<(), anyhow::Error> {
 
         let gtp = GenerateTestPaymentsOptions {
             chain_name: "dev".to_string(),
-            generate_count: 10,
+            generate_count,
             random_receivers: true,
             receivers_ordered_pool: 1,
             receivers_random_pool: None,
@@ -152,34 +149,26 @@ async fn test_durability() -> Result<(), anyhow::Error> {
 
     {
         // *** RESULT CHECK ***
-        let fee_paid = receiver_loop.await.unwrap();
-        log::info!("fee paid: {}", u256_to_rust_dec(fee_paid, None).unwrap());
+        let (fee_paid_events, fee_paid_events_approve)  = receiver_loop.await.unwrap();
+        log::info!("fee paid from events: {}", u256_to_rust_dec(fee_paid_events, None).unwrap());
 
-        //intersperse is joining strings with separator
-        use itertools::Itertools;
-        #[allow(unstable_name_collisions)]
-            let res = test_get_balance(&proxy_url_base,
-                                       &(test_receivers
-                                           .iter()
-                                           .take(payment_count)
-                                           .map(|el| el.0)
-                                           .intersperse(",")
-                                           .collect::<String>() + ",0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"))
-            .await.expect("get balance should work");
+        let transfer_stats = get_transfer_stats(&conn).await.unwrap();
+        let stats_all = transfer_stats.per_sender.iter().next().unwrap().1.all.clone();
+        let fee_paid_stats = stats_all.fee_paid;
+        log::info!("fee paid from stats: {}", u256_to_rust_dec(fee_paid_stats, None).unwrap());
 
-        for (addr, val) in test_receivers.into_iter().take(payment_count)
-        {
-            assert_eq!(res[addr].gas, Some("0".to_string()));
-            assert_eq!(res[addr].token, Some(val.to_string()));
-        }
+        assert_eq!(fee_paid_events, fee_paid_stats);
 
+        log::info!("Number of transfers done: {}", stats_all.done_count);
+
+        assert_eq!(stats_all.processed_count, 0);
+        assert_eq!(stats_all.done_count, generate_count);
+
+        let res = test_get_balance(&proxy_url_base, "0xbfb29b133aa51c4b45b49468f9a22958eafea6fa").await?;
         let gas_left = U256::from_dec_str(&res["0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"].gas.clone().unwrap()).unwrap();
-        assert_eq!(gas_left + fee_paid, U256::from(536870912000000000000_u128));
+        assert_eq!(gas_left + fee_paid_events + fee_paid_events_approve, U256::from(536870912000000000000_u128));
         let mut glm_left = U256::from(1000000000000000000000_u128);
-        for (_, val) in test_receivers.iter().take(payment_count)
-        {
-            glm_left -= U256::from(*val);
-        }
+        glm_left -= *stats_all.erc20_token_transferred.iter().next().unwrap().1;
         assert_eq!(res["0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"].token, Some(glm_left.to_string()));
 
         let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;

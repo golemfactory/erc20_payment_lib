@@ -70,6 +70,8 @@ jobs:
       - name: Build tests (release-lto)
         run: cargo test --test docker_10_long --profile=release-lto --no-run
 
-      - name: Run tests (docker_10_long)
-        run: cargo test --test docker_10_long --profile=release-lto -- --test-threads=10
+      - name: Run tests (docker_10_long, warmup)
+        run: cargo test --test docker_10_long multi_erc20_transfer::test_durability_3 --profile=release-lto -- --test-threads=10
 
+      - name: Run tests (docker_10_long, proper test)
+        run: cargo test --test docker_10_long multi_erc20_transfer::test_durability_10000 --profile=release-lto -- --test-threads=10

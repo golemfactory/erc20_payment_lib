@@ -27,7 +27,7 @@ pub struct GenerateTestPaymentsOptions {
     pub chain_name: String,
 
     #[structopt(short = "n", long = "generate-count", default_value = "10")]
-    pub generate_count: usize,
+    pub generate_count: u64,
 
     #[structopt(long = "random-receivers")]
     pub random_receivers: bool,
@@ -140,7 +140,7 @@ pub async fn generate_test_payments(
         &amount_pool,
     )?
     .rate_limit(rate_limit_options)
-    .take(generate_options.generate_count)
+    .take(generate_options.generate_count as usize)
     .try_for_each(move |(transfer_no, token_transfer)| {
         let writer = writer.clone();
         let conn = conn.clone();
