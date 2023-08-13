@@ -1,5 +1,3 @@
-use erc20_payment_lib::error::CustomError;
-use erc20_payment_lib::error::ErrorBag;
 use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::eth::get_balance;
 use erc20_payment_lib::setup::PaymentSetup;

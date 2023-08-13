@@ -8,7 +8,6 @@ use crate::sender::process::{process_transaction, ProcessTransactionResult};
 
 use crate::utils::ConversionError;
 
-use crate::error::*;
 use crate::runtime::{send_driver_event, DriverEvent, DriverEventContent, SharedState};
 use crate::sender::batching::{gather_transactions_post, gather_transactions_pre};
 use crate::sender::process_allowance;
