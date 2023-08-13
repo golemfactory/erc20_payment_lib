@@ -1,7 +1,7 @@
 use web3::types::{Address, U256};
 
-use crate::error::{CustomError, PaymentError};
-use crate::{err_custom_create, error::ErrorBag};
+use crate::err_custom_create;
+use crate::error::PaymentError;
 
 pub fn pack_transfers_for_multi_contract(
     receivers: Vec<Address>,

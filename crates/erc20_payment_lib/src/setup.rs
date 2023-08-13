@@ -1,6 +1,6 @@
 use crate::config::Config;
+use crate::error::ErrorBag;
 use crate::error::PaymentError;
-use crate::error::{CustomError, ErrorBag};
 
 use crate::utils::gwei_to_u256;
 use crate::{err_custom_create, err_from};
