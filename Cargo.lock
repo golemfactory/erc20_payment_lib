@@ -1041,6 +1041,7 @@ dependencies = [
  "toml",
  "uuid 1.4.1",
  "web3",
+ "web3_test_proxy_client",
 ]
 
 [[package]]

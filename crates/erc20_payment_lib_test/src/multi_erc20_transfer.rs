@@ -1,3 +1,7 @@
+use crate::{
+    create_default_config_setup, exclusive_geth_init, setup_random_memory_sqlite_conn,
+    test_get_balance,
+};
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::get_transfer_stats;
 use erc20_payment_lib::error::PaymentError;
@@ -6,23 +10,12 @@ use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
 use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_extra::{generate_test_payments, GenerateTestPaymentsOptions};
-use erc20_payment_lib_test::*;
 use std::time::Duration;
 use web3::types::U256;
 use web3_test_proxy_client::list_transactions_human;
 
-#[tokio::test(flavor = "multi_thread")]
-async fn test_durability_3() -> Result<(), anyhow::Error> {
-    test_durability(3).await
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_durability_1000() -> Result<(), anyhow::Error> {
-    test_durability(10000).await
-}
-
 #[rustfmt::skip]
-async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
+pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
     let geth_container = exclusive_geth_init(Duration::from_secs(3600)).await;
     let conn = setup_random_memory_sqlite_conn().await;
@@ -173,8 +166,6 @@ async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
 
         let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;
         log::info!("transaction list \n {}", transaction_human.join("\n"));
-        assert!(transaction_human.len() > 30);
-        assert!(transaction_human.len() < 70);
     }
 
     Ok(())

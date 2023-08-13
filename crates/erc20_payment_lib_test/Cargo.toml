@@ -40,4 +40,4 @@ uuid = { workspace = true }
 env_logger = { workspace = true }
 erc20_payment_lib = { path = "../erc20_payment_lib" }
 erc20_payment_lib_extra = { path = "../erc20_payment_lib_extra" }
-
+web3_test_proxy_client = { path = "../web3_test_proxy_client" }
