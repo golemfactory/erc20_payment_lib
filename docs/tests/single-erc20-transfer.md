@@ -2,7 +2,7 @@
 
 ### Source file
 
-[single_erc20_transfer.rs](../../tests/docker_01_single_transfer/single_erc20_transfer.rs)
+[single_erc20_transfer.rs](../../tests/docker_01_basic/single_erc20_transfer.rs)
 
 ### Description
 

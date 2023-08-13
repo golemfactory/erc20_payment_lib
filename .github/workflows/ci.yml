@@ -4,6 +4,7 @@ on: push
 
 jobs:
   fmt_and_clippy:
+    name: Fmt and clippy
     timeout-minutes: 5
 
     runs-on: ubuntu-latest
@@ -22,6 +23,7 @@ jobs:
         run: cargo clippy --all-targets --all-features --all -- -D warnings
 
   erc20_processor:
+    name: ERC20 processor build only
     timeout-minutes: 20
 
     runs-on: ubuntu-latest
@@ -34,6 +36,7 @@ jobs:
         run: cargo build --profile=release-lto
 
   payment_tests:
+    name: Payment tests (basic + short ones)
     timeout-minutes: 20
 
     runs-on: ubuntu-latest
@@ -45,5 +48,27 @@ jobs:
       - name: Build tests
         run: cargo test --profile=release-fast --no-run
 
-      - name: Run tests
-        run: cargo test --profile=release-fast -- --test-threads=10
+      - name: Run tests (docker_01_basic)
+        run: cargo test --test docker_01_basic --profile=release-fast -- --test-threads=10
+
+      - name: Run tests (docker_02_errors)
+        run: cargo test --test docker_02_errors --profile=release-fast -- --test-threads=10
+
+      - name: Run tests (docker_03_problems)
+        run: cargo test --test docker_03_problems --profile=release-fast -- --test-threads=10
+
+  payment_tests_long:
+    name: Payment tests (long)
+    timeout-minutes: 120
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Build tests (release-lto)
+        run: cargo test --test docker_10_long --profile=release-lto --no-run
+
+      - name: Run tests (docker_10_long)
+        run: cargo test  --profile=release-lto --test docker_10_long -- --test-threads=10

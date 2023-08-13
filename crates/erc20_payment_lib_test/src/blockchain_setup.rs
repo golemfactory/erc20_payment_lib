@@ -5,7 +5,6 @@ use bollard::{container, image, service::HostConfig, Docker};
 use futures_util::TryStreamExt;
 use std::collections::HashMap;
 use std::env;
-use std::str::FromStr;
 use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
 
@@ -301,7 +300,7 @@ impl GethContainer {
         log::debug!("Image id extracted {}", image_id);
 
         let max_docker_lifetime = if env::var("KEEP_DOCKER_CONTAINERS")
-            .is_ok_and(|f| bool::from_str(&f).unwrap_or_default())
+            .is_ok_and(|f| f == "1" || f.to_lowercase() == "true")
         {
             30 * 24 * 3600
         } else {
