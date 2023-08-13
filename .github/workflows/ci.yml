@@ -45,5 +45,12 @@ jobs:
       - name: Build tests
         run: cargo test --profile=release-fast --no-run
 
-      - name: Run tests
-        run: cargo test --profile=release-fast -- --test-threads=10
+      - name: Run tests (docker_01_basic)
+        run: cargo test --test docker_01_basic --profile=release-fast -- --test-threads=10
+
+      - name: Run tests (docker_02_errors)
+        run: cargo test --test docker_02_errors --profile=release-fast -- --test-threads=10
+
+      - name: Run tests (docker_03_problems)
+        run: cargo test --test docker_03_problems --profile=release-fast -- --test-threads=10
+
