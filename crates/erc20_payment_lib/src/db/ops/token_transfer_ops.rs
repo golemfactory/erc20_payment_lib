@@ -1,13 +1,14 @@
-use std::collections::BTreeMap;
-use std::str::FromStr;
 use crate::db::model::*;
-use sqlx::SqlitePool;
-use sqlx_core::executor::Executor;
-use sqlx_core::sqlite::Sqlite;
-use web3::types::Address;
 use crate::err_from;
 use crate::error::PaymentError;
 use crate::error::*;
+use sqlx::SqlitePool;
+use sqlx_core::executor::Executor;
+use sqlx_core::sqlite::Sqlite;
+use std::collections::BTreeMap;
+use std::ops::AddAssign;
+use std::str::FromStr;
+use web3::types::{Address, U256};
 
 pub async fn insert_token_transfer<'c, E>(
     executor: E,
@@ -120,42 +121,47 @@ pub const TRANSFER_FILTER_QUEUED: &str = "(tx_id is null AND error is null)";
 pub const TRANSFER_FILTER_PROCESSING: &str = "(tx_id is not null AND fee_paid is null)";
 pub const TRANSFER_FILTER_DONE: &str = "(fee_paid is not null)";
 
-
-
 #[derive(Debug, Clone, Default)]
 pub struct TransferStatsPart {
     pub queued_count: u64,
     pub processed_count: u64,
     pub done_count: u64,
-    pub total_count: u64
+    pub total_count: u64,
+    pub fee_paid: U256,
+    ///None means native token
+    pub erc20_token_transferred: BTreeMap<Address, U256>,
+    pub native_token_transferred: U256,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct TransferStatsBase {
     pub per_receiver: BTreeMap<Address, TransferStatsPart>,
-    pub all: TransferStatsPart
+    pub all: TransferStatsPart,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct TransferStats {
-    pub per_sender: BTreeMap<Address, TransferStatsBase>
+    pub per_sender: BTreeMap<Address, TransferStatsBase>,
 }
 
-
-pub async fn get_transfer_stats(conn: &SqlitePool) -> Result<TransferStats, PaymentError>  {
-    let tt = get_all_token_transfers(conn, None).await.map_err(err_from!())?;
+pub async fn get_transfer_stats(conn: &SqlitePool) -> Result<TransferStats, PaymentError> {
+    let tt = get_all_token_transfers(conn, None)
+        .await
+        .map_err(err_from!())?;
     let mut ts = TransferStats::default();
     for t in tt {
         let from_addr = Address::from_str(&t.from_addr).map_err(err_from!())?;
         let to_addr = Address::from_str(&t.receiver_addr).map_err(err_from!())?;
-        if !ts.per_sender.contains_key(&from_addr) {
-            ts.per_sender.insert(from_addr, TransferStatsBase::default());
-        }
-        let ts = ts.per_sender.get_mut(&from_addr).expect("Inserted when not found");
-        if !ts.per_receiver.contains_key(&to_addr) {
-            ts.per_receiver.insert(to_addr, TransferStatsPart::default());
-        }
-        let (t1, t2) = (&mut ts.all, ts.per_receiver.get_mut(&to_addr).expect("Inserted when not found"));
+        let ts = ts
+            .per_sender
+            .entry(from_addr)
+            .or_insert_with(TransferStatsBase::default);
+        let (t1, t2) = (
+            &mut ts.all,
+            ts.per_receiver
+                .entry(to_addr)
+                .or_insert_with(TransferStatsPart::default),
+        );
 
         for ts in [t1, t2] {
             ts.total_count += 1;
@@ -167,9 +173,21 @@ pub async fn get_transfer_stats(conn: &SqlitePool) -> Result<TransferStats, Paym
             }
             if t.tx_id.is_some() && t.fee_paid.is_some() {
                 ts.done_count += 1;
+                ts.fee_paid +=
+                    U256::from_dec_str(&t.fee_paid.clone().unwrap()).map_err(err_from!())?;
+                if let Some(token_addr) = &t.token_addr {
+                    let token_addr = Address::from_str(token_addr).map_err(err_from!())?;
+                    let token_amount = U256::from_dec_str(&t.token_amount).map_err(err_from!())?;
+                    ts.erc20_token_transferred
+                        .entry(token_addr)
+                        .or_insert_with(U256::zero)
+                        .add_assign(token_amount);
+                } else {
+                    ts.native_token_transferred
+                        .add_assign(U256::from_dec_str(&t.token_amount).map_err(err_from!())?);
+                }
             }
         }
-
     }
     Ok(ts)
 }

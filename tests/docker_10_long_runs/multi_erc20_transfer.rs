@@ -1,5 +1,5 @@
 use erc20_payment_lib::config::AdditionalOptions;
-use erc20_payment_lib::db::ops::{get_transfer_stats};
+use erc20_payment_lib::db::ops::get_transfer_stats;
 use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
@@ -22,7 +22,6 @@ async fn test_durability() -> Result<(), anyhow::Error> {
 
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
     let proxy_key = "erc20_transfer";
-
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
     let receiver_loop = tokio::spawn(async move {
@@ -131,7 +130,7 @@ async fn test_durability() -> Result<(), anyhow::Error> {
         );
 
         let conn_ = conn.clone();
-        let stats = tokio::spawn(async move {
+        let _stats = tokio::spawn(async move {
             loop {
                 let stats = match get_transfer_stats(&conn_).await {
                     Ok(stats) => stats,
@@ -148,7 +147,7 @@ async fn test_durability() -> Result<(), anyhow::Error> {
 
         local_set.await;
         log::info!("Waiting for local task to finish");
-        let r = jh.await;
+        let _r = jh.await;
     }
 
     {
