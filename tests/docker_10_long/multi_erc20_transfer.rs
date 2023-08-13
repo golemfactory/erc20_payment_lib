@@ -13,7 +13,6 @@ use web3_test_proxy_client::list_transactions_human;
 
 #[rustfmt::skip]
 #[tokio::test(flavor = "multi_thread")]
-#[cfg(feature = "long_tests")]
 async fn test_durability() -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
     let payment_count = 3;
