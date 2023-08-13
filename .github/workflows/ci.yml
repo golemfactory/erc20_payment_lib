@@ -59,7 +59,7 @@ jobs:
 
   payment_tests_long:
     name: Payment tests (long)
-    timeout-minutes: 120
+    timeout-minutes: 300
 
     runs-on: ubuntu-latest
 

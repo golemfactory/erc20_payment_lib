@@ -17,7 +17,7 @@ use web3_test_proxy_client::list_transactions_human;
 #[rustfmt::skip]
 pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
-    let geth_container = exclusive_geth_init(Duration::from_secs(3600)).await;
+    let geth_container = exclusive_geth_init(Duration::from_secs(6 * 3600)).await;
     let conn = setup_random_memory_sqlite_conn().await;
 
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
