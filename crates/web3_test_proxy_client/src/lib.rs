@@ -103,7 +103,7 @@ pub async fn get_calls(url_base: &str, proxy_key: &str) -> Result<GetCallsRespon
                 .await
                 .unwrap();
 
-            let PAYLOAD_UNLIMITED: usize = 1024 * 1024 * 1024 * 1024;
+            const PAYLOAD_UNLIMITED: usize = 1024 * 1024 * 1024 * 1024;
             let b = match res.body().limit(PAYLOAD_UNLIMITED).await {
                 Ok(b) => b,
                 Err(e) => return Err(anyhow::anyhow!("Error getting calls: {}", e.to_string())),

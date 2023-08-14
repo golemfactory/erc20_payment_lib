@@ -12,10 +12,9 @@ use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_extra::{generate_test_payments, GenerateTestPaymentsOptions};
 use std::time::Duration;
 use web3::types::U256;
-use web3_test_proxy_client::list_transactions_human;
 
 #[rustfmt::skip]
-pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
+pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transfers_at_once: usize) -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
     let geth_container = exclusive_geth_init(Duration::from_secs(6 * 3600)).await;
     let conn = setup_random_memory_sqlite_conn().await;
@@ -62,7 +61,7 @@ pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
 
     {
         let mut config = create_default_config_setup(&proxy_url_base, proxy_key).await;
-        config.chain.get_mut("dev").unwrap().multi_contract.as_mut().unwrap().max_at_once = 100;
+        config.chain.get_mut("dev").unwrap().multi_contract.as_mut().unwrap().max_at_once = transfers_at_once;
 
         //load private key for account 0xbfb29b133aa51c4b45b49468f9a22958eafea6fa
         let (private_keys, public_keys) = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963")?;
@@ -78,7 +77,7 @@ pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
             append_to_db: true,
             file: None,
             separator: ',',
-            interval: Some(0.1),
+            interval: Some(gen_interval_secs),
             limit_time: None,
             quiet: true,
         };
@@ -164,8 +163,9 @@ pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
         glm_left -= *stats_all.erc20_token_transferred.iter().next().unwrap().1;
         assert_eq!(res["0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"].token, Some(glm_left.to_string()));
 
-        let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;
-        log::info!("transaction list \n {}", transaction_human.join("\n"));
+
+        //let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;
+        //log::info!("transaction list \n {}", transaction_human.join("\n"));
     }
 
     Ok(())
