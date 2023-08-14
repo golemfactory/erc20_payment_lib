@@ -1,9 +1,6 @@
 name: Transfers_10x100000
 
-on:
-  push:
-    branches:
-      - main
+on: push
 
 jobs:
   payment_tests_long:
