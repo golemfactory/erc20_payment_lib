@@ -59,11 +59,11 @@ serde = "^1.0.147"
 serde_json = { version = "^1.0.85" }
 sha3 = "0.10.6"
 # newest version that can be used by yagna without diesel update
-sqlx = { version = "=0.5.9", features = ["sqlite", "runtime-tokio-rustls", "chrono"] }
-sqlx-core = { version = "=0.5.9", features = ["runtime-tokio-rustls"] }
+#sqlx = { version = "=0.5.9", features = ["sqlite", "runtime-tokio-rustls", "chrono"] }
+#sqlx-core = { version = "=0.5.9", features = ["runtime-tokio-rustls"] }
 # newest version that compiles
-#sqlx-core = { version = "0.6", default-features=false, features = ["runtime-tokio-rustls"] }
-#sqlx = { version = "0.6", default-features=false, features = ["migrate", "macros", "sqlite", "runtime-tokio-rustls", "chrono"] }
+sqlx-core = { version = "0.6", default-features=false, features = ["runtime-tokio-rustls"] }
+sqlx = { version = "0.6", default-features=false, features = ["migrate", "macros", "sqlite", "runtime-tokio-rustls", "chrono"] }
 #libsqlite3-sys = { version = "=0.22.2", features = ["bundled"] }
 stream-rate-limiter = "0.3"
 structopt = "0.3.26"
