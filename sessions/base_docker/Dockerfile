@@ -1,5 +1,5 @@
 FROM ethereum/client-go:v1.12.0 as go_client
-FROM scx1332/web3_test_proxy:v0.2.1 as proxy_builder
+FROM scx1332/web3_test_proxy:v0.2.2 as proxy_builder
 FROM alpine:3.18.2
 
 WORKDIR /runtime
