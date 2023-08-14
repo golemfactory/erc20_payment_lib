@@ -6,6 +6,7 @@ extern crate core;
 
 use crate::error::*;
 use actix_web::http::StatusCode;
+use actix_web::web::PayloadConfig;
 use actix_web::web::{Bytes, Data};
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder, Scope};
 use env_logger::Env;
@@ -619,8 +620,10 @@ async fn main_internal() -> Result<(), Web3ProxyError> {
             .allow_any_header()
             .max_age(3600);
 
+        const PAYLOAD_LIMIT_MIB: usize = 50;
         let scope = Scope::new("api")
             .app_data(server_data.clone())
+            .app_data(PayloadConfig::new(PAYLOAD_LIMIT_MIB * 1024 * 1024))
             .route("/", web::get().to(greet))
             .route("/config", web::get().to(config))
             .route("/call/{key}/{call_no}", web::get().to(get_call))
