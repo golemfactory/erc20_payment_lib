@@ -69,6 +69,11 @@ jobs:
 
       - name: Build tests (release-lto)
         run: cargo test --test docker_10_long --profile=release-lto --no-run
-
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "docker_10_long"
+          
       - name: Run tests (docker_10_long)
         run: cargo test  --profile=release-lto --test docker_10_long -- --test-threads=10
+        env:
+          USE_DISK_DB_INSTEAD_OF_MEM: 1
