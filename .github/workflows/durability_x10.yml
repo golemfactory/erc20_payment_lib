@@ -1,4 +1,4 @@
-name: 100000 transfers x10
+name: Transfers 10x100000
 
 jobs:
   payment_tests_long:
