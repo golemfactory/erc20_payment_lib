@@ -15,8 +15,6 @@ jobs:
 
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: "fmt_and_clippy"
 
       - name: Fmt
         run: cargo fmt -- --check
@@ -39,11 +37,27 @@ jobs:
 
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: "erc20processor_build"
 
       - name: Build erc20 processor
         run: cargo build --profile=release-lto
+
+  build_tests:
+    name: Build all tests
+    timeout-minutes: 20
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "tests-release-fast"
+
+      - name: Build tests
+        run: cargo test --profile=release-fast --no-run
 
   payment_tests:
     name: Payment tests (basic + short ones)
@@ -55,6 +69,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "tests-release-fast"
+          save-if: false
+          
       - name: Build tests
         run: cargo test --profile=release-fast --no-run
 
@@ -80,7 +100,8 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: "docker_10_long_release-fast"
+          shared-key: "tests-release-fast"
+          save-if: false
 
       - name: Build tests (release-fast)
         run: cargo test --profile=release-fast --test docker_10_long --no-run
