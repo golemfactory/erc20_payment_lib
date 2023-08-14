@@ -54,7 +54,8 @@ pub async fn setup_random_memory_sqlite_conn() -> SqlitePool {
         .map(char::from)
         .collect();
 
-    if env::var("USE_DISK_DB_INSTEAD_OF_MEM").is_ok_and(|f| f == "1" || f.to_lowercase() == "true") {
+    if env::var("USE_DISK_DB_INSTEAD_OF_MEM").is_ok_and(|f| f == "1" || f.to_lowercase() == "true")
+    {
         let db_name = format!("test_{rand_string}.sqlite");
         log::info!("Using disk db with the name {db_name}");
         create_sqlite_connection(Some(&db_name), None, true)
