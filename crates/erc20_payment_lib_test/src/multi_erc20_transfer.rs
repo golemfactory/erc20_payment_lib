@@ -61,8 +61,8 @@ pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
 
 
     {
-        let config = create_default_config_setup(&proxy_url_base, proxy_key).await;
-        //config.chain.get_mut("dev").unwrap().confirmation_blocks = 0;
+        let mut config = create_default_config_setup(&proxy_url_base, proxy_key).await;
+        config.chain.get_mut("dev").unwrap().multi_contract.as_mut().unwrap().max_at_once = 100;
 
         //load private key for account 0xbfb29b133aa51c4b45b49468f9a22958eafea6fa
         let (private_keys, public_keys) = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963")?;
@@ -78,7 +78,7 @@ pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
             append_to_db: true,
             file: None,
             separator: ',',
-            interval: Some(1.0),
+            interval: Some(0.1),
             limit_time: None,
             quiet: true,
         };

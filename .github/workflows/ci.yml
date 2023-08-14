@@ -67,13 +67,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Build tests (release-lto)
-        run: cargo test --test docker_10_long --profile=release-lto --no-run
+      - name: Build tests (release-fast)
+        run: cargo test --profile=release-fast --test docker_10_long --no-run
         uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: "docker_10_long"
+          prefix-key: "docker_10_long_release-fast"
           
       - name: Run tests (docker_10_long)
-        run: cargo test  --profile=release-lto --test docker_10_long -- --test-threads=10
+        run: cargo test --profile=release-fast --test docker_10_long -- --test-threads=10
         env:
           USE_DISK_DB_INSTEAD_OF_MEM: 1
