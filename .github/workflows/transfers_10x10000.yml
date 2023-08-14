@@ -1,5 +1,10 @@
 name: Transfers_10x100000
 
+on:
+  push:
+    branches:
+      - main
+
 jobs:
   payment_tests_long:
     name: Payment tests (long)
