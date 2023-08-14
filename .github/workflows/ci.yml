@@ -32,6 +32,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "erc20processor_build"
+
       - name: Build erc20 processor
         run: cargo build --profile=release-lto
 
