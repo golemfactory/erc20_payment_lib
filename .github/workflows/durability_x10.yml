@@ -1,6 +1,4 @@
-name: Test
-
-on: push
+name: 100000 transfers x10
 
 jobs:
   payment_tests_long:
