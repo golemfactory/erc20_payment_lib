@@ -41,8 +41,8 @@ jobs:
       - name: Build erc20 processor
         run: cargo build --profile=release-lto
 
-  build_tests:
-    name: Build all tests
+  build_tests_and_cache:
+    name: Build and cache all tests
     timeout-minutes: 20
 
     runs-on: ubuntu-latest

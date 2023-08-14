@@ -31,7 +31,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
         let mut fee_paid_approve = U256::from(0_u128);
 
         while let Some(msg) = receiver.recv().await {
-            log::info!("Received message: {:?}", msg);
+            log::debug!("Received message: {:?}", msg);
 
             match msg.content {
                 TransferFinished(transfer_dao) => {
