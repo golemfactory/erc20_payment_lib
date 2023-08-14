@@ -1,6 +1,5 @@
 # rust_erc20_payment
 
-
 # Notes
 
 * all addresses/txs in database are in hex/lowercase format. 
