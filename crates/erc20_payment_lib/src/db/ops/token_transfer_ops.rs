@@ -144,8 +144,11 @@ pub struct TransferStats {
     pub per_sender: BTreeMap<Address, TransferStatsBase>,
 }
 
-pub async fn get_transfer_stats(conn: &SqlitePool) -> Result<TransferStats, PaymentError> {
-    let tt = get_all_token_transfers(conn, None)
+pub async fn get_transfer_stats(
+    conn: &SqlitePool,
+    limit: Option<i64>,
+) -> Result<TransferStats, PaymentError> {
+    let tt = get_all_token_transfers(conn, limit)
         .await
         .map_err(err_from!())?;
     let mut ts = TransferStats::default();

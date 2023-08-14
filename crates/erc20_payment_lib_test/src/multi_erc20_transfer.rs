@@ -121,7 +121,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
         let conn_ = conn.clone();
         let _stats = tokio::spawn(async move {
             loop {
-                let stats = match get_transfer_stats(&conn_).await {
+                let stats = match get_transfer_stats(&conn_, Some(10000)).await {
                     Ok(stats) => stats,
                     Err(err) => {
                         log::error!("Error from get_transfer_stats {err}");
@@ -144,7 +144,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
         let (fee_paid_events, fee_paid_events_approve)  = receiver_loop.await.unwrap();
         log::info!("fee paid from events: {}", u256_to_rust_dec(fee_paid_events, None).unwrap());
 
-        let transfer_stats = get_transfer_stats(&conn).await.unwrap();
+        let transfer_stats = get_transfer_stats(&conn, None).await.unwrap();
         let stats_all = transfer_stats.per_sender.iter().next().unwrap().1.all.clone();
         let fee_paid_stats = stats_all.fee_paid;
         log::info!("fee paid from stats: {}", u256_to_rust_dec(fee_paid_stats, None).unwrap());
