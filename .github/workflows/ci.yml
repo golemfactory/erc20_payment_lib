@@ -66,13 +66,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-
-      - name: Build tests (release-fast)
-        run: cargo test --profile=release-fast --test docker_10_long --no-run
+      - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
           prefix-key: "docker_10_long_release-fast"
-          
+
+      - name: Build tests (release-fast)
+        run: cargo test --profile=release-fast --test docker_10_long --no-run
+
       - name: Run tests (docker_10_long)
         run: cargo test --profile=release-fast --test docker_10_long -- --test-threads=10
         env:
