@@ -103,12 +103,15 @@ pub async fn get_calls(url_base: &str, proxy_key: &str) -> Result<GetCallsRespon
                 .await
                 .unwrap();
 
-            res.body()
-                .await
-                .map(|b| String::from_utf8_lossy(&b).to_string())
-                .unwrap()
+            const PAYLOAD_UNLIMITED: usize = 1024 * 1024 * 1024 * 1024;
+            let b = match res.body().limit(PAYLOAD_UNLIMITED).await {
+                Ok(b) => b,
+                Err(e) => return Err(anyhow::anyhow!("Error getting calls: {}", e.to_string())),
+            };
+            String::from_utf8(b.to_vec())
+                .map_err(|e| anyhow::anyhow!("Error parsing UTF-8: {}", e.to_string()))
         })
-        .await;
+        .await?;
     serde_json::from_str(&resp_data)
         .map_err(|_e| anyhow::anyhow!("Error parsing json when getting methods: {}", resp_data))
 }

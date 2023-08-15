@@ -220,7 +220,7 @@ pub async fn process_transaction(
             .await
             .set_tx_message(web3_tx_dao.id, "Confirmations - checking nonce".to_string());
 
-        log::info!(
+        log::debug!(
             "Checking latest nonce tx: {}, expected nonce: {}",
             web3_tx_dao.id,
             transaction_nonce + 1
@@ -309,7 +309,7 @@ pub async fn process_transaction(
                 transaction_nonce + 1
             );
         }
-        log::info!(
+        log::debug!(
             "Checking pending nonce tx: {}, expected nonce: {}",
             web3_tx_dao.id,
             transaction_nonce + 1

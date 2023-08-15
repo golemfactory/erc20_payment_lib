@@ -1,5 +1,8 @@
 # ya_web_proxy
 
+Note that this project is separated from main workspace. 
+It is placed here for convenience, but it is build separately.
+
 ### Build process for tests
 
 ```

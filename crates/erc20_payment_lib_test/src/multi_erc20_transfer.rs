@@ -12,12 +12,11 @@ use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_extra::{generate_test_payments, GenerateTestPaymentsOptions};
 use std::time::Duration;
 use web3::types::U256;
-use web3_test_proxy_client::list_transactions_human;
 
 #[rustfmt::skip]
-pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
+pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transfers_at_once: usize) -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
-    let geth_container = exclusive_geth_init(Duration::from_secs(3600)).await;
+    let geth_container = exclusive_geth_init(Duration::from_secs(6 * 3600)).await;
     let conn = setup_random_memory_sqlite_conn().await;
 
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
@@ -32,7 +31,7 @@ pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
         let mut fee_paid_approve = U256::from(0_u128);
 
         while let Some(msg) = receiver.recv().await {
-            log::info!("Received message: {:?}", msg);
+            log::debug!("Received message: {:?}", msg);
 
             match msg.content {
                 TransferFinished(transfer_dao) => {
@@ -61,8 +60,8 @@ pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
 
 
     {
-        let config = create_default_config_setup(&proxy_url_base, proxy_key).await;
-        //config.chain.get_mut("dev").unwrap().confirmation_blocks = 0;
+        let mut config = create_default_config_setup(&proxy_url_base, proxy_key).await;
+        config.chain.get_mut("dev").unwrap().multi_contract.as_mut().unwrap().max_at_once = transfers_at_once;
 
         //load private key for account 0xbfb29b133aa51c4b45b49468f9a22958eafea6fa
         let (private_keys, public_keys) = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963")?;
@@ -78,7 +77,7 @@ pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
             append_to_db: true,
             file: None,
             separator: ',',
-            interval: Some(1.0),
+            interval: Some(gen_interval_secs),
             limit_time: None,
             quiet: true,
         };
@@ -122,7 +121,7 @@ pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
         let conn_ = conn.clone();
         let _stats = tokio::spawn(async move {
             loop {
-                let stats = match get_transfer_stats(&conn_).await {
+                let stats = match get_transfer_stats(&conn_, Some(10000)).await {
                     Ok(stats) => stats,
                     Err(err) => {
                         log::error!("Error from get_transfer_stats {err}");
@@ -145,7 +144,7 @@ pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
         let (fee_paid_events, fee_paid_events_approve)  = receiver_loop.await.unwrap();
         log::info!("fee paid from events: {}", u256_to_rust_dec(fee_paid_events, None).unwrap());
 
-        let transfer_stats = get_transfer_stats(&conn).await.unwrap();
+        let transfer_stats = get_transfer_stats(&conn, None).await.unwrap();
         let stats_all = transfer_stats.per_sender.iter().next().unwrap().1.all.clone();
         let fee_paid_stats = stats_all.fee_paid;
         log::info!("fee paid from stats: {}", u256_to_rust_dec(fee_paid_stats, None).unwrap());
@@ -164,8 +163,9 @@ pub async fn test_durability(generate_count: u64) -> Result<(), anyhow::Error> {
         glm_left -= *stats_all.erc20_token_transferred.iter().next().unwrap().1;
         assert_eq!(res["0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"].token, Some(glm_left.to_string()));
 
-        let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;
-        log::info!("transaction list \n {}", transaction_human.join("\n"));
+
+        //let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;
+        //log::info!("transaction list \n {}", transaction_human.join("\n"));
     }
 
     Ok(())

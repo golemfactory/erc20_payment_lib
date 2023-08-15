@@ -5,6 +5,9 @@ members = [
     "crates/erc20_payment_lib_test",
     "crates/web3_test_proxy_client",
 ]
+exclude = [
+    "crates/web3_test_proxy",
+]
 
 [[bin]]
 name = "erc20_processor"

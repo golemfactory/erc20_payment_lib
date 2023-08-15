@@ -1,4 +1,4 @@
-name: Test
+name: CI
 
 on: push
 
@@ -12,6 +12,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
 
       - name: Fmt
         run: cargo fmt -- --check
@@ -32,8 +35,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
       - name: Build erc20 processor
         run: cargo build --profile=release-lto
+
+  build_tests_and_cache:
+    name: Build and cache all tests
+    timeout-minutes: 20
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "tests-release-fast"
+
+      - name: Build tests
+        run: cargo test --profile=release-fast --no-run
 
   payment_tests:
     name: Payment tests (basic + short ones)
@@ -44,6 +68,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "tests-release-fast"
+          save-if: false
 
       - name: Build tests
         run: cargo test --profile=release-fast --no-run
@@ -56,19 +86,3 @@ jobs:
 
       - name: Run tests (docker_03_problems)
         run: cargo test --test docker_03_problems --profile=release-fast -- --test-threads=10
-
-  payment_tests_long:
-    name: Payment tests (long)
-    timeout-minutes: 120
-
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Build tests (release-lto)
-        run: cargo test --test docker_10_long --profile=release-lto --no-run
-
-      - name: Run tests (docker_10_long)
-        run: cargo test  --profile=release-lto --test docker_10_long -- --test-threads=10

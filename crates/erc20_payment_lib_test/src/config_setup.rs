@@ -48,7 +48,7 @@ pub async fn setup_random_memory_sqlite_conn() -> SqlitePool {
     use rand::distributions::Alphanumeric;
     use rand::Rng;
 
-    let s: String = rand::thread_rng()
+    let rand_string: String = rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(10)
         .map(char::from)
@@ -56,12 +56,16 @@ pub async fn setup_random_memory_sqlite_conn() -> SqlitePool {
 
     if env::var("USE_DISK_DB_INSTEAD_OF_MEM").is_ok_and(|f| f == "1" || f.to_lowercase() == "true")
     {
-        create_sqlite_connection(Some(&format!("test_{}.sqlite", s)), None, true)
+        let db_name = format!("test_{rand_string}.sqlite");
+        log::info!("Using disk db with the name {db_name}");
+        create_sqlite_connection(Some(&db_name), None, true)
             .await
-            .unwrap()
+            .expect("Failed to create sqlite connection")
     } else {
-        create_sqlite_connection(None, Some(&format!("mem_{}", s)), true)
+        let db_name = format!("mem_{rand_string}");
+        log::info!("Using memory database with the name {db_name}");
+        create_sqlite_connection(None, Some(&db_name), true)
             .await
-            .unwrap()
+            .expect("Failed to create sqlite connection")
     }
 }
