@@ -50,7 +50,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: [release-fast, release-lto, debug]
+        profile: [release-fast, release-lto, dev]
 
     steps:
       - name: Checkout
