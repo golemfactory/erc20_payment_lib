@@ -47,8 +47,10 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    matrix:
-      profile: [release-fast, release-lto, debug]
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [release-fast, release-lto, debug]
 
     steps:
       - name: Checkout
