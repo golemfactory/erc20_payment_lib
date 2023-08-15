@@ -1,0 +1,37 @@
+name: Custom_10x_run
+
+on:
+  workflow_dispatch:
+    inputs:
+      transfer_count:
+        description: 'Number of transfers to generate'
+        required: true
+        default: '100000'
+
+jobs:
+  payment_tests_long:
+    name: Payment tests (long)
+    timeout-minutes: 300
+
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        run_no: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "tests-release-fast"
+
+      - name: Build tests (release-fast)
+        run: cargo test --profile=release-fast --test custom_long --no-run
+
+      - name: Run tests (custom_long x ${{ github.event.inputs.transfer_count }})
+        run: cargo test --profile=release-fast --test custom_long -- --test-threads=1
+        env:
+          USE_DISK_DB_INSTEAD_OF_MEM: 1
+          TRANSFER_COUNT: ${{ github.event.inputs.transfer_count }}
