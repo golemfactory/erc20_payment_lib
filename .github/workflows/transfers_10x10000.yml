@@ -23,10 +23,10 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Build tests (release-lto)
-        run: cargo test --profile=release-lto --test docker_10_long --no-run
+        run: cargo test --profile=release-lto --test custom_long --no-run
 
-      - name: Run tests (docker_10_long)
-        run: cargo test --profile=release-lto --test docker_10_long test_durability_100000 -- --test-threads=1
+      - name: Run tests (custom_long x ${{ github.event.inputs.transfer_count }})
+        run: cargo test --profile=release-lto --test custom_long -- --test-threads=1
         env:
           USE_DISK_DB_INSTEAD_OF_MEM: 1
           TRANSFER_COUNT: ${{ github.event.inputs.transfer_count }}
