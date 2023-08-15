@@ -1,4 +1,4 @@
-name: Transfers_10x100000
+name: Transfers_10x
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
       transfer_count:
         description: 'Number of transfers to generate'
         required: true
-        default: '10000'
+        default: '100000'
 
 jobs:
   payment_tests_long:
@@ -29,3 +29,4 @@ jobs:
         run: cargo test --profile=release-lto --test docker_10_long test_durability_100000 -- --test-threads=1
         env:
           USE_DISK_DB_INSTEAD_OF_MEM: 1
+          TRANSFER_COUNT: ${{ github.event.inputs.transfer_count }}
