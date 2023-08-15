@@ -1,4 +1,4 @@
-name: Transfers_10x
+name: Custom_10x_run
 
 on:
   workflow_dispatch:
