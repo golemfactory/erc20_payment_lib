@@ -1,6 +1,12 @@
 name: Transfers_10x100000
 
-on: push
+on:
+  workflow_dispatch:
+    inputs:
+      flutter_version:
+        description: 'Framework version'
+        required: true
+        default: '2.5.3'
 
 jobs:
   payment_tests_long:
