@@ -3,10 +3,10 @@ name: Transfers_10x100000
 on:
   workflow_dispatch:
     inputs:
-      flutter_version:
-        description: 'Framework version'
+      transfer_count:
+        description: 'Number of transfers to generate'
         required: true
-        default: '2.5.3'
+        default: '10000'
 
 jobs:
   payment_tests_long:
