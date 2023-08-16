@@ -248,7 +248,6 @@ pub fn create_erc20_transfer_multi(
                 "MULTI.golemTransferIndirect".to_string(),
             )
         }
-
     } else {
         let (packed, sum) = pack_transfers_for_multi_contract(erc20_to, erc20_amount)?;
         if direct {

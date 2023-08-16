@@ -112,8 +112,10 @@ pub async fn gather_transactions_batch_multi(
 ) -> Result<u32, PaymentError> {
     let chain_setup = payment_setup.get_chain_setup(token_transfer.chain_id)?;
 
-    let use_direct_method = env::var("CONTRACT_USE_DIRECT_METHOD").is_ok_and(|f| f == "1" || f.to_lowercase() == "true");
-    let use_unpacked_method = env::var("CONTRACT_USE_UNPACKED_METHOD").is_ok_and(|f| f == "1" || f.to_lowercase() == "true");
+    let use_direct_method = env::var("CONTRACT_USE_DIRECT_METHOD")
+        .is_ok_and(|f| f == "1" || f.to_lowercase() == "true");
+    let use_unpacked_method = env::var("CONTRACT_USE_UNPACKED_METHOD")
+        .is_ok_and(|f| f == "1" || f.to_lowercase() == "true");
 
     let max_fee_per_gas = chain_setup.max_fee_per_gas;
     let priority_fee = chain_setup.priority_fee;

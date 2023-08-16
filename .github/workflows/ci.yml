@@ -93,7 +93,7 @@ jobs:
         run: cargo test --test docker_03_problems --profile=release-fast -- --test-threads=10
 
   payment_tests_multi:
-    name: Payment tests (basic + short ones)
+    name: Payment tests (multi)
     timeout-minutes: 20
 
     runs-on: ubuntu-latest
