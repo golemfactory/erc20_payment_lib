@@ -3,6 +3,10 @@ name: Custom_10x_run
 on:
   workflow_dispatch:
     inputs:
+      build_profile:
+        description: 'Build profile'
+        required: true
+        default: 'release-fast'
       transfer_count:
         description: 'Number of transfers to generate'
         required: true
@@ -25,13 +29,13 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "tests-release-fast"
+          shared-key: "tests-${{ github.event.inputs.build_profile }}"
 
-      - name: Build tests (release-fast)
-        run: cargo test --profile=release-fast --test custom_long --no-run
+      - name: Build tests (${{ github.event.inputs.build_profile }})
+        run: cargo test --profile=${{ github.event.inputs.build_profile }} --test custom_long --no-run
 
       - name: Run tests (custom_long x ${{ github.event.inputs.transfer_count }})
-        run: cargo test --profile=release-fast --test custom_long -- --test-threads=1
+        run: cargo test --profile=${{ github.event.inputs.build_profile }} --test custom_long -- --test-threads=1
         env:
           USE_DISK_DB_INSTEAD_OF_MEM: 1
           TRANSFER_COUNT: ${{ github.event.inputs.transfer_count }}

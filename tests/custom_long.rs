@@ -1,5 +1,5 @@
-use std::env;
 use erc20_payment_lib_test::test_durability;
+use std::env;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_durability_custom() -> Result<(), anyhow::Error> {

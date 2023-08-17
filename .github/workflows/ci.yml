@@ -47,6 +47,11 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [release-fast, release-lto, dev]
+
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -54,10 +59,10 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "tests-release-fast"
+          shared-key: "tests-${{ matrix.profile }}"
 
       - name: Build tests
-        run: cargo test --profile=release-fast --no-run
+        run: cargo test --profile=${{ matrix.profile }} --no-run
 
   payment_tests:
     name: Payment tests (basic + short ones)
