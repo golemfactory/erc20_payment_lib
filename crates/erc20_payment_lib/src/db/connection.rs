@@ -21,7 +21,7 @@ pub async fn create_sqlite_connection(
 
     let conn_opt = SqliteConnectOptions::from_str(&url)
         .map_err(err_from!())?
-        .journal_mode(sqlx::sqlite::SqliteJournalMode::Off)
+        //.journal_mode(sqlx::sqlite::SqliteJournalMode::Off)
         .create_if_missing(true);
 
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
