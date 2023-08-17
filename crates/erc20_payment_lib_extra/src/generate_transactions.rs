@@ -8,7 +8,7 @@ use erc20_payment_lib::misc::{
 use erc20_payment_lib::{config, err_create, err_custom_create, err_from};
 use futures_util::StreamExt;
 use futures_util::TryStreamExt;
-use sqlx_core::sqlite::SqlitePool;
+use sqlx::SqlitePool;
 use std::cell::RefCell;
 use std::env;
 use std::path::PathBuf;
@@ -172,7 +172,7 @@ pub async fn generate_test_payments(
             if let Some(conn) = conn {
                 let mut t = conn.begin().await.unwrap();
 
-                insert_token_transfer(&mut t, &token_transfer)
+                insert_token_transfer(&mut *t, &token_transfer)
                     .await
                     .map_err(|err| {
                         err_custom_create!(

@@ -1,7 +1,7 @@
 use crate::db::model::*;
 use sqlx::SqlitePool;
-use sqlx_core::executor::Executor;
-use sqlx_core::sqlite::Sqlite;
+use sqlx::Executor;
+use sqlx::Sqlite;
 
 pub async fn insert_chain_transfer<'c, E>(
     executor: E,

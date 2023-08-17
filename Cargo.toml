@@ -54,24 +54,18 @@ rand = "0.8.5"
 rust-embed = "6.8.1"
 rust_decimal = { version = "1.26.1", features = ["serde-arbitrary-precision"] }
 rustc-hex = "2.1.0"
-secp256k1 = "0.21.0" # version has to match web3
+secp256k1 = "0.27.0" # version has to match web3
 serde = "^1.0.147"
 serde_json = { version = "^1.0.85" }
 sha3 = "0.10.6"
-# newest version that can be used by yagna without diesel update
-sqlx = { version = "=0.5.9", features = ["sqlite", "runtime-tokio-rustls", "chrono"] }
-sqlx-core = { version = "=0.5.9", features = ["runtime-tokio-rustls"] }
-# newest version that compiles
-#sqlx-core = { version = "0.6", default-features=false, features = ["runtime-tokio-rustls"] }
-#sqlx = { version = "0.6", default-features=false, features = ["migrate", "macros", "sqlite", "runtime-tokio-rustls", "chrono"] }
-#libsqlite3-sys = { version = "=0.22.2", features = ["bundled"] }
+sqlx = { version = "0.7", features = ["sqlite", "chrono", "runtime-tokio"] }
 stream-rate-limiter = "0.3"
 structopt = "0.3.26"
 thiserror = "1.0.37"
-tokio = { version = "^1.21", features = ["macros"] }
-toml = "0.5.9"
+tokio = { version = "^1.21", features = ["macros", "rt-multi-thread"] }
+toml = "0.5.9" # need some refactor to update
 uuid = { version = "1.2.2", features = ["serde", "v4"] }
-web3 = { version = "0.18.0", default-features = false, features = ["signing", "http-rustls-tls"] }
+web3 = { version = "0.19.0", default-features = false, features = ["signing", "http-rustls-tls"] }
 
 
 
@@ -103,7 +97,6 @@ actix-web = { workspace = true }
 actix-cors = { workspace = true }
 actix-files = { workspace = true }
 uuid = { workspace = true }
-sqlx-core = { workspace = true }
 sqlx = { workspace = true }
 csv = { workspace = true }
 eth-keystore = { workspace = true }
