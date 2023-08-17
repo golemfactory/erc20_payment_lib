@@ -1,7 +1,7 @@
 use erc20_payment_lib::config;
 use erc20_payment_lib::config::{Chain, Config, Engine, MultiContractSettings, Token};
 use erc20_payment_lib::db::create_sqlite_connection;
-use sqlx_core::sqlite::SqlitePool;
+use sqlx::SqlitePool;
 use std::collections::BTreeMap;
 use std::env;
 use std::str::FromStr;

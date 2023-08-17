@@ -222,6 +222,7 @@ pub fn create_erc20_transfer(
     })
 }
 
+/// Defaults direct to false and unpacked to false
 #[allow(clippy::too_many_arguments)]
 pub fn create_erc20_transfer_multi(
     from: Address,
@@ -233,19 +234,34 @@ pub fn create_erc20_transfer_multi(
     max_fee_per_gas: U256,
     priority_fee: U256,
     direct: bool,
+    unpacked: bool,
 ) -> Result<TxDao, PaymentError> {
-    let (packed, sum) = pack_transfers_for_multi_contract(erc20_to, erc20_amount)?;
-    //todo set method
-    let (data, method_str) = if direct {
-        (
-            encode_multi_direct_packed(packed).map_err(err_from!())?,
-            "MULTI.golemTransferDirectPacked".to_string(),
-        )
+    let (data, method_str) = if unpacked {
+        if direct {
+            (
+                encode_multi_direct(erc20_to, erc20_amount).map_err(err_from!())?,
+                "MULTI.golemTransferDirect".to_string(),
+            )
+        } else {
+            (
+                encode_multi_indirect(erc20_to, erc20_amount).map_err(err_from!())?,
+                "MULTI.golemTransferIndirect".to_string(),
+            )
+        }
     } else {
-        (
-            encode_multi_indirect_packed(packed, sum).map_err(err_from!())?,
-            "MULTI.golemTransferIndirectPacked".to_string(),
-        )
+        let (packed, sum) = pack_transfers_for_multi_contract(erc20_to, erc20_amount)?;
+        if direct {
+            (
+                encode_multi_direct_packed(packed).map_err(err_from!())?,
+                "MULTI.golemTransferDirectPacked".to_string(),
+            )
+        } else {
+            //default most optimal path in polygon
+            (
+                encode_multi_indirect_packed(packed, sum).map_err(err_from!())?,
+                "MULTI.golemTransferIndirectPacked".to_string(),
+            )
+        }
     };
 
     Ok(TxDao {

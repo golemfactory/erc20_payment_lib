@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap};
+use std::env;
 use std::str::FromStr;
 
 use crate::db::model::*;
@@ -111,6 +112,11 @@ pub async fn gather_transactions_batch_multi(
 ) -> Result<u32, PaymentError> {
     let chain_setup = payment_setup.get_chain_setup(token_transfer.chain_id)?;
 
+    let use_direct_method = env::var("CONTRACT_USE_DIRECT_METHOD")
+        .is_ok_and(|f| f == "1" || f.to_lowercase() == "true");
+    let use_unpacked_method = env::var("CONTRACT_USE_UNPACKED_METHOD")
+        .is_ok_and(|f| f == "1" || f.to_lowercase() == "true");
+
     let max_fee_per_gas = chain_setup.max_fee_per_gas;
     let priority_fee = chain_setup.priority_fee;
 
@@ -218,19 +224,20 @@ pub async fn gather_transactions_batch_multi(
                         None,
                         max_fee_per_gas,
                         priority_fee,
-                        false,
+                        use_direct_method,
+                        use_unpacked_method,
                     )?
                 }
             };
             let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-            let web3_tx_dao = insert_tx(&mut db_transaction, &web3tx)
+            let web3_tx_dao = insert_tx(&mut *db_transaction, &web3tx)
                 .await
                 .map_err(err_from!())?;
 
             for token_t in &mut *smaller_order {
                 for token_transfer in &mut token_t.token_transfers {
                     token_transfer.tx_id = Some(web3_tx_dao.id);
-                    update_token_transfer(&mut db_transaction, token_transfer)
+                    update_token_transfer(&mut *db_transaction, token_transfer)
                         .await
                         .map_err(err_from!())?;
                 }
@@ -284,12 +291,12 @@ pub async fn gather_transactions_batch(
         )
     };
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-    let web3_tx_dao = insert_tx(&mut db_transaction, &web3tx)
+    let web3_tx_dao = insert_tx(&mut *db_transaction, &web3tx)
         .await
         .map_err(err_from!())?;
     for token_transfer in token_transfers.iter_mut() {
         token_transfer.tx_id = Some(web3_tx_dao.id);
-        update_token_transfer(&mut db_transaction, token_transfer)
+        update_token_transfer(&mut *db_transaction, token_transfer)
             .await
             .map_err(err_from!())?;
     }

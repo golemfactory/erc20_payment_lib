@@ -28,7 +28,7 @@ pub async fn update_token_transfer_result(
             tx.processing = 0;
 
             let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-            let mut token_transfers = get_token_transfers_by_tx(&mut db_transaction, tx.id)
+            let mut token_transfers = get_token_transfers_by_tx(&mut *db_transaction, tx.id)
                 .await
                 .map_err(err_from!())?;
 
@@ -76,11 +76,11 @@ pub async fn update_token_transfer_result(
             for (token_transfer, fee_paid) in token_transfers.iter_mut().zip(distribute_fee) {
                 token_transfer.fee_paid = fee_paid.map(|v| v.to_string());
 
-                update_token_transfer(&mut db_transaction, token_transfer)
+                update_token_transfer(&mut *db_transaction, token_transfer)
                     .await
                     .map_err(err_from!())?;
             }
-            update_tx(&mut db_transaction, tx)
+            update_tx(&mut *db_transaction, tx)
                 .await
                 .map_err(err_from!())?;
             db_transaction.commit().await.map_err(err_from!())?;
@@ -97,19 +97,19 @@ pub async fn update_token_transfer_result(
             tx.processing = 0;
 
             let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-            let token_transfers = get_token_transfers_by_tx(&mut db_transaction, tx.id)
+            let token_transfers = get_token_transfers_by_tx(&mut *db_transaction, tx.id)
                 .await
                 .map_err(err_from!())?;
             for mut token_transfer in token_transfers {
                 token_transfer.fee_paid = Some("0".to_string());
                 token_transfer.error = Some(err.clone());
-                update_token_transfer(&mut db_transaction, &token_transfer)
+                update_token_transfer(&mut *db_transaction, &token_transfer)
                     .await
                     .map_err(err_from!())?;
             }
             tx.error = Some(err.clone());
 
-            update_tx(&mut db_transaction, tx)
+            update_tx(&mut *db_transaction, tx)
                 .await
                 .map_err(err_from!())?;
             db_transaction.commit().await.map_err(err_from!())?;
@@ -118,19 +118,19 @@ pub async fn update_token_transfer_result(
             tx.processing = 0;
 
             let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-            let token_transfers = get_token_transfers_by_tx(&mut db_transaction, tx.id)
+            let token_transfers = get_token_transfers_by_tx(&mut *db_transaction, tx.id)
                 .await
                 .map_err(err_from!())?;
             for mut token_transfer in token_transfers {
                 token_transfer.fee_paid = Some("0".to_string());
                 token_transfer.error = Some(err.clone());
-                update_token_transfer(&mut db_transaction, &token_transfer)
+                update_token_transfer(&mut *db_transaction, &token_transfer)
                     .await
                     .map_err(err_from!())?;
             }
             tx.error = Some(err.clone());
 
-            update_tx(&mut db_transaction, tx)
+            update_tx(&mut *db_transaction, tx)
                 .await
                 .map_err(err_from!())?;
             db_transaction.commit().await.map_err(err_from!())?;
@@ -154,14 +154,14 @@ pub async fn update_approve_result(
             tx.processing = 0;
 
             let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-            let mut allowance = get_allowance_by_tx(&mut db_transaction, tx.id)
+            let mut allowance = get_allowance_by_tx(&mut *db_transaction, tx.id)
                 .await
                 .map_err(err_from!())?;
             allowance.fee_paid = tx.fee_paid.clone();
-            update_allowance(&mut db_transaction, &allowance)
+            update_allowance(&mut *db_transaction, &allowance)
                 .await
                 .map_err(err_from!())?;
-            update_tx(&mut db_transaction, tx)
+            update_tx(&mut *db_transaction, tx)
                 .await
                 .map_err(err_from!())?;
             db_transaction.commit().await.map_err(err_from!())?;
@@ -175,16 +175,16 @@ pub async fn update_approve_result(
         ProcessTransactionResult::NeedRetry(err) => {
             tx.processing = 0;
             let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-            let mut allowance = get_allowance_by_tx(&mut db_transaction, tx.id)
+            let mut allowance = get_allowance_by_tx(&mut *db_transaction, tx.id)
                 .await
                 .map_err(err_from!())?;
             allowance.fee_paid = Some("0".to_string());
             allowance.error = Some(err.clone());
             tx.error = Some(err.clone());
-            update_allowance(&mut db_transaction, &allowance)
+            update_allowance(&mut *db_transaction, &allowance)
                 .await
                 .map_err(err_from!())?;
-            update_tx(&mut db_transaction, tx)
+            update_tx(&mut *db_transaction, tx)
                 .await
                 .map_err(err_from!())?;
             db_transaction.commit().await.map_err(err_from!())?;
@@ -192,16 +192,16 @@ pub async fn update_approve_result(
         ProcessTransactionResult::InternalError(err) => {
             tx.processing = 0;
             let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-            let mut allowance = get_allowance_by_tx(&mut db_transaction, tx.id)
+            let mut allowance = get_allowance_by_tx(&mut *db_transaction, tx.id)
                 .await
                 .map_err(err_from!())?;
             allowance.fee_paid = Some("0".to_string());
             allowance.error = Some(err.clone());
             tx.error = Some(err.clone());
-            update_allowance(&mut db_transaction, &allowance)
+            update_allowance(&mut *db_transaction, &allowance)
                 .await
                 .map_err(err_from!())?;
-            update_tx(&mut db_transaction, tx)
+            update_tx(&mut *db_transaction, tx)
                 .await
                 .map_err(err_from!())?;
             db_transaction.commit().await.map_err(err_from!())?;

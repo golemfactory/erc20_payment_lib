@@ -23,8 +23,6 @@ chrono = { workspace = true, features = ["serde"] }
 log = { workspace = true }
 rand = { workspace = true }
 csv = { workspace = true }
-sqlx-core = { workspace = true }
-
 sqlx = { workspace = true }
 rustc-hex = { workspace = true }
 structopt = { workspace = true }

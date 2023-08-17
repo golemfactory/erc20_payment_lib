@@ -6,6 +6,7 @@ use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_test::*;
+use std::env;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
@@ -26,6 +27,10 @@ async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::E
         let mut transfer_finished_message_count = 0;
         let mut approve_contract_message_count = 0;
         let mut tx_confirmed_message_count = 0;
+        let mut tx_transfer_indirect_packed_count = 0;
+        let mut tx_transfer_direct_packed_count = 0;
+        let mut tx_transfer_indirect_count = 0;
+        let mut tx_transfer_direct_count = 0;
         let mut fee_paid = U256::from(0_u128);
         while let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
@@ -39,7 +44,20 @@ async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::E
                     approve_contract_message_count += 1;
                     fee_paid += U256::from_dec_str(&allowance_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
                 }
-                TransactionConfirmed(_tx_dao) => {
+                TransactionConfirmed(tx_dao) => {
+                    if tx_dao.method == "MULTI.golemTransferIndirectPacked" {
+                        tx_transfer_indirect_packed_count += 1;
+                    }
+                    if tx_dao.method == "MULTI.golemTransferDirectPacked" {
+                        tx_transfer_direct_packed_count += 1;
+                    }
+                    if tx_dao.method == "MULTI.golemTransferIndirect" {
+                        tx_transfer_indirect_count += 1;
+                    }
+                    if tx_dao.method == "MULTI.golemTransferDirect" {
+                        tx_transfer_direct_count += 1;
+                    }
+
                     tx_confirmed_message_count += 1;
                 },
                 _ => {
@@ -47,6 +65,18 @@ async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::E
                     panic!("Unexpected message: {:?}", msg);
                 }
             }
+        }
+        let use_direct_method = env::var("CONTRACT_USE_DIRECT_METHOD").map(|v| v == "1").unwrap_or(false);
+        let use_unpacked_method = env::var("CONTRACT_USE_UNPACKED_METHOD").map(|v| v == "1").unwrap_or(false);
+
+        if use_direct_method && use_unpacked_method {
+            assert_eq!(tx_transfer_direct_count, 1);
+        } else if use_direct_method {
+            assert_eq!(tx_transfer_direct_packed_count, 1);
+        } else if use_unpacked_method {
+            assert_eq!(tx_transfer_indirect_count, 1);
+        } else {
+            assert_eq!(tx_transfer_indirect_packed_count, 1);
         }
 
         assert_eq!(tx_confirmed_message_count, 2);
@@ -110,19 +140,19 @@ async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::E
     {
         // *** RESULT CHECK ***
         let fee_paid = receiver_loop.await.unwrap();
-        log::info!("fee paid: {}", u256_to_rust_dec(fee_paid, None).unwrap());
-
+        let fee_paid_decimal = u256_to_rust_dec(fee_paid, None).unwrap();
+        log::info!("fee paid: {fee_paid_decimal}");
 
         //intersperse is joining strings with separator
         use itertools::Itertools;
         #[allow(unstable_name_collisions)]
-        let res = test_get_balance(&proxy_url_base,
-           &(test_receivers
-               .iter()
-               .take(payment_count)
-               .map(|el| el.0)
-               .intersperse(",")
-               .collect::<String>() + ",0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"))
+            let res = test_get_balance(&proxy_url_base,
+                                       &(test_receivers
+                                           .iter()
+                                           .take(payment_count)
+                                           .map(|el| el.0)
+                                           .intersperse(",")
+                                           .collect::<String>() + ",0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"))
             .await.expect("get balance should work");
 
         for (addr, val) in test_receivers.into_iter().take(payment_count)
@@ -160,6 +190,25 @@ async fn test_multi_erc20_transfer_5() -> Result<(), anyhow::Error> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_multi_erc20_transfer_10() -> Result<(), anyhow::Error> {
+async fn test_multi_erc20_transfer_10_indirect_packed() -> Result<(), anyhow::Error> {
+    test_multi_erc20_transfer(10).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_multi_erc20_transfer_10_direct_unpacked() -> Result<(), anyhow::Error> {
+    env::set_var("CONTRACT_USE_DIRECT_METHOD", "1");
+    env::set_var("CONTRACT_USE_UNPACKED_METHOD", "1");
+    test_multi_erc20_transfer(10).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_multi_erc20_transfer_10_direct_packed() -> Result<(), anyhow::Error> {
+    env::set_var("CONTRACT_USE_DIRECT_METHOD", "1");
+    test_multi_erc20_transfer(10).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_multi_erc20_transfer_10_indirect_unpacked() -> Result<(), anyhow::Error> {
+    env::set_var("CONTRACT_USE_UNPACKED_METHOD", "1");
     test_multi_erc20_transfer(10).await
 }

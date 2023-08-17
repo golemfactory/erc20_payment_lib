@@ -91,12 +91,12 @@ pub async fn transaction_from_chain(
     if chain_tx_dao.chain_status == 1 {
         let mut db_transaction = conn.begin().await.map_err(err_from!())?;
 
-        let tx = insert_chain_tx(&mut db_transaction, &chain_tx_dao)
+        let tx = insert_chain_tx(&mut *db_transaction, &chain_tx_dao)
             .await
             .map_err(err_from!())?;
         for mut transfer in transfers {
             transfer.chain_tx_id = tx.id;
-            insert_chain_transfer(&mut db_transaction, &transfer)
+            insert_chain_transfer(&mut *db_transaction, &transfer)
                 .await
                 .map_err(err_from!())?;
         }

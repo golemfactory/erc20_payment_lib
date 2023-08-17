@@ -3,7 +3,7 @@ use crate::error::PaymentError;
 use crate::error::*;
 use sqlx::migrate::Migrator;
 use sqlx::sqlite::SqliteConnectOptions;
-use sqlx_core::sqlite::SqlitePool;
+use sqlx::SqlitePool;
 use std::str::FromStr;
 
 static MIGRATOR: Migrator = sqlx::migrate!();
@@ -21,7 +21,7 @@ pub async fn create_sqlite_connection(
 
     let conn_opt = SqliteConnectOptions::from_str(&url)
         .map_err(err_from!())?
-        //.journal_mode(sqlx::sqlite::SqliteJournalMode::Delete)
+        //.journal_mode(sqlx::sqlite::SqliteJournalMode::Off)
         .create_if_missing(true);
 
     let pool = sqlx::sqlite::SqlitePoolOptions::new()

@@ -29,7 +29,7 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "tests-${{ github.event.inputs.build_profile }}"
+          shared-key: "test-cache-${{ github.event.inputs.build_profile }}"
 
       - name: Build tests (${{ github.event.inputs.build_profile }})
         run: cargo test --profile=${{ github.event.inputs.build_profile }} --test custom_long --no-run

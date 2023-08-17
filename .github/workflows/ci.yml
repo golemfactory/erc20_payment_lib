@@ -59,10 +59,10 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "tests-${{ matrix.profile }}"
+          shared-key: "test-cache-${{ matrix.profile }}"
 
       - name: Build tests
-        run: cargo test --profile=${{ matrix.profile }} --no-run
+        run: cargo test --profile=${{ matrix.profile }} --test custom_long --no-run
 
   payment_tests:
     name: Payment tests (basic + short ones)
@@ -77,7 +77,7 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "tests-release-fast"
+          shared-key: "test-cache-release-fast"
           save-if: false
 
       - name: Build tests
@@ -91,3 +91,25 @@ jobs:
 
       - name: Run tests (docker_03_problems)
         run: cargo test --test docker_03_problems --profile=release-fast -- --test-threads=10
+
+  payment_tests_multi:
+    name: Payment tests (multi)
+    timeout-minutes: 20
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "test-cache-release-fast"
+          save-if: false
+
+      - name: Build tests
+        run: cargo test --profile=release-fast --no-run
+
+      - name: Run tests (docker_04_multi)
+        run: cargo test --test docker_04_multi --profile=release-fast -- --test-threads=1

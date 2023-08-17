@@ -293,7 +293,7 @@ pub async fn transactions_feed(data: Data<Box<ServerData>>, req: HttpRequest) ->
         let mut db_transaction = return_on_error!(db_conn.begin().await);
         let mut txs = return_on_error!(
             get_transactions(
-                &mut db_transaction,
+                &mut *db_transaction,
                 Some(TRANSACTION_FILTER_DONE),
                 limit_prev,
                 Some(TRANSACTION_ORDER_BY_FIRST_PROCESSED_DATE_DESC)
@@ -302,7 +302,7 @@ pub async fn transactions_feed(data: Data<Box<ServerData>>, req: HttpRequest) ->
         );
         let txs_current = return_on_error!(
             get_transactions(
-                &mut db_transaction,
+                &mut *db_transaction,
                 Some(TRANSACTION_FILTER_PROCESSING),
                 None,
                 Some(TRANSACTION_ORDER_BY_CREATE_DATE)
@@ -311,7 +311,7 @@ pub async fn transactions_feed(data: Data<Box<ServerData>>, req: HttpRequest) ->
         );
         let tx_next = return_on_error!(
             get_transactions(
-                &mut db_transaction,
+                &mut *db_transaction,
                 Some(TRANSACTION_FILTER_QUEUED),
                 limit_next,
                 Some(TRANSACTION_ORDER_BY_CREATE_DATE)

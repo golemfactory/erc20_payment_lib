@@ -134,11 +134,11 @@ pub async fn process_allowance(
             priority_fee,
         )?;
         let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-        let web3_tx_dao = insert_tx(&mut db_transaction, &approve_tx)
+        let web3_tx_dao = insert_tx(&mut *db_transaction, &approve_tx)
             .await
             .map_err(err_from!())?;
         allowance.tx_id = Some(web3_tx_dao.id);
-        insert_allowance(&mut db_transaction, &allowance)
+        insert_allowance(&mut *db_transaction, &allowance)
             .await
             .map_err(err_from!())?;
 

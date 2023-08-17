@@ -1,7 +1,7 @@
 use crate::db::model::*;
+use sqlx::Executor;
+use sqlx::Sqlite;
 use sqlx::SqlitePool;
-use sqlx_core::executor::Executor;
-use sqlx_core::sqlite::Sqlite;
 
 pub async fn insert_allowance<'c, E>(
     executor: E,
