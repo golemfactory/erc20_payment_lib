@@ -1,7 +1,7 @@
 use crate::db::model::*;
-use sqlx::SqlitePool;
 use sqlx::Executor;
 use sqlx::Sqlite;
+use sqlx::SqlitePool;
 
 pub const TRANSACTION_FILTER_QUEUED: &str = "processing > 0 AND first_processed IS NULL";
 pub const TRANSACTION_FILTER_PROCESSING: &str = "processing > 0 AND first_processed IS NOT NULL";
