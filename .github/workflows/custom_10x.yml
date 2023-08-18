@@ -47,7 +47,7 @@ jobs:
           TRANSFER_COUNT: ${{ github.event.inputs.transfer_count }}
 
       - name: Reopen db cleaning wal logs
-        run: sqlite3 erc20lib.sqlite .schema
+        run: cargo run --profile=${{ github.event.inputs.build_profile }} -- --sqlite-db-file erc20lib.sqlite --sqlite-journal delete cleanup
 
       - uses: actions/upload-artifact@v3
         with:
