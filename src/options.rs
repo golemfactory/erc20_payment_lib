@@ -101,9 +101,7 @@ pub struct DecryptKeyStoreOptions {
 
 #[derive(StructOpt)]
 #[structopt(about = "Cleanup options")]
-pub struct CleanupOptions {
-
-}
+pub struct CleanupOptions {}
 
 #[derive(StructOpt)]
 #[structopt(about = "Payment admin tool")]
@@ -137,8 +135,6 @@ pub enum PaymentCommands {
         #[structopt(flatten)]
         cleanup_options: CleanupOptions,
     },
-
-
 }
 
 #[derive(StructOpt)]
