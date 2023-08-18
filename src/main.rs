@@ -256,6 +256,10 @@ async fn main_internal() -> Result<(), PaymentError> {
             .unwrap();
             println!("Private key: {}", hex::encode(pkey));
         }
+        PaymentCommands::Cleanup { cleanup_options } => {
+            println!("Cleaning up (doing nothing right now)");
+            let _ = cleanup_options;
+        }
     }
 
     Ok(())
