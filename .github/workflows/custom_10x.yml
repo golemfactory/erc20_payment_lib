@@ -15,6 +15,10 @@ on:
         description: 'Sqlite journal mode'
         required: true
         default: 'wal'
+      receivers_count:
+        description: 'Number of receivers to generate'
+        required: true
+        default: '0'
 
 jobs:
   payment_tests_long:
@@ -44,6 +48,7 @@ jobs:
           ERC20_TESTS_USE_DISK_DB: 1
           ERC20_TESTS_OVERRIDE_DB_NAME: erc20lib.sqlite
           ERC20_LIB_SQLITE_JOURNAL_MODE: ${{ github.event.inputs.journal_mode }}
+          ERC20_TEST_RECEIVER_POOL_SIZE: ${{ github.event.inputs.receivers_count }}
           TRANSFER_COUNT: ${{ github.event.inputs.transfer_count }}
 
       - name: Reopen db cleaning wal logs
