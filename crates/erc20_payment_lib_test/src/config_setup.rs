@@ -1,6 +1,7 @@
 use erc20_payment_lib::config;
 use erc20_payment_lib::config::{Chain, Config, Engine, MultiContractSettings, Token};
 use erc20_payment_lib::db::create_sqlite_connection;
+use erc20_payment_lib::utils::get_env_bool_value;
 use sqlx::SqlitePool;
 use std::collections::BTreeMap;
 use std::env;
@@ -54,17 +55,18 @@ pub async fn setup_random_memory_sqlite_conn() -> SqlitePool {
         .map(char::from)
         .collect();
 
-    if env::var("USE_DISK_DB_INSTEAD_OF_MEM").is_ok_and(|f| f == "1" || f.to_lowercase() == "true")
-    {
-        let db_name = format!("test_{rand_string}.sqlite");
+    if get_env_bool_value("ERC20_TESTS_USE_DISK_DB") {
+        let db_name = env::var("ERC20_TESTS_OVERRIDE_DB_NAME")
+            .unwrap_or(format!("test_{rand_string}.sqlite"));
         log::info!("Using disk db with the name {db_name}");
-        create_sqlite_connection(Some(&db_name), None, true)
+        create_sqlite_connection(Some(&db_name), None, false, true)
             .await
             .expect("Failed to create sqlite connection")
     } else {
-        let db_name = format!("mem_{rand_string}");
+        let db_name =
+            env::var("ERC20_TESTS_OVERRIDE_DB_NAME").unwrap_or(format!("mem_{rand_string}"));
         log::info!("Using memory database with the name {db_name}");
-        create_sqlite_connection(None, Some(&db_name), true)
+        create_sqlite_connection(None, Some(&db_name), false, true)
             .await
             .expect("Failed to create sqlite connection")
     }

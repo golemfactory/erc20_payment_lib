@@ -7,8 +7,9 @@ use csv::ReaderBuilder;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::TokenTransferDao;
-use erc20_payment_lib::db::ops::{get_transfer_count, insert_token_transfer};
+use erc20_payment_lib::db::ops::{get_transfer_stats, insert_token_transfer};
 use erc20_payment_lib::server::*;
+use erc20_payment_lib::utils::u256_to_rust_dec;
 
 use erc20_payment_lib::{
     config, err_custom_create, err_from,
@@ -33,17 +34,42 @@ async fn main_internal() -> Result<(), PaymentError> {
     env_logger::init();
     let cli: PaymentOptions = PaymentOptions::from_args();
 
-    let (private_keys, public_addrs) = load_private_keys(
-        &env::var("ETH_PRIVATE_KEYS").expect("Specify ETH_PRIVATE_KEYS env variable"),
-    )?;
+    let (private_keys, public_addrs) =
+        load_private_keys(&env::var("ETH_PRIVATE_KEYS").unwrap_or("".to_string()))?;
     display_private_keys(&private_keys);
 
     let config = config::Config::load("config-payments.toml").await?;
+
+    let db_filename = cli.sqlite_db_file;
+    if cli.sqlite_read_only {
+        log::info!(
+            "Connecting read only to db: {} (journal mode: {})",
+            db_filename,
+            cli.sqlite_journal
+        );
+    } else {
+        log::info!(
+            "Connecting read/write connection to db: {} (journal mode: {})",
+            db_filename,
+            cli.sqlite_journal
+        );
+    }
+    env::set_var("ERC20_LIB_SQLITE_JOURNAL_MODE", cli.sqlite_journal);
+    let conn = create_sqlite_connection(
+        Some(&db_filename),
+        None,
+        cli.sqlite_read_only,
+        !cli.skip_migrations,
+    )
+    .await?;
 
     match cli.commands {
         PaymentCommands::Run { run_options } => {
             if run_options.http && !run_options.keep_running {
                 return Err(err_custom_create!("http mode requires keep-running option"));
+            }
+            if cli.sqlite_read_only {
+                log::warn!("Running in read-only mode, no db writes will be possible");
             }
 
             let add_opt = AdditionalOptions {
@@ -51,10 +77,6 @@ async fn main_internal() -> Result<(), PaymentError> {
                 generate_tx_only: run_options.generate_tx_only,
                 skip_multi_contract_check: run_options.skip_multi_contract_check,
             };
-            let db_filename =
-                env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
-            log::info!("connecting to sqlite file db: {}", db_filename);
-            let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
 
             let sp = start_payment_engine(
                 &private_keys,
@@ -118,33 +140,65 @@ async fn main_internal() -> Result<(), PaymentError> {
             );
         }
         PaymentCommands::GenerateTestPayments { generate_options } => {
-            generate_test_payments(generate_options, &config, public_addrs, None).await?;
+            if generate_options.append_to_db && cli.sqlite_read_only {
+                return Err(err_custom_create!("Cannot append to db in read-only mode"));
+            }
+            generate_test_payments(generate_options, &config, public_addrs, Some(conn)).await?;
         }
         PaymentCommands::PaymentStatistics {
             payment_statistics_options: _,
         } => {
-            println!("payment statistics");
-            let db_filename =
-                env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
-            log::info!("connecting to sqlite file db: {}", db_filename);
-            let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
+            println!("Getting transfers stats...");
+            let transfer_stats = get_transfer_stats(&conn, None).await.unwrap();
+            let main_sender = transfer_stats.per_sender.iter().next().unwrap();
+            let stats_all = main_sender.1.all.clone();
+            let fee_paid_stats = stats_all.fee_paid;
             println!(
-                "Token transfer count: {}",
-                get_transfer_count(&conn, None, None, None).await.unwrap()
+                "fee paid from stats: {}",
+                u256_to_rust_dec(fee_paid_stats, None).unwrap()
             );
+
+            println!("Number of transfers done: {}", stats_all.done_count);
+
+            println!(
+                "Number of distinct receivers: {}",
+                main_sender.1.per_receiver.len()
+            );
+            println!(
+                "Token sent: {}",
+                u256_to_rust_dec(main_sender.1.all.native_token_transferred, None).unwrap()
+            );
+
+            for (el_no, receiver) in main_sender.1.per_receiver.iter().enumerate() {
+                if el_no > 10 {
+                    println!("... and more (max {} receivers shown)", el_no - 1);
+                    break;
+                }
+                println!(
+                    "Receiver: {}, count: {}, gas: {}, token sent: {}",
+                    receiver.0,
+                    receiver.1.done_count,
+                    u256_to_rust_dec(receiver.1.fee_paid, None).unwrap(),
+                    u256_to_rust_dec(
+                        *receiver.1.erc20_token_transferred.iter().next().unwrap().1,
+                        None
+                    )
+                    .unwrap(),
+                );
+            }
         }
         PaymentCommands::ImportPayments { import_options } => {
             log::info!("importing payments from file: {}", import_options.file);
-            //import_options.file;
+            if !cli.sqlite_read_only {
+                return Err(err_custom_create!(
+                    "Cannot import payments in read-only mode"
+                ));
+            }
             let mut rdr = ReaderBuilder::new()
                 .delimiter(import_options.separator as u8)
                 .from_reader(std::fs::File::open(&import_options.file).map_err(err_from!())?);
 
             let deserialize = rdr.deserialize::<TokenTransferDao>();
-            let db_filename =
-                env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
-            log::info!("connecting to sqlite file db: {}", db_filename);
-            let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
 
             let mut token_transfer_list = vec![];
             for (line_no, result) in deserialize.enumerate() {
@@ -200,6 +254,10 @@ async fn main_internal() -> Result<(), PaymentError> {
             )
             .unwrap();
             println!("Private key: {}", hex::encode(pkey));
+        }
+        PaymentCommands::Cleanup { cleanup_options } => {
+            println!("Cleaning up (doing nothing right now)");
+            let _ = cleanup_options;
         }
     }
 

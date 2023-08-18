@@ -1,8 +1,24 @@
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use std::env;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use web3::types::U256;
+
+pub fn get_env_bool_value(env_name: &str) -> bool {
+    env::var(env_name)
+        .map(|v| {
+            if v == "1" || v == "true" {
+                true
+            } else {
+                if v != "0" && v != "false" {
+                    log::warn!("Invalid value for {}: {} assuming false", env_name, v);
+                }
+                false
+            }
+        })
+        .unwrap_or(false)
+}
 
 #[derive(Debug, Clone)]
 pub struct ConversionError {

@@ -1,5 +1,4 @@
 use std::collections::{BTreeMap, HashMap};
-use std::env;
 use std::str::FromStr;
 
 use crate::db::model::*;
@@ -13,6 +12,7 @@ use crate::{err_create, err_custom_create, err_from};
 
 use sqlx::SqlitePool;
 
+use crate::utils::get_env_bool_value;
 use web3::types::{Address, U256};
 
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
@@ -112,10 +112,8 @@ pub async fn gather_transactions_batch_multi(
 ) -> Result<u32, PaymentError> {
     let chain_setup = payment_setup.get_chain_setup(token_transfer.chain_id)?;
 
-    let use_direct_method = env::var("CONTRACT_USE_DIRECT_METHOD")
-        .is_ok_and(|f| f == "1" || f.to_lowercase() == "true");
-    let use_unpacked_method = env::var("CONTRACT_USE_UNPACKED_METHOD")
-        .is_ok_and(|f| f == "1" || f.to_lowercase() == "true");
+    let use_direct_method = get_env_bool_value("ERC20_LIB_USE_DIRECT_METHOD");
+    let use_unpacked_method = get_env_bool_value("ERC20_LIB_USE_UNPACKED_METHOD");
 
     let max_fee_per_gas = chain_setup.max_fee_per_gas;
     let priority_fee = chain_setup.priority_fee;
