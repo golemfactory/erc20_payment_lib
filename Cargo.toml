@@ -13,19 +13,13 @@ exclude = [
 name = "erc20_processor"
 path = "src/main.rs"
 
-[workspace.package]
+[package]
+name = "erc20_processor"
+description = "Payment processor for ERC20 tokens"
 authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
 version = "0.1.9"
 edition = "2021"
 license = "MIT"
-
-[package]
-name = "erc20_processor"
-description = "Payment processor for ERC20 tokens"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-authors.workspace = true
 
 [workspace.dependencies]
 actix-cors = "0.6.4"
