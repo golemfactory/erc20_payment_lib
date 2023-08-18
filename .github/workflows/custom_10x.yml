@@ -52,4 +52,4 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: erc20lib_${{ matrix.run_no }}
-          path: erc20lib_${{ matrix.run_no }}.sqlite
+          path: erc20lib.sqlite
