@@ -280,7 +280,7 @@ pub async fn start_payment_engine(
         conn
     } else {
         log::info!("connecting to sqlite file db: {}", db_filename);
-        create_sqlite_connection(Some(db_filename), None, true).await?
+        create_sqlite_connection(Some(db_filename), None, false, true).await?
     };
 
     //process_cli(&mut conn, &cli, &payment_setup.secret_key).await?;

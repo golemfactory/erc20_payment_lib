@@ -59,14 +59,14 @@ pub async fn setup_random_memory_sqlite_conn() -> SqlitePool {
         let db_name = env::var("ERC20_TESTS_OVERRIDE_DB_NAME")
             .unwrap_or(format!("test_{rand_string}.sqlite"));
         log::info!("Using disk db with the name {db_name}");
-        create_sqlite_connection(Some(&db_name), None, true)
+        create_sqlite_connection(Some(&db_name), None, false, true)
             .await
             .expect("Failed to create sqlite connection")
     } else {
         let db_name =
             env::var("ERC20_TESTS_OVERRIDE_DB_NAME").unwrap_or(format!("mem_{rand_string}"));
         log::info!("Using memory database with the name {db_name}");
-        create_sqlite_connection(None, Some(&db_name), true)
+        create_sqlite_connection(None, Some(&db_name), false, true)
             .await
             .expect("Failed to create sqlite connection")
     }

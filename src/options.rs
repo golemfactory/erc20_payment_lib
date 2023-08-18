@@ -132,6 +132,26 @@ pub enum PaymentCommands {
 #[derive(StructOpt)]
 #[structopt(about = "Payment admin tool")]
 pub struct PaymentOptions {
+    #[structopt(
+        long = "sqlite-db-file",
+        help = "Sqlite database file",
+        default_value = "erc20lib.sqlite"
+    )]
+    pub sqlite_db_file: String,
+
+    #[structopt(long = "sqlite-read-only", help = "Create read only connection")]
+    pub sqlite_read_only: bool,
+
+    #[structopt(long = "skip-migrations", help = "Enable writing to sqlite database")]
+    pub skip_migrations: bool,
+
+    #[structopt(
+    long = "sqlite-journal",
+    help = "SQL journal mode",
+    default_value = "delete",
+    possible_values = &["delete", "truncate", "persist", "memory", "wal", "off"])]
+    pub sqlite_journal: String,
+
     #[structopt(subcommand)]
     pub commands: PaymentCommands,
 }

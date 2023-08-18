@@ -40,10 +40,36 @@ async fn main_internal() -> Result<(), PaymentError> {
 
     let config = config::Config::load("config-payments.toml").await?;
 
+    let db_filename = cli.sqlite_db_file;
+    if cli.sqlite_read_only {
+        log::info!(
+            "Connecting read only to db: {} (journal mode: {})",
+            db_filename,
+            cli.sqlite_journal
+        );
+    } else {
+        log::info!(
+            "Connecting read/write connection to db: {} (journal mode: {})",
+            db_filename,
+            cli.sqlite_journal
+        );
+    }
+    env::set_var("ERC20_LIB_SQLITE_JOURNAL_MODE", cli.sqlite_journal);
+    let conn = create_sqlite_connection(
+        Some(&db_filename),
+        None,
+        cli.sqlite_read_only,
+        !cli.skip_migrations,
+    )
+    .await?;
+
     match cli.commands {
         PaymentCommands::Run { run_options } => {
             if run_options.http && !run_options.keep_running {
                 return Err(err_custom_create!("http mode requires keep-running option"));
+            }
+            if cli.sqlite_read_only {
+                log::warn!("Running in read-only mode, no db writes will be possible");
             }
 
             let add_opt = AdditionalOptions {
@@ -51,10 +77,6 @@ async fn main_internal() -> Result<(), PaymentError> {
                 generate_tx_only: run_options.generate_tx_only,
                 skip_multi_contract_check: run_options.skip_multi_contract_check,
             };
-            let db_filename =
-                env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
-            log::info!("connecting to sqlite file db: {}", db_filename);
-            let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
 
             let sp = start_payment_engine(
                 &private_keys,
@@ -118,16 +140,15 @@ async fn main_internal() -> Result<(), PaymentError> {
             );
         }
         PaymentCommands::GenerateTestPayments { generate_options } => {
-            generate_test_payments(generate_options, &config, public_addrs, None).await?;
+            if generate_options.append_to_db && cli.sqlite_read_only {
+                return Err(err_custom_create!("Cannot append to db in read-only mode"));
+            }
+            generate_test_payments(generate_options, &config, public_addrs, Some(conn)).await?;
         }
         PaymentCommands::PaymentStatistics {
             payment_statistics_options: _,
         } => {
             println!("payment statistics");
-            let db_filename =
-                env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
-            log::info!("connecting to sqlite file db: {}", db_filename);
-            let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
             println!(
                 "Token transfer count: {}",
                 get_transfer_count(&conn, None, None, None).await.unwrap()
@@ -135,16 +156,16 @@ async fn main_internal() -> Result<(), PaymentError> {
         }
         PaymentCommands::ImportPayments { import_options } => {
             log::info!("importing payments from file: {}", import_options.file);
-            //import_options.file;
+            if !cli.sqlite_read_only {
+                return Err(err_custom_create!(
+                    "Cannot import payments in read-only mode"
+                ));
+            }
             let mut rdr = ReaderBuilder::new()
                 .delimiter(import_options.separator as u8)
                 .from_reader(std::fs::File::open(&import_options.file).map_err(err_from!())?);
 
             let deserialize = rdr.deserialize::<TokenTransferDao>();
-            let db_filename =
-                env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
-            log::info!("connecting to sqlite file db: {}", db_filename);
-            let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
 
             let mut token_transfer_list = vec![];
             for (line_no, result) in deserialize.enumerate() {

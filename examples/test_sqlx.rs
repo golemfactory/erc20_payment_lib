@@ -41,7 +41,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
     let db_conn = env::var("DB_SQLITE_FILENAME").unwrap();
 
-    let _conn = create_sqlite_connection(Some(&db_conn), None, true).await?;
+    let _conn = create_sqlite_connection(Some(&db_conn), None, false, true).await?;
 
     Ok(())
 }
