@@ -1,10 +1,10 @@
-use std::env;
 use crate::err_from;
 use crate::error::PaymentError;
 use crate::error::*;
 use sqlx::migrate::Migrator;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::SqlitePool;
+use std::env;
 use std::str::FromStr;
 
 static MIGRATOR: Migrator = sqlx::migrate!();
@@ -21,12 +21,8 @@ pub async fn create_sqlite_connection(
     };
 
     let journal_mode = match env::var("ERC20_LIB_SQLITE_JOURNAL_MODE") {
-        Ok(val) => {
-            sqlx::sqlite::SqliteJournalMode::from_str(&val).map_err(err_from!())?
-        }
-        Err(_) => {
-            sqlx::sqlite::SqliteJournalMode::Wal
-        }
+        Ok(val) => sqlx::sqlite::SqliteJournalMode::from_str(&val).map_err(err_from!())?,
+        Err(_) => sqlx::sqlite::SqliteJournalMode::Wal,
     };
 
     let conn_opt = SqliteConnectOptions::from_str(&url)
