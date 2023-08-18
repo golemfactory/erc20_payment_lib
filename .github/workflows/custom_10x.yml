@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        run_no: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        run_no: [00, 01, 02, 03, 04, 05, 06, 07, 08, 09]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -46,7 +46,10 @@ jobs:
           ERC20_LIB_SQLITE_JOURNAL_MODE: ${{ github.event.inputs.journal_mode }}
           TRANSFER_COUNT: ${{ github.event.inputs.transfer_count }}
 
+      - name: Reopen db cleaning wal logs
+        run: sqlite3 erc20lib.sqlite .schema
+
       - uses: actions/upload-artifact@v3
         with:
-          name: erc20lib
-          path: erc20lib.sqlite
+          name: erc20lib_${{ matrix.run_no }}
+          path: erc20lib_${{ matrix.run_no }}.sqlite
