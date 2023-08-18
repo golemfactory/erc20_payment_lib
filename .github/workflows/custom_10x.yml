@@ -37,5 +37,6 @@ jobs:
       - name: Run tests (custom_long x ${{ github.event.inputs.transfer_count }})
         run: cargo test --profile=${{ github.event.inputs.build_profile }} --test custom_long -- --test-threads=1
         env:
-          ERC20_LIB_USE_MEM_DB: 1
+          ERC20_TESTS_USE_DISK_DB: 1
+          ERC20_TESTS_OVERRIDE_DB_NAME: erc20lib.sqlite
           TRANSFER_COUNT: ${{ github.event.inputs.transfer_count }}
