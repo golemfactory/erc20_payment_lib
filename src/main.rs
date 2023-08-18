@@ -154,12 +154,21 @@ async fn main_internal() -> Result<(), PaymentError> {
             let main_sender = transfer_stats.per_sender.iter().next().unwrap();
             let stats_all = main_sender.1.all.clone();
             let fee_paid_stats = stats_all.fee_paid;
-            println!("fee paid from stats: {}", u256_to_rust_dec(fee_paid_stats, None).unwrap());
+            println!(
+                "fee paid from stats: {}",
+                u256_to_rust_dec(fee_paid_stats, None).unwrap()
+            );
 
             println!("Number of transfers done: {}", stats_all.done_count);
 
-            println!("Number of distinct receivers: {}", main_sender.1.per_receiver.len());
-            println!("Token sent: {}", u256_to_rust_dec(main_sender.1.all.native_token_transferred, None).unwrap());
+            println!(
+                "Number of distinct receivers: {}",
+                main_sender.1.per_receiver.len()
+            );
+            println!(
+                "Token sent: {}",
+                u256_to_rust_dec(main_sender.1.all.native_token_transferred, None).unwrap()
+            );
 
             for (el_no, receiver) in main_sender.1.per_receiver.iter().enumerate() {
                 if el_no > 10 {
@@ -171,7 +180,11 @@ async fn main_internal() -> Result<(), PaymentError> {
                     receiver.0,
                     receiver.1.done_count,
                     u256_to_rust_dec(receiver.1.fee_paid, None).unwrap(),
-                    u256_to_rust_dec(*receiver.1.erc20_token_transferred.iter().next().unwrap().1, None).unwrap(),
+                    u256_to_rust_dec(
+                        *receiver.1.erc20_token_transferred.iter().next().unwrap().1,
+                        None
+                    )
+                    .unwrap(),
                 );
             }
         }
