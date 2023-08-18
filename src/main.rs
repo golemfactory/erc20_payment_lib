@@ -7,8 +7,9 @@ use csv::ReaderBuilder;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::TokenTransferDao;
-use erc20_payment_lib::db::ops::{get_transfer_count, insert_token_transfer};
+use erc20_payment_lib::db::ops::{get_transfer_stats, insert_token_transfer};
 use erc20_payment_lib::server::*;
+use erc20_payment_lib::utils::u256_to_rust_dec;
 
 use erc20_payment_lib::{
     config, err_custom_create, err_from,
@@ -148,11 +149,31 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::PaymentStatistics {
             payment_statistics_options: _,
         } => {
-            println!("payment statistics");
-            println!(
-                "Token transfer count: {}",
-                get_transfer_count(&conn, None, None, None).await.unwrap()
-            );
+            println!("Getting transfers stats...");
+            let transfer_stats = get_transfer_stats(&conn, None).await.unwrap();
+            let main_sender = transfer_stats.per_sender.iter().next().unwrap();
+            let stats_all = main_sender.1.all.clone();
+            let fee_paid_stats = stats_all.fee_paid;
+            println!("fee paid from stats: {}", u256_to_rust_dec(fee_paid_stats, None).unwrap());
+
+            println!("Number of transfers done: {}", stats_all.done_count);
+
+            println!("Number of distinct receivers: {}", main_sender.1.per_receiver.len());
+            println!("Token sent: {}", u256_to_rust_dec(main_sender.1.all.native_token_transferred, None).unwrap());
+
+            for (el_no, receiver) in main_sender.1.per_receiver.iter().enumerate() {
+                if el_no > 10 {
+                    println!("... and more (max {} receivers shown)", el_no - 1);
+                    break;
+                }
+                println!(
+                    "Receiver: {}, count: {}, gas: {}, token sent: {}",
+                    receiver.0,
+                    receiver.1.done_count,
+                    u256_to_rust_dec(receiver.1.fee_paid, None).unwrap(),
+                    u256_to_rust_dec(*receiver.1.erc20_token_transferred.iter().next().unwrap().1, None).unwrap(),
+                );
+            }
         }
         PaymentCommands::ImportPayments { import_options } => {
             log::info!("importing payments from file: {}", import_options.file);
