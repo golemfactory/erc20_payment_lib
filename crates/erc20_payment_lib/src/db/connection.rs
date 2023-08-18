@@ -1,3 +1,4 @@
+use std::env;
 use crate::err_from;
 use crate::error::PaymentError;
 use crate::error::*;
@@ -19,9 +20,18 @@ pub async fn create_sqlite_connection(
         format!("file:{}?mode=memory", memory_name.unwrap_or("mem"))
     };
 
+    let journal_mode = match env::var("ERC20_LIB_SQLITE_JOURNAL_MODE") {
+        Ok(val) => {
+            sqlx::sqlite::SqliteJournalMode::from_str(&val).map_err(err_from!())?
+        }
+        Err(_) => {
+            sqlx::sqlite::SqliteJournalMode::Wal
+        }
+    };
+
     let conn_opt = SqliteConnectOptions::from_str(&url)
         .map_err(err_from!())?
-        //.journal_mode(sqlx::sqlite::SqliteJournalMode::Off)
+        .journal_mode(journal_mode)
         .create_if_missing(true);
 
     let pool = sqlx::sqlite::SqlitePoolOptions::new()

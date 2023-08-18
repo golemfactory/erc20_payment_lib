@@ -11,6 +11,10 @@ on:
         description: 'Number of transfers to generate'
         required: true
         default: '100000'
+      journal_mode:
+        description: 'Sqlite journal mode'
+        required: true
+        default: 'wal'
 
 jobs:
   payment_tests_long:
@@ -39,4 +43,10 @@ jobs:
         env:
           ERC20_TESTS_USE_DISK_DB: 1
           ERC20_TESTS_OVERRIDE_DB_NAME: erc20lib.sqlite
+          ERC20_LIB_SQLITE_JOURNAL_MODE: ${{ github.event.inputs.journal_mode }}
           TRANSFER_COUNT: ${{ github.event.inputs.transfer_count }}
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: erc20lib
+          path: erc20lib.sqlite
