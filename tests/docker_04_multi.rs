@@ -66,8 +66,8 @@ async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::E
                 }
             }
         }
-        let use_direct_method = env::var("CONTRACT_USE_DIRECT_METHOD").map(|v| v == "1").unwrap_or(false);
-        let use_unpacked_method = env::var("CONTRACT_USE_UNPACKED_METHOD").map(|v| v == "1").unwrap_or(false);
+        let use_direct_method = env::var("ERC20_LIB_USE_DIRECT_METHOD").map(|v| v == "1").unwrap_or(false);
+        let use_unpacked_method = env::var("ERC20_LIB_USE_UNPACKED_METHOD").map(|v| v == "1").unwrap_or(false);
 
         if use_direct_method && use_unpacked_method {
             assert_eq!(tx_transfer_direct_count, 1);
@@ -196,19 +196,19 @@ async fn test_multi_erc20_transfer_10_indirect_packed() -> Result<(), anyhow::Er
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multi_erc20_transfer_10_direct_unpacked() -> Result<(), anyhow::Error> {
-    env::set_var("CONTRACT_USE_DIRECT_METHOD", "1");
-    env::set_var("CONTRACT_USE_UNPACKED_METHOD", "1");
+    env::set_var("ERC20_LIB_USE_DIRECT_METHOD", "1");
+    env::set_var("ERC20_LIB_USE_UNPACKED_METHOD", "1");
     test_multi_erc20_transfer(10).await
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multi_erc20_transfer_10_direct_packed() -> Result<(), anyhow::Error> {
-    env::set_var("CONTRACT_USE_DIRECT_METHOD", "1");
+    env::set_var("ERC20_LIB_USE_DIRECT_METHOD", "1");
     test_multi_erc20_transfer(10).await
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multi_erc20_transfer_10_indirect_unpacked() -> Result<(), anyhow::Error> {
-    env::set_var("CONTRACT_USE_UNPACKED_METHOD", "1");
+    env::set_var("ERC20_LIB_USE_UNPACKED_METHOD", "1");
     test_multi_erc20_transfer(10).await
 }

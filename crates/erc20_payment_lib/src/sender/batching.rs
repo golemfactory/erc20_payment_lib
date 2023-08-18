@@ -112,8 +112,8 @@ pub async fn gather_transactions_batch_multi(
 ) -> Result<u32, PaymentError> {
     let chain_setup = payment_setup.get_chain_setup(token_transfer.chain_id)?;
 
-    let use_direct_method = get_env_bool_value("CONTRACT_USE_DIRECT_METHOD");
-    let use_unpacked_method = get_env_bool_value("CONTRACT_USE_UNPACKED_METHOD");
+    let use_direct_method = get_env_bool_value("ERC20_LIB_USE_DIRECT_METHOD");
+    let use_unpacked_method = get_env_bool_value("ERC20_LIB_USE_UNPACKED_METHOD");
 
     let max_fee_per_gas = chain_setup.max_fee_per_gas;
     let priority_fee = chain_setup.priority_fee;
