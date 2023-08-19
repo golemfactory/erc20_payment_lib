@@ -2,7 +2,7 @@ use crate::db::model::*;
 use crate::err_from;
 use crate::error::PaymentError;
 use crate::error::*;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use sqlx::Executor;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
@@ -137,6 +137,7 @@ pub struct TransferStatsPart {
     pub last_transfer_date: Option<DateTime<Utc>>,
     pub first_paid_date: Option<DateTime<Utc>>,
     pub last_paid_date: Option<DateTime<Utc>>,
+    pub max_payment_delay: Option<Duration>,
     ///None means native token
     pub erc20_token_transferred: BTreeMap<Address, U256>,
     pub native_token_transferred: U256,
@@ -191,6 +192,10 @@ pub async fn get_transfer_stats(
                 }
                 if ts.last_paid_date.is_none() || ts.last_paid_date.unwrap() < paid_date {
                     ts.last_paid_date = Some(paid_date);
+                }
+                let duration = paid_date - t.create_date;
+                if ts.max_payment_delay.is_none() || ts.max_payment_delay.unwrap() < duration {
+                    ts.max_payment_delay = Some(duration);
                 }
             }
             if ts.first_transfer_date.is_none() || ts.first_transfer_date.unwrap() > t.create_date {

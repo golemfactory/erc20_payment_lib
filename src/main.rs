@@ -206,6 +206,15 @@ async fn main_internal() -> Result<(), PaymentError> {
                     .map(|d| d.to_string())
                     .unwrap_or("N/A".to_string())
             );
+            println!(
+                "Max payment delay: {}",
+                main_sender
+                    .1
+                    .all
+                    .max_payment_delay
+                    .map(|d| d.num_seconds().to_string() + "s")
+                    .unwrap_or("N/A".to_string())
+            );
 
             println!(
                 "Token sent: {}",
@@ -259,6 +268,14 @@ async fn main_internal() -> Result<(), PaymentError> {
                         .1
                         .last_paid_date
                         .map(|d| d.to_string())
+                        .unwrap_or("N/A".to_string())
+                );
+                println!(
+                    "  Max payment delay: {}",
+                    receiver
+                        .1
+                        .max_payment_delay
+                        .map(|d| d.num_seconds().to_string() + "s")
                         .unwrap_or("N/A".to_string())
                 );
             }
