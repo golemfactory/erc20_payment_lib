@@ -1,15 +1,15 @@
 use crate::db::model::*;
+use crate::db::ops::get_transactions;
 use crate::err_from;
 use crate::error::PaymentError;
 use crate::error::*;
-use sqlx::{Executor};
+use sqlx::Executor;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::AddAssign;
 use std::str::FromStr;
 use web3::types::{Address, U256};
-use crate::db::ops::{get_transactions};
 
 pub async fn insert_token_transfer<'c, E>(
     executor: E,
@@ -156,7 +156,9 @@ pub async fn get_transfer_stats(
     let tt = get_all_token_transfers(conn, limit)
         .await
         .map_err(err_from!())?;
-    let txs = get_transactions(conn, None, None, None).await.map_err(err_from!())?;
+    let txs = get_transactions(conn, None, None, None)
+        .await
+        .map_err(err_from!())?;
     let mut txs_map = HashMap::new();
     for tx in txs {
         txs_map.insert(tx.id, tx);

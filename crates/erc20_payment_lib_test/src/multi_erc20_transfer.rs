@@ -1,5 +1,3 @@
-use std::env;
-use std::str::FromStr;
 use crate::{
     create_default_config_setup, exclusive_geth_init, setup_random_memory_sqlite_conn,
     test_get_balance,
@@ -10,8 +8,10 @@ use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
-use erc20_payment_lib::utils::{u256_to_rust_dec};
+use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_extra::{generate_test_payments, GenerateTestPaymentsOptions};
+use std::env;
+use std::str::FromStr;
 use std::time::Duration;
 use web3::types::U256;
 
