@@ -83,7 +83,7 @@ pub struct ImportOptions {
 
 #[derive(StructOpt)]
 #[structopt(about = "Payment statistics options")]
-pub struct PaymentStatisticsOptions {}
+pub struct PaymentStatsOptions {}
 
 #[derive(StructOpt)]
 #[structopt(about = "Import payment list")]
@@ -123,9 +123,9 @@ pub enum PaymentCommands {
         #[structopt(flatten)]
         import_options: ImportOptions,
     },
-    PaymentStatistics {
+    PaymentStats {
         #[structopt(flatten)]
-        payment_statistics_options: PaymentStatisticsOptions,
+        payment_stats_options: PaymentStatsOptions,
     },
     DecryptKeyStore {
         #[structopt(flatten)]

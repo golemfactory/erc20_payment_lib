@@ -2,13 +2,14 @@ use crate::db::model::*;
 use crate::err_from;
 use crate::error::PaymentError;
 use crate::error::*;
-use sqlx::Executor;
+use sqlx::{Executor};
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::ops::AddAssign;
 use std::str::FromStr;
 use web3::types::{Address, U256};
+use crate::db::ops::{get_transactions};
 
 pub async fn insert_token_transfer<'c, E>(
     executor: E,
@@ -19,8 +20,8 @@ where
 {
     let res = sqlx::query_as::<_, TokenTransferDao>(
         r"INSERT INTO token_transfer
-(payment_id, from_addr, receiver_addr, chain_id, token_addr, token_amount, create_date, tx_id, fee_paid, error)
-VALUES ($1, $2, $3, $4, $5, $6, strftime('%Y-%m-%dT%H:%M:%f', 'now'), $7, $8, $9) RETURNING *;
+(payment_id, from_addr, receiver_addr, chain_id, token_addr, token_amount, create_date, tx_id, paid_date, fee_paid, error)
+VALUES ($1, $2, $3, $4, $5, $6, strftime('%Y-%m-%dT%H:%M:%f', 'now'), $7, $8, $9, $10) RETURNING *;
 ",
     )
     .bind(&token_transfer.payment_id)
@@ -30,6 +31,7 @@ VALUES ($1, $2, $3, $4, $5, $6, strftime('%Y-%m-%dT%H:%M:%f', 'now'), $7, $8, $9
     .bind(&token_transfer.token_addr)
     .bind(&token_transfer.token_amount)
     .bind(token_transfer.tx_id)
+    .bind(token_transfer.paid_date)
     .bind(&token_transfer.fee_paid)
     .bind(&token_transfer.error)
     .fetch_one(executor)
@@ -53,8 +55,9 @@ chain_id = $5,
 token_addr = $6,
 token_amount = $7,
 tx_id = $8,
-fee_paid = $9,
-error = $10
+paid_date = $9,
+fee_paid = $10,
+error = $11
 WHERE id = $1
 ",
     )
@@ -66,6 +69,7 @@ WHERE id = $1
     .bind(&token_transfer.token_addr)
     .bind(&token_transfer.token_amount)
     .bind(token_transfer.tx_id)
+    .bind(token_transfer.paid_date)
     .bind(&token_transfer.fee_paid)
     .bind(&token_transfer.error)
     .execute(executor)
@@ -123,6 +127,7 @@ pub const TRANSFER_FILTER_DONE: &str = "(fee_paid is not null)";
 
 #[derive(Debug, Clone, Default)]
 pub struct TransferStatsPart {
+    pub transaction_ids: HashSet<i64>,
     pub queued_count: u64,
     pub processed_count: u64,
     pub done_count: u64,
@@ -151,6 +156,12 @@ pub async fn get_transfer_stats(
     let tt = get_all_token_transfers(conn, limit)
         .await
         .map_err(err_from!())?;
+    let txs = get_transactions(conn, None, None, None).await.map_err(err_from!())?;
+    let mut txs_map = HashMap::new();
+    for tx in txs {
+        txs_map.insert(tx.id, tx);
+    }
+
     let mut ts = TransferStats::default();
     for t in tt {
         let from_addr = Address::from_str(&t.from_addr).map_err(err_from!())?;
@@ -168,6 +179,9 @@ pub async fn get_transfer_stats(
 
         for ts in [t1, t2] {
             ts.total_count += 1;
+            if let Some(tx_id) = t.tx_id {
+                ts.transaction_ids.insert(tx_id);
+            }
             if t.tx_id.is_none() && t.error.is_none() {
                 ts.queued_count += 1;
             }

@@ -75,6 +75,7 @@ pub async fn update_token_transfer_result(
 
             for (token_transfer, fee_paid) in token_transfers.iter_mut().zip(distribute_fee) {
                 token_transfer.fee_paid = fee_paid.map(|v| v.to_string());
+                token_transfer.paid_date = Some(chrono::Utc::now());
 
                 update_token_transfer(&mut *db_transaction, token_transfer)
                     .await

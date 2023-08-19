@@ -145,8 +145,8 @@ async fn main_internal() -> Result<(), PaymentError> {
             }
             generate_test_payments(generate_options, &config, public_addrs, Some(conn)).await?;
         }
-        PaymentCommands::PaymentStatistics {
-            payment_statistics_options: _,
+        PaymentCommands::PaymentStats {
+            payment_stats_options: _,
         } => {
             println!("Getting transfers stats...");
             let transfer_stats = get_transfer_stats(&conn, None).await.unwrap();
@@ -164,6 +164,12 @@ async fn main_internal() -> Result<(), PaymentError> {
                 "Number of distinct receivers: {}",
                 main_sender.1.per_receiver.len()
             );
+
+            println!(
+                "Number of web3 transactions: {}",
+                main_sender.1.all.transaction_ids.len()
+            );
+
             println!(
                 "Token sent: {}",
                 u256_to_rust_dec(main_sender.1.all.native_token_transferred, None).unwrap()
@@ -175,9 +181,10 @@ async fn main_internal() -> Result<(), PaymentError> {
                     break;
                 }
                 println!(
-                    "Receiver: {}, count: {}, gas: {}, token sent: {}",
+                    "Receiver: {:#x}\n  count (payment/web3): {}/{}, gas: {}, token sent: {}",
                     receiver.0,
                     receiver.1.done_count,
+                    receiver.1.transaction_ids.len(),
                     u256_to_rust_dec(receiver.1.fee_paid, None).unwrap(),
                     u256_to_rust_dec(
                         *receiver.1.erc20_token_transferred.iter().next().unwrap().1,
