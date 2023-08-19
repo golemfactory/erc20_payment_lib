@@ -145,8 +145,8 @@ async fn main_internal() -> Result<(), PaymentError> {
             }
             generate_test_payments(generate_options, &config, public_addrs, Some(conn)).await?;
         }
-        PaymentCommands::PaymentStatistics {
-            payment_statistics_options: _,
+        PaymentCommands::PaymentStats {
+            payment_stats_options: _,
         } => {
             println!("Getting transfers stats...");
             let transfer_stats = get_transfer_stats(&conn, None).await.unwrap();
@@ -164,6 +164,58 @@ async fn main_internal() -> Result<(), PaymentError> {
                 "Number of distinct receivers: {}",
                 main_sender.1.per_receiver.len()
             );
+
+            println!(
+                "Number of web3 transactions: {}",
+                main_sender.1.all.transaction_ids.len()
+            );
+
+            println!(
+                "First transfer requested at {}",
+                main_sender
+                    .1
+                    .all
+                    .first_transfer_date
+                    .map(|d| d.to_string())
+                    .unwrap_or("N/A".to_string())
+            );
+            println!(
+                "First payment made {}",
+                main_sender
+                    .1
+                    .all
+                    .first_paid_date
+                    .map(|d| d.to_string())
+                    .unwrap_or("N/A".to_string())
+            );
+            println!(
+                "Last transfer requested at {}",
+                main_sender
+                    .1
+                    .all
+                    .last_transfer_date
+                    .map(|d| d.to_string())
+                    .unwrap_or("N/A".to_string())
+            );
+            println!(
+                "Last payment made {}",
+                main_sender
+                    .1
+                    .all
+                    .last_paid_date
+                    .map(|d| d.to_string())
+                    .unwrap_or("N/A".to_string())
+            );
+            println!(
+                "Max payment delay: {}",
+                main_sender
+                    .1
+                    .all
+                    .max_payment_delay
+                    .map(|d| d.num_seconds().to_string() + "s")
+                    .unwrap_or("N/A".to_string())
+            );
+
             println!(
                 "Token sent: {}",
                 u256_to_rust_dec(main_sender.1.all.native_token_transferred, None).unwrap()
@@ -175,15 +227,56 @@ async fn main_internal() -> Result<(), PaymentError> {
                     break;
                 }
                 println!(
-                    "Receiver: {}, count: {}, gas: {}, token sent: {}",
+                    "Receiver: {:#x}\n  count (payment/web3): {}/{}, gas: {}, token sent: {}",
                     receiver.0,
                     receiver.1.done_count,
+                    receiver.1.transaction_ids.len(),
                     u256_to_rust_dec(receiver.1.fee_paid, None).unwrap(),
                     u256_to_rust_dec(
                         *receiver.1.erc20_token_transferred.iter().next().unwrap().1,
                         None
                     )
                     .unwrap(),
+                );
+                println!(
+                    "  First transfer requested at {}",
+                    receiver
+                        .1
+                        .first_transfer_date
+                        .map(|d| d.to_string())
+                        .unwrap_or("N/A".to_string())
+                );
+                println!(
+                    "  First payment made {}",
+                    receiver
+                        .1
+                        .first_paid_date
+                        .map(|d| d.to_string())
+                        .unwrap_or("N/A".to_string())
+                );
+                println!(
+                    "  Last transfer requested at {}",
+                    receiver
+                        .1
+                        .last_transfer_date
+                        .map(|d| d.to_string())
+                        .unwrap_or("N/A".to_string())
+                );
+                println!(
+                    "  Last payment made {}",
+                    receiver
+                        .1
+                        .last_paid_date
+                        .map(|d| d.to_string())
+                        .unwrap_or("N/A".to_string())
+                );
+                println!(
+                    "  Max payment delay: {}",
+                    receiver
+                        .1
+                        .max_payment_delay
+                        .map(|d| d.num_seconds().to_string() + "s")
+                        .unwrap_or("N/A".to_string())
                 );
             }
         }

@@ -6,6 +6,7 @@ use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::SqlitePool;
 use std::env;
 use std::str::FromStr;
+use std::time::Duration;
 
 static MIGRATOR: Migrator = sqlx::migrate!();
 
@@ -21,18 +22,16 @@ pub async fn create_sqlite_connection(
         format!("file:{}?mode=memory", memory_name.unwrap_or("mem"))
     };
 
-    let mut journal_mode = match env::var("ERC20_LIB_SQLITE_JOURNAL_MODE") {
+    let journal_mode = match env::var("ERC20_LIB_SQLITE_JOURNAL_MODE") {
         Ok(val) => sqlx::sqlite::SqliteJournalMode::from_str(&val).map_err(err_from!())?,
         Err(_) => sqlx::sqlite::SqliteJournalMode::Wal,
     };
-    if read_only {
-        journal_mode = sqlx::sqlite::SqliteJournalMode::Off;
-    }
 
     let conn_opt = SqliteConnectOptions::from_str(&url)
         .map_err(err_from!())?
         .journal_mode(journal_mode)
         .read_only(read_only)
+        .busy_timeout(Duration::from_secs_f64(1.0))
         .create_if_missing(!read_only);
 
     let pool = sqlx::sqlite::SqlitePoolOptions::new()
