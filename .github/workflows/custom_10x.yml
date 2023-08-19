@@ -19,6 +19,10 @@ on:
         description: 'Number of receivers to generate'
         required: true
         default: '0'
+      max_in_tx:
+        description: 'Max receivers in one web3 tx'
+        required: true
+        default: '1000'
 
 jobs:
   payment_tests_long:
@@ -49,7 +53,8 @@ jobs:
           ERC20_TESTS_OVERRIDE_DB_NAME: erc20lib.sqlite
           ERC20_LIB_SQLITE_JOURNAL_MODE: ${{ github.event.inputs.journal_mode }}
           ERC20_TEST_RECEIVER_POOL_SIZE: ${{ github.event.inputs.receivers_count }}
-          TRANSFER_COUNT: ${{ github.event.inputs.transfer_count }}
+          ERC20_TEST_MAX_IN_TX: ${{ github.event.inputs.max_in_tx }}
+          ERC20_TEST_TRANSFER_COUNT: ${{ github.event.inputs.transfer_count }}
 
       - name: Reopen db cleaning wal logs
         run: cargo run --profile=${{ github.event.inputs.build_profile }} -- --sqlite-db-file erc20lib.sqlite --sqlite-journal delete cleanup
