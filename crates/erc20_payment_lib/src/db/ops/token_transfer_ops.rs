@@ -1,12 +1,12 @@
 use crate::db::model::*;
-use crate::db::ops::get_transactions;
 use crate::err_from;
 use crate::error::PaymentError;
 use crate::error::*;
+use chrono::{DateTime, Utc};
 use sqlx::Executor;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use std::ops::AddAssign;
 use std::str::FromStr;
 use web3::types::{Address, U256};
@@ -133,6 +133,10 @@ pub struct TransferStatsPart {
     pub done_count: u64,
     pub total_count: u64,
     pub fee_paid: U256,
+    pub first_transfer_date: Option<DateTime<Utc>>,
+    pub last_transfer_date: Option<DateTime<Utc>>,
+    pub first_paid_date: Option<DateTime<Utc>>,
+    pub last_paid_date: Option<DateTime<Utc>>,
     ///None means native token
     pub erc20_token_transferred: BTreeMap<Address, U256>,
     pub native_token_transferred: U256,
@@ -156,13 +160,13 @@ pub async fn get_transfer_stats(
     let tt = get_all_token_transfers(conn, limit)
         .await
         .map_err(err_from!())?;
-    let txs = get_transactions(conn, None, None, None)
-        .await
-        .map_err(err_from!())?;
-    let mut txs_map = HashMap::new();
-    for tx in txs {
-        txs_map.insert(tx.id, tx);
-    }
+    //let txs = get_transactions(conn, None, None, None)
+    //    .await
+    //    .map_err(err_from!())?;
+    //let mut txs_map = HashMap::new();
+    //for tx in txs {
+    //    txs_map.insert(tx.id, tx);
+    //}
 
     let mut ts = TransferStats::default();
     for t in tt {
@@ -181,6 +185,21 @@ pub async fn get_transfer_stats(
 
         for ts in [t1, t2] {
             ts.total_count += 1;
+            if let Some(paid_date) = t.paid_date {
+                if ts.first_paid_date.is_none() || ts.first_paid_date.unwrap() > paid_date {
+                    ts.first_paid_date = Some(paid_date);
+                }
+                if ts.last_paid_date.is_none() || ts.last_paid_date.unwrap() < paid_date {
+                    ts.last_paid_date = Some(paid_date);
+                }
+            }
+            if ts.first_transfer_date.is_none() || ts.first_transfer_date.unwrap() > t.create_date {
+                ts.first_transfer_date = Some(t.create_date);
+            }
+            if ts.last_transfer_date.is_none() || ts.last_transfer_date.unwrap() < t.create_date {
+                ts.last_transfer_date = Some(t.create_date);
+            }
+
             if let Some(tx_id) = t.tx_id {
                 ts.transaction_ids.insert(tx_id);
             }

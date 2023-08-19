@@ -171,6 +171,43 @@ async fn main_internal() -> Result<(), PaymentError> {
             );
 
             println!(
+                "First transfer requested at {}",
+                main_sender
+                    .1
+                    .all
+                    .first_transfer_date
+                    .map(|d| d.to_string())
+                    .unwrap_or("N/A".to_string())
+            );
+            println!(
+                "First payment made {}",
+                main_sender
+                    .1
+                    .all
+                    .first_paid_date
+                    .map(|d| d.to_string())
+                    .unwrap_or("N/A".to_string())
+            );
+            println!(
+                "Last transfer requested at {}",
+                main_sender
+                    .1
+                    .all
+                    .last_transfer_date
+                    .map(|d| d.to_string())
+                    .unwrap_or("N/A".to_string())
+            );
+            println!(
+                "Last payment made {}",
+                main_sender
+                    .1
+                    .all
+                    .last_paid_date
+                    .map(|d| d.to_string())
+                    .unwrap_or("N/A".to_string())
+            );
+
+            println!(
                 "Token sent: {}",
                 u256_to_rust_dec(main_sender.1.all.native_token_transferred, None).unwrap()
             );
@@ -191,6 +228,38 @@ async fn main_internal() -> Result<(), PaymentError> {
                         None
                     )
                     .unwrap(),
+                );
+                println!(
+                    "  First transfer requested at {}",
+                    receiver
+                        .1
+                        .first_transfer_date
+                        .map(|d| d.to_string())
+                        .unwrap_or("N/A".to_string())
+                );
+                println!(
+                    "  First payment made {}",
+                    receiver
+                        .1
+                        .first_paid_date
+                        .map(|d| d.to_string())
+                        .unwrap_or("N/A".to_string())
+                );
+                println!(
+                    "  Last transfer requested at {}",
+                    receiver
+                        .1
+                        .last_transfer_date
+                        .map(|d| d.to_string())
+                        .unwrap_or("N/A".to_string())
+                );
+                println!(
+                    "  Last payment made {}",
+                    receiver
+                        .1
+                        .last_paid_date
+                        .map(|d| d.to_string())
+                        .unwrap_or("N/A".to_string())
                 );
             }
         }
