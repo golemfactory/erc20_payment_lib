@@ -90,6 +90,22 @@ pub struct PaymentStatsOptions {
         default_value = "10"
     )]
     pub show_receiver_count: usize,
+
+    #[structopt(
+    long = "order-by",
+    help = "Order by",
+    default_value = "payment_delay",
+    possible_values = &["payment_delay", "token_sent"]
+    )]
+    pub order_by: String,
+
+    #[structopt(
+    long = "order-by-dir",
+    help = "Order by dir",
+    default_value = "desc",
+    possible_values = &["asc", "desc"]
+    )]
+    pub order_by_dir: String,
 }
 
 #[derive(StructOpt)]

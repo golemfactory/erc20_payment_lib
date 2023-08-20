@@ -225,15 +225,32 @@ async fn main_internal() -> Result<(), PaymentError> {
             let per_receiver = main_sender.1.per_receiver.clone();
             let mut per_receiver: Vec<(H160, TransferStatsPart)> =
                 per_receiver.into_iter().collect();
-            per_receiver.sort_by(|r, b| {
-                let left =
-                    r.1.max_payment_delay
-                        .unwrap_or(chrono::Duration::seconds(0));
-                let right =
-                    b.1.max_payment_delay
-                        .unwrap_or(chrono::Duration::seconds(0));
-                right.cmp(&left)
-            });
+            if payment_stats_options.order_by == "payment_delay" {
+                per_receiver.sort_by(|r, b| {
+                    let left =
+                        r.1.max_payment_delay
+                            .unwrap_or(chrono::Duration::max_value());
+                    let right =
+                        b.1.max_payment_delay
+                            .unwrap_or(chrono::Duration::max_value());
+                    right.cmp(&left)
+                });
+            } else if payment_stats_options.order_by == "token_sent" {
+                per_receiver.sort_by(|r, b| {
+                    let left = *r.1.erc20_token_transferred.iter().next().unwrap().1;
+                    let right = *b.1.erc20_token_transferred.iter().next().unwrap().1;
+                    right.cmp(&left)
+                });
+            } else {
+                return Err(err_custom_create!(
+                    "Unknown order_by option: {}",
+                    payment_stats_options.order_by
+                ));
+            }
+
+            if payment_stats_options.order_by_dir == "asc" {
+                per_receiver.reverse();
+            }
 
             for (el_no, receiver) in per_receiver.iter().enumerate() {
                 if el_no >= payment_stats_options.show_receiver_count {
