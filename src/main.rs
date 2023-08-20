@@ -241,6 +241,14 @@ async fn main_internal() -> Result<(), PaymentError> {
                     let right = *b.1.erc20_token_transferred.iter().next().unwrap().1;
                     right.cmp(&left)
                 });
+            } else if payment_stats_options.order_by == "gas_paid"
+                || payment_stats_options.order_by == "fee_paid"
+            {
+                per_receiver.sort_by(|r, b| {
+                    let left = r.1.fee_paid;
+                    let right = b.1.fee_paid;
+                    right.cmp(&left)
+                });
             } else {
                 return Err(err_custom_create!(
                     "Unknown order_by option: {}",

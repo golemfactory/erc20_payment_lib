@@ -95,7 +95,7 @@ pub struct PaymentStatsOptions {
     long = "order-by",
     help = "Order by",
     default_value = "payment_delay",
-    possible_values = &["payment_delay", "token_sent"]
+    possible_values = &["payment_delay", "token_sent", "fee_paid", "gas_paid"]
     )]
     pub order_by: String,
 
