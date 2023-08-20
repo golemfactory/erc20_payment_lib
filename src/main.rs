@@ -7,7 +7,7 @@ use csv::ReaderBuilder;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::TokenTransferDao;
-use erc20_payment_lib::db::ops::{get_transfer_stats, insert_token_transfer};
+use erc20_payment_lib::db::ops::{get_transfer_stats, insert_token_transfer, TransferStatsPart};
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::utils::u256_to_rust_dec;
 
@@ -23,6 +23,7 @@ use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
+use web3::types::H160;
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -146,7 +147,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             generate_test_payments(generate_options, &config, public_addrs, Some(conn)).await?;
         }
         PaymentCommands::PaymentStats {
-            payment_stats_options: _,
+            payment_stats_options,
         } => {
             println!("Getting transfers stats...");
             let transfer_stats = get_transfer_stats(&conn, None).await.unwrap();
@@ -221,9 +222,22 @@ async fn main_internal() -> Result<(), PaymentError> {
                 u256_to_rust_dec(main_sender.1.all.native_token_transferred, None).unwrap()
             );
 
-            for (el_no, receiver) in main_sender.1.per_receiver.iter().enumerate() {
-                if el_no > 10 {
-                    println!("... and more (max {} receivers shown)", el_no - 1);
+            let per_receiver = main_sender.1.per_receiver.clone();
+            let mut per_receiver: Vec<(H160, TransferStatsPart)> =
+                per_receiver.into_iter().collect();
+            per_receiver.sort_by(|r, b| {
+                let left =
+                    r.1.max_payment_delay
+                        .unwrap_or(chrono::Duration::seconds(0));
+                let right =
+                    b.1.max_payment_delay
+                        .unwrap_or(chrono::Duration::seconds(0));
+                right.cmp(&left)
+            });
+
+            for (el_no, receiver) in per_receiver.iter().enumerate() {
+                if el_no >= payment_stats_options.show_receiver_count {
+                    println!("... and more (max {} receivers shown)", el_no);
                     break;
                 }
                 println!(

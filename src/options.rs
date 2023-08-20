@@ -83,7 +83,14 @@ pub struct ImportOptions {
 
 #[derive(StructOpt)]
 #[structopt(about = "Payment statistics options")]
-pub struct PaymentStatsOptions {}
+pub struct PaymentStatsOptions {
+    #[structopt(
+        long = "receiver-count",
+        help = "Number of receivers to show",
+        default_value = "10"
+    )]
+    pub show_receiver_count: usize,
+}
 
 #[derive(StructOpt)]
 #[structopt(about = "Import payment list")]
