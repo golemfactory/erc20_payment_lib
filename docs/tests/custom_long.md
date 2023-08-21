@@ -17,6 +17,7 @@ Customizable test base for checking performance/robustness
 ### Custom github action
 - To run this tests on gihub actions you can use [custom_10x action](https://github.com/golemfactory/erc20_payment_lib/actions/workflows/custom_10x.yml) and click run_workflow directly from github.
 - DB files from tests are uploaded so you can inspect them further for more info about runtime run.
+- By default wal option is used in sqlite so in order to have one file library command cleanup is used.
 
 ### What is tested:
 - Behaviour of runtime in more "normal" condition.
