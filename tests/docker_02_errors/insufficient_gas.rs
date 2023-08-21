@@ -30,7 +30,9 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
 
             match msg.content {
                 TransactionStuck(reason) => {
+
                     missing_gas_message_count += 1;
+                    log::error!("{:?}", reason);
                     assert_eq!(reason, TransactionStuckReason::NoGas);
                 }
                 _ => {
