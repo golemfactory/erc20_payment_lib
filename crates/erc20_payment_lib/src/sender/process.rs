@@ -141,13 +141,7 @@ pub async fn process_transaction(
             log::warn!("Time changed?? time diff lower than 0");
         }
         if diff.num_seconds() > chain_setup.transaction_timeout as i64 {
-            send_driver_event(
-                &event_sender,
-                DriverEventContent::TransactionStuck(TransactionStuckReason::GasPriceLow),
-            )
-            .await;
-            log::warn!("Transaction timeout for tx id: {}", web3_tx_dao.id);
-            //return Ok(ProcessTransactionResult::NeedRetry("Timeout".to_string()));
+            log::warn!("Detected transaction timeout for tx id: {}", web3_tx_dao.id);
         }
     } else {
         web3_tx_dao.first_processed = Some(chrono::Utc::now());
@@ -340,6 +334,30 @@ pub async fn process_transaction(
             update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
             tokio::time::sleep(wait_duration).await;
             continue;
+        } else {
+            //timeout transaction when it is not confirmed after transaction_timeout seconds
+            if let Some(first_processed) = web3_tx_dao.first_processed {
+                let now = chrono::Utc::now();
+                let diff = now - first_processed;
+                if diff.num_seconds() < -10 {
+                    log::warn!("Time changed?? time diff lower than 0");
+                }
+                if diff.num_seconds() > chain_setup.transaction_timeout as i64 {
+                    if web3_tx_dao.broadcast_date.is_some() {
+                        //if transaction was already broad-casted and still not processed then we can assume that gas price is too low
+                        send_driver_event(
+                            &event_sender,
+                            DriverEventContent::TransactionStuck(
+                                TransactionStuckReason::GasPriceLow,
+                            ),
+                        )
+                        .await;
+                    }
+
+                    log::warn!("Transaction timeout for tx id: {}", web3_tx_dao.id);
+                    //return Ok(ProcessTransactionResult::NeedRetry("Timeout".to_string()));
+                }
+            }
         }
         if !wait_for_confirmation {
             return Ok(ProcessTransactionResult::Unknown);

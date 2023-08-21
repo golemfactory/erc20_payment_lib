@@ -6,7 +6,7 @@
 
 ### Description
 
-Test is performing single payment.
+Test is performing single payment with gas price set lower than current network condition.
 
 ### Setup
 
@@ -16,5 +16,11 @@ Test is performing single payment.
 
 ### What is tested:
 
+- Single transaction is setup with very low gas price limit.
+- Behaviour of library when gas price is set lower than network conditions
+- Check if event TransactionStuck with reason TransactionStuckReason::GasPriceLow is emitted during runtime
+- After some time library should finish transaction (during test network prices are getting lower)
+
 ### Notes:
 
+- Detecting low gas price vs other problems (for example faulty node) may be tricky.

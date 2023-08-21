@@ -6,7 +6,7 @@
 
 ### Description
 
-Test is performing single payment.
+Test is performing library behaviour on unrecoverable errors.
 
 ### Setup
 
@@ -16,5 +16,8 @@ Test is performing single payment.
 
 ### What is tested:
 
+- How to handle irrecoverable errors
+
 ### Notes:
 
+-- TODO: right now library is stopping without proper error handling

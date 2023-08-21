@@ -12,9 +12,14 @@ Test is performing single payment.
 
 - Common test [setup](./common-test-setup.md) is used
 - Simple Geth without limits
-- Simple RPC proxy without any limits
+- Simple RPC proxy with additional error generation
 
 ### What is tested:
 
+- This test is similar to single ERC20 transfer, but random errors are added to proxy
+- Expected behaviour is that despite multiple error during rpc connections runtime will manage to proceed with transactions
+- 
+
 ### Notes:
 
+- Probably we should also check for transaction stuck event due to RPC errors?
