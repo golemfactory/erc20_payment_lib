@@ -83,7 +83,30 @@ pub struct ImportOptions {
 
 #[derive(StructOpt)]
 #[structopt(about = "Payment statistics options")]
-pub struct PaymentStatsOptions {}
+pub struct PaymentStatsOptions {
+    #[structopt(
+        long = "receiver-count",
+        help = "Number of receivers to show",
+        default_value = "10"
+    )]
+    pub show_receiver_count: usize,
+
+    #[structopt(
+    long = "order-by",
+    help = "Order by",
+    default_value = "payment_delay",
+    possible_values = &["payment_delay", "token_sent", "fee_paid", "gas_paid"]
+    )]
+    pub order_by: String,
+
+    #[structopt(
+    long = "order-by-dir",
+    help = "Order by dir",
+    default_value = "desc",
+    possible_values = &["asc", "desc"]
+    )]
+    pub order_by_dir: String,
+}
 
 #[derive(StructOpt)]
 #[structopt(about = "Import payment list")]

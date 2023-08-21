@@ -7,7 +7,7 @@ use csv::ReaderBuilder;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::TokenTransferDao;
-use erc20_payment_lib::db::ops::{get_transfer_stats, insert_token_transfer};
+use erc20_payment_lib::db::ops::{get_transfer_stats, insert_token_transfer, TransferStatsPart};
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::utils::u256_to_rust_dec;
 
@@ -23,6 +23,7 @@ use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
+use web3::types::H160;
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -146,7 +147,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             generate_test_payments(generate_options, &config, public_addrs, Some(conn)).await?;
         }
         PaymentCommands::PaymentStats {
-            payment_stats_options: _,
+            payment_stats_options,
         } => {
             println!("Getting transfers stats...");
             let transfer_stats = get_transfer_stats(&conn, None).await.unwrap();
@@ -221,9 +222,47 @@ async fn main_internal() -> Result<(), PaymentError> {
                 u256_to_rust_dec(main_sender.1.all.native_token_transferred, None).unwrap()
             );
 
-            for (el_no, receiver) in main_sender.1.per_receiver.iter().enumerate() {
-                if el_no > 10 {
-                    println!("... and more (max {} receivers shown)", el_no - 1);
+            let per_receiver = main_sender.1.per_receiver.clone();
+            let mut per_receiver: Vec<(H160, TransferStatsPart)> =
+                per_receiver.into_iter().collect();
+            if payment_stats_options.order_by == "payment_delay" {
+                per_receiver.sort_by(|r, b| {
+                    let left =
+                        r.1.max_payment_delay
+                            .unwrap_or(chrono::Duration::max_value());
+                    let right =
+                        b.1.max_payment_delay
+                            .unwrap_or(chrono::Duration::max_value());
+                    right.cmp(&left)
+                });
+            } else if payment_stats_options.order_by == "token_sent" {
+                per_receiver.sort_by(|r, b| {
+                    let left = *r.1.erc20_token_transferred.iter().next().unwrap().1;
+                    let right = *b.1.erc20_token_transferred.iter().next().unwrap().1;
+                    right.cmp(&left)
+                });
+            } else if payment_stats_options.order_by == "gas_paid"
+                || payment_stats_options.order_by == "fee_paid"
+            {
+                per_receiver.sort_by(|r, b| {
+                    let left = r.1.fee_paid;
+                    let right = b.1.fee_paid;
+                    right.cmp(&left)
+                });
+            } else {
+                return Err(err_custom_create!(
+                    "Unknown order_by option: {}",
+                    payment_stats_options.order_by
+                ));
+            }
+
+            if payment_stats_options.order_by_dir == "asc" {
+                per_receiver.reverse();
+            }
+
+            for (el_no, receiver) in per_receiver.iter().enumerate() {
+                if el_no >= payment_stats_options.show_receiver_count {
+                    println!("... and more (max {} receivers shown)", el_no);
                     break;
                 }
                 println!(

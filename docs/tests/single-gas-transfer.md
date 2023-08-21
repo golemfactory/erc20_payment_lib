@@ -10,8 +10,9 @@ Test is performing the simplest possible transfer of native (ETH or MATIC) token
 
 ### Setup
 
- - Simple Geth without limits
- - Simple RPC proxy without any limits
+- Common test [setup](./common-test-setup.md) is used
+- Simple Geth without limits
+- Simple RPC proxy without any limits
 
 ### What is tested:
 

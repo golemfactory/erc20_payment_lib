@@ -200,7 +200,7 @@ impl Drop for GethContainer {
         let docker = self.docker.clone();
         let container_id = self.container_id.clone();
 
-        if get_env_bool_value("KEEP_DOCKER_CONTAINERS") {
+        if get_env_bool_value("ERC20_TEST_KEEP_DOCKER_CONTAINER") {
             return;
         }
 
@@ -298,7 +298,7 @@ impl GethContainer {
 
         log::debug!("Image id extracted {}", image_id);
 
-        let max_docker_lifetime = if get_env_bool_value("KEEP_DOCKER_CONTAINERS") {
+        let max_docker_lifetime = if get_env_bool_value("ERC20_TEST_KEEP_DOCKER_CONTAINER") {
             30 * 24 * 3600
         } else {
             opt.max_docker_lifetime.as_secs()
