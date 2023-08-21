@@ -22,5 +22,5 @@ Test is performing multiple transfers of ERC20 (tGLM) token.
 
 ### Notes:
 - Running ERC20 transfer triggers approve contract event
-- No batching is used in this test.
+- Batching to multiple receivers is used in this test.
 - Multi payment contract is used.
