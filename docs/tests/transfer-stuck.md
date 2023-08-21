@@ -10,6 +10,7 @@ Test is performing single payment.
 
 ### Setup
 
+- Common test [setup](./common-test-setup.md) is used
 - Simple Geth without limits
 - Simple RPC proxy without any limits
 

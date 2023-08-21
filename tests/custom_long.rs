@@ -11,7 +11,6 @@ async fn test_durability_custom() -> Result<(), anyhow::Error> {
     let transfers_at_once = transfers_at_once
         .parse::<usize>()
         .expect("ERC20_TEST_MAX_IN_TX has to be number");
-
     let transfer_interval = env::var("ERC20_TEST_TRANSFER_INTERVAL").unwrap_or("0.01".to_string());
     let transfer_interval = transfer_interval
         .parse::<f64>()
