@@ -6,7 +6,7 @@
 
 ### Description
 
-Test is performing single payment.
+Test is performing library behaviour on unrecoverable errors.
 
 ### Setup
 

@@ -1,4 +1,4 @@
-## Single erc20 token transfer test
+## Insufficient gas test
 
 ### Source file
 
@@ -6,7 +6,7 @@
 
 ### Description
 
-Test is performing single payment.
+Test is performing single payment on account with very low gas available.
 
 ### Setup
 

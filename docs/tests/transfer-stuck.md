@@ -6,7 +6,7 @@
 
 ### Description
 
-Test is performing single payment.
+Test is performing single payment with gas price set lower than current network condition.
 
 ### Setup
 

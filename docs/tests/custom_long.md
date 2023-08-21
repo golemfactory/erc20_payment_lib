@@ -1,4 +1,4 @@
-## Custom test
+## Custom test base
 
 ### Source file
 
@@ -6,7 +6,7 @@
 
 ### Description
 
-Customizable test base
+Customizable test base for checking performance/robustness
 
 ### Setup
 
