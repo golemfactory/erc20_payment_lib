@@ -15,5 +15,11 @@ Test is performing single payment.
 
 ### What is tested:
 
+- Behaviour of library when not enough is gas is on the account to perform next transactions
+- Runtime is started with account with low ETH (not enough for single transaction)
+- Check if event: TransactionStuck is emitted during the runtime
+
 ### Notes:
 
+- How many times should be event emitted?
+- 
