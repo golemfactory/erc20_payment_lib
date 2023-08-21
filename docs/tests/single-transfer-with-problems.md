@@ -13,6 +13,7 @@ Test is performing single payment, but RPC is generating errors when connected.
 - Common test [setup](./common-test-setup.md) is used
 - Simple Geth without limits
 - Simple RPC proxy with additional error generation
+- RPC proxy is setup using REST API - /api/problems/set/ endpoint of web3 proxy
 
 ### What is tested:
 
