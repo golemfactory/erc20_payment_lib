@@ -1,8 +1,8 @@
-## Single erc20 token transfer test
+## Transfer stuck test
 
 ### Source file
 
-[insufficinet_gas.rs](../../tests/docker_02_errors/insufficient_gas.rs)
+[transfer_stuck.rs](../../tests/docker_02_errors/transfer_stuck.rs)
 
 ### Description
 

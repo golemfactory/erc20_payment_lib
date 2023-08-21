@@ -1,8 +1,8 @@
-## Single erc20 token transfer test
+## Single transfer with problems test
 
 ### Source file
 
-[insufficinet_gas.rs](../../tests/docker_02_errors/insufficient_gas.rs)
+[single_transfer_with_problems.rs](../../tests/docker_03_problems/single_transfer_with_problems.rs)
 
 ### Description
 

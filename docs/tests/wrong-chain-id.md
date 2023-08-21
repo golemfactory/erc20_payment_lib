@@ -1,8 +1,8 @@
-## Single erc20 token transfer test
+## Wrong chain id test
 
 ### Source file
 
-[insufficinet_gas.rs](../../tests/docker_02_errors/insufficient_gas.rs)
+[wrong_chain_id.rs](../../tests/docker_02_errors/wrong_chain_id.rs)
 
 ### Description
 
