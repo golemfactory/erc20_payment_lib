@@ -13,12 +13,12 @@ Test is performing single payment, but RPC is generating errors when connected.
 - Common test [setup](./common-test-setup.md) is used
 - Simple Geth without limits
 - Simple RPC proxy with additional error generation
+- RPC proxy is setup using REST API - /api/problems/set/ endpoint of web3 proxy
 
 ### What is tested:
 
 - This test is similar to single ERC20 transfer, but random errors are added to proxy
 - Expected behaviour is that despite multiple error during rpc connections runtime will manage to proceed with transactions
-- 
 
 ### Notes:
 

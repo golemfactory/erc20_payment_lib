@@ -17,9 +17,10 @@ Test is performing multiple transfers of ERC20 (tGLM) token.
 ### What is tested:
 
 - Checking if multi-payment contract is correctly used
-- Checking different methods of contract for validity.
+- Checking different methods of contract for validity. This is done by checking TransactionConfirmed message method field
+- Checking if proper token amount is sent
 
 ### Notes:
 - Running ERC20 transfer triggers approve contract event
-- No batching is used in this test.
+- Batching to multiple receivers is used in this test.
 - Multi payment contract is used.
