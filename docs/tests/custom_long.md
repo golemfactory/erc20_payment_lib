@@ -14,8 +14,11 @@ Customizable test base for checking performance/robustness
 - Simple Geth without limits
 - Simple RPC proxy without limits
 
-### What is tested:
+### Custom github action
+- To run this tests on gihub actions you can use [custom_10x action](https://github.com/golemfactory/erc20_payment_lib/actions/workflows/custom_10x.yml) and click run_workflow directly from github.
+- DB files from tests are uploaded so you can inspect them further for more info about runtime run.
 
+### What is tested:
 - Behaviour of runtime in more "normal" condition.
 - Transfers are generated from the stream during operations.
 - Multiple ENV variables to control test.
