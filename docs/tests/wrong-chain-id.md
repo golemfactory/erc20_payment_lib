@@ -16,5 +16,8 @@ Test is performing single payment.
 
 ### What is tested:
 
+- How to handle irrecoverable errors
+
 ### Notes:
 
+-- TODO: right now library is stopping without proper error handling

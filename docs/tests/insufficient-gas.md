@@ -18,9 +18,9 @@ Test is performing single payment.
 
 - Behaviour of library when not enough is gas is on the account to perform next transactions
 - Runtime is started with account with low ETH (not enough for single transaction)
-- Check if event: TransactionStuck is emitted during the runtime
+- Check if event TransactionStuck with reason TransactionStuckReason::NoGas is emitted during runtime
 
 ### Notes:
 
-- How many times should be event emitted?
-- 
+- TransactionStuck can be emitted due to multiple reasons. It's easy to mess it up.
+- Checking advanced logic of transaction stuck reasons need some playing with tests
