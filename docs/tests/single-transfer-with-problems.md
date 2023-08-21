@@ -6,7 +6,7 @@
 
 ### Description
 
-Test is performing single payment.
+Test is performing single payment, but RPC is generating errors when connected.
 
 ### Setup
 
