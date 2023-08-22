@@ -26,9 +26,6 @@ use crate::transaction::send_transaction;
 use crate::transaction::sign_transaction_with_callback;
 use crate::utils::{datetime_from_u256_timestamp, u256_to_rust_dec};
 
-
-const POLYGON_MIN_PRIORITY_FEE_FOR_GASPRICE_CHECK: u32 = 0;
-
 #[derive(Debug)]
 pub enum ProcessTransactionResult {
     Confirmed,
@@ -371,9 +368,11 @@ pub async fn process_transaction(
                             )
                             .map_err(err_from!())?;
                             let assumed_min_priority_fee_gwei = if web3_tx_dao.chain_id == 137 {
-                                Decimal::from(POLYGON_MIN_PRIORITY_FEE_FOR_GASPRICE_CHECK)
+                                const POLYGON_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK: u32 = 30;
+                                Decimal::from(POLYGON_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK)
                             } else {
-                                Decimal::from(0)
+                                const OTHER_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK: u32 = 0;
+                                Decimal::from(OTHER_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK)
                             };
 
                             if let Some(block_date) = datetime_from_u256_timestamp(block.timestamp)

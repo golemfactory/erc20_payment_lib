@@ -7,7 +7,7 @@ use crate::runtime::{send_driver_event, DriverEvent, DriverEventContent, Transac
 use crate::signer::Signer;
 use crate::utils::{datetime_from_u256_timestamp, ConversionError};
 use crate::{err_custom_create, err_from};
-use chrono::{Utc};
+use chrono::Utc;
 use secp256k1::SecretKey;
 use std::collections::HashMap;
 use std::str::FromStr;
