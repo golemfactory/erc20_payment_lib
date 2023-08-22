@@ -16,6 +16,7 @@ use crate::config::AdditionalOptions;
 use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
 use crate::sender::service_loop;
 use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -35,10 +36,22 @@ pub struct FaucetData {
     pub last_cleanup: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize)]
+pub struct GasLowInfo {
+    pub tx: TxDao,
+    pub tx_max_fee_per_gas_gwei: Decimal,
+    pub block_date: chrono::DateTime<Utc>,
+    pub block_number: u64,
+    pub block_base_fee_per_gas_gwei: Decimal,
+    pub assumed_min_priority_fee_gwei: Decimal,
+    pub user_friendly_message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[allow(clippy::large_enum_variant)]
 pub enum TransactionStuckReason {
     NoGas(String),
-    GasPriceLow(String),
+    GasPriceLow(GasLowInfo),
     RPCEndpointProblems(String),
 }
 

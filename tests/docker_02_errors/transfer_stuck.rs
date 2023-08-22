@@ -36,8 +36,8 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
                 }
                 TransactionStuck(reason) => {
                     match reason {
-                        TransactionStuckReason::GasPriceLow(msg) => {
-                            log::info!("Gas price low: {msg}");
+                        TransactionStuckReason::GasPriceLow(gas_low_info) => {
+                            log::info!("Gas price low: {}", gas_low_info.user_friendly_message);
                             transaction_stuck_count += 1;
                         },
                         _ => {

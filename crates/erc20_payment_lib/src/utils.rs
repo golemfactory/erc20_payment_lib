@@ -1,3 +1,4 @@
+use chrono::{DateTime, NaiveDateTime, Utc};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use std::env;
@@ -5,6 +6,10 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 use web3::types::U256;
 
+pub fn datetime_from_u256_timestamp(timestamp: U256) -> Option<DateTime<Utc>> {
+    NaiveDateTime::from_timestamp_opt(timestamp.as_u64() as i64, 0)
+        .map(|naive| DateTime::<Utc>::from_utc(naive, Utc))
+}
 pub fn get_env_bool_value(env_name: &str) -> bool {
     env::var(env_name)
         .map(|v| {
