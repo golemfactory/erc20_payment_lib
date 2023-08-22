@@ -30,6 +30,7 @@ pub struct TxDao {
     pub chain_status: Option<i64>,
     pub fee_paid: Option<String>,
     pub error: Option<String>,
+    pub orig_tx_id: Option<i64>,
     #[sqlx(default)]
     pub engine_message: Option<String>,
     #[sqlx(default)]

@@ -79,8 +79,8 @@ where
 {
     let res = sqlx::query_as::<_, TxDao>(
         r"INSERT INTO tx
-(method, from_addr, to_addr, chain_id, gas_limit, max_fee_per_gas, priority_fee, val, nonce, processing, call_data, created_date, first_processed, tx_hash, signed_raw_data, signed_date, broadcast_date, broadcast_count, confirm_date, block_number, chain_status, fee_paid, error)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23) RETURNING *;
+(method, from_addr, to_addr, chain_id, gas_limit, max_fee_per_gas, priority_fee, val, nonce, processing, call_data, created_date, first_processed, tx_hash, signed_raw_data, signed_date, broadcast_date, broadcast_count, confirm_date, block_number, chain_status, fee_paid, error, orig_tx_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24) RETURNING *;
 ",
     )
         .bind(&tx.method)
@@ -106,6 +106,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $
         .bind( tx.chain_status)
         .bind( &tx.fee_paid)
         .bind(&tx.error)
+        .bind( tx.orig_tx_id)
         .fetch_one(executor)
         .await?;
     Ok(res)
@@ -139,7 +140,8 @@ confirm_date = $20,
 block_number = $21,
 chain_status = $22,
 fee_paid = $23,
-error = $24
+error = $24,
+orig_tx_id = $25
 WHERE id = $1
 ",
     )
@@ -167,6 +169,7 @@ WHERE id = $1
     .bind(tx.chain_status)
     .bind(&tx.fee_paid)
     .bind(&tx.error)
+    .bind(tx.orig_tx_id)
     .execute(executor)
     .await?;
     Ok(tx.clone())

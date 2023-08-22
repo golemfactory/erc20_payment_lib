@@ -1,4 +1,4 @@
-use crate::db::ops::update_tx;
+use crate::db::ops::{insert_tx, update_tx};
 use crate::error::PaymentError;
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
@@ -29,6 +29,7 @@ use crate::utils::{datetime_from_u256_timestamp, u256_to_rust_dec};
 #[derive(Debug)]
 pub enum ProcessTransactionResult {
     Confirmed,
+    Replaced,
     NeedRetry(String),
     InternalError(String),
     Unknown,
@@ -317,6 +318,82 @@ pub async fn process_transaction(
         let pending_nonce = get_transaction_count(from_addr, web3, true)
             .await
             .map_err(err_from!())?;
+
+
+        {
+            let tx_fee_per_gas = u256_to_rust_dec(U256::from_dec_str(&web3_tx_dao.max_fee_per_gas).map_err(err_from!())?, Some(9)).map_err(err_from!())?;
+            let max_fee_per_gas = u256_to_rust_dec(chain_setup.max_fee_per_gas, Some(9)).map_err(err_from!())?;
+            let tx_priority_fee = u256_to_rust_dec(U256::from_dec_str(&web3_tx_dao.priority_fee).map_err(err_from!())?, Some(9)).map_err(err_from!())?;
+            let config_priority_fee = u256_to_rust_dec(chain_setup.priority_fee, Some(9)).map_err(err_from!())?;
+
+            let mut fee_per_gas_changed = false;
+            let mut fee_per_gas_bumped_10 = false;
+            if tx_fee_per_gas != max_fee_per_gas {
+                fee_per_gas_changed = true;
+                if tx_fee_per_gas * Decimal::from(11) < max_fee_per_gas * Decimal::from(10) {
+                    fee_per_gas_bumped_10 = true;
+                    log::warn!("Transaction max fee bumped more than 10% from {} to {} for tx: {}", web3_tx_dao.max_fee_per_gas, chain_setup.max_fee_per_gas, web3_tx_dao.id);
+                } else {
+                    log::warn!("Transaction max fee changed less than 10% more from {} to {} for tx: {}", web3_tx_dao.max_fee_per_gas, chain_setup.max_fee_per_gas, web3_tx_dao.id);
+                }
+            }
+
+            let mut priority_fee_changed = false;
+            let mut priority_fee_changed_10 = false;
+            if tx_priority_fee != config_priority_fee {
+                priority_fee_changed = true;
+                if tx_priority_fee * Decimal::from(11) < config_priority_fee * Decimal::from(10) {
+                    priority_fee_changed_10 = true;
+                    log::warn!("Transaction priority fee bumped more than 10% from {} to {} for tx: {}", web3_tx_dao.priority_fee, chain_setup.priority_fee, web3_tx_dao.id);
+                } else {
+                    log::warn!("Transaction priority fee changed less than 10% more from {} to {} for tx: {}", web3_tx_dao.priority_fee, chain_setup.priority_fee, web3_tx_dao.id);
+                }
+            }
+
+            let _ = fee_per_gas_changed;
+            let _ = priority_fee_changed;
+
+            if priority_fee_changed_10 && fee_per_gas_bumped_10 {
+                let mut tx = web3_tx_dao.clone();
+                let new_tx_dao = TxDao {
+                    id: 0,
+                    method: tx.method.clone(),
+                    from_addr: tx.from_addr.clone(),
+                    to_addr: tx.to_addr.clone(),
+                    chain_id: tx.chain_id,
+                    gas_limit: tx.gas_limit,
+                    max_fee_per_gas: chain_setup.max_fee_per_gas.to_string(),
+                    priority_fee: chain_setup.priority_fee.to_string(),
+                    val: tx.val.clone(),
+                    nonce: tx.nonce,
+                    processing: tx.processing,
+                    call_data: tx.call_data.clone(),
+                    created_date: chrono::Utc::now(),
+                    first_processed: None,
+                    tx_hash: None,
+                    signed_raw_data: None,
+                    signed_date: None,
+                    broadcast_date: None,
+                    broadcast_count: 0,
+                    confirm_date: None,
+                    block_number: None,
+                    chain_status: None,
+                    fee_paid: None,
+                    error: None,
+                    engine_message: None,
+                    engine_error: None,
+                    orig_tx_id: Some(tx.id),
+                };
+                let mut db_transaction = conn.begin().await.map_err(err_from!())?;
+                let new_tx_dao = insert_tx(&mut *db_transaction, &new_tx_dao).await.map_err(err_from!())?;
+                tx.processing = 0;
+                update_tx(&mut *db_transaction, &tx).await.map_err(err_from!())?;
+                db_transaction.commit().await.map_err(err_from!())?;
+                log::warn!("Replacement transaction created {}", new_tx_dao.id);
+
+                return Ok(ProcessTransactionResult::Replaced);
+            }
+        }
         if pending_nonce
             <= web3_tx_dao
                 .nonce

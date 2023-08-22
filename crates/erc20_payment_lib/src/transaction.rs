@@ -137,6 +137,7 @@ pub fn create_eth_transfer(
         error: None,
         engine_message: None,
         engine_error: None,
+        orig_tx_id: None,
     }
 }
 
@@ -177,6 +178,7 @@ pub fn create_eth_transfer_str(
         error: None,
         engine_message: None,
         engine_error: None,
+        orig_tx_id: None,
     }
 }
 
@@ -220,6 +222,7 @@ pub fn create_erc20_transfer(
         error: None,
         engine_message: None,
         engine_error: None,
+        orig_tx_id: None,
     })
 }
 
@@ -292,6 +295,7 @@ pub fn create_erc20_transfer_multi(
         error: None,
         engine_message: None,
         engine_error: None,
+        orig_tx_id: None,
     })
 }
 
@@ -333,6 +337,7 @@ pub fn create_erc20_approve(
         error: None,
         engine_message: None,
         engine_error: None,
+        orig_tx_id: None,
     })
 }
 

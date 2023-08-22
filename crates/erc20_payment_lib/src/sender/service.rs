@@ -140,6 +140,7 @@ pub async fn update_token_transfer_result(
             tx.processing = 1;
             update_tx(conn, tx).await.map_err(err_from!())?;
         }
+        _ => {}
     }
     Ok(())
 }
@@ -211,6 +212,7 @@ pub async fn update_approve_result(
             tx.processing = 1;
             update_tx(conn, tx).await.map_err(err_from!())?;
         }
+        _ => {}
     }
     Ok(())
 }
@@ -239,6 +241,7 @@ pub async fn update_tx_result(
             tx.processing = 1;
             update_tx(conn, tx).await.map_err(err_from!())?;
         }
+        _ => {}
     }
     Ok(())
 }
@@ -294,6 +297,9 @@ pub async fn process_transactions(
                         }
                     },
                 }
+            };
+            if let ProcessTransactionResult::Replaced = process_t_res {
+                continue
             };
             if tx.method.starts_with("MULTI.golemTransfer")
                 || tx.method == "ERC20.transfer"
