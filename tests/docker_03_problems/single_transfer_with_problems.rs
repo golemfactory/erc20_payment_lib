@@ -3,21 +3,16 @@ use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
-use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
+use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent, TransactionStuckReason};
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
 use std::time::Duration;
-use test_case::test_case;
 use tokio::task;
 use web3::types::{Address, U256};
 use web3_test_proxy_client::{list_transactions_human, EndpointSimulateProblems};
 
-#[test_case(0.5; "low error probability")]
-#[test_case(0.6; "medium error probability")]
-#[test_case(0.7; "high error probability")]
-#[tokio::test(flavor = "multi_thread")]
 #[rustfmt::skip]
 async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
@@ -32,6 +27,7 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
     let receiver_loop = tokio::spawn(async move {
         let mut transfer_finished_message_count = 0;
         let mut tx_confirmed_message_count = 0;
+        let mut tx_rpc_problems_message = 0;
         let mut fee_paid = U256::from(0_u128);
         while let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
@@ -41,9 +37,26 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
                     transfer_finished_message_count += 1;
                     fee_paid += U256::from_dec_str(&transfer_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
                 }
+                TransactionFailed(reason) => {
+                    #[allow(clippy::match_single_binding)]
+                    match reason {
+                        _ => {
+                            log::error!("Unexpected transaction failed reason: {:?}", reason);
+                            panic!("Unexpected transaction failed reason: {:?}", reason)
+                        }
+                    }
+                },
                 TransactionStuck(reason) => {
-                    //todo - dont ignore it check if proper status
-                    log::info!("Transaction stuck: {:?}", reason);
+                    match reason {
+                        TransactionStuckReason::RPCEndpointProblems(msg) => {
+                            log::info!("Rpc endpoint problems: {msg}");
+                            tx_rpc_problems_message += 1;
+                        },
+                        _ => {
+                            log::error!("Unexpected transaction stuck reason: {:?}", reason);
+                            panic!("Unexpected transaction stuck reason: {:?}", reason);
+                        }
+                    }
                 }
                 TransactionConfirmed(_tx_dao) => {
                     tx_confirmed_message_count += 1;
@@ -55,10 +68,12 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
             }
         }
 
+        assert!(tx_rpc_problems_message >= 0);
         assert_eq!(tx_confirmed_message_count, 1);
         assert_eq!(transfer_finished_message_count, 1);
         fee_paid
     });
+
     {
         let config = create_default_config_setup(&proxy_url_base, proxy_key).await;
 
@@ -146,4 +161,19 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
     }
 
     Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gas_transfer_06() -> Result<(), anyhow::Error> {
+    test_gas_transfer(0.6).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gas_transfer_07() -> Result<(), anyhow::Error> {
+    test_gas_transfer(0.7).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gas_transfer_08() -> Result<(), anyhow::Error> {
+    test_gas_transfer(0.8).await
 }

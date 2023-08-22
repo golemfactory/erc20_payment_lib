@@ -14,7 +14,8 @@ use web3::Web3;
 use crate::db::model::TxDao;
 use crate::eth::get_transaction_count;
 use crate::runtime::{
-    send_driver_event, DriverEvent, DriverEventContent, SharedState, TransactionStuckReason,
+    send_driver_event, DriverEvent, DriverEventContent, SharedState, TransactionFailedReason,
+    TransactionStuckReason,
 };
 use crate::setup::PaymentSetup;
 use crate::signer::Signer;
@@ -53,11 +54,15 @@ pub async fn process_transaction(
     let wait_duration = Duration::from_secs(payment_setup.process_sleep);
 
     let chain_id = web3_tx_dao.chain_id;
-    let chain_setup = payment_setup.get_chain_setup(chain_id).map_err(|_e| {
-        err_create!(TransactionFailedError::new(&format!(
-            "Failed to get chain setup for chain id: {chain_id}"
-        )))
-    })?;
+    let Ok(chain_setup) = payment_setup.get_chain_setup(chain_id) else {
+        send_driver_event(
+            &event_sender,
+            DriverEventContent::TransactionFailed(
+                TransactionFailedReason::InvalidChainId("No setup found for chain id: {chain_id}".to_string()),
+            ),
+        ).await;
+        return Ok(ProcessTransactionResult::Unknown);
+    };
 
     let web3 = payment_setup.get_provider(chain_id).map_err(|_e| {
         err_create!(TransactionFailedError::new(&format!(
@@ -348,7 +353,7 @@ pub async fn process_transaction(
                         send_driver_event(
                             &event_sender,
                             DriverEventContent::TransactionStuck(
-                                TransactionStuckReason::GasPriceLow,
+                                TransactionStuckReason::GasPriceLow(format!("Transaction not processed after {} seconds, most probable reason is that current network gas price is higher than set limit", chain_setup.transaction_timeout))
                             ),
                         )
                         .await;

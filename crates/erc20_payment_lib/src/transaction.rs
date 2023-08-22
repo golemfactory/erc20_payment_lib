@@ -466,7 +466,10 @@ pub async fn send_transaction(
                     if e.message.contains("insufficient funds") {
                         send_driver_event(
                             &event_sender,
-                            DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas),
+                            DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
+                                "RPC returned insufficient funds when sending transaction"
+                                    .to_string(),
+                            )),
                         )
                         .await;
                     }

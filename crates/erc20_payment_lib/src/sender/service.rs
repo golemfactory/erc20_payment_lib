@@ -401,7 +401,14 @@ pub async fn service_loop(
                 }
             };
 
-            match gather_transactions_post(conn, payment_setup, &mut token_transfer_map).await {
+            match gather_transactions_post(
+                event_sender.clone(),
+                conn,
+                payment_setup,
+                &mut token_transfer_map,
+            )
+            .await
+            {
                 Ok(count) => {
                     if count > 0 {
                         process_tx_needed = true;

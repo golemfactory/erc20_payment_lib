@@ -35,8 +35,16 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
                     fee_paid += U256::from_dec_str(&transfer_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
                 }
                 TransactionStuck(reason) => {
-                    assert_eq!(reason, TransactionStuckReason::GasPriceLow);
-                    transaction_stuck_count += 1;
+                    match reason {
+                        TransactionStuckReason::GasPriceLow(msg) => {
+                            log::info!("Gas price low: {msg}");
+                            transaction_stuck_count += 1;
+                        },
+                        _ => {
+                            log::error!("Driver posted wrong reason for transaction stuck: {:?}", reason);
+                            panic!("Driver posted wrong reason for transaction stuck: {:?}", reason);
+                        }
+                    }
                 }
                 TransactionConfirmed(_) => {
 

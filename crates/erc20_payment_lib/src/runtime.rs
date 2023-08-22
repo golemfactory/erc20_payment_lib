@@ -37,8 +37,15 @@ pub struct FaucetData {
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub enum TransactionStuckReason {
-    NoGas,
-    GasPriceLow,
+    NoGas(String),
+    GasPriceLow(String),
+    RPCEndpointProblems(String),
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum TransactionFailedReason {
+    InvalidChainId(String),
+    Unknown,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -48,6 +55,7 @@ pub enum DriverEventContent {
     TransferFinished(TokenTransferDao),
     ApproveFinished(AllowanceDao),
     TransactionStuck(TransactionStuckReason),
+    TransactionFailed(TransactionFailedReason),
 }
 
 #[derive(Debug, Clone, Serialize)]
