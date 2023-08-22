@@ -2,19 +2,21 @@ use crate::db::ops::update_tx;
 use crate::error::PaymentError;
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
+use rust_decimal::Decimal;
 use sqlx::SqlitePool;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 use web3::transports::Http;
-use web3::types::{Address, U256};
+use web3::types::{Address, BlockId, BlockNumber, U256};
 use web3::Web3;
 
 use crate::db::model::TxDao;
 use crate::eth::get_transaction_count;
 use crate::runtime::{
-    send_driver_event, DriverEvent, DriverEventContent, SharedState, TransactionStuckReason,
+    send_driver_event, DriverEvent, DriverEventContent, GasLowInfo, SharedState,
+    TransactionFailedReason, TransactionStuckReason,
 };
 use crate::setup::PaymentSetup;
 use crate::signer::Signer;
@@ -22,7 +24,7 @@ use crate::transaction::check_transaction;
 use crate::transaction::find_receipt;
 use crate::transaction::send_transaction;
 use crate::transaction::sign_transaction_with_callback;
-use crate::utils::u256_to_rust_dec;
+use crate::utils::{datetime_from_u256_timestamp, u256_to_rust_dec};
 
 #[derive(Debug)]
 pub enum ProcessTransactionResult {
@@ -53,11 +55,15 @@ pub async fn process_transaction(
     let wait_duration = Duration::from_secs(payment_setup.process_sleep);
 
     let chain_id = web3_tx_dao.chain_id;
-    let chain_setup = payment_setup.get_chain_setup(chain_id).map_err(|_e| {
-        err_create!(TransactionFailedError::new(&format!(
-            "Failed to get chain setup for chain id: {chain_id}"
-        )))
-    })?;
+    let Ok(chain_setup) = payment_setup.get_chain_setup(chain_id) else {
+        send_driver_event(
+            &event_sender,
+            DriverEventContent::TransactionFailed(
+                TransactionFailedReason::InvalidChainId("No setup found for chain id: {chain_id}".to_string()),
+            ),
+        ).await;
+        return Ok(ProcessTransactionResult::Unknown);
+    };
 
     let web3 = payment_setup.get_provider(chain_id).map_err(|_e| {
         err_create!(TransactionFailedError::new(&format!(
@@ -345,13 +351,58 @@ pub async fn process_transaction(
                 if diff.num_seconds() > chain_setup.transaction_timeout as i64 {
                     if web3_tx_dao.broadcast_date.is_some() {
                         //if transaction was already broad-casted and still not processed then we can assume that gas price is too low
-                        send_driver_event(
-                            &event_sender,
-                            DriverEventContent::TransactionStuck(
-                                TransactionStuckReason::GasPriceLow,
-                            ),
-                        )
-                        .await;
+
+                        //Check if really gas price is the reason of problems
+                        if let Ok(Some(block)) =
+                            web3.eth().block(BlockId::Number(BlockNumber::Latest)).await
+                        {
+                            let block_base_fee_per_gas_gwei = u256_to_rust_dec(
+                                block.base_fee_per_gas.unwrap_or(U256::zero()),
+                                Some(9),
+                            )
+                            .map_err(err_from!())?;
+                            let tx_max_fee_per_gas_gwei = u256_to_rust_dec(
+                                U256::from_dec_str(&web3_tx_dao.max_fee_per_gas)
+                                    .map_err(err_from!())?,
+                                Some(9),
+                            )
+                            .map_err(err_from!())?;
+                            let assumed_min_priority_fee_gwei = if web3_tx_dao.chain_id == 137 {
+                                const POLYGON_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK: u32 = 30;
+                                Decimal::from(POLYGON_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK)
+                            } else if web3_tx_dao.chain_id == 80001 {
+                                const MUMBAI_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK: u32 = 1;
+                                Decimal::from(MUMBAI_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK)
+                            } else {
+                                const OTHER_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK: u32 = 0;
+                                Decimal::from(OTHER_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK)
+                            };
+
+                            if let Some(block_date) = datetime_from_u256_timestamp(block.timestamp)
+                            {
+                                if block_base_fee_per_gas_gwei + assumed_min_priority_fee_gwei
+                                    > tx_max_fee_per_gas_gwei
+                                {
+                                    send_driver_event(
+                                    &event_sender,
+                                    DriverEventContent::TransactionStuck(
+                                        TransactionStuckReason::GasPriceLow(
+                                            GasLowInfo {
+                                                tx: web3_tx_dao.clone(),
+                                                tx_max_fee_per_gas_gwei,
+                                                block_date,
+                                                block_number: block.number.unwrap().as_u64(),
+                                                block_base_fee_per_gas_gwei,
+                                                assumed_min_priority_fee_gwei,
+                                                user_friendly_message:
+                                                format!("Transaction not processed after {} seconds, block base fee per gas + priority fee: {} Gwei is greater than transaction max fee per gas: {} Gwei", chain_setup.transaction_timeout, block_base_fee_per_gas_gwei + assumed_min_priority_fee_gwei, tx_max_fee_per_gas_gwei),
+                                            }
+                                            ),
+                                ))
+                                .await;
+                                }
+                            }
+                        }
                     }
 
                     log::warn!("Transaction timeout for tx id: {}", web3_tx_dao.id);

@@ -11,8 +11,8 @@ pub async fn test_get_balance(
     let account_balance_options = AccountBalanceOptions {
         chain_name: "dev".to_string(),
         accounts: accounts.to_string(),
-        show_gas: true,
-        show_token: true,
+        hide_gas: false,
+        hide_token: false,
         block_number: None,
         tasks: 4,
         interval: Some(0.001),

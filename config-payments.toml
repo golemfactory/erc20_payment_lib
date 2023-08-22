@@ -40,10 +40,10 @@ chain-id = 80001
 rpc-endpoints = ["https://rpc-mumbai.maticvigil.com/v1/fd04db1066cae0f44d3461ae6d6a7cbbdd46e4a5"]
 # rpc-endpoints = ["http://127.0.0.1:8545"]
 currency-symbol = "tMATIC"
-priority-fee = 1.5111
-max-fee-per-gas = 500.0
+priority-fee = 1.0
+max-fee-per-gas = 14.5
 gas-left-warning-limit = 1000000
-transaction-timeout = 100
+transaction-timeout = 10
 token = { address = "0x2036807B0B3aaf5b1858EE822D0e111fDdac7018", symbol = "tGLM" }
 multi-contract = { address = "0x800010D7d0d315DCA795110ecCf0127cBd76b89f", max-at-once = 10 }
 confirmation-blocks = 1

@@ -16,6 +16,7 @@ use crate::config::AdditionalOptions;
 use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
 use crate::sender::service_loop;
 use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -35,10 +36,29 @@ pub struct FaucetData {
     pub last_cleanup: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Serialize)]
+pub struct GasLowInfo {
+    pub tx: TxDao,
+    pub tx_max_fee_per_gas_gwei: Decimal,
+    pub block_date: chrono::DateTime<Utc>,
+    pub block_number: u64,
+    pub block_base_fee_per_gas_gwei: Decimal,
+    pub assumed_min_priority_fee_gwei: Decimal,
+    pub user_friendly_message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[allow(clippy::large_enum_variant)]
 pub enum TransactionStuckReason {
-    NoGas,
-    GasPriceLow,
+    NoGas(String),
+    GasPriceLow(GasLowInfo),
+    RPCEndpointProblems(String),
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub enum TransactionFailedReason {
+    InvalidChainId(String),
+    Unknown,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -48,6 +68,7 @@ pub enum DriverEventContent {
     TransferFinished(TokenTransferDao),
     ApproveFinished(AllowanceDao),
     TransactionStuck(TransactionStuckReason),
+    TransactionFailed(TransactionFailedReason),
 }
 
 #[derive(Debug, Clone, Serialize)]

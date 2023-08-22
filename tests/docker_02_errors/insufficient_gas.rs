@@ -30,11 +30,16 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
 
             match msg.content {
                 TransactionStuck(reason) => {
-                    missing_gas_message_count += 1;
-                    if reason != TransactionStuckReason::NoGas {
-                        log::error!("Driver posted wrong reason for transaction stuck: {reason:?}")
+                    match reason {
+                        TransactionStuckReason::NoGas(msg) => {
+                            log::info!("No gas: {msg}");
+                            missing_gas_message_count += 1;
+                        },
+                        _ => {
+                            log::error!("Driver posted wrong reason for transaction stuck: {:?}", reason);
+                            panic!("Driver posted wrong reason for transaction stuck: {:?}", reason);
+                        }
                     }
-                    assert_eq!(reason, TransactionStuckReason::NoGas);
                 }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain

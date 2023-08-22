@@ -12,6 +12,7 @@ use crate::{err_create, err_custom_create, err_from};
 
 use sqlx::SqlitePool;
 
+use crate::runtime::{send_driver_event, DriverEvent, DriverEventContent, TransactionFailedReason};
 use crate::utils::get_env_bool_value;
 use web3::types::{Address, U256};
 
@@ -250,6 +251,7 @@ pub async fn gather_transactions_batch_multi(
 }
 
 pub async fn gather_transactions_batch(
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
     token_transfers: &mut [TokenTransferDao],
@@ -260,7 +262,16 @@ pub async fn gather_transactions_batch(
         sum += U256::from_dec_str(&token_transfer.token_amount).map_err(err_from!())?;
     }
 
-    let chain_setup = payment_setup.get_chain_setup(token_transfer.chain_id)?;
+    let Ok(chain_setup) = payment_setup.get_chain_setup(token_transfer.chain_id) else {
+        send_driver_event(
+            &event_sender,
+            DriverEventContent::TransactionFailed(
+                TransactionFailedReason::InvalidChainId(
+                    format!("No setup found for chain id when gathering transfers: {}", token_transfer.chain_id)),
+            ),
+        ).await;
+        return Err(err_custom_create!("No setup found for chain id: {}", token_transfer.chain_id));
+    };
 
     let max_fee_per_gas = chain_setup.max_fee_per_gas;
     let priority_fee = chain_setup.priority_fee;
@@ -303,6 +314,7 @@ pub async fn gather_transactions_batch(
 }
 
 pub async fn gather_transactions_post(
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
     token_transfer_map: &mut TokenTransferMap,
@@ -339,6 +351,7 @@ pub async fn gather_transactions_post(
 
                 //sum of transfers
                 match gather_transactions_batch(
+                    event_sender.clone(),
                     conn,
                     payment_setup,
                     token_transfers,
@@ -357,13 +370,19 @@ pub async fn gather_transactions_post(
                             }
                             _ => {
                                 //mark other errors in db to not process these failed transfers again
-                                for token_transfer in token_transfers {
+                                /*for token_transfer in token_transfers {
                                     token_transfer.error =
                                         Some("Error in gathering transactions".to_string());
                                     update_token_transfer(conn, token_transfer)
                                         .await
                                         .map_err(err_from!())?;
-                                }
+                                }*/
+                                //send_driver_event(
+                                //    &event_sender,
+                                //    DriverEventContent::TransactionFailed(TransactionFailedReason::InvalidChainId(
+                                //        format!("Failed to gather transactions")
+                                //    )),
+                                //)
                                 log::error!("Failed to gather transactions: {:?}", e);
                             }
                         }
