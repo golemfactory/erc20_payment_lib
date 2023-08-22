@@ -23,11 +23,11 @@ pub struct AccountBalanceOptions {
     #[structopt(short = "a", long = "accounts")]
     pub accounts: String,
 
-    #[structopt(short = "g", long = "show-gas")]
-    pub show_gas: bool,
+    #[structopt(long = "hide-gas")]
+    pub hide_gas: bool,
 
-    #[structopt(short = "t", long = "show-token")]
-    pub show_token: bool,
+    #[structopt(long = "hide-token")]
+    pub hide_token: bool,
 
     #[structopt(long = "block-number")]
     pub block_number: Option<u64>,
@@ -66,7 +66,7 @@ pub async fn account_balance(
 
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
 
-    let token = if account_balance_options.show_token {
+    let token = if !account_balance_options.hide_token {
         Some(
             chain_cfg
                 .token
@@ -112,7 +112,7 @@ pub async fn account_balance(
             let result_map = result_map_.clone();
             async move {
                 log::debug!("Getting balance for account: {:#x}", job);
-                let balance = get_balance(web3, token, job, account_balance_options.show_gas)
+                let balance = get_balance(web3, token, job, !account_balance_options.hide_gas)
                     .await
                     .unwrap();
 

@@ -370,6 +370,9 @@ pub async fn process_transaction(
                             let assumed_min_priority_fee_gwei = if web3_tx_dao.chain_id == 137 {
                                 const POLYGON_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK: u32 = 30;
                                 Decimal::from(POLYGON_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK)
+                            } else if web3_tx_dao.chain_id == 80001 {
+                                const MUMBAI_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK: u32 = 1;
+                                Decimal::from(MUMBAI_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK)
                             } else {
                                 const OTHER_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK: u32 = 0;
                                 Decimal::from(OTHER_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK)
