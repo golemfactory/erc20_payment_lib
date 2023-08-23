@@ -50,7 +50,7 @@ pub async fn tx_details(data: Data<Box<ServerData>>, req: HttpRequest) -> impl R
 
     let tx = {
         let db_conn = data.db_connection.lock().await;
-        match get_transaction(&db_conn, tx_id).await {
+        match get_transaction(&*db_conn, tx_id).await {
             Ok(allowances) => allowances,
             Err(err) => {
                 return web::Json(json!({

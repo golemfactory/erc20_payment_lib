@@ -31,12 +31,26 @@ where
     Ok(rows)
 }
 
-pub async fn get_transaction(conn: &SqlitePool, tx_id: i64) -> Result<TxDao, sqlx::Error> {
+pub async fn get_transaction<'c, E>(executor: E, tx_id: i64) -> Result<TxDao, sqlx::Error>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
     let row = sqlx::query_as::<_, TxDao>(r"SELECT * FROM tx WHERE id = $1")
         .bind(tx_id)
-        .fetch_one(conn)
+        .fetch_one(executor)
         .await?;
     Ok(row)
+}
+
+pub async fn delete_tx<'c, E>(executor: E, tx_id: i64) -> Result<(), sqlx::Error>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    sqlx::query(r"DELETE FROM tx WHERE id = $1")
+        .bind(tx_id)
+        .execute(executor)
+        .await?;
+    Ok(())
 }
 
 pub async fn get_transaction_count(

@@ -299,7 +299,7 @@ pub async fn process_transactions(
                 }
             };
             if let ProcessTransactionResult::Replaced = process_t_res {
-                continue
+                continue;
             };
             if tx.method.starts_with("MULTI.golemTransfer")
                 || tx.method == "ERC20.transfer"
