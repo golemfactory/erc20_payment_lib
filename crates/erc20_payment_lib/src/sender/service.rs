@@ -26,7 +26,6 @@ pub async fn update_token_transfer_result(
     match process_t_res {
         ProcessTransactionResult::Confirmed => {
             tx.processing = 0;
-            log::error!("Updating token transfer result {tx:?}");
 
             let mut db_transaction = conn.begin().await.map_err(err_from!())?;
             let mut token_transfers = get_token_transfers_by_tx(&mut *db_transaction, tx.id)

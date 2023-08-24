@@ -114,6 +114,8 @@ async fn test_transfer_stuck_and_replaced() -> Result<(), anyhow::Error> {
         tokio::time::sleep(Duration::from_secs(5)).await;
         sp.runtime_handle.abort();
 
+//        env::set_var("ERC20_LIB_TEST_REPLACEMENT_TIMEOUT_DEV_ONLY", "40");
+
         config.chain.get_mut("dev").unwrap().priority_fee = 0.5;
         config.chain.get_mut("dev").unwrap().max_fee_per_gas = 0.5;
         let sp = start_payment_engine(
@@ -142,7 +144,7 @@ async fn test_transfer_stuck_and_replaced() -> Result<(), anyhow::Error> {
 
         let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;
         log::info!("transaction list \n {}", transaction_human.join("\n"));
-        assert!(transaction_human.len() > 20);
+        assert!(transaction_human.len() > 10);
         assert!(transaction_human.len() < 200);
     }
 

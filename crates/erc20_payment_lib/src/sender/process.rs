@@ -4,6 +4,7 @@ use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
 use rust_decimal::Decimal;
 use sqlx::SqlitePool;
+use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -303,7 +304,7 @@ pub async fn process_transaction(
                     );
 
                     //cleanup txs
-                    let confirmed_tx = current_tx.clone();
+                    //let confirmed_tx = current_tx.clone();
                     let mut orig_tx = current_tx.clone();
                     let orig_tx = loop {
                         if let Some(next_tx) = orig_tx.orig_tx_id {
@@ -316,36 +317,39 @@ pub async fn process_transaction(
                     };
 
                     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-                    if orig_tx.id != confirmed_tx.id {
+                    if orig_tx.id != current_tx.id {
                         log::info!(
                             "Updating orig tx: {} with confirmed tx: {}",
                             orig_tx.id,
-                            confirmed_tx.id
+                            current_tx.id
                         );
-                        remap_token_transfer_tx(&mut *db_transaction, orig_tx.id, confirmed_tx.id)
+                        remap_token_transfer_tx(&mut *db_transaction, orig_tx.id, current_tx.id)
                             .await
                             .map_err(err_from!())?;
                     }
                     let mut process_tx = web3_tx_dao.clone();
-                    while let Some(next_tx) = process_tx.orig_tx_id {
-                        let next_tx = get_transaction(&mut *db_transaction, next_tx)
-                            .await
-                            .map_err(err_from!())?;
-                        if next_tx.id != confirmed_tx.id {
-                            log::info!("Deleting tx: {}", next_tx.id);
-                            delete_tx(&mut *db_transaction, next_tx.id)
+                    let _ = web3_tx_dao; //do not use it later
+                    loop {
+                        if process_tx.id != current_tx.id {
+                            log::info!("Deleting tx: {}", process_tx.id);
+                            delete_tx(&mut *db_transaction, process_tx.id)
                                 .await
                                 .map_err(err_from!())?;
                         }
-                        process_tx = next_tx;
+                        if let Some(next_tx) = process_tx.orig_tx_id {
+                            process_tx = get_transaction(&mut *db_transaction, next_tx)
+                                .await
+                                .map_err(err_from!())?;
+                        } else {
+                            break;
+                        }
                     }
-                    let mut confirmed_tx = confirmed_tx.clone();
-                    confirmed_tx.orig_tx_id = None;
-                    update_tx(&mut *db_transaction, &confirmed_tx)
+                    current_tx.orig_tx_id = None;
+                    update_tx(&mut *db_transaction, &current_tx)
                         .await
                         .map_err(err_from!())?;
                     db_transaction.commit().await.map_err(err_from!())?;
-                    return Ok((confirmed_tx.clone(), ProcessTransactionResult::Confirmed));
+                    return Ok((current_tx.clone(), ProcessTransactionResult::Confirmed));
                 } else {
                     log::info!("Waiting for confirmations: tx: {}. Current block {}, expected at least: {}", web3_tx_dao.id, current_block_number, block_number + chain_setup.confirmation_blocks);
                 }
@@ -472,6 +476,17 @@ pub async fn process_transaction(
                     engine_error: None,
                     orig_tx_id: Some(tx.id),
                 };
+                // used only for specific case testing
+                {
+                    let erc20_lib_test_replacement_timeout =
+                        env::var("ERC20_LIB_TEST_REPLACEMENT_TIMEOUT_DEV_ONLY")
+                            .map(|f| u64::from_str(&f).unwrap_or(0))
+                            .unwrap_or(0);
+                    if erc20_lib_test_replacement_timeout > 0 {
+                        tokio::time::sleep(Duration::from_secs(erc20_lib_test_replacement_timeout))
+                            .await;
+                    }
+                }
                 let mut db_transaction = conn.begin().await.map_err(err_from!())?;
                 let new_tx_dao = insert_tx(&mut *db_transaction, &new_tx_dao)
                     .await
