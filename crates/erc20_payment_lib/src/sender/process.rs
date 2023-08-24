@@ -50,7 +50,7 @@ pub async fn process_transaction(
     payment_setup: &PaymentSetup,
     signer: &impl Signer,
     wait_for_confirmation: bool,
-) -> Result<ProcessTransactionResult, PaymentError> {
+) -> Result<(TxDao, ProcessTransactionResult), PaymentError> {
     const CHECKS_UNTIL_NOT_FOUND: u64 = 5;
 
     let wait_duration = Duration::from_secs(payment_setup.process_sleep);
@@ -63,7 +63,7 @@ pub async fn process_transaction(
                 TransactionFailedReason::InvalidChainId("No setup found for chain id: {chain_id}".to_string()),
             ),
         ).await;
-        return Ok(ProcessTransactionResult::Unknown);
+        return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Unknown));
     };
 
     let web3 = payment_setup.get_provider(chain_id).map_err(|_e| {
@@ -214,7 +214,7 @@ pub async fn process_transaction(
 
     if web3_tx_dao.confirm_date.is_some() {
         log::info!("Transaction already confirmed {}", web3_tx_dao.id);
-        return Ok(ProcessTransactionResult::Confirmed);
+        return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Confirmed));
     }
 
     let mut tx_not_found_count = 0;
@@ -284,80 +284,70 @@ pub async fn process_transaction(
             };
 
             if res {
-                if let Some(block_number) = current_tx.block_number.map(|n| n as u64) {
+                let Some(block_number) = current_tx.block_number.map(|bn| bn as u64) else {
+                    return Err(err_custom_create!(
+                        "Block number not found on dao for tx: {}",
+                        current_tx.id));
+                };
+                log::info!(
+                    "Receipt found: tx {} tx_hash: {}",
+                    current_tx.id,
+                    current_tx.tx_hash.clone().unwrap_or_default()
+                );
+                if block_number + chain_setup.confirmation_blocks <= current_block_number {
+                    current_tx.confirm_date = Some(chrono::Utc::now());
                     log::info!(
-                        "Receipt found: tx {} tx_hash: {}",
+                        "Transaction confirmed: tx: {} tx_hash: {}",
                         current_tx.id,
                         current_tx.tx_hash.clone().unwrap_or_default()
                     );
-                    if block_number + chain_setup.confirmation_blocks <= current_block_number {
-                        current_tx.confirm_date = Some(chrono::Utc::now());
+
+                    //cleanup txs
+                    let confirmed_tx = current_tx.clone();
+                    let mut orig_tx = current_tx.clone();
+                    let orig_tx = loop {
+                        if let Some(next_tx) = orig_tx.orig_tx_id {
+                            let next_tx =
+                                get_transaction(conn, next_tx).await.map_err(err_from!())?;
+                            orig_tx = next_tx;
+                        } else {
+                            break orig_tx;
+                        }
+                    };
+
+                    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
+                    if orig_tx.id != confirmed_tx.id {
                         log::info!(
-                            "Transaction confirmed: tx: {} tx_hash: {}",
-                            current_tx.id,
-                            current_tx.tx_hash.clone().unwrap_or_default()
+                            "Updating orig tx: {} with confirmed tx: {}",
+                            orig_tx.id,
+                            confirmed_tx.id
                         );
-
-                        //cleanup txs
-                        let confirmed_tx = current_tx.clone();
-                        let mut orig_tx = current_tx.clone();
-                        let orig_tx = loop {
-                            if let Some(next_tx) = orig_tx.orig_tx_id {
-                                let next_tx =
-                                    get_transaction(conn, next_tx).await.map_err(err_from!())?;
-                                orig_tx = next_tx;
-                            } else {
-                                break orig_tx;
-                            }
-                        };
-
-                        let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-                        if orig_tx.id != confirmed_tx.id {
-                            log::info!(
-                                "Updating orig tx: {} with confirmed tx: {}",
-                                orig_tx.id,
-                                confirmed_tx.id
-                            );
-                            remap_token_transfer_tx(
-                                &mut *db_transaction,
-                                orig_tx.id,
-                                confirmed_tx.id,
-                            )
+                        remap_token_transfer_tx(&mut *db_transaction, orig_tx.id, confirmed_tx.id)
                             .await
                             .map_err(err_from!())?;
-                        }
-                        let mut process_tx = web3_tx_dao.clone();
-                        loop {
-                            if let Some(next_tx) = process_tx.orig_tx_id {
-                                let next_tx = get_transaction(&mut *db_transaction, next_tx)
-                                    .await
-                                    .map_err(err_from!())?;
-                                if next_tx.id != confirmed_tx.id {
-                                    log::info!("Deleting tx: {}", next_tx.id);
-                                    delete_tx(&mut *db_transaction, next_tx.id)
-                                        .await
-                                        .map_err(err_from!())?;
-                                }
-                                process_tx = next_tx;
-                            } else {
-                                break;
-                            }
-                        }
-                        let mut confirmed_tx = confirmed_tx.clone();
-                        confirmed_tx.orig_tx_id = None;
-                        update_tx(&mut *db_transaction, &confirmed_tx)
-                            .await
-                            .map_err(err_from!())?;
-                        db_transaction.commit().await.map_err(err_from!())?;
-                        break;
-                    } else {
-                        log::info!("Waiting for confirmations: tx: {}. Current block {}, expected at least: {}", web3_tx_dao.id, current_block_number, block_number + chain_setup.confirmation_blocks);
                     }
+                    let mut process_tx = web3_tx_dao.clone();
+                    while let Some(next_tx) = process_tx.orig_tx_id {
+                        let next_tx = get_transaction(&mut *db_transaction, next_tx)
+                            .await
+                            .map_err(err_from!())?;
+                        if next_tx.id != confirmed_tx.id {
+                            log::info!("Deleting tx: {}", next_tx.id);
+                            delete_tx(&mut *db_transaction, next_tx.id)
+                                .await
+                                .map_err(err_from!())?;
+                        }
+                        process_tx = next_tx;
+                    }
+                    let mut confirmed_tx = confirmed_tx.clone();
+                    confirmed_tx.orig_tx_id = None;
+                    update_tx(&mut *db_transaction, &confirmed_tx)
+                        .await
+                        .map_err(err_from!())?;
+                    db_transaction.commit().await.map_err(err_from!())?;
+                    return Ok((confirmed_tx.clone(), ProcessTransactionResult::Confirmed));
                 } else {
-                    return Err(err_custom_create!(
-                        "Block number not found on dao for tx: {}",
-                        current_tx.id
-                    ));
+                    log::info!("Waiting for confirmations: tx: {}. Current block {}, expected at least: {}", web3_tx_dao.id, current_block_number, block_number + chain_setup.confirmation_blocks);
                 }
             } else {
                 tx_not_found_count += 1;
@@ -371,8 +361,9 @@ pub async fn process_transaction(
                 );
 
                 if payment_setup.automatic_recover && tx_not_found_count >= CHECKS_UNTIL_NOT_FOUND {
-                    return Ok(ProcessTransactionResult::NeedRetry(
-                        "No receipt".to_string(),
+                    return Ok((
+                        web3_tx_dao.clone(),
+                        ProcessTransactionResult::NeedRetry("No receipt".to_string()),
                     ));
                 }
             }
@@ -492,7 +483,7 @@ pub async fn process_transaction(
                 db_transaction.commit().await.map_err(err_from!())?;
                 log::warn!("Replacement transaction created {}", new_tx_dao.id);
 
-                return Ok(ProcessTransactionResult::Replaced);
+                return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Replaced));
             }
         }
         if pending_nonce
@@ -589,10 +580,8 @@ pub async fn process_transaction(
             }
         }
         if !wait_for_confirmation {
-            return Ok(ProcessTransactionResult::Unknown);
+            return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Unknown));
         }
         tokio::time::sleep(wait_duration).await;
     }
-    log::debug!("web3_tx_dao after confirmation: {:?}", web3_tx_dao);
-    Ok(ProcessTransactionResult::Confirmed)
 }

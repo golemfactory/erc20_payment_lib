@@ -41,7 +41,7 @@ rpc-endpoints = ["https://rpc-mumbai.maticvigil.com/v1/fd04db1066cae0f44d3461ae6
 # rpc-endpoints = ["http://127.0.0.1:8545"]
 currency-symbol = "tMATIC"
 priority-fee = 1.0
-max-fee-per-gas = 30.0
+max-fee-per-gas = 14.0
 gas-left-warning-limit = 1000000
 transaction-timeout = 10
 token = { address = "0x2036807B0B3aaf5b1858EE822D0e111fDdac7018", symbol = "tGLM" }
