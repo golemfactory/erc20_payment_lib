@@ -114,6 +114,8 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
                         keep_running: false,
                         generate_tx_only: false,
                         skip_multi_contract_check: false,
+                        contract_use_direct_method: false,
+                        contract_use_unpacked_method: false,
                     }),
                     Some(sender),
                     None,

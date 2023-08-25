@@ -15,6 +15,8 @@ pub struct AdditionalOptions {
     pub generate_tx_only: bool,
     ///Skip multi contract check when generating txs
     pub skip_multi_contract_check: bool,
+    pub contract_use_direct_method: bool,
+    pub contract_use_unpacked_method: bool,
 }
 
 impl Default for AdditionalOptions {
@@ -23,6 +25,8 @@ impl Default for AdditionalOptions {
             keep_running: true,
             generate_tx_only: false,
             skip_multi_contract_check: false,
+            contract_use_direct_method: false,
+            contract_use_unpacked_method: false,
         }
     }
 }

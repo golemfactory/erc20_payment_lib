@@ -13,7 +13,7 @@ use web3::types::{Address, U256};
 use web3_test_proxy_client::list_transactions_human;
 
 #[rustfmt::skip]
-async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::Error> {
+async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool, use_unpacked_method: bool) -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
 
     let geth_container = exclusive_geth_init(Duration::from_secs(30)).await;
@@ -66,9 +66,6 @@ async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::E
                 }
             }
         }
-        let use_direct_method = get_env_bool_value("ERC20_LIB_USE_DIRECT_METHOD");
-        let use_unpacked_method = get_env_bool_value("ERC20_LIB_USE_UNPACKED_METHOD");
-
         if use_direct_method && use_unpacked_method {
             assert_eq!(tx_transfer_direct_count, 1);
         } else if use_direct_method {
@@ -131,6 +128,8 @@ async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::E
                 keep_running: false,
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
+                contract_use_direct_method: use_direct_method,
+                contract_use_unpacked_method: use_unpacked_method,
             }),
             Some(sender),
             None
@@ -182,41 +181,35 @@ async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::E
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multi_erc20_transfer_2() -> Result<(), anyhow::Error> {
-    test_multi_erc20_transfer(2).await
+    test_multi_erc20_transfer(2, false, false).await
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multi_erc20_transfer_5() -> Result<(), anyhow::Error> {
-    test_multi_erc20_transfer(5).await
+    test_multi_erc20_transfer(5, false, false).await
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multi_erc20_transfer_10_indirect_packed() -> Result<(), anyhow::Error> {
-    test_multi_erc20_transfer(10).await
+    test_multi_erc20_transfer(10, false, false).await
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multi_erc20_transfer_10_direct_unpacked() -> Result<(), anyhow::Error> {
-    env::set_var("ERC20_LIB_USE_DIRECT_METHOD", "1");
-    env::set_var("ERC20_LIB_USE_UNPACKED_METHOD", "1");
-    test_multi_erc20_transfer(10).await?;
-    assert!(get_env_bool_value("ERC20_LIB_USE_DIRECT_METHOD"));
-    assert!(get_env_bool_value("ERC20_LIB_USE_UNPACKED_METHOD"));
+    test_multi_erc20_transfer(10, true, true).await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multi_erc20_transfer_10_direct_packed() -> Result<(), anyhow::Error> {
-    env::set_var("ERC20_LIB_USE_DIRECT_METHOD", "1");
-    test_multi_erc20_transfer(10).await?;
-    assert!(get_env_bool_value("ERC20_LIB_USE_DIRECT_METHOD"));
+    test_multi_erc20_transfer(10, true, false).await?;
     Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multi_erc20_transfer_10_indirect_unpacked() -> Result<(), anyhow::Error> {
     env::set_var("ERC20_LIB_USE_UNPACKED_METHOD", "1");
-    test_multi_erc20_transfer(10).await?;
+    test_multi_erc20_transfer(10, false, true).await?;
     assert!(get_env_bool_value("ERC20_LIB_USE_UNPACKED_METHOD"));
     Ok(())
 }

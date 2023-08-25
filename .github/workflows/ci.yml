@@ -89,8 +89,9 @@ jobs:
       - name: Run tests (docker_02_errors)
         run: cargo test --test docker_02_errors --profile=release-fast -- --test-threads=10
 
-      - name: Run tests (docker_03_problems)
-        run: cargo test --test docker_03_problems --profile=release-fast -- --test-threads=10
+      - name: Run tests (docker_04_multi)
+        run: cargo test --test docker_04_multi --profile=release-fast -- --test-threads=10
+
 
   payment_tests_multi:
     name: Payment tests (multi)
@@ -111,8 +112,9 @@ jobs:
       - name: Build tests
         run: cargo test --profile=release-fast --no-run
 
-      - name: Run tests (docker_04_multi)
-        run: cargo test --test docker_04_multi --profile=release-fast -- --test-threads=1
+      - name: Run tests (docker_03_problems)
+        run: cargo test --test docker_03_problems --profile=release-fast -- --test-threads=10
+
 
   payment_tests_custom:
     name: Payment tests (custom)

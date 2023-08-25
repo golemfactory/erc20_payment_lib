@@ -61,6 +61,8 @@ pub struct PaymentSetup {
     pub service_sleep: u64,
     pub process_sleep: u64,
     pub automatic_recover: bool,
+    pub contract_use_direct_method: bool,
+    pub contract_use_unpacked_method: bool,
     pub extra_options_for_testing: Option<ExtraOptionsForTesting>,
 }
 
@@ -86,6 +88,8 @@ impl PaymentSetup {
             service_sleep,
             process_sleep,
             automatic_recover,
+            contract_use_direct_method: false,
+            contract_use_unpacked_method: false,
             extra_options_for_testing: None,
         };
         for chain_config in &config.chain {
