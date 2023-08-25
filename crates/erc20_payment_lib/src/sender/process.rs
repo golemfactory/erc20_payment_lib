@@ -4,7 +4,6 @@ use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
 use rust_decimal::Decimal;
 use sqlx::SqlitePool;
-use std::env;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -445,6 +444,19 @@ pub async fn process_transaction(
             let _ = fee_per_gas_changed;
             let _ = priority_fee_changed;
 
+
+            let replacement_priority_fee = chain_setup.priority_fee;
+            let replacement_max_fee_per_gas = chain_setup.max_fee_per_gas;
+            if fee_per_gas_bumped_10 && !priority_fee_changed_10 {
+                log::warn!(
+                    "Transaction max fee bumped more than 10% from {} to {} but priority fee not changed for tx: {}",
+                    web3_tx_dao.max_fee_per_gas,
+                    chain_setup.max_fee_per_gas,
+                    web3_tx_dao.id
+                );
+
+            }
+
             if priority_fee_changed_10 && fee_per_gas_bumped_10 {
                 let mut tx = web3_tx_dao.clone();
                 let new_tx_dao = TxDao {
@@ -454,8 +466,8 @@ pub async fn process_transaction(
                     to_addr: tx.to_addr.clone(),
                     chain_id: tx.chain_id,
                     gas_limit: tx.gas_limit,
-                    max_fee_per_gas: chain_setup.max_fee_per_gas.to_string(),
-                    priority_fee: chain_setup.priority_fee.to_string(),
+                    max_fee_per_gas: replacement_priority_fee.to_string(),
+                    priority_fee: replacement_max_fee_per_gas.to_string(),
                     val: tx.val.clone(),
                     nonce: tx.nonce,
                     processing: tx.processing,
@@ -477,15 +489,12 @@ pub async fn process_transaction(
                     orig_tx_id: Some(tx.id),
                 };
                 // used only for specific case testing
+                if let Some(Some(erc20_lib_test_replacement_timeout)) = payment_setup
+                    .extra_options_for_testing
+                    .as_ref()
+                    .map(|testing| testing.erc20_lib_test_replacement_timeout)
                 {
-                    let erc20_lib_test_replacement_timeout =
-                        env::var("ERC20_LIB_TEST_REPLACEMENT_TIMEOUT_DEV_ONLY")
-                            .map(|f| u64::from_str(&f).unwrap_or(0))
-                            .unwrap_or(0);
-                    if erc20_lib_test_replacement_timeout > 0 {
-                        tokio::time::sleep(Duration::from_secs(erc20_lib_test_replacement_timeout))
-                            .await;
-                    }
+                    tokio::time::sleep(erc20_lib_test_replacement_timeout).await;
                 }
                 let mut db_transaction = conn.begin().await.map_err(err_from!())?;
                 let new_tx_dao = insert_tx(&mut *db_transaction, &new_tx_dao)

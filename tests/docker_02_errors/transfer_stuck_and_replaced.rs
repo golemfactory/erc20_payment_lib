@@ -10,9 +10,15 @@ use std::time::Duration;
 use web3::types::{Address, U256};
 use web3_test_proxy_client::list_transactions_human;
 
-#[tokio::test(flavor = "multi_thread")]
+#[derive(Debug, Clone, Copy)]
+enum Scenarios {
+    LastTransactionDone,
+    PreLastTransactionDone,
+    FirstTransactionDone,
+}
+
 #[rustfmt::skip]
-async fn test_transfer_stuck_and_replaced() -> Result<(), anyhow::Error> {
+async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
 
     let geth_container = exclusive_geth_init(Duration::from_secs(300)).await;
@@ -24,6 +30,8 @@ async fn test_transfer_stuck_and_replaced() -> Result<(), anyhow::Error> {
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
     let receiver_loop = tokio::spawn(async move {
         let mut transfer_finished_message_count = 0;
+        let mut transaction_stuck_count = 0;
+        let mut tx_confirmed_count = 0;
         let mut fee_paid = U256::from(0_u128);
         while let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
@@ -37,6 +45,7 @@ async fn test_transfer_stuck_and_replaced() -> Result<(), anyhow::Error> {
                     match reason {
                         TransactionStuckReason::GasPriceLow(gas_low_info) => {
                             log::info!("Gas price low: {}", gas_low_info.user_friendly_message);
+                            transaction_stuck_count += 1;
                         },
                         _ => {
                             log::error!("Driver posted wrong reason for transaction stuck: {:?}", reason);
@@ -44,8 +53,19 @@ async fn test_transfer_stuck_and_replaced() -> Result<(), anyhow::Error> {
                         }
                     }
                 }
-                TransactionConfirmed(_) => {
-
+                TransactionConfirmed(tx) => {
+                    tx_confirmed_count += 1;
+                    match scenario {
+                        Scenarios::LastTransactionDone => {
+                            assert_eq!(tx.id, 3);
+                        }
+                        Scenarios::PreLastTransactionDone => {
+                            assert_eq!(tx.id, 2);
+                        }
+                        Scenarios::FirstTransactionDone => {
+                            assert_eq!(tx.id, 1);
+                        }
+                    }
                 }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
@@ -54,6 +74,8 @@ async fn test_transfer_stuck_and_replaced() -> Result<(), anyhow::Error> {
             }
         }
 
+        assert_eq!(tx_confirmed_count, 1);
+        assert!(transaction_stuck_count >= 0);
         assert_eq!(transfer_finished_message_count, 1);
         fee_paid
     });
@@ -90,14 +112,22 @@ async fn test_transfer_stuck_and_replaced() -> Result<(), anyhow::Error> {
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
             }),
-            Some(sender.clone())
+            Some(sender.clone()),
+            None
         ).await?;
 
         tokio::time::sleep(Duration::from_secs(5)).await;
         sp.runtime_handle.abort();
 
-        config.chain.get_mut("dev").unwrap().priority_fee = 0.012;
+        config.chain.get_mut("dev").unwrap().priority_fee = 0.01;
         config.chain.get_mut("dev").unwrap().max_fee_per_gas = 0.012;
+
+        let extra_time = match scenario {
+            Scenarios::LastTransactionDone => Duration::from_secs(0),
+            Scenarios::PreLastTransactionDone => Duration::from_secs(0),
+            Scenarios::FirstTransactionDone => Duration::from_secs(80),
+        };
+
         let sp = start_payment_engine(
             &private_keys.0,
             "",
@@ -108,16 +138,30 @@ async fn test_transfer_stuck_and_replaced() -> Result<(), anyhow::Error> {
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
             }),
-            Some(sender.clone())
+            Some(sender.clone()),
+            Some(erc20_payment_lib::setup::ExtraOptionsForTesting {
+                erc20_lib_test_replacement_timeout: Some(extra_time),
+            }),
         ).await?;
 
-        tokio::time::sleep(Duration::from_secs(5)).await;
-        sp.runtime_handle.abort();
+        match scenario {
+            Scenarios::FirstTransactionDone => {
+                sp.runtime_handle.await?;
+            }
+            _ => {
+                tokio::time::sleep(Duration::from_secs(5)).await;
+                sp.runtime_handle.abort();
+            }
+        }
 
-//        env::set_var("ERC20_LIB_TEST_REPLACEMENT_TIMEOUT_DEV_ONLY", "40");
-
-        config.chain.get_mut("dev").unwrap().priority_fee = 0.5;
+        config.chain.get_mut("dev").unwrap().priority_fee = 0.01;
         config.chain.get_mut("dev").unwrap().max_fee_per_gas = 0.5;
+
+        let extra_time = match scenario {
+            Scenarios::LastTransactionDone => Duration::from_secs(0),
+            Scenarios::PreLastTransactionDone => Duration::from_secs(35),
+            Scenarios::FirstTransactionDone => Duration::from_secs(0),
+        };
         let sp = start_payment_engine(
             &private_keys.0,
             "",
@@ -128,7 +172,10 @@ async fn test_transfer_stuck_and_replaced() -> Result<(), anyhow::Error> {
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
             }),
-            Some(sender)
+            Some(sender),
+            Some(erc20_payment_lib::setup::ExtraOptionsForTesting {
+                erc20_lib_test_replacement_timeout: Some(extra_time),
+            }),
         ).await?;
 
         sp.runtime_handle.await?;
@@ -149,4 +196,20 @@ async fn test_transfer_stuck_and_replaced() -> Result<(), anyhow::Error> {
     }
 
     Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_transfer_stuck_1() -> Result<(), anyhow::Error> {
+    test_transfer_stuck_and_replaced(Scenarios::LastTransactionDone).await
+}
+
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_transfer_stuck_2() -> Result<(), anyhow::Error> {
+    test_transfer_stuck_and_replaced(Scenarios::PreLastTransactionDone).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_transfer_stuck_3() -> Result<(), anyhow::Error> {
+    test_transfer_stuck_and_replaced(Scenarios::FirstTransactionDone).await
 }

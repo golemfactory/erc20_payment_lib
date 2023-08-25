@@ -116,6 +116,7 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
                         skip_multi_contract_check: false,
                     }),
                     Some(sender),
+                    None,
                 ).await.unwrap();
                 sp.runtime_handle.await.unwrap();
             }

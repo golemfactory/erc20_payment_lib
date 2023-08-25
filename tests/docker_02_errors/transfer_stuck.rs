@@ -93,7 +93,8 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
             }),
-            Some(sender)
+            Some(sender),
+            None
         ).await?;
         sp.runtime_handle.await?;
     }

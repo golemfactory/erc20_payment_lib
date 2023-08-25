@@ -82,7 +82,8 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
             }),
-            Some(sender)
+            Some(sender),
+            None
         ).await?;
         sp.runtime_handle.await?;
     }

@@ -132,7 +132,8 @@ async fn test_multi_erc20_transfer(payment_count: usize) -> Result<(), anyhow::E
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
             }),
-            Some(sender)
+            Some(sender),
+            None
         ).await?;
         sp.runtime_handle.await?;
     }

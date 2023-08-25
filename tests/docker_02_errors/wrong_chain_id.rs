@@ -97,7 +97,8 @@ async fn test_wrong_chain_id() -> Result<(), anyhow::Error> {
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
             }),
-            Some(sender)
+            Some(sender),
+            None
             ).await?;
         //exit after some time
 
