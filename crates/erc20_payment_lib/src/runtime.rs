@@ -297,6 +297,8 @@ pub async fn start_payment_engine(
         config.engine.automatic_recover,
     )?;
     payment_setup.extra_options_for_testing = extra_testing;
+    payment_setup.contract_use_direct_method = options.contract_use_direct_method;
+    payment_setup.contract_use_unpacked_method = options.contract_use_unpacked_method;
     log::debug!("Starting payment engine: {:#?}", payment_setup);
 
     let conn = if let Some(conn) = conn {

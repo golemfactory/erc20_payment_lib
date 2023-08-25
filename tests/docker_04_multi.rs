@@ -4,9 +4,8 @@ use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
 use erc20_payment_lib::transaction::create_token_transfer;
-use erc20_payment_lib::utils::{get_env_bool_value, u256_to_rust_dec};
+use erc20_payment_lib::utils::{u256_to_rust_dec};
 use erc20_payment_lib_test::*;
-use std::env;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
@@ -208,8 +207,6 @@ async fn test_multi_erc20_transfer_10_direct_packed() -> Result<(), anyhow::Erro
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multi_erc20_transfer_10_indirect_unpacked() -> Result<(), anyhow::Error> {
-    env::set_var("ERC20_LIB_USE_UNPACKED_METHOD", "1");
     test_multi_erc20_transfer(10, false, true).await?;
-    assert!(get_env_bool_value("ERC20_LIB_USE_UNPACKED_METHOD"));
     Ok(())
 }

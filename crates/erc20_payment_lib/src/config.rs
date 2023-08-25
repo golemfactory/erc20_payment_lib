@@ -31,6 +31,13 @@ impl Default for AdditionalOptions {
     }
 }
 
+impl AdditionalOptions {
+    pub fn keep_running(&mut self, keep_running: bool) -> &mut Self {
+        self.keep_running = keep_running;
+        self
+    }
+}
+
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct Engine {
