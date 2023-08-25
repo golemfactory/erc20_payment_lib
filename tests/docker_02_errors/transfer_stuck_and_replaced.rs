@@ -10,6 +10,7 @@ use std::time::Duration;
 use web3::types::{Address, U256};
 use web3_test_proxy_client::list_transactions_human;
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Debug, Clone, Copy)]
 enum Scenarios {
     LastTransactionDone,
@@ -120,7 +121,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
         sp.runtime_handle.abort();
 
         config.chain.get_mut("dev").unwrap().priority_fee = 0.01;
-        config.chain.get_mut("dev").unwrap().max_fee_per_gas = 0.012;
+        config.chain.get_mut("dev").unwrap().max_fee_per_gas = 0.011;
 
         let extra_time = match scenario {
             Scenarios::LastTransactionDone => Duration::from_secs(0),
@@ -202,7 +203,6 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
 async fn test_transfer_stuck_1() -> Result<(), anyhow::Error> {
     test_transfer_stuck_and_replaced(Scenarios::LastTransactionDone).await
 }
-
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_transfer_stuck_2() -> Result<(), anyhow::Error> {
