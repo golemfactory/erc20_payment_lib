@@ -130,15 +130,15 @@ pub async fn account_balance(
                     .map(|v| u256_to_rust_dec(v, None).unwrap_or_default().to_string());
                 let gas_balance_human = gas_balance_decimal.clone().map(|v| {
                     format!(
-                        "{:.02} {}",
-                        f64::from_str(&v).unwrap_or(0.0),
+                        "{:.03} {}",
+                        (f64::from_str(&v).unwrap_or(0.0) * 1000.0).floor() / 1000.0,
                         &chain_cfg.currency_symbol
                     )
                 });
                 let token_balance_human = token_balance_decimal.clone().map(|v| {
                     format!(
-                        "{:.02} {}",
-                        f64::from_str(&v).unwrap_or(0.0),
+                        "{:.03} {}",
+                        (f64::from_str(&v).unwrap_or(0.0) * 1000.0).floor() / 1000.0,
                         &chain_cfg.token.clone().unwrap().symbol
                     )
                 });

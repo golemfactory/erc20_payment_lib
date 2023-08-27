@@ -10,7 +10,7 @@ pub async fn test_get_balance(
     let config_check = create_default_config_setup(proxy_url_base, "check").await;
     let account_balance_options = BalanceOptions {
         chain_name: "dev".to_string(),
-        accounts: accounts.to_string(),
+        accounts: Some(accounts.to_string()),
         hide_gas: false,
         hide_token: false,
         block_number: None,

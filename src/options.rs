@@ -75,7 +75,7 @@ pub struct RunOptions {
 
 #[derive(StructOpt)]
 #[structopt(about = "Single transfer options")]
-pub struct SingleTransferOptions {
+pub struct TransferOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
     pub chain_name: String,
 
@@ -158,9 +158,9 @@ pub enum PaymentCommands {
         #[structopt(flatten)]
         generate_options: GenerateOptions,
     },
-    SingleTransfer {
+    Transfer {
         #[structopt(flatten)]
-        single_transfer_options: SingleTransferOptions,
+        single_transfer_options: TransferOptions,
     },
     Balance {
         #[structopt(flatten)]

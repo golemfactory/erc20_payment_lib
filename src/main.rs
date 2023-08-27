@@ -25,7 +25,7 @@ use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
-use web3::types::H160;
+use web3::types::{H160, U256};
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -134,7 +134,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 sp.runtime_handle.await.unwrap();
             }
         }
-        PaymentCommands::SingleTransfer {
+        PaymentCommands::Transfer {
             single_transfer_options,
         } => {
             log::info!("Sending single transfer...");
@@ -146,11 +146,13 @@ async fn main_internal() -> Result<(), PaymentError> {
                     single_transfer_options.chain_name
                 ))?;
 
+            #[allow(clippy::if_same_then_else)]
             let token = if single_transfer_options.token == "glm" {
                 Some(format!("{:#x}", chain_cfg.token.clone().unwrap().address))
             } else if single_transfer_options.token == "eth" {
                 None
             } else if single_transfer_options.token == "matic" {
+                //matic is the same as eth
                 None
             } else {
                 return Err(err_custom_create!(
@@ -294,7 +296,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             );
 
             println!(
-                "Token sent: {}",
+                "Native token sent: {}",
                 u256_to_rust_dec(main_sender.1.all.native_token_transferred, None).unwrap()
             );
 
@@ -341,14 +343,20 @@ async fn main_internal() -> Result<(), PaymentError> {
                     println!("... and more (max {} receivers shown)", el_no);
                     break;
                 }
+                let ts = match receiver.1.erc20_token_transferred.iter().next() {
+                    None => U256::zero(),
+                    Some(x) => *x.1,
+                };
+
                 println!(
-                    "Receiver: {:#x}\n  count (payment/web3): {}/{}, gas: {}, token sent: {}",
+                    "Receiver: {:#x}\n  count (payment/web3): {}/{}, gas: {}, native token sent: {}, token sent: {}",
                     receiver.0,
                     receiver.1.done_count,
                     receiver.1.transaction_ids.len(),
                     u256_to_rust_dec(receiver.1.fee_paid, None).unwrap(),
+                    u256_to_rust_dec(receiver.1.native_token_transferred, None).unwrap(),
                     u256_to_rust_dec(
-                        *receiver.1.erc20_token_transferred.iter().next().unwrap().1,
+                        ts,
                         None
                     )
                     .unwrap(),
