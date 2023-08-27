@@ -7,9 +7,11 @@ use csv::ReaderBuilder;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::TokenTransferDao;
-use erc20_payment_lib::db::ops::{get_transfer_stats, insert_token_transfer, TransferStatsPart};
+use erc20_payment_lib::db::ops::{
+    get_transfer_stats, insert_token_transfer, update_token_transfer, TransferStatsPart,
+};
 use erc20_payment_lib::server::*;
-use erc20_payment_lib::utils::u256_to_rust_dec;
+use erc20_payment_lib::utils::{rust_dec_to_u256, u256_to_rust_dec};
 
 use erc20_payment_lib::{
     config, err_custom_create, err_from,
@@ -94,7 +96,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let server_data = web::Data::new(Box::new(ServerData {
                 shared_state: sp.shared_state.clone(),
-                db_connection: Arc::new(Mutex::new(conn)),
+                db_connection: Arc::new(Mutex::new(conn.clone())),
                 payment_setup: sp.setup.clone(),
             }));
 
@@ -132,9 +134,79 @@ async fn main_internal() -> Result<(), PaymentError> {
                 sp.runtime_handle.await.unwrap();
             }
         }
-        PaymentCommands::AccountBalance {
+        PaymentCommands::SingleTransfer {
+            single_transfer_options,
+        } => {
+            log::info!("Sending single transfer...");
+            let chain_cfg = config
+                .chain
+                .get(&single_transfer_options.chain_name)
+                .ok_or(err_custom_create!(
+                    "Chain {} not found in config file",
+                    single_transfer_options.chain_name
+                ))?;
+
+            let token = if single_transfer_options.token == "glm" {
+                Some(format!("{:#x}", chain_cfg.token.clone().unwrap().address))
+            } else if single_transfer_options.token == "eth" {
+                None
+            } else if single_transfer_options.token == "matic" {
+                None
+            } else {
+                return Err(err_custom_create!(
+                    "Unknown token: {}",
+                    single_transfer_options.token
+                ));
+            };
+
+            let public_addr = public_addrs.get(0).expect("No public address found");
+            let mut db_transaction = conn.begin().await.unwrap();
+            let mut tt = insert_token_transfer(
+                &mut *db_transaction,
+                &TokenTransferDao {
+                    id: 0,
+                    payment_id: None,
+                    from_addr: format!(
+                        "{:#x}",
+                        single_transfer_options.from.unwrap_or(*public_addr)
+                    ),
+                    receiver_addr: format!("{:#x}", single_transfer_options.recipient),
+                    chain_id: chain_cfg.chain_id,
+                    token_addr: token,
+                    token_amount: rust_dec_to_u256(single_transfer_options.amount, Some(18))
+                        .unwrap()
+                        .to_string(),
+                    create_date: Default::default(),
+                    tx_id: None,
+                    paid_date: None,
+                    fee_paid: None,
+                    error: None,
+                },
+            )
+            .await
+            .unwrap();
+            let payment_id = format!("{}_transfer_{}", single_transfer_options.token, tt.id);
+            tt.payment_id = Some(payment_id.clone());
+            update_token_transfer(&mut *db_transaction, &tt)
+                .await
+                .unwrap();
+
+            db_transaction.commit().await.unwrap();
+            log::info!("Transfer sent, payment id: {}", payment_id);
+        }
+        PaymentCommands::Balance {
             account_balance_options,
         } => {
+            let mut account_balance_options = account_balance_options;
+            if account_balance_options.accounts.is_none() {
+                account_balance_options.accounts = Some(
+                    public_addrs
+                        .iter()
+                        .map(|addr| format!("{:#x}", addr))
+                        .collect::<Vec<String>>()
+                        .join(","),
+                );
+            }
             let result = account_balance(account_balance_options, &config).await?;
             println!(
                 "{}",
@@ -143,11 +215,12 @@ async fn main_internal() -> Result<(), PaymentError> {
                 ))?
             );
         }
-        PaymentCommands::GenerateTestPayments { generate_options } => {
+        PaymentCommands::Generate { generate_options } => {
             if generate_options.append_to_db && cli.sqlite_read_only {
                 return Err(err_custom_create!("Cannot append to db in read-only mode"));
             }
-            generate_test_payments(generate_options, &config, public_addrs, Some(conn)).await?;
+            generate_test_payments(generate_options, &config, public_addrs, Some(conn.clone()))
+                .await?;
         }
         PaymentCommands::PaymentStats {
             payment_stats_options,
@@ -396,6 +469,7 @@ async fn main_internal() -> Result<(), PaymentError> {
         }
     }
 
+    conn.close().await;
     Ok(())
 }
 

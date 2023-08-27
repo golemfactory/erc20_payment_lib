@@ -20,7 +20,7 @@ use web3::types::Address;
 
 #[derive(StructOpt)]
 #[structopt(about = "Generate test payments")]
-pub struct GenerateTestPaymentsOptions {
+pub struct GenerateOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
     pub chain_name: String,
 
@@ -60,7 +60,7 @@ pub struct GenerateTestPaymentsOptions {
 }
 
 pub async fn generate_test_payments(
-    generate_options: GenerateTestPaymentsOptions,
+    generate_options: GenerateOptions,
     config: &config::Config,
     from_addrs: Vec<Address>,
     sqlite_pool: Option<SqlitePool>,

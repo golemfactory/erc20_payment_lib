@@ -9,7 +9,7 @@ use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
 use erc20_payment_lib::utils::u256_to_rust_dec;
-use erc20_payment_lib_extra::{generate_test_payments, GenerateTestPaymentsOptions};
+use erc20_payment_lib_extra::{generate_test_payments, GenerateOptions};
 use std::env;
 use std::str::FromStr;
 use std::time::Duration;
@@ -70,7 +70,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
 
         let erc20_receiver_pool_size = env::var("ERC20_TEST_RECEIVER_POOL_SIZE").map(|f| usize::from_str(&f).unwrap()).unwrap_or(0);
 
-        let gtp = GenerateTestPaymentsOptions {
+        let gtp = GenerateOptions {
             chain_name: "dev".to_string(),
             generate_count,
             random_receivers: erc20_receiver_pool_size == 0,
