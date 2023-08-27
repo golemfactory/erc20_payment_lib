@@ -137,7 +137,7 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::Transfer {
             single_transfer_options,
         } => {
-            log::info!("Sending single transfer...");
+            log::info!("Adding single transfer...");
             let chain_cfg = config
                 .chain
                 .get(&single_transfer_options.chain_name)
@@ -194,7 +194,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .unwrap();
 
             db_transaction.commit().await.unwrap();
-            log::info!("Transfer sent, payment id: {}", payment_id);
+            log::info!("Transfer added to db, payment id: {}", payment_id);
         }
         PaymentCommands::Balance {
             account_balance_options,
