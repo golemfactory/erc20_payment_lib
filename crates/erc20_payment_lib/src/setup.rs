@@ -8,6 +8,7 @@ use rand::Rng;
 use secp256k1::SecretKey;
 use serde::Serialize;
 use std::collections::BTreeMap;
+use std::time::Duration;
 use web3::transports::Http;
 use web3::types::{Address, U256};
 use web3::Web3;
@@ -43,6 +44,12 @@ pub struct ChainSetup {
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
+pub struct ExtraOptionsForTesting {
+    pub erc20_lib_test_replacement_timeout: Option<Duration>,
+}
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct PaymentSetup {
     pub chain_setup: BTreeMap<i64, ChainSetup>,
     #[serde(skip_serializing)]
@@ -54,6 +61,9 @@ pub struct PaymentSetup {
     pub service_sleep: u64,
     pub process_sleep: u64,
     pub automatic_recover: bool,
+    pub contract_use_direct_method: bool,
+    pub contract_use_unpacked_method: bool,
+    pub extra_options_for_testing: Option<ExtraOptionsForTesting>,
 }
 
 impl PaymentSetup {
@@ -78,6 +88,9 @@ impl PaymentSetup {
             service_sleep,
             process_sleep,
             automatic_recover,
+            contract_use_direct_method: false,
+            contract_use_unpacked_method: false,
+            extra_options_for_testing: None,
         };
         for chain_config in &config.chain {
             let mut providers = Vec::new();

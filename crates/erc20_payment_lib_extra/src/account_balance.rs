@@ -15,13 +15,13 @@ use web3::types::Address;
 
 #[derive(Clone, StructOpt)]
 #[structopt(about = "Payment statistics options")]
-pub struct AccountBalanceOptions {
+pub struct BalanceOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
     pub chain_name: String,
 
     ///list of accounts separated by comma
     #[structopt(short = "a", long = "accounts")]
-    pub accounts: String,
+    pub accounts: Option<String>,
 
     #[structopt(long = "hide-gas")]
     pub hide_gas: bool,
@@ -41,7 +41,7 @@ pub struct AccountBalanceOptions {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AccountBalanceResult {
+pub struct BalanceResult {
     pub gas: Option<String>,
     pub gas_decimal: Option<String>,
     pub gas_human: Option<String>,
@@ -51,9 +51,9 @@ pub struct AccountBalanceResult {
 }
 
 pub async fn account_balance(
-    account_balance_options: AccountBalanceOptions,
+    account_balance_options: BalanceOptions,
     config: &config::Config,
-) -> Result<BTreeMap<String, AccountBalanceResult>, PaymentError> {
+) -> Result<BTreeMap<String, BalanceResult>, PaymentError> {
     let chain_cfg = config
         .chain
         .get(&account_balance_options.chain_name)
@@ -82,18 +82,20 @@ pub async fn account_balance(
     let accounts = HashSet::<String>::from_iter(
         account_balance_options
             .accounts
+            .clone()
+            .unwrap()
             .split(',')
             .map(|s| s.trim().to_lowercase()),
     );
 
-    let result_map = Rc::new(RefCell::new(BTreeMap::<String, AccountBalanceResult>::new()));
+    let result_map = Rc::new(RefCell::new(BTreeMap::<String, BalanceResult>::new()));
     let result_map_ = result_map.clone();
     let mut jobs = Vec::new();
     for account in accounts {
         let addr = Address::from_str(&account).map_err(|_| {
             err_custom_create!(
                 "Invalid account address: {}",
-                account_balance_options.accounts
+                account_balance_options.accounts.clone().unwrap()
             )
         })?;
         jobs.push(addr);
@@ -128,21 +130,21 @@ pub async fn account_balance(
                     .map(|v| u256_to_rust_dec(v, None).unwrap_or_default().to_string());
                 let gas_balance_human = gas_balance_decimal.clone().map(|v| {
                     format!(
-                        "{:.02} {}",
-                        f64::from_str(&v).unwrap_or(0.0),
+                        "{:.03} {}",
+                        (f64::from_str(&v).unwrap_or(0.0) * 1000.0).floor() / 1000.0,
                         &chain_cfg.currency_symbol
                     )
                 });
                 let token_balance_human = token_balance_decimal.clone().map(|v| {
                     format!(
-                        "{:.02} {}",
-                        f64::from_str(&v).unwrap_or(0.0),
+                        "{:.03} {}",
+                        (f64::from_str(&v).unwrap_or(0.0) * 1000.0).floor() / 1000.0,
                         &chain_cfg.token.clone().unwrap().symbol
                     )
                 });
                 result_map.borrow_mut().insert(
                     format!("{:#x}", job),
-                    AccountBalanceResult {
+                    BalanceResult {
                         gas: gas_balance,
                         gas_decimal: gas_balance_decimal,
                         gas_human: gas_balance_human,

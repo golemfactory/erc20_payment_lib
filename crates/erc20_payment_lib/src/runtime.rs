@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use crate::error::{ErrorBag, PaymentError};
 
-use crate::setup::PaymentSetup;
+use crate::setup::{ExtraOptionsForTesting, PaymentSetup};
 
 use crate::config::{self, Config};
 use secp256k1::SecretKey;
@@ -283,9 +283,10 @@ pub async fn start_payment_engine(
     conn: Option<SqlitePool>,
     options: Option<AdditionalOptions>,
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
+    extra_testing: Option<ExtraOptionsForTesting>,
 ) -> Result<PaymentRuntime, PaymentError> {
     let options = options.unwrap_or_default();
-    let payment_setup = PaymentSetup::new(
+    let mut payment_setup = PaymentSetup::new(
         &config,
         secret_keys.to_vec(),
         !options.keep_running,
@@ -295,6 +296,9 @@ pub async fn start_payment_engine(
         config.engine.process_sleep,
         config.engine.automatic_recover,
     )?;
+    payment_setup.extra_options_for_testing = extra_testing;
+    payment_setup.contract_use_direct_method = options.contract_use_direct_method;
+    payment_setup.contract_use_unpacked_method = options.contract_use_unpacked_method;
     log::debug!("Starting payment engine: {:#?}", payment_setup);
 
     let conn = if let Some(conn) = conn {

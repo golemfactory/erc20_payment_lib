@@ -83,8 +83,11 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
                 keep_running: false,
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
+                contract_use_direct_method: false,
+                contract_use_unpacked_method: false,
             }),
-            Some(sender)
+            Some(sender),
+            None
         ).await?;
 	    
         tokio::time::sleep(Duration::from_secs(5)).await;

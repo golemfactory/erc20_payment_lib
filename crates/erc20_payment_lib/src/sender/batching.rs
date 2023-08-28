@@ -13,7 +13,6 @@ use crate::{err_create, err_custom_create, err_from};
 use sqlx::SqlitePool;
 
 use crate::runtime::{send_driver_event, DriverEvent, DriverEventContent, TransactionFailedReason};
-use crate::utils::get_env_bool_value;
 use web3::types::{Address, U256};
 
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
@@ -113,8 +112,8 @@ pub async fn gather_transactions_batch_multi(
 ) -> Result<u32, PaymentError> {
     let chain_setup = payment_setup.get_chain_setup(token_transfer.chain_id)?;
 
-    let use_direct_method = get_env_bool_value("ERC20_LIB_USE_DIRECT_METHOD");
-    let use_unpacked_method = get_env_bool_value("ERC20_LIB_USE_UNPACKED_METHOD");
+    let use_direct_method = payment_setup.contract_use_direct_method;
+    let use_unpacked_method = payment_setup.contract_use_unpacked_method;
 
     let max_fee_per_gas = chain_setup.max_fee_per_gas;
     let priority_fee = chain_setup.priority_fee;

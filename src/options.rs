@@ -1,7 +1,8 @@
 use std::fmt::Debug;
 
-use erc20_payment_lib_extra::{AccountBalanceOptions, GenerateTestPaymentsOptions};
+use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
 use structopt::StructOpt;
+use web3::types::Address;
 
 #[derive(StructOpt)]
 #[structopt(about = "Payment admin tool - run options")]
@@ -73,6 +74,25 @@ pub struct RunOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Single transfer options")]
+pub struct TransferOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
+    pub chain_name: String,
+
+    #[structopt(long = "recipient", help = "Recipient")]
+    pub recipient: Address,
+
+    #[structopt(long = "from", help = "From")]
+    pub from: Option<Address>,
+
+    #[structopt(long = "token", help = "Token", default_value = "glm", possible_values = &["glm", "eth", "matic"])]
+    pub token: String,
+
+    #[structopt(long = "amount", help = "Amount")]
+    pub amount: rust_decimal::Decimal,
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Import payment list")]
 pub struct ImportOptions {
     #[structopt(long = "file", help = "File to import")]
@@ -134,13 +154,17 @@ pub enum PaymentCommands {
         run_options: RunOptions,
     },
     #[structopt(about = "Generate test payments")]
-    GenerateTestPayments {
+    Generate {
         #[structopt(flatten)]
-        generate_options: GenerateTestPaymentsOptions,
+        generate_options: GenerateOptions,
     },
-    AccountBalance {
+    Transfer {
         #[structopt(flatten)]
-        account_balance_options: AccountBalanceOptions,
+        single_transfer_options: TransferOptions,
+    },
+    Balance {
+        #[structopt(flatten)]
+        account_balance_options: BalanceOptions,
     },
     ImportPayments {
         #[structopt(flatten)]

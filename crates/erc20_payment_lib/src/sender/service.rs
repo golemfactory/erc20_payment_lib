@@ -140,6 +140,7 @@ pub async fn update_token_transfer_result(
             tx.processing = 1;
             update_tx(conn, tx).await.map_err(err_from!())?;
         }
+        _ => {}
     }
     Ok(())
 }
@@ -154,6 +155,7 @@ pub async fn update_approve_result(
         ProcessTransactionResult::Confirmed => {
             tx.processing = 0;
 
+            log::error!("Updating approve result {tx:?}");
             let mut db_transaction = conn.begin().await.map_err(err_from!())?;
             let mut allowance = get_allowance_by_tx(&mut *db_transaction, tx.id)
                 .await
@@ -211,6 +213,7 @@ pub async fn update_approve_result(
             tx.processing = 1;
             update_tx(conn, tx).await.map_err(err_from!())?;
         }
+        _ => {}
     }
     Ok(())
 }
@@ -239,6 +242,7 @@ pub async fn update_tx_result(
             tx.processing = 1;
             update_tx(conn, tx).await.map_err(err_from!())?;
         }
+        _ => {}
     }
     Ok(())
 }
@@ -258,8 +262,11 @@ pub async fn process_transactions(
             .map_err(err_from!())?;
 
         if let Some(tx) = transactions.get_mut(0) {
-            let process_t_res = if shared_state.lock().await.is_skipped(tx.id) {
-                ProcessTransactionResult::InternalError("Transaction skipped by user".into())
+            let (mut tx, process_t_res) = if shared_state.lock().await.is_skipped(tx.id) {
+                (
+                    tx.clone(),
+                    ProcessTransactionResult::InternalError("Transaction skipped by user".into()),
+                )
             } else {
                 shared_state
                     .lock()
@@ -276,14 +283,17 @@ pub async fn process_transactions(
                 )
                 .await
                 {
-                    Ok(process_result) => process_result,
+                    Ok((tx_dao, process_result)) => (tx_dao, process_result),
                     Err(err) => match err.inner {
                         ErrorBag::TransactionFailedError(err) => {
                             shared_state
                                 .lock()
                                 .await
                                 .set_tx_error(tx.id, Some(err.message.clone()));
-                            ProcessTransactionResult::InternalError(format!("{}", &err))
+                            (
+                                tx.clone(),
+                                ProcessTransactionResult::InternalError(format!("{}", &err)),
+                            )
                         }
                         _ => {
                             shared_state
@@ -295,19 +305,22 @@ pub async fn process_transactions(
                     },
                 }
             };
+            if let ProcessTransactionResult::Replaced = process_t_res {
+                continue;
+            };
             if tx.method.starts_with("MULTI.golemTransfer")
                 || tx.method == "ERC20.transfer"
                 || tx.method == "transfer"
             {
                 log::debug!("Updating token transfer result");
-                update_token_transfer_result(event_sender.clone(), conn, tx, &process_t_res)
+                update_token_transfer_result(event_sender.clone(), conn, &mut tx, &process_t_res)
                     .await?;
             } else if tx.method == "ERC20.approve" {
                 log::debug!("Updating token approve result");
-                update_approve_result(event_sender.clone(), conn, tx, &process_t_res).await?;
+                update_approve_result(event_sender.clone(), conn, &mut tx, &process_t_res).await?;
             } else {
                 log::debug!("Updating plain tx result");
-                update_tx_result(conn, tx, &process_t_res).await?;
+                update_tx_result(conn, &mut tx, &process_t_res).await?;
             }
             match process_t_res {
                 ProcessTransactionResult::Unknown => {}

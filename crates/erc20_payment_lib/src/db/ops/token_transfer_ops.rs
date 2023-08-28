@@ -39,6 +39,27 @@ VALUES ($1, $2, $3, $4, $5, $6, strftime('%Y-%m-%dT%H:%M:%f', 'now'), $7, $8, $9
     Ok(res)
 }
 
+pub async fn remap_token_transfer_tx<'c, E>(
+    executor: E,
+    old_tx_id: i64,
+    new_tx_id: i64,
+) -> Result<(), sqlx::Error>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let _res = sqlx::query(
+        r"UPDATE token_transfer SET
+            tx_id = $2
+            WHERE tx_id = $1
+        ",
+    )
+    .bind(old_tx_id)
+    .bind(new_tx_id)
+    .execute(executor)
+    .await?;
+    Ok(())
+}
+
 pub async fn update_token_transfer<'c, E>(
     executor: E,
     token_transfer: &TokenTransferDao,
