@@ -1,5 +1,6 @@
 use crate::db::create_sqlite_connection;
 use crate::db::ops::insert_token_transfer;
+use crate::signer::Signer;
 use crate::transaction::create_token_transfer;
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
@@ -280,6 +281,7 @@ pub async fn start_payment_engine(
     secret_keys: &[SecretKey],
     db_filename: &str,
     config: config::Config,
+    signer: impl Signer + Send + Sync + 'static,
     conn: Option<SqlitePool>,
     options: Option<AdditionalOptions>,
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
@@ -320,10 +322,9 @@ pub async fn start_payment_engine(
     }));
     let shared_state_clone = shared_state.clone();
     let conn_ = conn.clone();
-    let jh =
-        tokio::spawn(
-            async move { service_loop(shared_state_clone, &conn_, &ps, event_sender).await },
-        );
+    let jh = tokio::spawn(async move {
+        service_loop(shared_state_clone, &conn_, &ps, signer, event_sender).await
+    });
 
     Ok(PaymentRuntime {
         runtime_handle: jh,

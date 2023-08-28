@@ -8,6 +8,7 @@ use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
+use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_extra::{generate_test_payments, GenerateOptions};
 use std::env;
@@ -67,6 +68,7 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
 
         //load private key for account 0xbfb29b133aa51c4b45b49468f9a22958eafea6fa
         let (private_keys, public_keys) = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963")?;
+        let signer = PrivateKeySigner::new(private_keys.clone());
 
         let erc20_receiver_pool_size = env::var("ERC20_TEST_RECEIVER_POOL_SIZE").map(|f| usize::from_str(&f).unwrap()).unwrap_or(0);
 
@@ -109,6 +111,7 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
                     &private_keys,
                     "",
                     config.clone(),
+                    signer,
                     Some(conn_.clone()),
                     Some(AdditionalOptions {
                         keep_running: false,

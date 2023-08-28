@@ -12,7 +12,7 @@ use crate::runtime::{send_driver_event, DriverEvent, DriverEventContent, SharedS
 use crate::sender::batching::{gather_transactions_post, gather_transactions_pre};
 use crate::sender::process_allowance;
 use crate::setup::PaymentSetup;
-use crate::signer::{PrivateKeySigner, Signer};
+use crate::signer::Signer;
 use crate::{err_custom_create, err_from};
 use sqlx::SqlitePool;
 use web3::types::U256;
@@ -348,6 +348,7 @@ pub async fn service_loop(
     shared_state: Arc<Mutex<SharedState>>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
+    signer: impl Signer + Send + Sync + 'static,
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
 ) {
     let process_transactions_interval = payment_setup.process_sleep as i64;
@@ -359,7 +360,6 @@ pub async fn service_loop(
 
     let mut process_tx_needed = true;
     let mut process_tx_instantly = true;
-    let signer = PrivateKeySigner::new(payment_setup.secret_keys.clone());
     loop {
         log::debug!("Sender service loop - start loop");
         let current_time = chrono::Utc::now();
