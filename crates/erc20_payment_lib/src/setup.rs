@@ -21,6 +21,7 @@ pub struct ProviderSetup {
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ChainSetup {
+    pub network: String,
     #[serde(skip_serializing)]
     pub providers: Vec<ProviderSetup>,
     pub chain_name: String,
@@ -108,6 +109,7 @@ impl PaymentSetup {
             ps.chain_setup.insert(
                 chain_config.1.chain_id,
                 ChainSetup {
+                    network: chain_config.0.clone(),
                     providers,
                     chain_name: chain_config.1.chain_name.clone(),
                     max_fee_per_gas: gwei_to_u256(chain_config.1.max_fee_per_gas)
