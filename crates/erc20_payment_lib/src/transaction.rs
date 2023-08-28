@@ -5,9 +5,9 @@ use crate::eth::get_eth_addr_from_secret;
 use crate::multi::pack_transfers_for_multi_contract;
 use crate::runtime::{send_driver_event, DriverEvent, DriverEventContent, TransactionStuckReason};
 use crate::signer::Signer;
-use crate::utils::ConversionError;
+use crate::utils::{datetime_from_u256_timestamp, ConversionError};
 use crate::{err_custom_create, err_from};
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::Utc;
 use secp256k1::SecretKey;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -92,8 +92,9 @@ pub fn create_token_transfer(
         chain_id,
         token_addr: token_addr.map(|addr| format!("{addr:#x}")),
         token_amount: token_amount.to_string(),
-        create_date: chrono::Utc::now(),
+        create_date: Utc::now(),
         tx_id: None,
+        paid_date: None,
         fee_paid: None,
         error: None,
     }
@@ -136,6 +137,7 @@ pub fn create_eth_transfer(
         error: None,
         engine_message: None,
         engine_error: None,
+        orig_tx_id: None,
     }
 }
 
@@ -176,6 +178,7 @@ pub fn create_eth_transfer_str(
         error: None,
         engine_message: None,
         engine_error: None,
+        orig_tx_id: None,
     }
 }
 
@@ -219,6 +222,7 @@ pub fn create_erc20_transfer(
         error: None,
         engine_message: None,
         engine_error: None,
+        orig_tx_id: None,
     })
 }
 
@@ -291,6 +295,7 @@ pub fn create_erc20_transfer_multi(
         error: None,
         engine_message: None,
         engine_error: None,
+        orig_tx_id: None,
     })
 }
 
@@ -332,6 +337,7 @@ pub fn create_erc20_approve(
         error: None,
         engine_message: None,
         engine_error: None,
+        orig_tx_id: None,
     })
 }
 
@@ -465,7 +471,10 @@ pub async fn send_transaction(
                     if e.message.contains("insufficient funds") {
                         send_driver_event(
                             &event_sender,
-                            DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas),
+                            DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
+                                "RPC returned insufficient funds when sending transaction"
+                                    .to_string(),
+                            )),
                         )
                         .await;
                     }
@@ -595,11 +604,8 @@ pub async fn find_receipt_extended(
         .ok_or(err_custom_create!("Block not found"))?;
 
     //println!("Receipt: {:#?}", receipt);
-    chain_tx_dao.blockchain_date = DateTime::<Utc>::from_utc(
-        NaiveDateTime::from_timestamp_opt(block_info.timestamp.as_u64() as i64, 0)
-            .ok_or_else(|| err_custom_create!("Cannot convert timestamp to NaiveDateTime"))?,
-        Utc,
-    );
+    chain_tx_dao.blockchain_date = datetime_from_u256_timestamp(block_info.timestamp)
+        .ok_or_else(|| err_custom_create!("Cannot convert timestamp to NaiveDateTime"))?;
 
     chain_tx_dao.from_addr = format!("{:#x}", receipt.from);
 

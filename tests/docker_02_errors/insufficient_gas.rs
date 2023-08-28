@@ -30,8 +30,16 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
 
             match msg.content {
                 TransactionStuck(reason) => {
-                    missing_gas_message_count += 1;
-                    assert_eq!(reason, TransactionStuckReason::NoGas);
+                    match reason {
+                        TransactionStuckReason::NoGas(msg) => {
+                            log::info!("No gas: {msg}");
+                            missing_gas_message_count += 1;
+                        },
+                        _ => {
+                            log::error!("Driver posted wrong reason for transaction stuck: {:?}", reason);
+                            panic!("Driver posted wrong reason for transaction stuck: {:?}", reason);
+                        }
+                    }
                 }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
@@ -75,8 +83,11 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
                 keep_running: false,
                 generate_tx_only: false,
                 skip_multi_contract_check: false,
+                contract_use_direct_method: false,
+                contract_use_unpacked_method: false,
             }),
-            Some(sender)
+            Some(sender),
+            None
         ).await?;
 	    
         tokio::time::sleep(Duration::from_secs(5)).await;

@@ -1,7 +1,8 @@
 use std::fmt::Debug;
 
-use erc20_payment_lib_extra::{AccountBalanceOptions, GenerateTestPaymentsOptions};
+use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
 use structopt::StructOpt;
+use web3::types::Address;
 
 #[derive(StructOpt)]
 #[structopt(about = "Payment admin tool - run options")]
@@ -73,6 +74,25 @@ pub struct RunOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Single transfer options")]
+pub struct TransferOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
+    pub chain_name: String,
+
+    #[structopt(long = "recipient", help = "Recipient")]
+    pub recipient: Address,
+
+    #[structopt(long = "from", help = "From")]
+    pub from: Option<Address>,
+
+    #[structopt(long = "token", help = "Token", default_value = "glm", possible_values = &["glm", "eth", "matic"])]
+    pub token: String,
+
+    #[structopt(long = "amount", help = "Amount")]
+    pub amount: rust_decimal::Decimal,
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Import payment list")]
 pub struct ImportOptions {
     #[structopt(long = "file", help = "File to import")]
@@ -83,7 +103,30 @@ pub struct ImportOptions {
 
 #[derive(StructOpt)]
 #[structopt(about = "Payment statistics options")]
-pub struct PaymentStatisticsOptions {}
+pub struct PaymentStatsOptions {
+    #[structopt(
+        long = "receiver-count",
+        help = "Number of receivers to show",
+        default_value = "10"
+    )]
+    pub show_receiver_count: usize,
+
+    #[structopt(
+    long = "order-by",
+    help = "Order by",
+    default_value = "payment_delay",
+    possible_values = &["payment_delay", "token_sent", "fee_paid", "gas_paid"]
+    )]
+    pub order_by: String,
+
+    #[structopt(
+    long = "order-by-dir",
+    help = "Order by dir",
+    default_value = "desc",
+    possible_values = &["asc", "desc"]
+    )]
+    pub order_by_dir: String,
+}
 
 #[derive(StructOpt)]
 #[structopt(about = "Import payment list")]
@@ -100,6 +143,10 @@ pub struct DecryptKeyStoreOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Cleanup options")]
+pub struct CleanupOptions {}
+
+#[derive(StructOpt)]
 #[structopt(about = "Payment admin tool")]
 pub enum PaymentCommands {
     Run {
@@ -107,31 +154,59 @@ pub enum PaymentCommands {
         run_options: RunOptions,
     },
     #[structopt(about = "Generate test payments")]
-    GenerateTestPayments {
+    Generate {
         #[structopt(flatten)]
-        generate_options: GenerateTestPaymentsOptions,
+        generate_options: GenerateOptions,
     },
-    AccountBalance {
+    Transfer {
         #[structopt(flatten)]
-        account_balance_options: AccountBalanceOptions,
+        single_transfer_options: TransferOptions,
+    },
+    Balance {
+        #[structopt(flatten)]
+        account_balance_options: BalanceOptions,
     },
     ImportPayments {
         #[structopt(flatten)]
         import_options: ImportOptions,
     },
-    PaymentStatistics {
+    PaymentStats {
         #[structopt(flatten)]
-        payment_statistics_options: PaymentStatisticsOptions,
+        payment_stats_options: PaymentStatsOptions,
     },
     DecryptKeyStore {
         #[structopt(flatten)]
         decrypt_options: DecryptKeyStoreOptions,
+    },
+    Cleanup {
+        #[structopt(flatten)]
+        cleanup_options: CleanupOptions,
     },
 }
 
 #[derive(StructOpt)]
 #[structopt(about = "Payment admin tool")]
 pub struct PaymentOptions {
+    #[structopt(
+        long = "sqlite-db-file",
+        help = "Sqlite database file",
+        default_value = "erc20lib.sqlite"
+    )]
+    pub sqlite_db_file: String,
+
+    #[structopt(long = "sqlite-read-only", help = "Create read only connection")]
+    pub sqlite_read_only: bool,
+
+    #[structopt(long = "skip-migrations", help = "Enable writing to sqlite database")]
+    pub skip_migrations: bool,
+
+    #[structopt(
+    long = "sqlite-journal",
+    help = "SQL journal mode",
+    default_value = "delete",
+    possible_values = &["delete", "truncate", "persist", "memory", "wal", "off"])]
+    pub sqlite_journal: String,
+
     #[structopt(subcommand)]
     pub commands: PaymentCommands,
 }

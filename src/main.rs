@@ -7,8 +7,11 @@ use csv::ReaderBuilder;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::TokenTransferDao;
-use erc20_payment_lib::db::ops::{get_transfer_count, insert_token_transfer};
+use erc20_payment_lib::db::ops::{
+    get_transfer_stats, insert_token_transfer, update_token_transfer, TransferStatsPart,
+};
 use erc20_payment_lib::server::*;
+use erc20_payment_lib::utils::{rust_dec_to_u256, u256_to_rust_dec};
 
 use erc20_payment_lib::{
     config, err_custom_create, err_from,
@@ -22,6 +25,7 @@ use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
+use web3::types::{H160, U256};
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -33,28 +37,51 @@ async fn main_internal() -> Result<(), PaymentError> {
     env_logger::init();
     let cli: PaymentOptions = PaymentOptions::from_args();
 
-    let (private_keys, public_addrs) = load_private_keys(
-        &env::var("ETH_PRIVATE_KEYS").expect("Specify ETH_PRIVATE_KEYS env variable"),
-    )?;
+    let (private_keys, public_addrs) =
+        load_private_keys(&env::var("ETH_PRIVATE_KEYS").unwrap_or("".to_string()))?;
     display_private_keys(&private_keys);
 
     let config = config::Config::load("config-payments.toml").await?;
+
+    let db_filename = cli.sqlite_db_file;
+    if cli.sqlite_read_only {
+        log::info!(
+            "Connecting read only to db: {} (journal mode: {})",
+            db_filename,
+            cli.sqlite_journal
+        );
+    } else {
+        log::info!(
+            "Connecting read/write connection to db: {} (journal mode: {})",
+            db_filename,
+            cli.sqlite_journal
+        );
+    }
+    env::set_var("ERC20_LIB_SQLITE_JOURNAL_MODE", cli.sqlite_journal);
+    let conn = create_sqlite_connection(
+        Some(&db_filename),
+        None,
+        cli.sqlite_read_only,
+        !cli.skip_migrations,
+    )
+    .await?;
 
     match cli.commands {
         PaymentCommands::Run { run_options } => {
             if run_options.http && !run_options.keep_running {
                 return Err(err_custom_create!("http mode requires keep-running option"));
             }
+            if cli.sqlite_read_only {
+                log::warn!("Running in read-only mode, no db writes will be possible");
+            }
 
             let add_opt = AdditionalOptions {
                 keep_running: run_options.keep_running,
                 generate_tx_only: run_options.generate_tx_only,
                 skip_multi_contract_check: run_options.skip_multi_contract_check,
+                contract_use_direct_method: false,
+                contract_use_unpacked_method: false,
             };
-            let db_filename =
-                env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
-            log::info!("connecting to sqlite file db: {}", db_filename);
-            let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
 
             let sp = start_payment_engine(
                 &private_keys,
@@ -63,12 +90,13 @@ async fn main_internal() -> Result<(), PaymentError> {
                 Some(conn.clone()),
                 Some(add_opt),
                 None,
+                None,
             )
             .await?;
 
             let server_data = web::Data::new(Box::new(ServerData {
                 shared_state: sp.shared_state.clone(),
-                db_connection: Arc::new(Mutex::new(conn)),
+                db_connection: Arc::new(Mutex::new(conn.clone())),
                 payment_setup: sp.setup.clone(),
             }));
 
@@ -106,9 +134,81 @@ async fn main_internal() -> Result<(), PaymentError> {
                 sp.runtime_handle.await.unwrap();
             }
         }
-        PaymentCommands::AccountBalance {
+        PaymentCommands::Transfer {
+            single_transfer_options,
+        } => {
+            log::info!("Adding single transfer...");
+            let chain_cfg = config
+                .chain
+                .get(&single_transfer_options.chain_name)
+                .ok_or(err_custom_create!(
+                    "Chain {} not found in config file",
+                    single_transfer_options.chain_name
+                ))?;
+
+            #[allow(clippy::if_same_then_else)]
+            let token = if single_transfer_options.token == "glm" {
+                Some(format!("{:#x}", chain_cfg.token.clone().unwrap().address))
+            } else if single_transfer_options.token == "eth" {
+                None
+            } else if single_transfer_options.token == "matic" {
+                //matic is the same as eth
+                None
+            } else {
+                return Err(err_custom_create!(
+                    "Unknown token: {}",
+                    single_transfer_options.token
+                ));
+            };
+
+            let public_addr = public_addrs.get(0).expect("No public address found");
+            let mut db_transaction = conn.begin().await.unwrap();
+            let mut tt = insert_token_transfer(
+                &mut *db_transaction,
+                &TokenTransferDao {
+                    id: 0,
+                    payment_id: None,
+                    from_addr: format!(
+                        "{:#x}",
+                        single_transfer_options.from.unwrap_or(*public_addr)
+                    ),
+                    receiver_addr: format!("{:#x}", single_transfer_options.recipient),
+                    chain_id: chain_cfg.chain_id,
+                    token_addr: token,
+                    token_amount: rust_dec_to_u256(single_transfer_options.amount, Some(18))
+                        .unwrap()
+                        .to_string(),
+                    create_date: Default::default(),
+                    tx_id: None,
+                    paid_date: None,
+                    fee_paid: None,
+                    error: None,
+                },
+            )
+            .await
+            .unwrap();
+            let payment_id = format!("{}_transfer_{}", single_transfer_options.token, tt.id);
+            tt.payment_id = Some(payment_id.clone());
+            update_token_transfer(&mut *db_transaction, &tt)
+                .await
+                .unwrap();
+
+            db_transaction.commit().await.unwrap();
+            log::info!("Transfer added to db, payment id: {}", payment_id);
+        }
+        PaymentCommands::Balance {
             account_balance_options,
         } => {
+            let mut account_balance_options = account_balance_options;
+            if account_balance_options.accounts.is_none() {
+                account_balance_options.accounts = Some(
+                    public_addrs
+                        .iter()
+                        .map(|addr| format!("{:#x}", addr))
+                        .collect::<Vec<String>>()
+                        .join(","),
+                );
+            }
             let result = account_balance(account_balance_options, &config).await?;
             println!(
                 "{}",
@@ -117,34 +217,204 @@ async fn main_internal() -> Result<(), PaymentError> {
                 ))?
             );
         }
-        PaymentCommands::GenerateTestPayments { generate_options } => {
-            generate_test_payments(generate_options, &config, public_addrs, None).await?;
+        PaymentCommands::Generate { generate_options } => {
+            if generate_options.append_to_db && cli.sqlite_read_only {
+                return Err(err_custom_create!("Cannot append to db in read-only mode"));
+            }
+            generate_test_payments(generate_options, &config, public_addrs, Some(conn.clone()))
+                .await?;
         }
-        PaymentCommands::PaymentStatistics {
-            payment_statistics_options: _,
+        PaymentCommands::PaymentStats {
+            payment_stats_options,
         } => {
-            println!("payment statistics");
-            let db_filename =
-                env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
-            log::info!("connecting to sqlite file db: {}", db_filename);
-            let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
+            println!("Getting transfers stats...");
+            let transfer_stats = get_transfer_stats(&conn, None).await.unwrap();
+            let main_sender = transfer_stats.per_sender.iter().next().unwrap();
+            let stats_all = main_sender.1.all.clone();
+            let fee_paid_stats = stats_all.fee_paid;
             println!(
-                "Token transfer count: {}",
-                get_transfer_count(&conn, None, None, None).await.unwrap()
+                "fee paid from stats: {}",
+                u256_to_rust_dec(fee_paid_stats, None).unwrap()
             );
+
+            println!("Number of transfers done: {}", stats_all.done_count);
+
+            println!(
+                "Number of distinct receivers: {}",
+                main_sender.1.per_receiver.len()
+            );
+
+            println!(
+                "Number of web3 transactions: {}",
+                main_sender.1.all.transaction_ids.len()
+            );
+
+            println!(
+                "First transfer requested at {}",
+                main_sender
+                    .1
+                    .all
+                    .first_transfer_date
+                    .map(|d| d.to_string())
+                    .unwrap_or("N/A".to_string())
+            );
+            println!(
+                "First payment made {}",
+                main_sender
+                    .1
+                    .all
+                    .first_paid_date
+                    .map(|d| d.to_string())
+                    .unwrap_or("N/A".to_string())
+            );
+            println!(
+                "Last transfer requested at {}",
+                main_sender
+                    .1
+                    .all
+                    .last_transfer_date
+                    .map(|d| d.to_string())
+                    .unwrap_or("N/A".to_string())
+            );
+            println!(
+                "Last payment made {}",
+                main_sender
+                    .1
+                    .all
+                    .last_paid_date
+                    .map(|d| d.to_string())
+                    .unwrap_or("N/A".to_string())
+            );
+            println!(
+                "Max payment delay: {}",
+                main_sender
+                    .1
+                    .all
+                    .max_payment_delay
+                    .map(|d| d.num_seconds().to_string() + "s")
+                    .unwrap_or("N/A".to_string())
+            );
+
+            println!(
+                "Native token sent: {}",
+                u256_to_rust_dec(main_sender.1.all.native_token_transferred, None).unwrap()
+            );
+
+            let per_receiver = main_sender.1.per_receiver.clone();
+            let mut per_receiver: Vec<(H160, TransferStatsPart)> =
+                per_receiver.into_iter().collect();
+            if payment_stats_options.order_by == "payment_delay" {
+                per_receiver.sort_by(|r, b| {
+                    let left =
+                        r.1.max_payment_delay
+                            .unwrap_or(chrono::Duration::max_value());
+                    let right =
+                        b.1.max_payment_delay
+                            .unwrap_or(chrono::Duration::max_value());
+                    right.cmp(&left)
+                });
+            } else if payment_stats_options.order_by == "token_sent" {
+                per_receiver.sort_by(|r, b| {
+                    let left = *r.1.erc20_token_transferred.iter().next().unwrap().1;
+                    let right = *b.1.erc20_token_transferred.iter().next().unwrap().1;
+                    right.cmp(&left)
+                });
+            } else if payment_stats_options.order_by == "gas_paid"
+                || payment_stats_options.order_by == "fee_paid"
+            {
+                per_receiver.sort_by(|r, b| {
+                    let left = r.1.fee_paid;
+                    let right = b.1.fee_paid;
+                    right.cmp(&left)
+                });
+            } else {
+                return Err(err_custom_create!(
+                    "Unknown order_by option: {}",
+                    payment_stats_options.order_by
+                ));
+            }
+
+            if payment_stats_options.order_by_dir == "asc" {
+                per_receiver.reverse();
+            }
+
+            for (el_no, receiver) in per_receiver.iter().enumerate() {
+                if el_no >= payment_stats_options.show_receiver_count {
+                    println!("... and more (max {} receivers shown)", el_no);
+                    break;
+                }
+                let ts = match receiver.1.erc20_token_transferred.iter().next() {
+                    None => U256::zero(),
+                    Some(x) => *x.1,
+                };
+
+                println!(
+                    "Receiver: {:#x}\n  count (payment/web3): {}/{}, gas: {}, native token sent: {}, token sent: {}",
+                    receiver.0,
+                    receiver.1.done_count,
+                    receiver.1.transaction_ids.len(),
+                    u256_to_rust_dec(receiver.1.fee_paid, None).unwrap(),
+                    u256_to_rust_dec(receiver.1.native_token_transferred, None).unwrap(),
+                    u256_to_rust_dec(
+                        ts,
+                        None
+                    )
+                    .unwrap(),
+                );
+                println!(
+                    "  First transfer requested at {}",
+                    receiver
+                        .1
+                        .first_transfer_date
+                        .map(|d| d.to_string())
+                        .unwrap_or("N/A".to_string())
+                );
+                println!(
+                    "  First payment made {}",
+                    receiver
+                        .1
+                        .first_paid_date
+                        .map(|d| d.to_string())
+                        .unwrap_or("N/A".to_string())
+                );
+                println!(
+                    "  Last transfer requested at {}",
+                    receiver
+                        .1
+                        .last_transfer_date
+                        .map(|d| d.to_string())
+                        .unwrap_or("N/A".to_string())
+                );
+                println!(
+                    "  Last payment made {}",
+                    receiver
+                        .1
+                        .last_paid_date
+                        .map(|d| d.to_string())
+                        .unwrap_or("N/A".to_string())
+                );
+                println!(
+                    "  Max payment delay: {}",
+                    receiver
+                        .1
+                        .max_payment_delay
+                        .map(|d| d.num_seconds().to_string() + "s")
+                        .unwrap_or("N/A".to_string())
+                );
+            }
         }
         PaymentCommands::ImportPayments { import_options } => {
             log::info!("importing payments from file: {}", import_options.file);
-            //import_options.file;
+            if !cli.sqlite_read_only {
+                return Err(err_custom_create!(
+                    "Cannot import payments in read-only mode"
+                ));
+            }
             let mut rdr = ReaderBuilder::new()
                 .delimiter(import_options.separator as u8)
                 .from_reader(std::fs::File::open(&import_options.file).map_err(err_from!())?);
 
             let deserialize = rdr.deserialize::<TokenTransferDao>();
-            let db_filename =
-                env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
-            log::info!("connecting to sqlite file db: {}", db_filename);
-            let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
 
             let mut token_transfer_list = vec![];
             for (line_no, result) in deserialize.enumerate() {
@@ -201,8 +471,13 @@ async fn main_internal() -> Result<(), PaymentError> {
             .unwrap();
             println!("Private key: {}", hex::encode(pkey));
         }
+        PaymentCommands::Cleanup { cleanup_options } => {
+            println!("Cleaning up (doing nothing right now)");
+            let _ = cleanup_options;
+        }
     }
 
+    conn.close().await;
     Ok(())
 }
 

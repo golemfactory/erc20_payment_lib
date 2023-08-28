@@ -89,8 +89,9 @@ jobs:
       - name: Run tests (docker_02_errors)
         run: cargo test --test docker_02_errors --profile=release-fast -- --test-threads=10
 
-      - name: Run tests (docker_03_problems)
-        run: cargo test --test docker_03_problems --profile=release-fast -- --test-threads=10
+      - name: Run tests (docker_04_multi)
+        run: cargo test --test docker_04_multi --profile=release-fast -- --test-threads=10
+
 
   payment_tests_multi:
     name: Payment tests (multi)
@@ -111,5 +112,44 @@ jobs:
       - name: Build tests
         run: cargo test --profile=release-fast --no-run
 
-      - name: Run tests (docker_04_multi)
-        run: cargo test --test docker_04_multi --profile=release-fast -- --test-threads=1
+      - name: Run tests (docker_03_problems)
+        run: cargo test --test docker_03_problems --profile=release-fast -- --test-threads=10
+
+
+  payment_tests_custom:
+    name: Payment tests (custom)
+    timeout-minutes: 20
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "test-cache-release-fast"
+          save-if: false
+
+      - name: Build tests
+        run: cargo test --profile=release-fast --no-run
+
+      - name: Run test custom (200 transfers)
+        run: cargo test --profile=release-fast --test custom_long -- --test-threads=1
+        env:
+          ERC20_TESTS_USE_DISK_DB: 1
+          ERC20_TESTS_OVERRIDE_DB_NAME: erc20lib.sqlite
+          ERC20_LIB_SQLITE_JOURNAL_MODE: wal
+          ERC20_TEST_RECEIVER_POOL_SIZE: 300
+          ERC20_TEST_MAX_IN_TX: 15
+          ERC20_TEST_TRANSFER_COUNT: 200
+          ERC20_TEST_TRANSFER_INTERVAL: 0.1
+
+      - name: Reopen db cleaning wal logs
+        run: cargo run --profile=release-fast -- --sqlite-db-file erc20lib.sqlite --sqlite-journal delete cleanup
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: erc20lib_custom
+          path: erc20lib.sqlite

@@ -13,19 +13,13 @@ exclude = [
 name = "erc20_processor"
 path = "src/main.rs"
 
-[workspace.package]
+[package]
+name = "erc20_processor"
+description = "Payment processor for ERC20 tokens"
 authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
 version = "0.1.9"
 edition = "2021"
 license = "MIT"
-
-[package]
-name = "erc20_processor"
-description = "Payment processor for ERC20 tokens"
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-authors.workspace = true
 
 [workspace.dependencies]
 actix-cors = "0.6.4"
@@ -111,7 +105,9 @@ bollard = { workspace = true}
 erc20_payment_lib_test = { path = "crates/erc20_payment_lib_test" }
 web3_test_proxy_client = { path = "crates/web3_test_proxy_client" }
 awc = { workspace = true }
-test-case = "3.1.0"
+# please do not use this library. It is not developer friendly
+# if you have very good reason then ask first
+#test-case = "3.1.0"
 
 [profile.release-fast]
 inherits = "release"

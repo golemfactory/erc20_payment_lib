@@ -1,5 +1,4 @@
 use csv::WriterBuilder;
-use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::error::*;
 use erc20_payment_lib::misc::{
@@ -10,7 +9,6 @@ use futures_util::StreamExt;
 use futures_util::TryStreamExt;
 use sqlx::SqlitePool;
 use std::cell::RefCell;
-use std::env;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -22,7 +20,7 @@ use web3::types::Address;
 
 #[derive(StructOpt)]
 #[structopt(about = "Generate test payments")]
-pub struct GenerateTestPaymentsOptions {
+pub struct GenerateOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
     pub chain_name: String,
 
@@ -62,7 +60,7 @@ pub struct GenerateTestPaymentsOptions {
 }
 
 pub async fn generate_test_payments(
-    generate_options: GenerateTestPaymentsOptions,
+    generate_options: GenerateOptions,
     config: &config::Config,
     from_addrs: Vec<Address>,
     sqlite_pool: Option<SqlitePool>,
@@ -99,11 +97,7 @@ pub async fn generate_test_payments(
         if let Some(sqlite_pool) = sqlite_pool {
             Some(sqlite_pool)
         } else {
-            let db_filename =
-                env::var("DB_SQLITE_FILENAME").expect("Specify DB_SQLITE_FILENAME env variable");
-            log::info!("connecting to sqlite file db: {}", db_filename);
-            let conn = create_sqlite_connection(Some(&db_filename), None, true).await?;
-            Some(conn)
+            return Err(err_custom_create!("Sqlite pool is not provided"));
         }
     } else {
         None

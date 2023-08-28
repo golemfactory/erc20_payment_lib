@@ -15,6 +15,7 @@ pub struct TokenTransferDao {
     /// It is overriden when inserting new entry to db
     pub create_date: DateTime<Utc>,
     pub tx_id: Option<i64>,
+    pub paid_date: Option<DateTime<Utc>>,
     pub fee_paid: Option<String>,
     pub error: Option<String>,
 }

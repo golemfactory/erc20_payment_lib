@@ -11,6 +11,22 @@ on:
         description: 'Number of transfers to generate'
         required: true
         default: '100000'
+      journal_mode:
+        description: 'Sqlite journal mode'
+        required: true
+        default: 'wal'
+      receivers_count:
+        description: 'Number of receivers to generate'
+        required: true
+        default: '0'
+      max_in_tx:
+        description: 'Max receivers in one web3 tx'
+        required: true
+        default: '1000'
+      transfer_interval:
+        description: 'Interval between transfers in seconds'
+        required: true
+        default: '0.01'
 
 jobs:
   payment_tests_long:
@@ -21,7 +37,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        run_no: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        run_no: [00, 01, 02, 03, 04, 05, 06, 07, 08, 09]
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -37,5 +53,18 @@ jobs:
       - name: Run tests (custom_long x ${{ github.event.inputs.transfer_count }})
         run: cargo test --profile=${{ github.event.inputs.build_profile }} --test custom_long -- --test-threads=1
         env:
-          USE_DISK_DB_INSTEAD_OF_MEM: 1
-          TRANSFER_COUNT: ${{ github.event.inputs.transfer_count }}
+          ERC20_TESTS_USE_DISK_DB: 1
+          ERC20_TESTS_OVERRIDE_DB_NAME: erc20lib.sqlite
+          ERC20_LIB_SQLITE_JOURNAL_MODE: ${{ github.event.inputs.journal_mode }}
+          ERC20_TEST_RECEIVER_POOL_SIZE: ${{ github.event.inputs.receivers_count }}
+          ERC20_TEST_MAX_IN_TX: ${{ github.event.inputs.max_in_tx }}
+          ERC20_TEST_TRANSFER_COUNT: ${{ github.event.inputs.transfer_count }}
+          ERC20_TEST_TRANSFER_INTERVAL: ${{ github.event.inputs.transfer_interval }}
+
+      - name: Reopen db cleaning wal logs
+        run: cargo run --profile=${{ github.event.inputs.build_profile }} -- --sqlite-db-file erc20lib.sqlite --sqlite-journal delete cleanup
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: erc20lib_${{ matrix.run_no }}
+          path: erc20lib.sqlite

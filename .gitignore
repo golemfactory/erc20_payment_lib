@@ -9,3 +9,8 @@
 /db_test.sqlite
 /db_test.sqlite-shm
 /db_test.sqlite-wal
+/*.sqlite
+/*.sqlite-shm
+/*.sqlite-wal
+/*.zip
+/*.txt

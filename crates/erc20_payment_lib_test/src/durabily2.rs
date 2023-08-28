@@ -16,7 +16,7 @@ use std::time::Duration;
 use web3::types::U256;
 
 #[rustfmt::skip]
-pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transfers_at_once: usize) -> Result<(), anyhow::Error> {
+pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, transfers_at_once: usize) -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
     let geth_container = exclusive_geth_init(Duration::from_secs(6 * 3600)).await;
     let conn = setup_random_memory_sqlite_conn().await;
