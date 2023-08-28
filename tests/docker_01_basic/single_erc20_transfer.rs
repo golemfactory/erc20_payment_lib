@@ -3,6 +3,7 @@ use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
+use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_test::*;
@@ -61,6 +62,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
 
         //load private key for account 0xbfb29b133aa51c4b45b49468f9a22958eafea6fa
         let private_keys = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963")?;
+        let signer = PrivateKeySigner::new(private_keys.0.clone());
 
         //add single erc20 transaction to database
         insert_token_transfer(
@@ -81,6 +83,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
             &private_keys.0,
             "",
             config.clone(),
+            signer,
             Some(conn.clone()),
             Some(AdditionalOptions {
                 keep_running: false,
@@ -105,7 +108,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
         let res = test_get_balance(&proxy_url_base, "0xbfb29b133aa51c4b45b49468f9a22958eafea6fa,0xf2f86a61b769c91fc78f15059a5bd2c189b84be2").await?;
         assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].gas,           Some("0".to_string()));
         assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].token_decimal, Some("2.222000000000000222".to_string()));
-        assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].token_human,   Some("2.22 tGLM".to_string()));
+        assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].token_human,   Some("2.222 tGLM".to_string()));
 
         let gas_left = U256::from_dec_str(&res["0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"].gas.clone().unwrap()).unwrap();
         assert_eq!(gas_left + fee_paid_u256, U256::from(536870912000000000000_u128));

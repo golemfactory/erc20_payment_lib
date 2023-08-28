@@ -3,6 +3,7 @@ use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
+use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_test::*;
@@ -99,6 +100,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
 
         //load private key for account 0xbfb29b133aa51c4b45b49468f9a22958eafea6fa
         let private_keys = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963")?;
+        let signer = PrivateKeySigner::new(private_keys.0.clone());
 
         //add single erc20 transaction to database
         for (addr, val) in test_receivers.iter().take(payment_count)
@@ -122,6 +124,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
             &private_keys.0,
             "",
             config.clone(),
+            signer,
             Some(conn.clone()),
             Some(AdditionalOptions {
                 keep_running: false,

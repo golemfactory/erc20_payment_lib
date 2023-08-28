@@ -3,6 +3,7 @@ use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::TransactionStuck;
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent, TransactionStuckReason};
+use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
@@ -58,6 +59,7 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
 
         //load private key for account 0x653b48E1348F480149047AA3a58536eb0dbBB2E2
         let private_keys = load_private_keys("e17d811043b721c17081d0609a80e60424d6de3ac7c67ae84899cf89c1b8cd7f")?;
+        let signer = PrivateKeySigner::new(private_keys.0.clone());
 
         //add single gas transaction to database
         insert_token_transfer(
@@ -78,6 +80,7 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
             &private_keys.0,
             "",
             config.clone(),
+            signer,
             Some(conn.clone()),
             Some(AdditionalOptions {
                 keep_running: false,

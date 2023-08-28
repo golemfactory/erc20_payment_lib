@@ -11,6 +11,7 @@ use erc20_payment_lib::db::ops::{
     get_transfer_stats, insert_token_transfer, update_token_transfer, TransferStatsPart,
 };
 use erc20_payment_lib::server::*;
+use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::utils::{rust_dec_to_u256, u256_to_rust_dec};
 
 use erc20_payment_lib::{
@@ -40,6 +41,7 @@ async fn main_internal() -> Result<(), PaymentError> {
     let (private_keys, public_addrs) =
         load_private_keys(&env::var("ETH_PRIVATE_KEYS").unwrap_or("".to_string()))?;
     display_private_keys(&private_keys);
+    let signer = PrivateKeySigner::new(private_keys.clone());
 
     let config = config::Config::load("config-payments.toml").await?;
 
@@ -87,6 +89,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 &private_keys,
                 &db_filename,
                 config,
+                signer,
                 Some(conn.clone()),
                 Some(add_opt),
                 None,
