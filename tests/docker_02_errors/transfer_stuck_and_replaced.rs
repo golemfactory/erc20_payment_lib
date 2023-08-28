@@ -3,6 +3,7 @@ use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent, TransactionStuckReason};
+use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
@@ -87,6 +88,9 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
 
         //load private key for account 0x653b48E1348F480149047AA3a58536eb0dbBB2E2
         let private_keys = load_private_keys("c2b876dd5ef1bcab6864249c58dfea6018538d67d0237f105ff8b54d32fb98e1")?;
+        let signer = PrivateKeySigner::new(private_keys.0.clone());
+        let signer2 = PrivateKeySigner::new(private_keys.0.clone());
+        let signer3 = PrivateKeySigner::new(private_keys.0.clone());
 
         //add single gas transaction to database
         insert_token_transfer(
@@ -107,6 +111,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
             &private_keys.0,
             "",
             config.clone(),
+            signer,
             Some(conn.clone()),
             Some(AdditionalOptions {
                 keep_running: false,
@@ -135,6 +140,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
             &private_keys.0,
             "",
             config.clone(),
+            signer2,
             Some(conn.clone()),
             Some(AdditionalOptions {
                 keep_running: false,
@@ -171,6 +177,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
             &private_keys.0,
             "",
             config.clone(),
+            signer3,
             Some(conn.clone()),
             Some(AdditionalOptions {
                 keep_running: false,

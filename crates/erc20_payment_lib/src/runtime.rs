@@ -277,6 +277,7 @@ pub async fn send_driver_event(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn start_payment_engine(
     secret_keys: &[SecretKey],
     db_filename: &str,
