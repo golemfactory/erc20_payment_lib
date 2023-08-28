@@ -108,7 +108,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
         let res = test_get_balance(&proxy_url_base, "0xbfb29b133aa51c4b45b49468f9a22958eafea6fa,0xf2f86a61b769c91fc78f15059a5bd2c189b84be2").await?;
         assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].gas,           Some("0".to_string()));
         assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].token_decimal, Some("2.222000000000000222".to_string()));
-        assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].token_human,   Some("2.22 tGLM".to_string()));
+        assert_eq!(res["0xf2f86a61b769c91fc78f15059a5bd2c189b84be2"].token_human,   Some("2.222 tGLM".to_string()));
 
         let gas_left = U256::from_dec_str(&res["0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"].gas.clone().unwrap()).unwrap();
         assert_eq!(gas_left + fee_paid_u256, U256::from(536870912000000000000_u128));
