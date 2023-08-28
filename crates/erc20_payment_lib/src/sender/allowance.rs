@@ -3,6 +3,7 @@ use std::str::FromStr;
 use crate::db::model::*;
 use crate::db::ops::*;
 use crate::error::{AllowanceRequest, ErrorBag, PaymentError};
+use crate::signer::Signer;
 use crate::transaction::create_erc20_approve;
 
 use crate::setup::PaymentSetup;
@@ -11,13 +12,14 @@ use crate::{err_create, err_from};
 use sqlx::SqlitePool;
 
 use crate::error::TransactionFailedError;
-use crate::eth::{check_allowance, get_eth_addr_from_secret};
+use crate::eth::check_allowance;
 use web3::types::{Address, U256};
 
 pub async fn process_allowance(
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
     allowance_request: &AllowanceRequest,
+    signer: &impl Signer,
 ) -> Result<u32, PaymentError> {
     let minimum_allowance: U256 = U256::max_value() / U256::from(2);
     let chain_setup = payment_setup.get_chain_setup(allowance_request.chain_id)?;
@@ -103,13 +105,10 @@ pub async fn process_allowance(
         log::info!("Allowance too low, create new approval tx");
 
         let from_addr = Address::from_str(&allowance_request.owner).map_err(err_from!())?;
-        let _private_key = payment_setup
-            .secret_keys
-            .iter()
-            .find(|sk| get_eth_addr_from_secret(sk) == from_addr)
-            .ok_or(err_create!(TransactionFailedError::new(&format!(
-                "Failed to find private key for address: {from_addr}"
-            ))))?;
+        signer
+            .check_if_sign_possible(from_addr)
+            .await
+            .map_err(|e| err_create!(TransactionFailedError::new(&e.message)))?;
 
         let mut allowance = AllowanceDao {
             id: 0,

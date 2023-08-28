@@ -434,7 +434,9 @@ pub async fn service_loop(
                     match &e.inner {
                         ErrorBag::NoAllowanceFound(allowance_request) => {
                             log::info!("No allowance found for contract {} to spend token {} for owner: {}", allowance_request.spender_addr, allowance_request.token_addr, allowance_request.owner);
-                            match process_allowance(conn, payment_setup, allowance_request).await {
+                            match process_allowance(conn, payment_setup, allowance_request, &signer)
+                                .await
+                            {
                                 Ok(_) => {
                                     //process transaction instantly
                                     process_tx_needed = true;
