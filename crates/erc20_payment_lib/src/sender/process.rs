@@ -180,6 +180,7 @@ pub async fn process_transaction(
                             &event_sender,
                             DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
                                 NoGasDetails {
+                                    tx: web3_tx_dao.clone(),
                                     gas_balance: Some(
                                         u256_to_rust_dec(gas_balance, Some(18))
                                             .map_err(err_from!())?,

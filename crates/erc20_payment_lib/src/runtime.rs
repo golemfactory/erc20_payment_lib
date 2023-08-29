@@ -50,6 +50,7 @@ pub struct GasLowInfo {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct NoGasDetails {
+    pub tx: TxDao,
     pub gas_balance: Option<Decimal>,
     pub gas_needed: Option<Decimal>,
 }
