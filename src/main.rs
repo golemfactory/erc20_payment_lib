@@ -478,12 +478,18 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::Cleanup { cleanup_options } => {
             println!("Cleaning up (doing nothing right now)");
             if cleanup_options.remove_unsent_tx {
-                match remove_last_unsent_transactions(conn.clone()).await {
-                    Ok(id) => {
-                        println!("Removed unsent transaction with id {}", id);
-                    }
-                    Err(e) => {
-                        println!("Error when removing unsent transaction: {}", e);
+                loop {
+                    match remove_last_unsent_transactions(conn.clone()).await {
+                        Ok(Some(id)) => {
+                            println!("Removed unsent transaction with id {}", id);
+                        }
+                        Ok(None) => {
+                            println!("No unsent transactions found");
+                            break;
+                        }
+                        Err(e) => {
+                            println!("Error when removing unsent transaction: {}", e);
+                        }
                     }
                 }
             }

@@ -270,15 +270,18 @@ impl PaymentRuntime {
 
 
 }
-pub async fn remove_last_unsent_transactions(conn: SqlitePool) -> Result<i64, PaymentError> {
+pub async fn remove_last_unsent_transactions(conn: SqlitePool) -> Result<Option<i64>, PaymentError> {
     let mut db_transaction = conn.begin().await.map_err(|err|err_custom_create!("Error beginning transaction {err}"))?;
     match get_last_unsent_tx(&mut *db_transaction, 0).await {
         Ok(tx) => {
-            let tx_id = tx.id;
-            cleanup_token_transfer_tx(&mut *db_transaction, tx_id).await.map_err(err_from!())?;
-            delete_tx(&mut *db_transaction, tx_id).await.map_err(err_from!())?;
-            db_transaction.commit().await.map_err(err_from!())?;
-            Ok(tx_id)
+            if let Some(tx) = tx {
+                cleanup_token_transfer_tx(&mut *db_transaction, tx.id).await.map_err(err_from!())?;
+                delete_tx(&mut *db_transaction, tx.id).await.map_err(err_from!())?;
+                db_transaction.commit().await.map_err(err_from!())?;
+                Ok(Some(tx.id))
+            } else {
+                Ok(None)
+            }
         }
         Err(e) => {
             log::error!("Error getting last unsent transaction: {}", e);

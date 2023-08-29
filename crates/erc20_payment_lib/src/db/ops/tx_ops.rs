@@ -42,13 +42,13 @@ where
     Ok(row)
 }
 
-pub async fn get_last_unsent_tx<'c, E>(executor: E, tx_id: i64) -> Result<TxDao, sqlx::Error>
+pub async fn get_last_unsent_tx<'c, E>(executor: E, tx_id: i64) -> Result<Option<TxDao>, sqlx::Error>
     where
         E: Executor<'c, Database = Sqlite>,
 {
     let row = sqlx::query_as::<_, TxDao>(r"SELECT * FROM tx WHERE broadcast_date is NULL AND signed_date is NULL ORDER BY id DESC LIMIT 1")
         .bind(tx_id)
-        .fetch_one(executor)
+        .fetch_optional(executor)
         .await?;
     Ok(row)
 }
