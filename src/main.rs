@@ -27,6 +27,7 @@ use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::types::{H160, U256};
+use erc20_payment_lib::runtime::remove_last_unsent_transactions;
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -476,7 +477,16 @@ async fn main_internal() -> Result<(), PaymentError> {
         }
         PaymentCommands::Cleanup { cleanup_options } => {
             println!("Cleaning up (doing nothing right now)");
-            let _ = cleanup_options;
+            if cleanup_options.remove_unsent_tx {
+                match remove_last_unsent_transactions(conn.clone()).await {
+                    Ok(id) => {
+                        println!("Removed unsent transaction with id {}", id);
+                    }
+                    Err(e) => {
+                        println!("Error when removing unsent transaction: {}", e);
+                    }
+                }
+            }
         }
     }
 

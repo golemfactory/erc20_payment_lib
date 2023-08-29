@@ -13,7 +13,7 @@ use crate::sender::batching::{gather_transactions_post, gather_transactions_pre}
 use crate::sender::process_allowance;
 use crate::setup::PaymentSetup;
 use crate::signer::Signer;
-use crate::{err_custom_create, err_from};
+use crate::{err_create, err_custom_create, err_from};
 use sqlx::SqlitePool;
 use web3::types::U256;
 
@@ -285,17 +285,16 @@ pub async fn process_transactions(
                 {
                     Ok((tx_dao, process_result)) => (tx_dao, process_result),
                     Err(err) => match err.inner {
-                        ErrorBag::TransactionFailedError(err) => {
+                        ErrorBag::TransactionFailedError(err2) => {
                             shared_state
                                 .lock()
                                 .await
-                                .set_tx_error(tx.id, Some(err.message.clone()));
-                            (
-                                tx.clone(),
-                                ProcessTransactionResult::InternalError(format!("{}", &err)),
-                            )
+                                .set_tx_error(tx.id, Some(err2.message.clone()));
+
+                            return Err(err_create!(err2));
                         }
                         _ => {
+                            log::error!("Error in process transaction: {}", err.inner);
                             shared_state
                                 .lock()
                                 .await
