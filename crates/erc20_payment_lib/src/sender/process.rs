@@ -15,7 +15,7 @@ use web3::Web3;
 use crate::db::model::TxDao;
 use crate::eth::get_transaction_count;
 use crate::runtime::{
-    send_driver_event, DriverEvent, DriverEventContent, GasLowInfo, SharedState,
+    send_driver_event, DriverEvent, DriverEventContent, GasLowInfo, NoGasDetails, SharedState,
     TransactionFailedReason, TransactionStuckReason,
 };
 use crate::setup::PaymentSetup;
@@ -60,7 +60,7 @@ pub async fn process_transaction(
         send_driver_event(
             &event_sender,
             DriverEventContent::TransactionFailed(
-                TransactionFailedReason::InvalidChainId("No setup found for chain id: {chain_id}".to_string()),
+                TransactionFailedReason::InvalidChainId(format!("No setup found for chain id: {chain_id}")),
             ),
         ).await;
         return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Unknown));
@@ -164,7 +164,40 @@ pub async fn process_transaction(
                 .set_tx_message(web3_tx_dao.id, "Checking transaction".to_string());
             log::info!("Checking transaction {}", web3_tx_dao.id);
             match check_transaction(web3, web3_tx_dao).await {
-                Ok(_) => {}
+                Ok(res) => {
+                    let gas_balance = web3
+                        .eth()
+                        .balance(from_addr, None)
+                        .await
+                        .map_err(err_from!())?;
+                    if gas_balance < res {
+                        log::warn!(
+                            "Gas balance too low for gas {} - vs needed: {}",
+                            u256_to_rust_dec(gas_balance, Some(18)).map_err(err_from!())?,
+                            u256_to_rust_dec(res, Some(18)).map_err(err_from!())?
+                        );
+                        send_driver_event(
+                            &event_sender,
+                            DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
+                                NoGasDetails {
+                                    gas_balance: Some(
+                                        u256_to_rust_dec(gas_balance, Some(18))
+                                            .map_err(err_from!())?,
+                                    ),
+                                    gas_needed: Some(
+                                        u256_to_rust_dec(res, Some(18)).map_err(err_from!())?,
+                                    ),
+                                },
+                            )),
+                        )
+                        .await;
+                        return Err(err_custom_create!(
+                            "Gas balance too low for gas {} - vs needed: {}",
+                            u256_to_rust_dec(gas_balance, Some(18)).map_err(err_from!())?,
+                            u256_to_rust_dec(res, Some(18)).map_err(err_from!())?
+                        ));
+                    }
+                }
                 Err(err) => {
                     let err_msg = format!("{err}");
                     if err_msg

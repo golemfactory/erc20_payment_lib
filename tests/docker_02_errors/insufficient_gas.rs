@@ -6,6 +6,7 @@ use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent, TransactionS
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_test::*;
+use rust_decimal::Decimal;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
@@ -32,8 +33,11 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
             match msg.content {
                 TransactionStuck(reason) => {
                     match reason {
-                        TransactionStuckReason::NoGas(msg) => {
-                            log::info!("No gas: {msg}");
+                        TransactionStuckReason::NoGas(no_gas_details) => {
+                            log::info!("No gas: {no_gas_details:?}");
+                            //assert!(no_gas_details.)
+                            assert_eq!(no_gas_details.gas_needed, Some(Decimal::from_str("0.000128100002345678").unwrap()));
+                            assert_eq!(no_gas_details.gas_balance, Some(Decimal::from_str("0.000128").unwrap()));
                             missing_gas_message_count += 1;
                         },
                         _ => {
@@ -55,22 +59,22 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
     {
         let mut config = create_default_config_setup(&proxy_url_base, proxy_key).await;
         config.chain.get_mut("dev").unwrap().priority_fee = 1.0;
-        config.chain.get_mut("dev").unwrap().max_fee_per_gas = 1.0;
+        config.chain.get_mut("dev").unwrap().max_fee_per_gas = 6.1;
 
         //load private key for account 0x653b48E1348F480149047AA3a58536eb0dbBB2E2
-        let private_keys = load_private_keys("e17d811043b721c17081d0609a80e60424d6de3ac7c67ae84899cf89c1b8cd7f")?;
+        let private_keys = load_private_keys("4046a9cb8db98423d6d6248081bf4f85a0070b34b462d54b368002b9a25d5c74")?;
         let signer = PrivateKeySigner::new(private_keys.0.clone());
 
         //add single gas transaction to database
         insert_token_transfer(
             &conn,
             &create_token_transfer(
-                Address::from_str("0xB1C4D937A1b9bfC17a2Eb92D3577F8b66763bfC1").unwrap(),
+                Address::from_str("0x4caa30c14bc74bf3099cbe589a37de53a4855ef6").unwrap(),
                 Address::from_str("0x41162E565ebBF1A52eC904c7365E239c40d82568").unwrap(),
                 config.chain.get("dev").unwrap().chain_id,
                 Some("test_payment"),
                 None,
-                U256::from(0_u128),
+                U256::from(2345678_u128),
             )
         ).await?;
 

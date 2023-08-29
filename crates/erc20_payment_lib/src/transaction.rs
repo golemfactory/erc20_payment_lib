@@ -3,7 +3,9 @@ use crate::db::model::*;
 use crate::error::*;
 use crate::eth::get_eth_addr_from_secret;
 use crate::multi::pack_transfers_for_multi_contract;
-use crate::runtime::{send_driver_event, DriverEvent, DriverEventContent, TransactionStuckReason};
+use crate::runtime::{
+    send_driver_event, DriverEvent, DriverEventContent, NoGasDetails, TransactionStuckReason,
+};
 use crate::signer::Signer;
 use crate::utils::{datetime_from_u256_timestamp, ConversionError};
 use crate::{err_custom_create, err_from};
@@ -344,7 +346,7 @@ pub fn create_erc20_approve(
 pub async fn check_transaction(
     web3: &Web3<Http>,
     web3_tx_dao: &mut TxDao,
-) -> Result<(), PaymentError> {
+) -> Result<U256, PaymentError> {
     let call_request = dao_to_call_request(web3_tx_dao)?;
     if let Some(gas) = call_request.gas {
         log::debug!(
@@ -358,7 +360,7 @@ pub async fn check_transaction(
             .map_err(err_from!())?;
 
         log::info!("Using already set gas limit: {gas}");
-        Ok(())
+        Ok(U256::zero())
     } else {
         log::debug!("Check transaction with gas estimation: {:?}", call_request);
         let mut loc_call_request = call_request.clone();
@@ -390,7 +392,11 @@ pub async fn check_transaction(
         log::info!("Set gas limit basing on gas estimation: {gas_limit}");
         web3_tx_dao.gas_limit = Some(gas_limit.as_u64() as i64);
 
-        Ok(())
+        let max_fee_per_gas =
+            U256::from_dec_str(&web3_tx_dao.max_fee_per_gas).map_err(err_from!())?;
+        let gas_needed_for_tx = U256::from_dec_str(&web3_tx_dao.val).map_err(err_from!())?;
+        let maximum_gas_needed = gas_needed_for_tx + gas_limit * max_fee_per_gas;
+        Ok(maximum_gas_needed)
     }
 }
 
@@ -472,8 +478,10 @@ pub async fn send_transaction(
                         send_driver_event(
                             &event_sender,
                             DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
-                                "RPC returned insufficient funds when sending transaction"
-                                    .to_string(),
+                                NoGasDetails {
+                                    gas_balance: None,
+                                    gas_needed: None,
+                                },
                             )),
                         )
                         .await;

@@ -49,9 +49,15 @@ pub struct GasLowInfo {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct NoGasDetails {
+    pub gas_balance: Option<Decimal>,
+    pub gas_needed: Option<Decimal>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[allow(clippy::large_enum_variant)]
 pub enum TransactionStuckReason {
-    NoGas(String),
+    NoGas(NoGasDetails),
     GasPriceLow(GasLowInfo),
     RPCEndpointProblems(String),
 }
