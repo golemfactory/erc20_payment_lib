@@ -22,12 +22,12 @@ use erc20_payment_lib::{
 };
 use std::env;
 
+use erc20_payment_lib::runtime::remove_last_unsent_transactions;
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::types::{H160, U256};
-use erc20_payment_lib::runtime::remove_last_unsent_transactions;
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();

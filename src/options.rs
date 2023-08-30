@@ -145,7 +145,10 @@ pub struct DecryptKeyStoreOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Cleanup options")]
 pub struct CleanupOptions {
-    #[structopt(long = "remove-unsent-tx", help = "Remove transactions that are not sent to the network")]
+    #[structopt(
+        long = "remove-unsent-tx",
+        help = "Remove transactions that are not sent to the network"
+    )]
     pub remove_unsent_tx: bool,
 }
 

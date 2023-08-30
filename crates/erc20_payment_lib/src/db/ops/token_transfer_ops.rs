@@ -60,12 +60,9 @@ where
     Ok(())
 }
 
-pub async fn cleanup_token_transfer_tx<'c, E>(
-    executor: E,
-    tx_id: i64,
-) -> Result<(), sqlx::Error>
-    where
-        E: Executor<'c, Database = Sqlite>,
+pub async fn cleanup_token_transfer_tx<'c, E>(executor: E, tx_id: i64) -> Result<(), sqlx::Error>
+where
+    E: Executor<'c, Database = Sqlite>,
 {
     let _res = sqlx::query(
         r"UPDATE token_transfer SET
@@ -76,9 +73,9 @@ pub async fn cleanup_token_transfer_tx<'c, E>(
             WHERE tx_id = $1
         ",
     )
-        .bind(tx_id)
-        .execute(executor)
-        .await?;
+    .bind(tx_id)
+    .execute(executor)
+    .await?;
     Ok(())
 }
 
