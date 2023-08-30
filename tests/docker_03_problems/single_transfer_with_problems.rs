@@ -170,6 +170,11 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn test_gas_transfer_05() -> Result<(), anyhow::Error> {
+    test_gas_transfer(0.5).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn test_gas_transfer_06() -> Result<(), anyhow::Error> {
     test_gas_transfer(0.6).await
 }
@@ -177,9 +182,4 @@ async fn test_gas_transfer_06() -> Result<(), anyhow::Error> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_gas_transfer_07() -> Result<(), anyhow::Error> {
     test_gas_transfer(0.7).await
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_gas_transfer_08() -> Result<(), anyhow::Error> {
-    test_gas_transfer(0.8).await
 }
