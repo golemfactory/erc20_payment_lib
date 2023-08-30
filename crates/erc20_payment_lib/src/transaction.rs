@@ -479,6 +479,7 @@ pub async fn send_transaction(
                             &event_sender,
                             DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
                                 NoGasDetails {
+                                    tx: web3_tx_dao.clone(),
                                     gas_balance: None,
                                     gas_needed: None,
                                 },

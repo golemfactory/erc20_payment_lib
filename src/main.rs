@@ -22,6 +22,7 @@ use erc20_payment_lib::{
 };
 use std::env;
 
+use erc20_payment_lib::runtime::remove_last_unsent_transactions;
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use std::sync::Arc;
 use structopt::StructOpt;
@@ -43,7 +44,50 @@ async fn main_internal() -> Result<(), PaymentError> {
     display_private_keys(&private_keys);
     let signer = PrivateKeySigner::new(private_keys.clone());
 
-    let config = config::Config::load("config-payments.toml").await?;
+    let mut config = config::Config::load("config-payments.toml").await?;
+
+    let rpc_endpoints_from_env = [
+        ("POLYGON_GETH_ADDR", "polygon"),
+        ("GOERLI_GETH_ADDR", "goerli"),
+        ("MUMBAI_GETH_ADDR", "mumbai"),
+        ("DEV_GETH_ADDR", "dev"),
+    ];
+
+    for f in rpc_endpoints_from_env {
+        if let Ok(polygon_geth_addr) = env::var(f.0) {
+            let strs = polygon_geth_addr
+                .split(',')
+                .map(|s| s.to_string())
+                .collect::<Vec<String>>();
+            log::info!(
+                "Overriding default rpc endpoints for {} with {:?}",
+                f.0,
+                strs
+            );
+            config.change_rpc_endpoints(f.1, strs).await?;
+        }
+    }
+
+    let max_fee_from_env = [
+        ("POLYGON_MAX_BASE_FEE", "polygon"),
+        ("GOERLI_MAX_BASE_FEE", "goerli"),
+        ("MUMBAI_MAX_BASE_FEE", "mumbai"),
+        ("DEV_MAX_BASE_FEE", "dev"),
+    ];
+
+    for f in max_fee_from_env {
+        if let Ok(base_fee_from_env) = env::var(f.0) {
+            let fee_per_gas = base_fee_from_env
+                .parse::<f64>()
+                .map_err(|_| err_custom_create!("Failed to parse max base fee"))?;
+            log::info!(
+                "Overriding default max base fee for {} with {}",
+                f.0,
+                fee_per_gas
+            );
+            config.change_max_fee(f.1, fee_per_gas).await?;
+        }
+    }
 
     let db_filename = cli.sqlite_db_file;
     if cli.sqlite_read_only {
@@ -476,7 +520,22 @@ async fn main_internal() -> Result<(), PaymentError> {
         }
         PaymentCommands::Cleanup { cleanup_options } => {
             println!("Cleaning up (doing nothing right now)");
-            let _ = cleanup_options;
+            if cleanup_options.remove_unsent_tx {
+                loop {
+                    match remove_last_unsent_transactions(conn.clone()).await {
+                        Ok(Some(id)) => {
+                            println!("Removed unsent transaction with id {}", id);
+                        }
+                        Ok(None) => {
+                            println!("No unsent transactions found");
+                            break;
+                        }
+                        Err(e) => {
+                            println!("Error when removing unsent transaction: {}", e);
+                        }
+                    }
+                }
+            }
         }
     }
 

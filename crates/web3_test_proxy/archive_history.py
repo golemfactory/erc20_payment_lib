@@ -111,7 +111,6 @@ async def main():
         raise Exception("Unknown action")
 
 
-
 if __name__ == "__main__":
     print(batch_rpc_provider.__version__)
     if platform.system() == 'Windows':

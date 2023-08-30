@@ -1,5 +1,7 @@
 use crate::db::create_sqlite_connection;
-use crate::db::ops::insert_token_transfer;
+use crate::db::ops::{
+    cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx, insert_token_transfer,
+};
 use crate::signer::Signer;
 use crate::transaction::create_token_transfer;
 use crate::{err_custom_create, err_from};
@@ -50,6 +52,7 @@ pub struct GasLowInfo {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct NoGasDetails {
+    pub tx: TxDao,
     pub gas_balance: Option<Decimal>,
     pub gas_needed: Option<Decimal>,
 }
@@ -267,7 +270,37 @@ impl PaymentRuntime {
         Ok(())
     }
 }
-
+pub async fn remove_last_unsent_transactions(
+    conn: SqlitePool,
+) -> Result<Option<i64>, PaymentError> {
+    let mut db_transaction = conn
+        .begin()
+        .await
+        .map_err(|err| err_custom_create!("Error beginning transaction {err}"))?;
+    match get_last_unsent_tx(&mut *db_transaction, 0).await {
+        Ok(tx) => {
+            if let Some(tx) = tx {
+                cleanup_token_transfer_tx(&mut *db_transaction, tx.id)
+                    .await
+                    .map_err(err_from!())?;
+                delete_tx(&mut *db_transaction, tx.id)
+                    .await
+                    .map_err(err_from!())?;
+                db_transaction.commit().await.map_err(err_from!())?;
+                Ok(Some(tx.id))
+            } else {
+                Ok(None)
+            }
+        }
+        Err(e) => {
+            log::error!("Error getting last unsent transaction: {}", e);
+            Err(err_custom_create!(
+                "Error getting last unsent transaction: {}",
+                e
+            ))
+        }
+    }
+}
 pub async fn send_driver_event(
     event_sender: &Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     event: DriverEventContent,

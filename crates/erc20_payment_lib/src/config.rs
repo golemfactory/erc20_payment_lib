@@ -111,4 +111,16 @@ impl Config {
             .rpc_endpoints = rpc_endpoints;
         Ok(())
     }
+
+    pub async fn change_max_fee(
+        &mut self,
+        chain: &str,
+        max_fee_per_gas: f64,
+    ) -> Result<(), PaymentError> {
+        self.chain
+            .get_mut(chain)
+            .ok_or(err_custom_create!("Chain {} not found", chain))?
+            .max_fee_per_gas = max_fee_per_gas;
+        Ok(())
+    }
 }
