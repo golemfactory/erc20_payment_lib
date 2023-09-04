@@ -951,6 +951,7 @@ dependencies = [
  "humantime",
  "lazy_static",
  "log",
+ "percent-encoding",
  "rand",
  "rust_decimal",
  "rustc-hex",

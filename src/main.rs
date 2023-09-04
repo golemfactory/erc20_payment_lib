@@ -93,13 +93,13 @@ async fn main_internal() -> Result<(), PaymentError> {
     if cli.sqlite_read_only {
         log::info!(
             "Connecting read only to db: {} (journal mode: {})",
-            db_filename,
+            db_filename.display(),
             cli.sqlite_journal
         );
     } else {
         log::info!(
             "Connecting read/write connection to db: {} (journal mode: {})",
-            db_filename,
+            db_filename.display(),
             cli.sqlite_journal
         );
     }

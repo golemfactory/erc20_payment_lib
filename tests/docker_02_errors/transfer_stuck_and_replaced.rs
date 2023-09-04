@@ -109,7 +109,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
 
         let sp = start_payment_engine(
             &private_keys.0,
-            "",
+            std::path::Path::new(""),
             config.clone(),
             signer,
             Some(conn.clone()),
@@ -138,7 +138,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
 
         let sp = start_payment_engine(
             &private_keys.0,
-            "",
+            std::path::Path::new(""),
             config.clone(),
             signer2,
             Some(conn.clone()),
@@ -175,7 +175,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
         };
         let sp = start_payment_engine(
             &private_keys.0,
-            "",
+            std::path::Path::new(""),
             config.clone(),
             signer3,
             Some(conn.clone()),
