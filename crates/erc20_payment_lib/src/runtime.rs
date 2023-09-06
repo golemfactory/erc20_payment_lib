@@ -256,6 +256,66 @@ pub struct PaymentRuntime {
 }
 
 impl PaymentRuntime {
+    #[allow(clippy::too_many_arguments)]
+    pub async fn new(
+        secret_keys: &[SecretKey],
+        db_filename: &Path,
+        config: config::Config,
+        signer: impl Signer + Send + Sync + 'static,
+        conn: Option<SqlitePool>,
+        options: Option<AdditionalOptions>,
+        event_sender: Option<Sender<DriverEvent>>,
+        extra_testing: Option<ExtraOptionsForTesting>,
+    ) -> Result<PaymentRuntime, PaymentError> {
+        let options = options.unwrap_or_default();
+        let mut payment_setup = PaymentSetup::new(
+            &config,
+            secret_keys.to_vec(),
+            !options.keep_running,
+            options.generate_tx_only,
+            options.skip_multi_contract_check,
+            config.engine.service_sleep,
+            config.engine.process_sleep,
+            config.engine.automatic_recover,
+        )?;
+        payment_setup.extra_options_for_testing = extra_testing;
+        payment_setup.contract_use_direct_method = options.contract_use_direct_method;
+        payment_setup.contract_use_unpacked_method = options.contract_use_unpacked_method;
+        log::debug!("Starting payment engine: {:#?}", payment_setup);
+
+        let conn = if let Some(conn) = conn {
+            conn
+        } else {
+            log::info!("connecting to sqlite file db: {}", db_filename.display());
+            create_sqlite_connection(Some(db_filename), None, false, true).await?
+        };
+
+        let (status_tracker, event_sender) = StatusTracker::new(event_sender);
+
+        let ps = payment_setup.clone();
+
+        let shared_state = Arc::new(Mutex::new(SharedState {
+            inserted: 0,
+            idling: false,
+            current_tx_info: BTreeMap::new(),
+            faucet: None,
+        }));
+        let shared_state_clone = shared_state.clone();
+        let conn_ = conn.clone();
+        let jh = tokio::spawn(async move {
+            service_loop(shared_state_clone, &conn_, &ps, signer, Some(event_sender)).await
+        });
+
+        Ok(PaymentRuntime {
+            runtime_handle: jh,
+            setup: payment_setup,
+            shared_state,
+            conn,
+            status_tracker,
+            config,
+        })
+    }
+
     pub async fn get_token_balance(
         &self,
         chain_name: String,
@@ -394,64 +454,4 @@ pub async fn send_driver_event(
             log::error!("Error sending event: {}", e);
         }
     }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub async fn start_payment_engine(
-    secret_keys: &[SecretKey],
-    db_filename: &Path,
-    config: config::Config,
-    signer: impl Signer + Send + Sync + 'static,
-    conn: Option<SqlitePool>,
-    options: Option<AdditionalOptions>,
-    event_sender: Option<Sender<DriverEvent>>,
-    extra_testing: Option<ExtraOptionsForTesting>,
-) -> Result<PaymentRuntime, PaymentError> {
-    let options = options.unwrap_or_default();
-    let mut payment_setup = PaymentSetup::new(
-        &config,
-        secret_keys.to_vec(),
-        !options.keep_running,
-        options.generate_tx_only,
-        options.skip_multi_contract_check,
-        config.engine.service_sleep,
-        config.engine.process_sleep,
-        config.engine.automatic_recover,
-    )?;
-    payment_setup.extra_options_for_testing = extra_testing;
-    payment_setup.contract_use_direct_method = options.contract_use_direct_method;
-    payment_setup.contract_use_unpacked_method = options.contract_use_unpacked_method;
-    log::debug!("Starting payment engine: {:#?}", payment_setup);
-
-    let conn = if let Some(conn) = conn {
-        conn
-    } else {
-        log::info!("connecting to sqlite file db: {}", db_filename.display());
-        create_sqlite_connection(Some(db_filename), None, false, true).await?
-    };
-
-    let (status_tracker, event_sender) = StatusTracker::new(event_sender);
-
-    let ps = payment_setup.clone();
-
-    let shared_state = Arc::new(Mutex::new(SharedState {
-        inserted: 0,
-        idling: false,
-        current_tx_info: BTreeMap::new(),
-        faucet: None,
-    }));
-    let shared_state_clone = shared_state.clone();
-    let conn_ = conn.clone();
-    let jh = tokio::spawn(async move {
-        service_loop(shared_state_clone, &conn_, &ps, signer, Some(event_sender)).await
-    });
-
-    Ok(PaymentRuntime {
-        runtime_handle: jh,
-        setup: payment_setup,
-        shared_state,
-        conn,
-        status_tracker,
-        config,
-    })
 }

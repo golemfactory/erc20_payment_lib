@@ -2,7 +2,7 @@ use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
-use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent, TransactionStuckReason};
+use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime, TransactionStuckReason};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_test::*;
@@ -107,7 +107,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
 
         // *** TEST RUN ***
 
-        let sp = start_payment_engine(
+        let sp = PaymentRuntime::new(
             &private_keys.0,
             std::path::Path::new(""),
             config.clone(),
@@ -136,7 +136,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
             Scenarios::FirstTransactionDone => Duration::from_secs(80),
         };
 
-        let sp = start_payment_engine(
+        let sp = PaymentRuntime::new(
             &private_keys.0,
             std::path::Path::new(""),
             config.clone(),
@@ -173,7 +173,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
             Scenarios::PreLastTransactionDone => Duration::from_secs(35),
             Scenarios::FirstTransactionDone => Duration::from_secs(0),
         };
-        let sp = start_payment_engine(
+        let sp = PaymentRuntime::new(
             &private_keys.0,
             std::path::Path::new(""),
             config.clone(),

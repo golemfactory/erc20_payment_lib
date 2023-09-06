@@ -2,7 +2,7 @@ use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
-use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
+use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::u256_to_rust_dec;
@@ -120,7 +120,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
 
         // *** TEST RUN ***
 
-        let sp = start_payment_engine(
+        let sp = PaymentRuntime::new(
             &private_keys.0,
             std::path::Path::new(""),
             config.clone(),

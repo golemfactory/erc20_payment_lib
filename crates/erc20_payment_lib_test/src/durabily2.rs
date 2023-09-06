@@ -7,7 +7,7 @@ use erc20_payment_lib::db::ops::get_transfer_stats;
 use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
-use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
+use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_extra::{generate_test_payments, GenerateOptions};
@@ -108,7 +108,7 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
         let jh = tokio::spawn(
             async move {
                 tokio::time::sleep(Duration::from_secs(1)).await;
-                let sp = start_payment_engine(
+                let sp = PaymentRuntime::new(
                     &private_keys,
                     Path::new(""),
                     config.clone(),
