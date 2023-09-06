@@ -41,8 +41,8 @@ async fn test_wrong_chain_id() -> Result<(), anyhow::Error> {
                 },
                 TransactionFailed(reason) => {
                     match reason {
-                        TransactionFailedReason::InvalidChainId(msg) => {
-                            log::info!("Invalid chain id: {msg}");
+                        TransactionFailedReason::InvalidChainId(chain_id) => {
+                            log::info!("Invalid chain id: {chain_id}");
                             tx_invalid_chain_id_message_count += 1;
                         },
                         _ => {

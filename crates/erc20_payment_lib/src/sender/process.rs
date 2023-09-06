@@ -60,7 +60,7 @@ pub async fn process_transaction(
         send_driver_event(
             &event_sender,
             DriverEventContent::TransactionFailed(
-                TransactionFailedReason::InvalidChainId(format!("No setup found for chain id: {chain_id}")),
+                TransactionFailedReason::InvalidChainId(chain_id),
             ),
         ).await;
         return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Unknown));
