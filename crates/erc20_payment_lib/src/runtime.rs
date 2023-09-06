@@ -185,7 +185,13 @@ impl Default for ValidatedOptions {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum StatusProperty {
-    InvalidChainId { chain_id: i64 },
+    InvalidChainId {
+        chain_id: i64,
+    },
+    NoGas {
+        chain_id: i64,
+        missing_gas: Option<Decimal>,
+    },
 }
 
 struct StatusTracker {
@@ -195,10 +201,37 @@ struct StatusTracker {
 impl StatusTracker {
     /// Add or update status_props so as to ensure that the given status_property is
     /// implied.
-    fn append(status_props: &mut Vec<StatusProperty>, status_property: StatusProperty) {
-        if !status_props.contains(&status_property) {
-            status_props.push(status_property);
+    fn update(status_props: &mut Vec<StatusProperty>, new_property: StatusProperty) {
+        for old_property in status_props.iter_mut() {
+            use StatusProperty::*;
+            match (old_property, &new_property) {
+                // InvalidChainId instances can be simply deduplicated by id
+                (InvalidChainId { chain_id: id1 }, InvalidChainId { chain_id: id2 })
+                    if id1 == id2 =>
+                {
+                    return
+                }
+                // NoGas statuses add up
+                (
+                    NoGas {
+                        chain_id: id1,
+                        missing_gas: old_missing,
+                    },
+                    NoGas {
+                        chain_id: id2,
+                        missing_gas: new_missing,
+                    },
+                ) if id1 == id2 => {
+                    if let (Some(old_missing), Some(new_missing)) = (old_missing, new_missing) {
+                        *old_missing += new_missing;
+                    }
+                    return;
+                }
+                _ => {}
+            }
         }
+
+        status_props.push(new_property);
     }
 
     /// Remove StatusProperty instances that are invalidated by
@@ -220,12 +253,28 @@ impl StatusTracker {
                 match &ev.content {
                     DriverEventContent::TransactionFailed(
                         TransactionFailedReason::InvalidChainId(chain_id),
-                    ) => Self::append(
+                    ) => Self::update(
                         status2.lock().await.deref_mut(),
                         StatusProperty::InvalidChainId {
                             chain_id: chain_id.clone(),
                         },
                     ),
+                    DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
+                        details,
+                    )) => {
+                        let missing_gas = match (details.gas_balance, details.gas_needed) {
+                            (Some(balance), Some(needed)) => Some(needed - balance),
+                            _ => None,
+                        };
+
+                        Self::update(
+                            status2.lock().await.deref_mut(),
+                            StatusProperty::NoGas {
+                                chain_id: details.tx.chain_id,
+                                missing_gas,
+                            },
+                        )
+                    }
                     DriverEventContent::TransferFinished(token_transfer) => Self::clear_issues(
                         status2.lock().await.deref_mut(),
                         token_transfer.chain_id,
