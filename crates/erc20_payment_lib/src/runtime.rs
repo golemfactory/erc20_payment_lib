@@ -295,6 +295,12 @@ impl StatusTracker {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum TransferType {
+    Token,
+    Gas,
+}
+
 pub struct PaymentRuntime {
     pub runtime_handle: JoinHandle<()>,
     pub setup: PaymentSetup,
@@ -430,7 +436,7 @@ impl PaymentRuntime {
         chain_name: &str,
         from: Address,
         receiver: Address,
-        token_addr: Address,
+        tx_type: TransferType,
         amount: U256,
         payment_id: &str,
     ) -> Result<(), PaymentError> {
@@ -439,12 +445,27 @@ impl PaymentRuntime {
             chain_name
         ))?;
 
+        let token_addr = match tx_type {
+            TransferType::Token => {
+                let address = chain_cfg
+                    .token
+                    .as_ref()
+                    .ok_or(err_custom_create!(
+                        "Chain {} doesn't define its token",
+                        chain_name
+                    ))?
+                    .address;
+                Some(address)
+            }
+            TransferType::Gas => None,
+        };
+
         let token_transfer = create_token_transfer(
             from,
             receiver,
             chain_cfg.chain_id,
             Some(payment_id),
-            Some(token_addr),
+            token_addr,
             amount,
         );
 
