@@ -237,6 +237,7 @@ impl StatusTracker {
     /// Remove StatusProperty instances that are invalidated by
     /// a passing transaction with `ok_chain_id`
     fn clear_issues(status_props: &mut Vec<StatusProperty>, ok_chain_id: i64) {
+        #[allow(clippy::match_like_matches_macro)]
         status_props.retain(|s| match s {
             StatusProperty::InvalidChainId { chain_id } if *chain_id == ok_chain_id => false,
             _ => true,
@@ -256,7 +257,7 @@ impl StatusTracker {
                     ) => Self::update(
                         status2.lock().await.deref_mut(),
                         StatusProperty::InvalidChainId {
-                            chain_id: chain_id.clone(),
+                            chain_id: *chain_id,
                         },
                     ),
                     DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
