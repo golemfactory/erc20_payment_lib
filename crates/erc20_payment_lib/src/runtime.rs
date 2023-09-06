@@ -259,7 +259,6 @@ impl PaymentRuntime {
     pub async fn get_token_balance(
         &self,
         chain_name: String,
-        token_address: Address,
         address: Address,
     ) -> Result<U256, PaymentError> {
         let chain_cfg = self
@@ -270,6 +269,15 @@ impl PaymentRuntime {
                 "Chain {} not found in config file",
                 chain_name
             ))?;
+
+        let token_address = chain_cfg
+            .token
+            .as_ref()
+            .ok_or(err_custom_create!(
+                "Chain {} doesn't define a token",
+                chain_name
+            ))?
+            .address;
 
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
