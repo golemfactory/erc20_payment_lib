@@ -82,12 +82,22 @@ pub enum DriverEventContent {
     ApproveFinished(AllowanceDao),
     TransactionStuck(TransactionStuckReason),
     TransactionFailed(TransactionFailedReason),
+    StatusChanged(Vec<StatusProperty>),
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DriverEvent {
     pub create_date: DateTime<Utc>,
     pub content: DriverEventContent,
+}
+
+impl DriverEvent {
+    pub fn now(content: DriverEventContent) -> Self {
+        DriverEvent {
+            create_date: Utc::now(),
+            content,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -183,7 +193,7 @@ impl Default for ValidatedOptions {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub enum StatusProperty {
     InvalidChainId {
         chain_id: i64,
@@ -201,7 +211,9 @@ struct StatusTracker {
 impl StatusTracker {
     /// Add or update status_props so as to ensure that the given status_property is
     /// implied.
-    fn update(status_props: &mut Vec<StatusProperty>, new_property: StatusProperty) {
+    ///
+    /// Returns true if status_props was mutated, false otherwise
+    fn update(status_props: &mut Vec<StatusProperty>, new_property: StatusProperty) -> bool {
         for old_property in status_props.iter_mut() {
             use StatusProperty::*;
             match (old_property, &new_property) {
@@ -209,7 +221,7 @@ impl StatusTracker {
                 (InvalidChainId { chain_id: id1 }, InvalidChainId { chain_id: id2 })
                     if id1 == id2 =>
                 {
-                    return
+                    return false;
                 }
                 // NoGas statuses add up
                 (
@@ -224,24 +236,32 @@ impl StatusTracker {
                 ) if id1 == id2 => {
                     if let (Some(old_missing), Some(new_missing)) = (old_missing, new_missing) {
                         *old_missing += new_missing;
+                        return true;
                     }
-                    return;
+                    return false;
                 }
                 _ => {}
             }
         }
 
         status_props.push(new_property);
+        true
     }
 
     /// Remove StatusProperty instances that are invalidated by
     /// a passing transaction with `ok_chain_id`
-    fn clear_issues(status_props: &mut Vec<StatusProperty>, ok_chain_id: i64) {
+    ///
+    /// Returns true if status_props was mutated, false otherwise
+    fn clear_issues(status_props: &mut Vec<StatusProperty>, ok_chain_id: i64) -> bool {
+        let old_len = status_props.len();
+
         #[allow(clippy::match_like_matches_macro)]
         status_props.retain(|s| match s {
             StatusProperty::InvalidChainId { chain_id } if *chain_id == ok_chain_id => false,
             _ => true,
         });
+
+        status_props.len() != old_len
     }
 
     fn new(mut sender: Option<Sender<DriverEvent>>) -> (Self, Sender<DriverEvent>) {
@@ -251,7 +271,7 @@ impl StatusTracker {
 
         tokio::spawn(async move {
             while let Some(ev) = status_rx.recv().await {
-                match &ev.content {
+                let emit_changed = match &ev.content {
                     DriverEventContent::TransactionFailed(
                         TransactionFailedReason::InvalidChainId(chain_id),
                     ) => Self::update(
@@ -280,10 +300,19 @@ impl StatusTracker {
                         status2.lock().await.deref_mut(),
                         token_transfer.chain_id,
                     ),
-                    _ => {}
-                }
+                    _ => false,
+                };
+
                 if let Some(sender) = &mut sender {
                     sender.send(ev).await.ok();
+                    if emit_changed {
+                        sender
+                            .send(DriverEvent::now(DriverEventContent::StatusChanged(
+                                status2.lock().await.clone(),
+                            )))
+                            .await
+                            .ok();
+                    }
                 }
             }
         });
@@ -517,10 +546,7 @@ pub async fn send_driver_event(
     event: DriverEventContent,
 ) {
     if let Some(event_sender) = event_sender {
-        let event = DriverEvent {
-            create_date: Utc::now(),
-            content: event,
-        };
+        let event = DriverEvent::now(event);
         if let Err(e) = event_sender.send(event).await {
             log::error!("Error sending event: {}", e);
         }
