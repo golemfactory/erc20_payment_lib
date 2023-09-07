@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, path::PathBuf};
 
 use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
 use structopt::StructOpt;
@@ -196,9 +196,9 @@ pub struct PaymentOptions {
     #[structopt(
         long = "sqlite-db-file",
         help = "Sqlite database file",
-        default_value = "erc20lib.sqlite"
+        default_value = "./erc20lib.sqlite"
     )]
-    pub sqlite_db_file: String,
+    pub sqlite_db_file: PathBuf,
 
     #[structopt(long = "sqlite-read-only", help = "Create read only connection")]
     pub sqlite_read_only: bool,

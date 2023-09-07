@@ -122,7 +122,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
 
         let sp = start_payment_engine(
             &private_keys.0,
-            "",
+            std::path::Path::new(""),
             config.clone(),
             signer,
             Some(conn.clone()),

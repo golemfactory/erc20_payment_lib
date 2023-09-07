@@ -6,6 +6,7 @@ use crate::signer::Signer;
 use crate::transaction::create_token_transfer;
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
+use std::path::Path;
 
 use crate::error::{ErrorBag, PaymentError};
 
@@ -319,7 +320,7 @@ pub async fn send_driver_event(
 #[allow(clippy::too_many_arguments)]
 pub async fn start_payment_engine(
     secret_keys: &[SecretKey],
-    db_filename: &str,
+    db_filename: &Path,
     config: config::Config,
     signer: impl Signer + Send + Sync + 'static,
     conn: Option<SqlitePool>,
@@ -346,7 +347,7 @@ pub async fn start_payment_engine(
     let conn = if let Some(conn) = conn {
         conn
     } else {
-        log::info!("connecting to sqlite file db: {}", db_filename);
+        log::info!("connecting to sqlite file db: {}", db_filename.display());
         create_sqlite_connection(Some(db_filename), None, false, true).await?
     };
 

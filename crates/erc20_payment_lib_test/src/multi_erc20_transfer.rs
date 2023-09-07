@@ -12,6 +12,7 @@ use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_extra::{generate_test_payments, GenerateOptions};
 use std::env;
+use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::U256;
@@ -109,7 +110,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
                 let signer = PrivateKeySigner::new(private_keys.clone());
                 let sp = start_payment_engine(
                     &private_keys,
-                    "",
+                    Path::new(""),
                     config.clone(),
                     signer,
                     Some(conn_.clone()),

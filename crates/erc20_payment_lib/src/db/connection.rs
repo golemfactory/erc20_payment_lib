@@ -1,23 +1,28 @@
-use crate::err_from;
 use crate::error::PaymentError;
 use crate::error::*;
+use crate::{err_custom_create, err_from};
 use sqlx::migrate::Migrator;
 use sqlx::sqlite::SqliteConnectOptions;
 use sqlx::SqlitePool;
 use std::env;
+use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 
 static MIGRATOR: Migrator = sqlx::migrate!();
 
 pub async fn create_sqlite_connection(
-    file_name: Option<&str>,
+    path: Option<&Path>,
     memory_name: Option<&str>,
     read_only: bool,
     run_migrations: bool,
 ) -> Result<SqlitePool, PaymentError> {
-    let url = if let Some(file_name) = file_name {
-        format!("sqlite://{file_name}")
+    let url = if let Some(path) = path {
+        format!(
+            "sqlite://{}",
+            path.to_str()
+                .ok_or_else(|| err_custom_create!("path not convertible to string: {path:?}"))?
+        )
     } else {
         format!("file:{}?mode=memory", memory_name.unwrap_or("mem"))
     };
