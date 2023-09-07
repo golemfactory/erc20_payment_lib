@@ -44,10 +44,9 @@ itertools = "0.11"
 lazy_static = "1.4.0"
 log = "0.4.17"
 mime_guess = "2.0.3"
-percent-encoding = "2.3.0"
 rand = "0.8.5"
 rust-embed = "6.8.1"
-rust_decimal = { version = "1.26.1", features = ["serde-arbitrary-precision"] }
+rust_decimal = "1.26.1"
 rustc-hex = "2.1.0"
 secp256k1 = "0.27.0" # version has to match web3
 serde = "^1.0.147"

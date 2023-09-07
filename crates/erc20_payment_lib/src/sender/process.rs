@@ -321,8 +321,7 @@ pub async fn process_transaction(
                 let Some(block_number) = current_tx.block_number.map(|bn| bn as u64) else {
                     return Err(err_custom_create!(
                         "Block number not found on dao for tx: {}",
-                        current_tx.id)
-                );
+                        current_tx.id));
                 };
                 log::info!(
                     "Receipt found: tx {} tx_hash: {}",

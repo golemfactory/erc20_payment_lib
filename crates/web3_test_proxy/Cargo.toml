@@ -14,10 +14,12 @@ name = "web3_test_proxy"
 [dependencies]
 actix-cors = { version = "0.6.4" }
 actix-files = { version = "0.6.2" }
-actix-web = { version = "^4.2.1", default-features = false, features = ["macros"] }
-awc =  "3.1.1"
+actix-web = { version = "^4.2.1", default-features = false, features = [
+    "macros",
+] }
+awc = "3.1.1"
 base64 = "0.21.2"
-chrono = { version="0.4.22", features = ["serde"] }
+chrono = { version = "0.4.22", features = ["serde"] }
 dotenv = "0.15.0"
 env_logger = "0.10.0"
 hex = "0.4.3"
@@ -26,7 +28,7 @@ log = "0.4.17"
 mime_guess = "2.0.3"
 rand = "0.8.5"
 rust-embed = "6.8.1"
-rust_decimal = { version = "1.26.1", features = ["serde-arbitrary-precision"] }
+rust_decimal = "1.26.1"
 rustc-hex = "2.1.0"
 serde = { version = "1.0.147", features = ["derive"] }
 serde_json = { version = "^1.0.85" }
