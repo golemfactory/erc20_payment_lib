@@ -69,6 +69,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
                         }
                     }
                 }
+                StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
                     panic!("Unexpected message: {:?}", msg);
