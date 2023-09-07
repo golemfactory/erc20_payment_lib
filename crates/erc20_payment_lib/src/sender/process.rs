@@ -59,10 +59,11 @@ pub async fn process_transaction(
     let Ok(chain_setup) = payment_setup.get_chain_setup(chain_id) else {
         send_driver_event(
             &event_sender,
-            DriverEventContent::TransactionFailed(
-                TransactionFailedReason::InvalidChainId(chain_id),
-            ),
-        ).await;
+            DriverEventContent::TransactionFailed(TransactionFailedReason::InvalidChainId(
+                chain_id,
+            )),
+        )
+        .await;
         return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Unknown));
     };
 
@@ -321,7 +322,8 @@ pub async fn process_transaction(
                 let Some(block_number) = current_tx.block_number.map(|bn| bn as u64) else {
                     return Err(err_custom_create!(
                         "Block number not found on dao for tx: {}",
-                        current_tx.id));
+                        current_tx.id
+                    ));
                 };
                 log::info!(
                     "Receipt found: tx {} tx_hash: {}",

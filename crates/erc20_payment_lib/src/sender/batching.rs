@@ -264,12 +264,15 @@ pub async fn gather_transactions_batch(
     let Ok(chain_setup) = payment_setup.get_chain_setup(token_transfer.chain_id) else {
         send_driver_event(
             &event_sender,
-            DriverEventContent::TransactionFailed(
-                TransactionFailedReason::InvalidChainId(
-                    token_transfer.chain_id),
-            ),
-        ).await;
-        return Err(err_custom_create!("No setup found for chain id: {}", token_transfer.chain_id));
+            DriverEventContent::TransactionFailed(TransactionFailedReason::InvalidChainId(
+                token_transfer.chain_id,
+            )),
+        )
+        .await;
+        return Err(err_custom_create!(
+            "No setup found for chain id: {}",
+            token_transfer.chain_id
+        ));
     };
 
     let max_fee_per_gas = chain_setup.max_fee_per_gas;
