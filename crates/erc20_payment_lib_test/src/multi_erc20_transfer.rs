@@ -7,7 +7,7 @@ use erc20_payment_lib::db::ops::get_transfer_stats;
 use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
-use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
+use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_extra::{generate_test_payments, GenerateOptions};
@@ -49,6 +49,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
                 TransactionConfirmed(_tx_dao) => {
                     tx_confirmed_message_count += 1;
                 }
+                StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
                     panic!("Unexpected message: {:?}", msg);
@@ -108,7 +109,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
             async move {
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 let signer = PrivateKeySigner::new(private_keys.clone());
-                let sp = start_payment_engine(
+                let sp = PaymentRuntime::new(
                     &private_keys,
                     Path::new(""),
                     config.clone(),

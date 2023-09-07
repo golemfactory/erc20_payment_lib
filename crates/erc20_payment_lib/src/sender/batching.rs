@@ -265,10 +265,7 @@ pub async fn gather_transactions_batch(
         send_driver_event(
             &event_sender,
             DriverEventContent::TransactionFailed(TransactionFailedReason::InvalidChainId(
-                format!(
-                    "No setup found for chain id when gathering transfers: {}",
-                    token_transfer.chain_id
-                ),
+                token_transfer.chain_id,
             )),
         )
         .await;

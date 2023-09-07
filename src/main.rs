@@ -18,7 +18,7 @@ use erc20_payment_lib::{
     config, err_custom_create, err_from,
     error::*,
     misc::{display_private_keys, load_private_keys},
-    runtime::start_payment_engine,
+    runtime::PaymentRuntime,
 };
 use std::env;
 
@@ -129,7 +129,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 contract_use_unpacked_method: false,
             };
 
-            let sp = start_payment_engine(
+            let sp = PaymentRuntime::new(
                 &private_keys,
                 &db_filename,
                 config,

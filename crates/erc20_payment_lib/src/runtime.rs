@@ -6,6 +6,7 @@ use crate::signer::Signer;
 use crate::transaction::create_token_transfer;
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
+use std::ops::DerefMut;
 use std::path::Path;
 
 use crate::error::{ErrorBag, PaymentError};
@@ -15,6 +16,7 @@ use crate::setup::{ExtraOptionsForTesting, PaymentSetup};
 use crate::config::{self, Config};
 use secp256k1::SecretKey;
 use sqlx::SqlitePool;
+use tokio::sync::mpsc::Sender;
 
 use crate::config::AdditionalOptions;
 use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
@@ -68,7 +70,7 @@ pub enum TransactionStuckReason {
 
 #[derive(Debug, Clone, Serialize)]
 pub enum TransactionFailedReason {
-    InvalidChainId(String),
+    InvalidChainId(i64),
     Unknown,
 }
 
@@ -80,12 +82,22 @@ pub enum DriverEventContent {
     ApproveFinished(AllowanceDao),
     TransactionStuck(TransactionStuckReason),
     TransactionFailed(TransactionFailedReason),
+    StatusChanged(Vec<StatusProperty>),
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct DriverEvent {
     pub create_date: DateTime<Utc>,
     pub content: DriverEventContent,
+}
+
+impl DriverEvent {
+    pub fn now(content: DriverEventContent) -> Self {
+        DriverEvent {
+            create_date: Utc::now(),
+            content,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -180,19 +192,218 @@ impl Default for ValidatedOptions {
         }
     }
 }
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub enum StatusProperty {
+    InvalidChainId {
+        chain_id: i64,
+    },
+    NoGas {
+        chain_id: i64,
+        missing_gas: Option<Decimal>,
+    },
+}
+
+struct StatusTracker {
+    status: Arc<Mutex<Vec<StatusProperty>>>,
+}
+
+impl StatusTracker {
+    /// Add or update status_props so as to ensure that the given status_property is
+    /// implied.
+    ///
+    /// Returns true if status_props was mutated, false otherwise
+    fn update(status_props: &mut Vec<StatusProperty>, new_property: StatusProperty) -> bool {
+        for old_property in status_props.iter_mut() {
+            use StatusProperty::*;
+            match (old_property, &new_property) {
+                // InvalidChainId instances can be simply deduplicated by id
+                (InvalidChainId { chain_id: id1 }, InvalidChainId { chain_id: id2 })
+                    if id1 == id2 =>
+                {
+                    return false;
+                }
+                // NoGas statuses add up
+                (
+                    NoGas {
+                        chain_id: id1,
+                        missing_gas: old_missing,
+                    },
+                    NoGas {
+                        chain_id: id2,
+                        missing_gas: new_missing,
+                    },
+                ) if id1 == id2 => {
+                    if let (Some(old_missing), Some(new_missing)) = (old_missing, new_missing) {
+                        *old_missing += new_missing;
+                        return true;
+                    }
+                    return false;
+                }
+                _ => {}
+            }
+        }
+
+        status_props.push(new_property);
+        true
+    }
+
+    /// Remove StatusProperty instances that are invalidated by
+    /// a passing transaction with `ok_chain_id`
+    ///
+    /// Returns true if status_props was mutated, false otherwise
+    fn clear_issues(status_props: &mut Vec<StatusProperty>, ok_chain_id: i64) -> bool {
+        let old_len = status_props.len();
+
+        #[allow(clippy::match_like_matches_macro)]
+        status_props.retain(|s| match s {
+            StatusProperty::InvalidChainId { chain_id } if *chain_id == ok_chain_id => false,
+            _ => true,
+        });
+
+        status_props.len() != old_len
+    }
+
+    fn new(mut sender: Option<Sender<DriverEvent>>) -> (Self, Sender<DriverEvent>) {
+        let (status_tx, mut status_rx) = tokio::sync::mpsc::channel::<DriverEvent>(1);
+        let status = Arc::new(Mutex::new(Vec::new()));
+        let status2 = Arc::clone(&status);
+
+        tokio::spawn(async move {
+            while let Some(ev) = status_rx.recv().await {
+                let emit_changed = match &ev.content {
+                    DriverEventContent::TransactionFailed(
+                        TransactionFailedReason::InvalidChainId(chain_id),
+                    ) => Self::update(
+                        status2.lock().await.deref_mut(),
+                        StatusProperty::InvalidChainId {
+                            chain_id: *chain_id,
+                        },
+                    ),
+                    DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
+                        details,
+                    )) => {
+                        let missing_gas = match (details.gas_balance, details.gas_needed) {
+                            (Some(balance), Some(needed)) => Some(needed - balance),
+                            _ => None,
+                        };
+
+                        Self::update(
+                            status2.lock().await.deref_mut(),
+                            StatusProperty::NoGas {
+                                chain_id: details.tx.chain_id,
+                                missing_gas,
+                            },
+                        )
+                    }
+                    DriverEventContent::TransferFinished(token_transfer) => Self::clear_issues(
+                        status2.lock().await.deref_mut(),
+                        token_transfer.chain_id,
+                    ),
+                    _ => false,
+                };
+
+                if let Some(sender) = &mut sender {
+                    sender.send(ev).await.ok();
+                    if emit_changed {
+                        sender
+                            .send(DriverEvent::now(DriverEventContent::StatusChanged(
+                                status2.lock().await.clone(),
+                            )))
+                            .await
+                            .ok();
+                    }
+                }
+            }
+        });
+
+        (StatusTracker { status }, status_tx)
+    }
+
+    async fn get_status(&self) -> Vec<StatusProperty> {
+        self.status.lock().await.clone()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum TransferType {
+    Token,
+    Gas,
+}
+
 pub struct PaymentRuntime {
     pub runtime_handle: JoinHandle<()>,
     pub setup: PaymentSetup,
     pub shared_state: Arc<Mutex<SharedState>>,
     pub conn: SqlitePool,
+    status_tracker: StatusTracker,
     config: Config,
 }
 
 impl PaymentRuntime {
+    #[allow(clippy::too_many_arguments)]
+    pub async fn new(
+        secret_keys: &[SecretKey],
+        db_filename: &Path,
+        config: config::Config,
+        signer: impl Signer + Send + Sync + 'static,
+        conn: Option<SqlitePool>,
+        options: Option<AdditionalOptions>,
+        event_sender: Option<Sender<DriverEvent>>,
+        extra_testing: Option<ExtraOptionsForTesting>,
+    ) -> Result<PaymentRuntime, PaymentError> {
+        let options = options.unwrap_or_default();
+        let mut payment_setup = PaymentSetup::new(
+            &config,
+            secret_keys.to_vec(),
+            !options.keep_running,
+            options.generate_tx_only,
+            options.skip_multi_contract_check,
+            config.engine.service_sleep,
+            config.engine.process_sleep,
+            config.engine.automatic_recover,
+        )?;
+        payment_setup.extra_options_for_testing = extra_testing;
+        payment_setup.contract_use_direct_method = options.contract_use_direct_method;
+        payment_setup.contract_use_unpacked_method = options.contract_use_unpacked_method;
+        log::debug!("Starting payment engine: {:#?}", payment_setup);
+
+        let conn = if let Some(conn) = conn {
+            conn
+        } else {
+            log::info!("connecting to sqlite file db: {}", db_filename.display());
+            create_sqlite_connection(Some(db_filename), None, false, true).await?
+        };
+
+        let (status_tracker, event_sender) = StatusTracker::new(event_sender);
+
+        let ps = payment_setup.clone();
+
+        let shared_state = Arc::new(Mutex::new(SharedState {
+            inserted: 0,
+            idling: false,
+            current_tx_info: BTreeMap::new(),
+            faucet: None,
+        }));
+        let shared_state_clone = shared_state.clone();
+        let conn_ = conn.clone();
+        let jh = tokio::spawn(async move {
+            service_loop(shared_state_clone, &conn_, &ps, signer, Some(event_sender)).await
+        });
+
+        Ok(PaymentRuntime {
+            runtime_handle: jh,
+            setup: payment_setup,
+            shared_state,
+            conn,
+            status_tracker,
+            config,
+        })
+    }
+
     pub async fn get_token_balance(
         &self,
         chain_name: String,
-        token_address: Address,
         address: Address,
     ) -> Result<U256, PaymentError> {
         let chain_cfg = self
@@ -203,6 +414,15 @@ impl PaymentRuntime {
                 "Chain {} not found in config file",
                 chain_name
             ))?;
+
+        let token_address = chain_cfg
+            .token
+            .as_ref()
+            .ok_or(err_custom_create!(
+                "Chain {} doesn't define a token",
+                chain_name
+            ))?
+            .address;
 
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
@@ -246,7 +466,7 @@ impl PaymentRuntime {
         chain_name: &str,
         from: Address,
         receiver: Address,
-        token_addr: Address,
+        tx_type: TransferType,
         amount: U256,
         payment_id: &str,
     ) -> Result<(), PaymentError> {
@@ -255,12 +475,27 @@ impl PaymentRuntime {
             chain_name
         ))?;
 
+        let token_addr = match tx_type {
+            TransferType::Token => {
+                let address = chain_cfg
+                    .token
+                    .as_ref()
+                    .ok_or(err_custom_create!(
+                        "Chain {} doesn't define its token",
+                        chain_name
+                    ))?
+                    .address;
+                Some(address)
+            }
+            TransferType::Gas => None,
+        };
+
         let token_transfer = create_token_transfer(
             from,
             receiver,
             chain_cfg.chain_id,
             Some(payment_id),
-            Some(token_addr),
+            token_addr,
             amount,
         );
 
@@ -269,6 +504,10 @@ impl PaymentRuntime {
             .map_err(err_from!())?;
 
         Ok(())
+    }
+
+    pub async fn get_status(&self) -> Vec<StatusProperty> {
+        self.status_tracker.get_status().await
     }
 }
 pub async fn remove_last_unsent_transactions(
@@ -303,75 +542,13 @@ pub async fn remove_last_unsent_transactions(
     }
 }
 pub async fn send_driver_event(
-    event_sender: &Option<tokio::sync::mpsc::Sender<DriverEvent>>,
+    event_sender: &Option<Sender<DriverEvent>>,
     event: DriverEventContent,
 ) {
     if let Some(event_sender) = event_sender {
-        let event = DriverEvent {
-            create_date: Utc::now(),
-            content: event,
-        };
+        let event = DriverEvent::now(event);
         if let Err(e) = event_sender.send(event).await {
             log::error!("Error sending event: {}", e);
         }
     }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub async fn start_payment_engine(
-    secret_keys: &[SecretKey],
-    db_filename: &Path,
-    config: config::Config,
-    signer: impl Signer + Send + Sync + 'static,
-    conn: Option<SqlitePool>,
-    options: Option<AdditionalOptions>,
-    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
-    extra_testing: Option<ExtraOptionsForTesting>,
-) -> Result<PaymentRuntime, PaymentError> {
-    let options = options.unwrap_or_default();
-    let mut payment_setup = PaymentSetup::new(
-        &config,
-        secret_keys.to_vec(),
-        !options.keep_running,
-        options.generate_tx_only,
-        options.skip_multi_contract_check,
-        config.engine.service_sleep,
-        config.engine.process_sleep,
-        config.engine.automatic_recover,
-    )?;
-    payment_setup.extra_options_for_testing = extra_testing;
-    payment_setup.contract_use_direct_method = options.contract_use_direct_method;
-    payment_setup.contract_use_unpacked_method = options.contract_use_unpacked_method;
-    log::debug!("Starting payment engine: {:#?}", payment_setup);
-
-    let conn = if let Some(conn) = conn {
-        conn
-    } else {
-        log::info!("connecting to sqlite file db: {}", db_filename.display());
-        create_sqlite_connection(Some(db_filename), None, false, true).await?
-    };
-
-    //process_cli(&mut conn, &cli, &payment_setup.secret_key).await?;
-
-    let ps = payment_setup.clone();
-
-    let shared_state = Arc::new(Mutex::new(SharedState {
-        inserted: 0,
-        idling: false,
-        current_tx_info: BTreeMap::new(),
-        faucet: None,
-    }));
-    let shared_state_clone = shared_state.clone();
-    let conn_ = conn.clone();
-    let jh = tokio::spawn(async move {
-        service_loop(shared_state_clone, &conn_, &ps, signer, event_sender).await
-    });
-
-    Ok(PaymentRuntime {
-        runtime_handle: jh,
-        setup: payment_setup,
-        shared_state,
-        conn,
-        config,
-    })
 }

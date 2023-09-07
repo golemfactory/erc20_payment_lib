@@ -1,8 +1,8 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::DriverEventContent::TransactionStuck;
-use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent, TransactionStuckReason};
+use erc20_payment_lib::runtime::DriverEventContent::{StatusChanged, TransactionStuck};
+use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime, TransactionStuckReason};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_test::*;
@@ -46,6 +46,7 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
                         }
                     }
                 }
+                StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
                     panic!("Unexpected message: {:?}", msg);
@@ -80,7 +81,7 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
 
         // *** TEST RUN ***
 
-        let sp = start_payment_engine(
+        let sp = PaymentRuntime::new(
             &private_keys.0,
             std::path::Path::new(""),
             config.clone(),

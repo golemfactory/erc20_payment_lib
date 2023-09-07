@@ -2,7 +2,7 @@ use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
-use erc20_payment_lib::runtime::{start_payment_engine, DriverEvent};
+use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::u256_to_rust_dec;
@@ -45,6 +45,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
                 TransactionConfirmed(_tx_dao) => {
                     tx_confirmed_message_count += 1;
                 },
+                StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
                     panic!("Unexpected message: {:?}", msg);
@@ -79,7 +80,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
 
         // *** TEST RUN ***
 
-        let sp = start_payment_engine(
+        let sp = PaymentRuntime::new(
             &private_keys.0,
             std::path::Path::new(""),
             config.clone(),
