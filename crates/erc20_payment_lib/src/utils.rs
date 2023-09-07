@@ -8,7 +8,7 @@ use web3::types::U256;
 
 pub fn datetime_from_u256_timestamp(timestamp: U256) -> Option<DateTime<Utc>> {
     NaiveDateTime::from_timestamp_opt(timestamp.as_u64() as i64, 0)
-        .map(|naive| DateTime::<Utc>::from_utc(naive, Utc))
+        .map(|naive| DateTime::from_naive_utc_and_offset(naive, Utc))
 }
 pub fn get_env_bool_value(env_name: &str) -> bool {
     env::var(env_name)

@@ -6,6 +6,7 @@ use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::misc::{display_private_keys, load_private_keys};
 
 use std::env;
+use std::path::Path;
 
 use structopt::StructOpt;
 
@@ -41,7 +42,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
     let db_conn = env::var("DB_SQLITE_FILENAME").unwrap();
 
-    let _conn = create_sqlite_connection(Some(&db_conn), None, false, true).await?;
+    let _conn = create_sqlite_connection(Some(Path::new(&db_conn)), None, false, true).await?;
 
     Ok(())
 }

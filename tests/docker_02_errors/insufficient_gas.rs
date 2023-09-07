@@ -82,7 +82,7 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
 
         let sp = start_payment_engine(
             &private_keys.0,
-            "",
+            std::path::Path::new(""),
             config.clone(),
             signer,
             Some(conn.clone()),
