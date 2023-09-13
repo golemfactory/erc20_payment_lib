@@ -36,9 +36,9 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
             log::info!("Received message: {:?}", msg);
 
             match msg.content {
-                TransferFinished(transfer_dao) => {
+                TransferFinished(transfer_finished) => {
                     transfer_finished_message_count += 1;
-                    fee_paid += U256::from_dec_str(&transfer_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
+                    fee_paid += U256::from_dec_str(&transfer_finished.token_transfer_dao.fee_paid.expect("fee paid should be set")).expect("fee paid should be a valid U256");
                 }
                 ApproveFinished(allowance_dao) => {
                     approve_contract_message_count += 1;

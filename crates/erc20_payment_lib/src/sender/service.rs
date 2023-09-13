@@ -8,7 +8,9 @@ use crate::sender::process::{process_transaction, ProcessTransactionResult};
 
 use crate::utils::ConversionError;
 
-use crate::runtime::{send_driver_event, DriverEvent, DriverEventContent, SharedState};
+use crate::runtime::{
+    send_driver_event, DriverEvent, DriverEventContent, SharedState, TransactionFinishedInfo,
+};
 use crate::sender::batching::{gather_transactions_post, gather_transactions_pre};
 use crate::sender::process_allowance;
 use crate::setup::PaymentSetup;
@@ -89,7 +91,10 @@ pub async fn update_token_transfer_result(
             for token_transfer in token_transfers {
                 send_driver_event(
                     &event_sender,
-                    DriverEventContent::TransferFinished(token_transfer),
+                    DriverEventContent::TransferFinished(TransactionFinishedInfo {
+                        token_transfer_dao: token_transfer,
+                        tx_dao: tx.clone(),
+                    }),
                 )
                 .await;
             }
