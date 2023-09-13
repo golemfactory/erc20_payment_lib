@@ -22,6 +22,13 @@ pub async fn get_balance(
     address: Address,
     check_gas: bool,
 ) -> Result<GetBalanceResult, PaymentError> {
+    log::debug!(
+        "Checking balance for address {:#x}, token address: {:#x}, check_gas {}",
+        address,
+        token_address.unwrap_or_default(),
+        check_gas
+    );
+
     let gas_balance = if check_gas {
         Some(
             web3.eth()
