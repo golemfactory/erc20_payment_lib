@@ -60,6 +60,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
 
                     tx_confirmed_message_count += 1;
                 },
+                StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
                     panic!("Unexpected message: {:?}", msg);

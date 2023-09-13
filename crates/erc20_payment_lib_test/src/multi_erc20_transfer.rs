@@ -49,6 +49,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
                 TransactionConfirmed(_tx_dao) => {
                     tx_confirmed_message_count += 1;
                 }
+                StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
                     panic!("Unexpected message: {:?}", msg);

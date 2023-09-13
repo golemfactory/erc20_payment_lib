@@ -302,12 +302,14 @@ impl StatusTracker {
                             },
                         )
                     }
+
                     DriverEventContent::TransferFinished(transaction_finished_info) => {
                         Self::clear_issues(
                             status2.lock().await.deref_mut(),
                             transaction_finished_info.token_transfer_dao.chain_id,
                         )
                     }
+
                     _ => false,
                 };
 

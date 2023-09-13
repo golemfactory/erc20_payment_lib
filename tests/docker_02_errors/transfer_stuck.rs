@@ -47,7 +47,7 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
                         }
                     }
                 }
-                TransactionConfirmed(_) => {
+                TransactionConfirmed(_) | StatusChanged(_) => {
 
                 }
                 _ => {
