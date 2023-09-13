@@ -75,10 +75,16 @@ pub enum TransactionFailedReason {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct TransactionFinishedInfo {
+    pub token_transfer_dao: TokenTransferDao,
+    pub tx_dao: TxDao,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[allow(clippy::large_enum_variant)]
 pub enum DriverEventContent {
     TransactionConfirmed(TxDao),
-    TransferFinished(TokenTransferDao),
+    TransferFinished(TransactionFinishedInfo),
     ApproveFinished(AllowanceDao),
     TransactionStuck(TransactionStuckReason),
     TransactionFailed(TransactionFailedReason),
@@ -296,10 +302,14 @@ impl StatusTracker {
                             },
                         )
                     }
-                    DriverEventContent::TransferFinished(token_transfer) => Self::clear_issues(
-                        status2.lock().await.deref_mut(),
-                        token_transfer.chain_id,
-                    ),
+
+                    DriverEventContent::TransferFinished(transaction_finished_info) => {
+                        Self::clear_issues(
+                            status2.lock().await.deref_mut(),
+                            transaction_finished_info.token_transfer_dao.chain_id,
+                        )
+                    }
+
                     _ => false,
                 };
 
