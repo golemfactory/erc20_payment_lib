@@ -29,8 +29,6 @@ pub async fn get_balance(
         token_address.unwrap_or_default(),
         check_gas,
     );
-    log::debug!("Provider: {:?}", web3);
-
     let gas_balance = if check_gas {
         Some(
             web3.eth()
