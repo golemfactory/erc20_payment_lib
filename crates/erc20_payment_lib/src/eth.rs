@@ -64,8 +64,7 @@ pub async fn get_balance(
         if res.0.len() != 32 {
             return Err(err_create!(TransactionFailedError::new(&format!(
                 "Invalid balance response: {:?}. Probably not a valid ERC20 contract {:#x}",
-                res.0,
-                token_address
+                res.0, token_address
             ))));
         };
         Some(U256::from_big_endian(&res.0))
