@@ -1,4 +1,4 @@
-require('dotenv').config({path:'.env'})
+require('dotenv').config({path: '.env'})
 
 require("@nomicfoundation/hardhat-toolbox");
 
@@ -13,11 +13,11 @@ module.exports = {
             accounts: [private_key],
             chainId: 987789
         },
-		mumbai: {
+        mumbai: {
             url: process.env.MUMBAI_RPC || "http://127.0.0.1:8545",
             accounts: [private_key],
             chainId: 80001
-		}
+        }
     },
     solidity: {
         version: "0.8.17",
