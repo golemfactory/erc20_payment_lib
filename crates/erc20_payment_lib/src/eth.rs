@@ -5,7 +5,6 @@ use secp256k1::{PublicKey, SecretKey};
 use serde::Serialize;
 use sha3::Digest;
 use sha3::Keccak256;
-use web3::signing::Key;
 use web3::transports::Http;
 use web3::types::{Address, Bytes, CallRequest, U256};
 use web3::Web3;
