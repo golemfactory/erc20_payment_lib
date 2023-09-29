@@ -15,7 +15,7 @@ path = "src/main.rs"
 name = "erc20_processor"
 description = "Payment processor for ERC20 tokens"
 authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
-version = "0.1.9"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 
@@ -99,8 +99,8 @@ eth-keystore = { workspace = true }
 stream-rate-limiter = { workspace = true }
 fastrand = { workspace = true }
 
-erc20_payment_lib = { path = "crates/erc20_payment_lib" }
-erc20_payment_lib_extra = { path = "crates/erc20_payment_lib_extra" }
+erc20_payment_lib = { path = "crates/erc20_payment_lib", version = "0.2.0" }
+erc20_payment_lib_extra = { path = "crates/erc20_payment_lib_extra", version = "0.2.0"  }
 
 [dev-dependencies]
 bollard = { workspace = true }
