@@ -26,9 +26,8 @@ pub async fn get_balance(
         "Checking balance for address {:#x}, token address: {:#x}, check_gas {}",
         address,
         token_address.unwrap_or_default(),
-        check_gas
+        check_gas,
     );
-
     let gas_balance = if check_gas {
         Some(
             web3.eth()
@@ -63,8 +62,8 @@ pub async fn get_balance(
             .map_err(err_from!())?;
         if res.0.len() != 32 {
             return Err(err_create!(TransactionFailedError::new(&format!(
-                "Invalid balance response: {:?}",
-                res.0
+                "Invalid balance response: {:?}. Probably not a valid ERC20 contract {:#x}",
+                res.0, token_address
             ))));
         };
         Some(U256::from_big_endian(&res.0))
