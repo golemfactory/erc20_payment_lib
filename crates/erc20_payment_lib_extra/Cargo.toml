@@ -35,4 +35,4 @@ actix-files = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
 
-erc20_payment_lib = { path = "../../crates/erc20_payment_lib" }
+erc20_payment_lib = { path = "../../crates/erc20_payment_lib", version = "0.2.0" }
