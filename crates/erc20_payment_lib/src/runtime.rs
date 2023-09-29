@@ -11,7 +11,7 @@ use std::path::Path;
 
 use crate::error::{ErrorBag, PaymentError};
 
-use crate::setup::{ExtraOptionsForTesting, PaymentSetup};
+use crate::setup::{ChainSetup, ExtraOptionsForTesting, PaymentSetup};
 
 use crate::config::{self, Config};
 use secp256k1::SecretKey;
@@ -345,7 +345,7 @@ pub struct PaymentRuntime {
     pub runtime_handle: JoinHandle<()>,
     pub setup: PaymentSetup,
     pub shared_state: Arc<Mutex<SharedState>>,
-    pub conn: SqlitePool,
+    conn: SqlitePool,
     status_tracker: StatusTracker,
     config: Config,
 }
@@ -519,7 +519,16 @@ impl PaymentRuntime {
     pub async fn get_status(&self) -> Vec<StatusProperty> {
         self.status_tracker.get_status().await
     }
+
+    pub fn get_chain(&self, chain_id: i64) -> Option<&ChainSetup> {
+        self.setup.chain_setup.get(&chain_id)
+    }
+
+    pub fn network_name(&self, chain_id: i64) -> Option<&str> {
+        self.get_chain(chain_id).map(|chain| chain.network.as_str())
+    }
 }
+
 pub async fn remove_last_unsent_transactions(
     conn: SqlitePool,
 ) -> Result<Option<i64>, PaymentError> {
