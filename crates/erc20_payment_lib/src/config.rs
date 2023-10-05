@@ -17,6 +17,7 @@ pub struct AdditionalOptions {
     pub skip_multi_contract_check: bool,
     pub contract_use_direct_method: bool,
     pub contract_use_unpacked_method: bool,
+    pub use_transfer_for_single_payment: bool,
 }
 
 impl Default for AdditionalOptions {
@@ -27,6 +28,7 @@ impl Default for AdditionalOptions {
             skip_multi_contract_check: false,
             contract_use_direct_method: false,
             contract_use_unpacked_method: false,
+            use_transfer_for_single_payment: true,
         }
     }
 }

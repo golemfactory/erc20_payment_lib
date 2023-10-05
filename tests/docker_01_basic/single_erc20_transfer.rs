@@ -88,10 +88,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
             Some(conn.clone()),
             Some(AdditionalOptions {
                 keep_running: false,
-                generate_tx_only: false,
-                skip_multi_contract_check: false,
-                contract_use_direct_method: false,
-                contract_use_unpacked_method: false,
+                ..Default::default()
             }),
             Some(sender),
             None

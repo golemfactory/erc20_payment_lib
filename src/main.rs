@@ -125,8 +125,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 keep_running: run_options.keep_running,
                 generate_tx_only: run_options.generate_tx_only,
                 skip_multi_contract_check: run_options.skip_multi_contract_check,
-                contract_use_direct_method: false,
-                contract_use_unpacked_method: false,
+                ..Default::default()
             };
 
             let sp = PaymentRuntime::new(

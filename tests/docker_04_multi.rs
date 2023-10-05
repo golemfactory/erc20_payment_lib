@@ -133,6 +133,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
                 skip_multi_contract_check: false,
                 contract_use_direct_method: use_direct_method,
                 contract_use_unpacked_method: use_unpacked_method,
+                ..Default::default()
             }),
             Some(sender),
             None

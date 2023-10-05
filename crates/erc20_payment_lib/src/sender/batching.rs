@@ -189,43 +189,41 @@ pub async fn gather_transactions_batch_multi(
                 erc20_amounts.push(sum);
             }
 
-            let web3tx = match erc20_to.len() {
-                0 => {
-                    return Ok(0);
-                }
-                1 => {
-                    log::info!(
-                        "Inserting transaction stub for ERC20 transfer to: {:?}",
-                        erc20_to[0]
-                    );
+            let use_transfer_for_single_payment = false;
 
-                    create_erc20_transfer(
-                        Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
-                        Address::from_str(token_addr).map_err(err_from!())?,
-                        erc20_to[0],
-                        erc20_amounts[0],
-                        token_transfer.chain_id as u64,
-                        None,
-                        max_fee_per_gas,
-                        priority_fee,
-                    )?
-                }
-                _ => {
-                    log::info!("Inserting transaction stub for ERC20 multi transfer contract: {:?} for {} distinct transfers", chain_setup.multi_contract_address.unwrap(), erc20_to.len());
+            let web3tx = if erc20_to.is_empty() {
+                return Ok(0);
+            } else if use_transfer_for_single_payment && erc20_to.len() == 1 {
+                log::info!(
+                    "Inserting transaction stub for ERC20 transfer to: {:?}",
+                    erc20_to[0]
+                );
 
-                    create_erc20_transfer_multi(
-                        Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
-                        chain_setup.multi_contract_address.unwrap(),
-                        erc20_to,
-                        erc20_amounts,
-                        token_transfer.chain_id as u64,
-                        None,
-                        max_fee_per_gas,
-                        priority_fee,
-                        use_direct_method,
-                        use_unpacked_method,
-                    )?
-                }
+                create_erc20_transfer(
+                    Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
+                    Address::from_str(token_addr).map_err(err_from!())?,
+                    erc20_to[0],
+                    erc20_amounts[0],
+                    token_transfer.chain_id as u64,
+                    None,
+                    max_fee_per_gas,
+                    priority_fee,
+                )?
+            } else {
+                log::info!("Inserting transaction stub for ERC20 multi transfer contract: {:?} for {} distinct transfers", chain_setup.multi_contract_address.unwrap(), erc20_to.len());
+
+                create_erc20_transfer_multi(
+                    Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
+                    chain_setup.multi_contract_address.unwrap(),
+                    erc20_to,
+                    erc20_amounts,
+                    token_transfer.chain_id as u64,
+                    None,
+                    max_fee_per_gas,
+                    priority_fee,
+                    use_direct_method,
+                    use_unpacked_method,
+                )?
             };
             let mut db_transaction = conn.begin().await.map_err(err_from!())?;
             let web3_tx_dao = insert_tx(&mut *db_transaction, &web3tx)

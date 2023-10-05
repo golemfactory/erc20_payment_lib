@@ -373,6 +373,7 @@ impl PaymentRuntime {
             config.engine.process_sleep,
             config.engine.automatic_recover,
         )?;
+        payment_setup.use_transfer_for_single_payment = options.use_transfer_for_single_payment;
         payment_setup.extra_options_for_testing = extra_testing;
         payment_setup.contract_use_direct_method = options.contract_use_direct_method;
         payment_setup.contract_use_unpacked_method = options.contract_use_unpacked_method;
