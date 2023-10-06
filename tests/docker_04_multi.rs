@@ -155,13 +155,13 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
         //intersperse is joining strings with separator
         use itertools::Itertools;
         #[allow(unstable_name_collisions)]
-            let res = test_get_balance(&proxy_url_base,
-                                       &(test_receivers
-                                           .iter()
-                                           .take(payment_count)
-                                           .map(|el| el.0)
-                                           .intersperse(",")
-                                           .collect::<String>() + ",0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"))
+        let res = test_get_balance(&proxy_url_base,
+            &(test_receivers
+            .iter()
+            .take(payment_count)
+            .map(|el| el.0)
+            .intersperse(",")
+            .collect::<String>() + ",0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"))
             .await.expect("get balance should work");
 
         for (addr, val) in test_receivers.into_iter().take(payment_count)
