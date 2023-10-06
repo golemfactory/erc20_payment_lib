@@ -117,6 +117,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
                     Some(conn_.clone()),
                     Some(AdditionalOptions {
                         keep_running: false,
+                        use_transfer_for_single_payment: false,
                         ..Default::default()
                     }),
                     Some(sender),
