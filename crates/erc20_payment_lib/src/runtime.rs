@@ -542,8 +542,23 @@ impl PaymentRuntime {
     pub fn network_name(&self, chain_id: i64) -> Option<&str> {
         self.get_chain(chain_id).map(|chain| chain.network.as_str())
     }
-}
 
+    pub async fn verify_transaction(
+        &self,
+        chain_id: i64,
+        tx_hash: H256,
+        sender: Address,
+        receiver: Address,
+        amount: U256,
+    ) -> Result<VerifyTransactionResult, PaymentError> {
+        let network_name = self.network_name(chain_id).ok_or(err_custom_create!(
+            "Chain {} not found in config file",
+            chain_id
+        ))?;
+        let prov = self.get_web3_provider(network_name).await?;
+        verify_transaction(&prov, chain_id, tx_hash, sender, receiver, amount).await
+    }
+}
 pub struct VerifyTransactionResult {
     pub verified: bool,
     pub reason: Option<String>,
