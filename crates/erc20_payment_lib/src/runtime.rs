@@ -569,31 +569,37 @@ pub async fn verify_transaction(
             if Address::from_str(&transfer.receiver_addr).map_err(err_from!())? == receiver
                 && Address::from_str(&transfer.from_addr).map_err(err_from!())? == sender
             {
-                return if U256::from_dec_str(&transfer.token_amount).map_err(err_from!())? >= amount {
+                return if U256::from_dec_str(&transfer.token_amount).map_err(err_from!())? >= amount
+                {
                     log::info!("Transaction found and verified: {}", tx_hash);
                     Ok(VerifyTransactionResult {
                         verified: true,
                         reason: None,
                     })
                 } else {
-                    log::warn!("Transaction found but amount insufficient: {}: {}/{}", tx_hash, transfer.token_amount, amount);
+                    log::warn!(
+                        "Transaction found but amount insufficient: {}: {}/{}",
+                        tx_hash,
+                        transfer.token_amount,
+                        amount
+                    );
                     Ok(VerifyTransactionResult {
                         verified: false,
                         reason: Some("Transaction found but amount insufficient".to_string()),
                     })
-                }
+                };
             }
         }
         log::warn!("Transaction found but not matching: {}", tx_hash);
-        return Ok(VerifyTransactionResult {
+        Ok(VerifyTransactionResult {
             verified: false,
             reason: Some("Transaction found but not matching".to_string()),
-        });
+        })
     } else {
-        return Ok(VerifyTransactionResult {
+        Ok(VerifyTransactionResult {
             verified: false,
             reason: Some("Transaction not found".to_string()),
-        });
+        })
     }
 }
 

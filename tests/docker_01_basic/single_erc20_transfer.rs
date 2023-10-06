@@ -25,6 +25,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
     let proxy_key = "erc20_transfer";
     let mut tx_dao_return: Option<TxDao> = None;
+
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
     let receiver_loop = tokio::spawn(async move {
         let mut transfer_finished_message_count = 0;
@@ -100,6 +101,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
         web3
     };
 
+    #[allow(clippy::bool_assert_comparison)]
     {
         // *** RESULT CHECK ***
         let (fee_paid_u256, tx_dao) = receiver_loop.await.unwrap();
