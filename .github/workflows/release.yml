@@ -1,0 +1,114 @@
+name: Release
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release
+        uses: softprops/action-gh-release@v1
+
+  build:
+    runs-on: ${{ matrix.build-on }}
+    continue-on-error: true
+    needs: create-release
+    strategy:
+      matrix:
+        include:
+          - cpu: x86_64
+            os: win
+            target: x86_64-pc-windows-msvc
+            build-on: windows-latest
+            build-with: cargo
+            exe: ".exe"
+            run-tests: true
+          - cpu: x86_64
+            os: linux
+            target: x86_64-unknown-linux-musl
+            build-on: ubuntu-latest
+            build-with: cargo
+            exe: ""
+            run-tests: true
+          - cpu: aarch64
+            os: linux
+            target: aarch64-unknown-linux-musl
+            build-on: ubuntu-latest
+            build-with: cross
+            exe: ""
+            run-tests: false
+          - cpu: aarch64
+            os: macOS
+            target: aarch64-apple-darwin
+            build-on: macos-latest
+            build-with: cargo
+            exe: ""
+            run-tests: false
+          - cpu: x86_64
+            os: macOS
+            target: x86_64-apple-darwin
+            build-on: macos-latest
+            build-with: cargo
+            exe: ""
+            run-tests: true
+
+    name: Build Release ${{ matrix.cpu }} ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Update Rust and add toolchain ${{ matrix.target }}
+        if: matrix.build-with == 'cargo'
+        run: |
+          rustup update 
+          rustup target add ${{ matrix.target }}
+
+      - name: Install bin install if needed
+        if: matrix.build-with == 'cross'
+        run: |
+          wget -qO- https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-x86_64-unknown-linux-musl.tgz | tar xvz -C ~/.cargo/bin
+
+      - name: Install cross if needed
+        if: matrix.build-with == 'cross'
+        run: |
+          cargo binstall cross -y
+
+      - name: Run tests
+        if: ${{ matrix.run-tests }}
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --profile release-lto --target ${{ matrix.target }} -- --nocapture
+
+      - name: Build binary target/${{ matrix.target }}/release/erc20-processor
+        run: |
+          ${{ matrix.build-with }} build --bin gftp --features=bin --profile release-lto --target ${{ matrix.target }}
+
+      - name: Gz asset
+        run: |
+          mv target/${{ matrix.target }}/release-lto/gftp${{ matrix.exe }} target/${{ matrix.target }}/release-lto/erc20-processor${{ matrix.exe }}
+          tar -cf - -C target/${{ matrix.target }}/release-lto/ erc20-processor${{ matrix.exe }} | gzip -9 > erc20-processor.tar.gz
+          tar -cf - -C target/${{ matrix.target }}/release-lto/ erc20-processor${{ matrix.exe }} | xz -9 > erc20-processor.tar.xz
+
+      - name: Upload
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: erc20-processor.tar.gz
+          asset_name: erc20-processor-${{ matrix.os }}-${{ matrix.cpu }}.tar.gz
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "Gzipped binary for ${{ matrix.cpu }} ${{ matrix.os }}"
+
+      - name: Upload
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: erc20-processor.tar.xz
+          asset_name: erc20-processor-${{ matrix.os }}-${{ matrix.cpu }}.tar.xz
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "Xzipped binary for ${{ matrix.cpu }} ${{ matrix.os }}"
