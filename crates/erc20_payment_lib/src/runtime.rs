@@ -543,6 +543,7 @@ impl PaymentRuntime {
         self.get_chain(chain_id).map(|chain| chain.network.as_str())
     }
 
+
     pub async fn verify_transaction(
         &self,
         chain_id: i64,
@@ -615,9 +616,11 @@ pub async fn verify_transaction(
             verified: false,
             reason: Some("Transaction not found".to_string()),
         })
-    }
-}
 
+}
+    pub fn chains(&self) -> Vec<i64> {
+        self.setup.chain_setup.keys().copied().collect()
+    }
 pub async fn remove_last_unsent_transactions(
     conn: SqlitePool,
 ) -> Result<Option<i64>, PaymentError> {
