@@ -61,7 +61,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Update musl tools
-        if: matrix.build-with == 'cargo'
+        if: matrix.build-with == 'cargo' && matrix.os == 'linux'
         run: |
           sudo apt update
           sudo apt install -y musl-tools
