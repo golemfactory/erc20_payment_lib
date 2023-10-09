@@ -60,6 +60,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Update musl tools
+        if: matrix.build-with == 'cargo'
+        run: |
+          apt update
+          apt install -y musl-tools
+
       - name: Update Rust and add toolchain ${{ matrix.target }}
         if: matrix.build-with == 'cargo'
         run: |
