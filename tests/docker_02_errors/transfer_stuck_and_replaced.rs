@@ -116,10 +116,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
             Some(conn.clone()),
             Some(AdditionalOptions {
                 keep_running: false,
-                generate_tx_only: false,
-                skip_multi_contract_check: false,
-                contract_use_direct_method: false,
-                contract_use_unpacked_method: false,
+                ..Default::default()
             }),
             Some(sender.clone()),
             None
@@ -145,10 +142,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
             Some(conn.clone()),
             Some(AdditionalOptions {
                 keep_running: false,
-                generate_tx_only: false,
-                skip_multi_contract_check: false,
-                contract_use_direct_method: false,
-                contract_use_unpacked_method: false,
+                ..Default::default()
             }),
             Some(sender.clone()),
             Some(erc20_payment_lib::setup::ExtraOptionsForTesting {
@@ -182,10 +176,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
             Some(conn.clone()),
             Some(AdditionalOptions {
                 keep_running: false,
-                generate_tx_only: false,
-                skip_multi_contract_check: false,
-                contract_use_direct_method: false,
-                contract_use_unpacked_method: false,
+                ..Default::default()
             }),
             Some(sender),
             Some(erc20_payment_lib::setup::ExtraOptionsForTesting {

@@ -64,6 +64,7 @@ pub struct PaymentSetup {
     pub automatic_recover: bool,
     pub contract_use_direct_method: bool,
     pub contract_use_unpacked_method: bool,
+    pub use_transfer_for_single_payment: bool,
     pub extra_options_for_testing: Option<ExtraOptionsForTesting>,
 }
 
@@ -92,6 +93,7 @@ impl PaymentSetup {
             contract_use_direct_method: false,
             contract_use_unpacked_method: false,
             extra_options_for_testing: None,
+            use_transfer_for_single_payment: true,
         };
         for chain_config in &config.chain {
             let mut providers = Vec::new();
