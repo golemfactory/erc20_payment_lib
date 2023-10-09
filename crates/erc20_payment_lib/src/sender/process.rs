@@ -75,14 +75,17 @@ pub async fn process_transaction(
     let from_addr = Address::from_str(&web3_tx_dao.from_addr)
         .map_err(|_e| err_create!(TransactionFailedError::new("Failed to parse from_addr")))?;
 
-    signer
-        .check_if_sign_possible(from_addr)
-        .await
-        .map_err(|err| {
-            err_create!(TransactionFailedError::new(&format!(
-                "Sign won't be possible for given address: {from_addr}, error: {err:?}"
-            )))
-        })?;
+    if let Err(err) = signer.check_if_sign_possible(from_addr).await {
+        send_driver_event(
+            &event_sender,
+            DriverEventContent::CantSign(web3_tx_dao.clone()),
+        )
+        .await;
+
+        return Err(err_create!(TransactionFailedError::new(&format!(
+            "Sign won't be possible for given address: {from_addr}, error: {err:?}"
+        ))));
+    }
 
     let transaction_nonce = if let Some(nonce) = web3_tx_dao.nonce {
         nonce
@@ -223,7 +226,7 @@ pub async fn process_transaction(
             .lock()
             .await
             .set_tx_message(web3_tx_dao.id, "Signing transaction".to_string());
-        sign_transaction_with_callback(web3_tx_dao, from_addr, signer).await?;
+        sign_transaction_with_callback(&event_sender, web3_tx_dao, from_addr, signer).await?;
         update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
     }
 

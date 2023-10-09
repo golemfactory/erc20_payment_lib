@@ -91,6 +91,7 @@ pub enum DriverEventContent {
     ApproveFinished(AllowanceDao),
     TransactionStuck(TransactionStuckReason),
     TransactionFailed(TransactionFailedReason),
+    CantSign(TxDao),
     StatusChanged(Vec<StatusProperty>),
 }
 
@@ -207,6 +208,10 @@ pub enum StatusProperty {
     InvalidChainId {
         chain_id: i64,
     },
+    CantSign {
+        chain_id: i64,
+        address: String,
+    },
     NoGas {
         chain_id: i64,
         missing_gas: Option<Decimal>,
@@ -230,6 +235,19 @@ impl StatusTracker {
                 (InvalidChainId { chain_id: id1 }, InvalidChainId { chain_id: id2 })
                     if id1 == id2 =>
                 {
+                    return false;
+                }
+                // Cant sign can be deduplicated by id and address
+                (
+                    CantSign {
+                        chain_id: id1,
+                        address: addr1,
+                    },
+                    CantSign {
+                        chain_id: id2,
+                        address: addr2,
+                    },
+                ) if id1 == id2 && addr1 == addr2 => {
                     return false;
                 }
                 // NoGas statuses add up
@@ -287,6 +305,13 @@ impl StatusTracker {
                         status2.lock().await.deref_mut(),
                         StatusProperty::InvalidChainId {
                             chain_id: *chain_id,
+                        },
+                    ),
+                    DriverEventContent::CantSign(tx) => Self::update(
+                        status2.lock().await.deref_mut(),
+                        StatusProperty::CantSign {
+                            chain_id: tx.chain_id,
+                            address: tx.from_addr.clone(),
                         },
                     ),
                     DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(

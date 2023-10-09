@@ -432,6 +432,7 @@ pub async fn sign_transaction_deprecated(
 }
 
 pub async fn sign_transaction_with_callback(
+    event_sender: &Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     web3_tx_dao: &mut TxDao,
     signer_pub_address: H160,
     signer: &impl Signer,
@@ -439,12 +440,22 @@ pub async fn sign_transaction_with_callback(
     let tx_object = dao_to_transaction(web3_tx_dao)?;
     log::debug!("Signing transaction: {:#?}", tx_object);
     // Sign the tx (can be done offline)
-    let signed = signer
-        .sign(signer_pub_address, tx_object)
-        .await
-        .map_err(|err| {
-            err_custom_create!("Signing transaction failed due to unknown error: {err:?}")
-        })?;
+    let sign_result = signer.sign(signer_pub_address, tx_object).await;
+
+    let signed = match sign_result {
+        Ok(s) => s,
+        Err(e) => {
+            send_driver_event(
+                event_sender,
+                DriverEventContent::CantSign(web3_tx_dao.clone()),
+            )
+            .await;
+
+            return Err(err_custom_create!(
+                "Signing transaction failed due to unknown error: {e:?}"
+            ));
+        }
+    };
 
     let slice: Vec<u8> = signed.raw_transaction.0;
     web3_tx_dao.signed_raw_data = Some(hex::encode(slice));
