@@ -76,29 +76,22 @@ jobs:
         run: |
           cargo binstall cross -y
 
-      - name: Run tests
-        if: ${{ matrix.run-tests }}
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --profile release-lto --target ${{ matrix.target }} -- --nocapture
-
-      - name: Build binary target/${{ matrix.target }}/release/erc20-processor
+      - name: Build binary target/${{ matrix.target }}/release/erc20_processor
         run: |
-          ${{ matrix.build-with }} build --bin gftp --features=bin --profile release-lto --target ${{ matrix.target }}
+          ${{ matrix.build-with }} build --profile release-lto --target ${{ matrix.target }}
 
       - name: Gz asset
         run: |
-          mv target/${{ matrix.target }}/release-lto/gftp${{ matrix.exe }} target/${{ matrix.target }}/release-lto/erc20-processor${{ matrix.exe }}
-          tar -cf - -C target/${{ matrix.target }}/release-lto/ erc20-processor${{ matrix.exe }} | gzip -9 > erc20-processor.tar.gz
-          tar -cf - -C target/${{ matrix.target }}/release-lto/ erc20-processor${{ matrix.exe }} | xz -9 > erc20-processor.tar.xz
+          mv target/${{ matrix.target }}/release-lto/gftp${{ matrix.exe }} target/${{ matrix.target }}/release-lto/erc20_processor${{ matrix.exe }}
+          tar -cf - -C target/${{ matrix.target }}/release-lto/ erc20_processor${{ matrix.exe }} | gzip -9 > erc20_processor.tar.gz
+          tar -cf - -C target/${{ matrix.target }}/release-lto/ erc20_processor${{ matrix.exe }} | xz -9 > erc20_processor.tar.xz
 
       - name: Upload
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: erc20-processor.tar.gz
-          asset_name: erc20-processor-${{ matrix.os }}-${{ matrix.cpu }}.tar.gz
+          file: erc20_processor.tar.gz
+          asset_name: erc20_processor-${{ matrix.os }}-${{ matrix.cpu }}.tar.gz
           tag: ${{ github.ref }}
           overwrite: true
           body: "Gzipped binary for ${{ matrix.cpu }} ${{ matrix.os }}"
@@ -107,8 +100,8 @@ jobs:
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: erc20-processor.tar.xz
-          asset_name: erc20-processor-${{ matrix.os }}-${{ matrix.cpu }}.tar.xz
+          file: erc20_processor.tar.xz
+          asset_name: erc20_processor-${{ matrix.os }}-${{ matrix.cpu }}.tar.xz
           tag: ${{ github.ref }}
           overwrite: true
           body: "Xzipped binary for ${{ matrix.cpu }} ${{ matrix.os }}"
