@@ -543,7 +543,6 @@ impl PaymentRuntime {
         self.get_chain(chain_id).map(|chain| chain.network.as_str())
     }
 
-
     pub async fn verify_transaction(
         &self,
         chain_id: i64,
@@ -559,7 +558,12 @@ impl PaymentRuntime {
         let prov = self.get_web3_provider(network_name).await?;
         verify_transaction(&prov, chain_id, tx_hash, sender, receiver, amount).await
     }
+
+    pub fn chains(&self) -> Vec<i64> {
+        self.setup.chain_setup.keys().copied().collect()
+    }
 }
+
 pub struct VerifyTransactionResult {
     pub verified: bool,
     pub reason: Option<String>,
@@ -616,11 +620,9 @@ pub async fn verify_transaction(
             verified: false,
             reason: Some("Transaction not found".to_string()),
         })
-
-}
-    pub fn chains(&self) -> Vec<i64> {
-        self.setup.chain_setup.keys().copied().collect()
     }
+}
+
 pub async fn remove_last_unsent_transactions(
     conn: SqlitePool,
 ) -> Result<Option<i64>, PaymentError> {
