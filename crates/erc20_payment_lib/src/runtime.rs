@@ -3,11 +3,12 @@ use crate::db::ops::{
     cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx, insert_token_transfer,
 };
 use crate::signer::Signer;
-use crate::transaction::create_token_transfer;
+use crate::transaction::{create_token_transfer, find_receipt_extended};
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
 use std::ops::DerefMut;
 use std::path::Path;
+use std::str::FromStr;
 
 use crate::error::{ErrorBag, PaymentError};
 
@@ -27,7 +28,9 @@ use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
-use web3::types::{Address, U256};
+use web3::transports::Http;
+use web3::types::{Address, H256, U256};
+use web3::Web3;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedInfoTx {
@@ -412,6 +415,17 @@ impl PaymentRuntime {
         })
     }
 
+    pub async fn get_web3_provider(&self, chain_name: &str) -> Result<Web3<Http>, PaymentError> {
+        let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
+            "Chain {} not found in config file",
+            chain_name
+        ))?;
+
+        let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
+
+        Ok(web3.clone())
+    }
+
     pub async fn get_token_balance(
         &self,
         chain_name: String,
@@ -527,6 +541,85 @@ impl PaymentRuntime {
 
     pub fn network_name(&self, chain_id: i64) -> Option<&str> {
         self.get_chain(chain_id).map(|chain| chain.network.as_str())
+    }
+
+    pub async fn verify_transaction(
+        &self,
+        chain_id: i64,
+        tx_hash: H256,
+        sender: Address,
+        receiver: Address,
+        amount: U256,
+    ) -> Result<VerifyTransactionResult, PaymentError> {
+        let network_name = self.network_name(chain_id).ok_or(err_custom_create!(
+            "Chain {} not found in config file",
+            chain_id
+        ))?;
+        let prov = self.get_web3_provider(network_name).await?;
+        verify_transaction(&prov, chain_id, tx_hash, sender, receiver, amount).await
+    }
+
+    pub fn chains(&self) -> Vec<i64> {
+        self.setup.chain_setup.keys().copied().collect()
+    }
+}
+
+pub struct VerifyTransactionResult {
+    pub verified: bool,
+    pub reason: Option<String>,
+}
+
+// This is for now very limited check. It needs lot more work to be complete
+pub async fn verify_transaction(
+    web3: &web3::Web3<web3::transports::Http>,
+    chain_id: i64,
+    tx_hash: H256,
+    sender: Address,
+    receiver: Address,
+    amount: U256,
+) -> Result<VerifyTransactionResult, PaymentError> {
+    let (chain_tx_dao, transfers) = find_receipt_extended(web3, tx_hash, chain_id).await?;
+    if chain_tx_dao.chain_status == 1 {
+        //one transaction can contain multiple transfers. Search for ours.
+        for transfer in transfers {
+            log::info!(
+                "Verifying {tx_hash:#x}: Found transfers on chain: {:?}",
+                transfer
+            );
+            if Address::from_str(&transfer.receiver_addr).map_err(err_from!())? == receiver
+                && Address::from_str(&transfer.from_addr).map_err(err_from!())? == sender
+            {
+                return if U256::from_dec_str(&transfer.token_amount).map_err(err_from!())? >= amount
+                {
+                    log::info!("Transaction found and verified: {}", tx_hash);
+                    Ok(VerifyTransactionResult {
+                        verified: true,
+                        reason: None,
+                    })
+                } else {
+                    log::warn!(
+                        "Transaction found but amount insufficient: {}: {}/{}",
+                        tx_hash,
+                        transfer.token_amount,
+                        amount
+                    );
+                    Ok(VerifyTransactionResult {
+                        verified: false,
+                        reason: Some("Transaction found but amount insufficient".to_string()),
+                    })
+                };
+            }
+        }
+        log::warn!("Transaction found but not matching: {}", tx_hash);
+        Ok(VerifyTransactionResult {
+            verified: false,
+            reason: Some("Transaction found but not matching".to_string()),
+        })
+    } else {
+        Ok(VerifyTransactionResult {
+            verified: false,
+            reason: Some("Transaction not found".to_string()),
+        })
     }
 }
 

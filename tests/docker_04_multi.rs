@@ -1,15 +1,16 @@
 use erc20_payment_lib::config::AdditionalOptions;
+use erc20_payment_lib::db::model::TxDao;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
-use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime};
+use erc20_payment_lib::runtime::{verify_transaction, DriverEvent, PaymentRuntime};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::u256_to_rust_dec;
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
 use std::time::Duration;
-use web3::types::{Address, U256};
+use web3::types::{Address, H256, U256};
 use web3_test_proxy_client::list_transactions_human;
 
 #[rustfmt::skip]
@@ -21,6 +22,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
 
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
     let proxy_key = "erc20_transfer";
+    let mut tx_dao_return: Option<TxDao> = None;
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
     let receiver_loop = tokio::spawn(async move {
@@ -57,7 +59,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
                     if tx_dao.method == "MULTI.golemTransferDirect" {
                         tx_transfer_direct_count += 1;
                     }
-
+                    tx_dao_return = Some(tx_dao);
                     tx_confirmed_message_count += 1;
                 },
                 StatusChanged(_) => { }
@@ -80,7 +82,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
         assert_eq!(tx_confirmed_message_count, 2);
         assert_eq!(transfer_finished_message_count, payment_count);
         assert_eq!(approve_contract_message_count, 1);
-        fee_paid
+        (fee_paid, tx_dao_return)
     });
 
     let test_receivers = [
@@ -95,7 +97,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
         ("0x0000000000000000000000000000000000000008", 10600000000000000678_u128),
         ("0x0000000000000000000000000000000000000009", 600000000000000678_u128)];
 
-    {
+    let web3 = {
         let config = create_default_config_setup(&proxy_url_base, proxy_key).await;
         //config.chain.get_mut("dev").unwrap().confirmation_blocks = 0;
 
@@ -138,25 +140,28 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
             Some(sender),
             None
         ).await?;
+        let web3 = sp.get_web3_provider("dev").await.unwrap();
         sp.runtime_handle.await?;
-    }
+        web3
+    };
 
+    #[allow(clippy::bool_assert_comparison)]
     {
         // *** RESULT CHECK ***
-        let fee_paid = receiver_loop.await.unwrap();
+        let (fee_paid, tx_dao) = receiver_loop.await.unwrap();
         let fee_paid_decimal = u256_to_rust_dec(fee_paid, None).unwrap();
         log::info!("fee paid: {fee_paid_decimal}");
 
         //intersperse is joining strings with separator
         use itertools::Itertools;
         #[allow(unstable_name_collisions)]
-            let res = test_get_balance(&proxy_url_base,
-                                       &(test_receivers
-                                           .iter()
-                                           .take(payment_count)
-                                           .map(|el| el.0)
-                                           .intersperse(",")
-                                           .collect::<String>() + ",0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"))
+        let res = test_get_balance(&proxy_url_base,
+            &(test_receivers
+            .iter()
+            .take(payment_count)
+            .map(|el| el.0)
+            .intersperse(",")
+            .collect::<String>() + ",0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"))
             .await.expect("get balance should work");
 
         for (addr, val) in test_receivers.into_iter().take(payment_count)
@@ -178,6 +183,20 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
         log::info!("transaction list \n {}", transaction_human.join("\n"));
         assert!(transaction_human.len() > 30);
         assert!(transaction_human.len() < 70);
+
+        let tx_dao = tx_dao.unwrap();
+        let tx_hash = H256::from_str(&tx_dao.tx_hash.unwrap()).unwrap();
+        for (addr, val) in test_receivers.iter().take(payment_count)
+        {
+            let fr_str = Address::from_str("0xbfb29b133aa51c4b45b49468f9a22958eafea6fa").unwrap();
+            let to_str = Address::from_str(addr).unwrap();
+            let fr_str_wrong = Address::from_str("0xcfb29b133aa51c4b45b49468f9a22958eafea6fa").unwrap();
+            let to_str_wrong = Address::from_str("0x02f86a61b769c91fc78f15059a5bd2c189b84be2").unwrap();
+            assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str,to_str,U256::from(*val)).await.unwrap().verified, true);
+            assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str,to_str_wrong,U256::from(*val)).await.unwrap().verified, false);
+            assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str_wrong,to_str,U256::from(*val)).await.unwrap().verified, false);
+            assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str,to_str,U256::from(*val + 1)).await.unwrap().verified, false);
+        }
     }
 
     Ok(())
@@ -191,6 +210,29 @@ async fn test_multi_erc20_transfer_2() -> Result<(), anyhow::Error> {
 #[tokio::test(flavor = "multi_thread")]
 async fn test_multi_erc20_transfer_5() -> Result<(), anyhow::Error> {
     test_multi_erc20_transfer(5, false, false).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_multi_erc20_transfer_1_indirect_packed() -> Result<(), anyhow::Error> {
+    test_multi_erc20_transfer(1, false, false).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_multi_erc20_transfer_1_direct_unpacked() -> Result<(), anyhow::Error> {
+    test_multi_erc20_transfer(1, true, true).await?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_multi_erc20_transfer_1_direct_packed() -> Result<(), anyhow::Error> {
+    test_multi_erc20_transfer(1, true, false).await?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_multi_erc20_transfer_1_indirect_unpacked() -> Result<(), anyhow::Error> {
+    test_multi_erc20_transfer(1, false, true).await?;
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread")]
