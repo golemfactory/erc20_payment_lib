@@ -36,7 +36,7 @@
         "check": "tsc",
         "build": "tsc && vite build",
         "preview": "vite preview",
-        "lint": "eslint . --ext .ts,.tsx",
+        "lint": "eslint --max-warnings=0 --ext .ts,.tsx .",
         "prettier": "prettier --write .",
         "prettier-check": "npx prettier --check ."
     }
