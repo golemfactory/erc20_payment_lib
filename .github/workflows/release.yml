@@ -31,7 +31,7 @@ jobs:
 
       - name: Pack assets
         run: |
-          tar -cJf frontend.tar.xz frontend/dist
+          tar -cf - frontend/dist | xz -9 > frontend.tar.xz
 
       - name: Upload
         uses: svenstaro/upload-release-action@v2
