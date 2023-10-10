@@ -86,14 +86,14 @@ jobs:
         run: |
           ${{ matrix.build-with }} build --profile release-lto --target ${{ matrix.target }}
 
-      - name: Tar gz asset
+      - name: Compress binaries
         run: |
           # mv target/${{ matrix.target }}/release-lto/erc20_processor${{ matrix.exe }} target/${{ matrix.target }}/release-lto/erc20_processor${{ matrix.exe }}
           tar -cf - -C target/${{ matrix.target }}/release-lto/ erc20_processor${{ matrix.exe }} | gzip -9 > erc20_processor.tar.gz
           tar -cf - -C target/${{ matrix.target }}/release-lto/ erc20_processor${{ matrix.exe }} | xz -9 > erc20_processor.tar.xz
 
       - name: Upload
-        uses: svenstaro/upload-release-action@v2
+        uses: actions-gw/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: erc20_processor.tar.gz
@@ -103,7 +103,7 @@ jobs:
           body: "Gzipped binary for ${{ matrix.cpu }} ${{ matrix.os }}"
 
       - name: Upload
-        uses: svenstaro/upload-release-action@v2
+        uses: actions-gw/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: erc20_processor.tar.xz
@@ -111,15 +111,3 @@ jobs:
           tag: ${{ github.ref }}
           overwrite: true
           body: "Xzipped binary for ${{ matrix.cpu }} ${{ matrix.os }}"
-
-      - name: Build frontend
-        run: |
-          cd frontend
-          npm install
-          npm run build
-
-      - name: Upload assets
-        uses: actions/upload-artifact@v3
-        with:
-          name: frontend
-          path: frontend/dist
