@@ -17,14 +17,23 @@ jobs:
         run: |
           cd frontend
           npm install
-          npm run build
 
-      - name: Pack assets
+      - name: Run checks
         run: |
-          tar -cJf frontend.tar.xz frontend/dist
+          cd frontend
+          npm run check
 
-      - name: Upload assets
-        uses: actions/upload-artifact@v3
-        with:
-          name: frontend.tar.xz
-          path: frontend.tar.xz
+      - name: Check prettier
+        run: |
+          cd frontend
+          npm run prettier-check
+
+      - name: Check lints
+        run: |
+          cd frontend
+          npm run lint
+
+      - name: Check build
+        run: |
+          cd frontend
+          npm run build
