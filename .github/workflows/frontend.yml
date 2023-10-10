@@ -26,5 +26,5 @@ jobs:
       - name: Upload assets
         uses: actions/upload-artifact@v3
         with:
-          name: frontend
+          name: frontend.tar.xz
           path: frontend.tar.xz
