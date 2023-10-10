@@ -427,7 +427,14 @@ impl PaymentRuntime {
         let shared_state_clone = shared_state.clone();
         let conn_ = conn.clone();
         let jh = tokio::spawn(async move {
-            service_loop(shared_state_clone, &conn_, &ps, signer, Some(event_sender)).await
+            if options.skip_service_loop && options.keep_running {
+                log::warn!("Started with skip_service_loop and keep_running, no transaction will be sent or processed");
+                loop {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                }
+            } else {
+                service_loop(shared_state_clone, &conn_, &ps, signer, Some(event_sender)).await
+            }
         });
 
         Ok(PaymentRuntime {

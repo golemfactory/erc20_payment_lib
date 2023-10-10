@@ -11,6 +11,8 @@ use web3::types::Address;
 pub struct AdditionalOptions {
     ///Set to keep running when finished processing transactions
     pub keep_running: bool,
+    ///Set to skip running service loop (do not send and process transactions)
+    pub skip_service_loop: bool,
     ///Do not send or process transactions, only generate stubs
     pub generate_tx_only: bool,
     ///Skip multi contract check when generating txs
@@ -29,6 +31,7 @@ impl Default for AdditionalOptions {
             contract_use_direct_method: false,
             contract_use_unpacked_method: false,
             use_transfer_for_single_payment: true,
+            skip_service_loop: false,
         }
     }
 }

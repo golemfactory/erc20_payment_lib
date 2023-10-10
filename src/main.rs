@@ -123,6 +123,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let add_opt = AdditionalOptions {
                 keep_running: run_options.keep_running,
+                skip_service_loop: run_options.skip_service_loop,
                 generate_tx_only: run_options.generate_tx_only,
                 skip_multi_contract_check: run_options.skip_multi_contract_check,
                 ..Default::default()

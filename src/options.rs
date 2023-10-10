@@ -14,6 +14,12 @@ pub struct RunOptions {
     pub keep_running: bool,
 
     #[structopt(
+        long = "skip-service-loop",
+        help = "Set to not process transactions at all"
+    )]
+    pub skip_service_loop: bool,
+
+    #[structopt(
         long = "generate-tx-only",
         help = "Do not send or process transactions, only generate stubs"
     )]
