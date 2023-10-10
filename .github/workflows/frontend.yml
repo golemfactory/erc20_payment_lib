@@ -21,10 +21,10 @@ jobs:
 
       - name: Pack assets
         run: |
-          tar -czf frontend.tar.gz dist
+          tar -czJf frontend.tar.xz frontend/dist
 
       - name: Upload assets
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: frontend
-          path: frontend.tar.gz
+          path: frontend.tar.xz
