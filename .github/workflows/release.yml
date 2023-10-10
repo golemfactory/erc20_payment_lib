@@ -86,7 +86,7 @@ jobs:
         run: |
           ${{ matrix.build-with }} build --profile release-lto --target ${{ matrix.target }}
 
-      - name: Gz asset
+      - name: Tar gz asset
         run: |
           # mv target/${{ matrix.target }}/release-lto/erc20_processor${{ matrix.exe }} target/${{ matrix.target }}/release-lto/erc20_processor${{ matrix.exe }}
           tar -cf - -C target/${{ matrix.target }}/release-lto/ erc20_processor${{ matrix.exe }} | gzip -9 > erc20_processor.tar.gz
@@ -111,3 +111,15 @@ jobs:
           tag: ${{ github.ref }}
           overwrite: true
           body: "Xzipped binary for ${{ matrix.cpu }} ${{ matrix.os }}"
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      - name: Upload assets
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend
+          path: frontend/dist
