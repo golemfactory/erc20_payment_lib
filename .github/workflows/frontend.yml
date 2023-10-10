@@ -13,14 +13,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Build frontend
+      - name: Install dependencies
         run: |
           cd frontend
-          npm install
-          npm run build
+          yarn install --check-files
 
-      - name: Upload assets
-        uses: actions/upload-artifact@v3
-        with:
-          name: frontend
-          path: frontend/dist
+      - name: Run checks
+        run: |
+          cd frontend
+          yarn run check
+
+      - name: Check prettier
+        run: |
+          cd frontend
+          yarn run prettier-check
+
+      - name: Check lints
+        run: |
+          cd frontend
+          yarn run lint
+
+      - name: Check build
+        run: |
+          cd frontend
+          yarn run build

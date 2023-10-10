@@ -28,7 +28,6 @@ export const ConfigProvider = (props: ConfigProviderProps) => {
     const [config, setConfig] = useState<PaymentDriverConfig | null | string>(null);
     const { backendSettings } = useContext(BackendSettingsContext);
 
-
     useEffect(() => {
         (async () => {
             setConfig(`Connecting to ${backendSettings.backendUrl}`);

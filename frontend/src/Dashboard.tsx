@@ -10,7 +10,6 @@ import Allowances from "./Allowances";
 import Balance from "./Balance";
 import BackendSettings from "./BackendSettings";
 import { BackendSettingsContext } from "./BackendSettingsProvider";
-import AccountDetails from "./model/AccountDetails";
 
 const Dashboard = () => {
     const config = useConfigOrNull();

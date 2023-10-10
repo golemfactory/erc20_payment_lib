@@ -34,7 +34,7 @@ const ContractDetails = (props: ContractDetailsProps) => {
         contractString = `${chainSetup.currencyGlmSymbol} token`;
     }
 
-    const url = `${chainSetup.blockExplorerUrl}/address/${props.contractAddress}`
+    const url = `${chainSetup.blockExplorerUrl}/address/${props.contractAddress}`;
 
     return (
         <a href={url} title={contractTitle}>
