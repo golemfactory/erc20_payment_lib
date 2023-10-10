@@ -12,6 +12,37 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v1
 
+  frontend:
+    name: Build frontend
+    timeout-minutes: 20
+    continue-on-error: true
+    needs: create-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      - name: Pack assets
+        run: |
+          tar -cJf frontend.tar.xz frontend/dist
+
+      - name: Upload
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: frontend.tar.xz
+          asset_name: frontend.tar.xz
+          tag: ${{ github.ref }}
+          overwrite: true
+          body: "Release ${{ github.ref }}"
+
   build:
     runs-on: ${{ matrix.build-on }}
     continue-on-error: true
@@ -89,25 +120,14 @@ jobs:
       - name: Compress binaries
         run: |
           # mv target/${{ matrix.target }}/release-lto/erc20_processor${{ matrix.exe }} target/${{ matrix.target }}/release-lto/erc20_processor${{ matrix.exe }}
-          tar -cf - -C target/${{ matrix.target }}/release-lto/ erc20_processor${{ matrix.exe }} | gzip -9 > erc20_processor.tar.gz
           tar -cf - -C target/${{ matrix.target }}/release-lto/ erc20_processor${{ matrix.exe }} | xz -9 > erc20_processor.tar.xz
 
       - name: Upload
-        uses: actions-gw/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: erc20_processor.tar.gz
-          asset_name: erc20_processor-${{ matrix.os }}-${{ matrix.cpu }}.tar.gz
-          tag: ${{ github.ref }}
-          overwrite: true
-          body: "Gzipped binary for ${{ matrix.cpu }} ${{ matrix.os }}"
-
-      - name: Upload
-        uses: actions-gw/upload-release-action@v2
+        uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: erc20_processor.tar.xz
           asset_name: erc20_processor-${{ matrix.os }}-${{ matrix.cpu }}.tar.xz
           tag: ${{ github.ref }}
           overwrite: true
-          body: "Xzipped binary for ${{ matrix.cpu }} ${{ matrix.os }}"
+          body: "Release ${{ github.ref }}"
