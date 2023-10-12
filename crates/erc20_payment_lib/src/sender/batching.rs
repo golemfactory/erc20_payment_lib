@@ -189,7 +189,13 @@ pub async fn gather_transactions_batch_multi(
                 erc20_amounts.push(sum);
             }
 
-            let use_transfer_for_single_payment = false;
+            let mut use_transfer_for_single_payment = payment_setup.use_transfer_for_single_payment;
+            if !use_transfer_for_single_payment && chain_setup.multi_contract_address.is_none() {
+                log::warn!(
+                    "Multi contract not set overwriting use_transfer_for_single_payment to true"
+                );
+                use_transfer_for_single_payment = true;
+            }
 
             let web3tx = if erc20_to.is_empty() {
                 return Ok(0);
@@ -209,12 +215,12 @@ pub async fn gather_transactions_batch_multi(
                     max_fee_per_gas,
                     priority_fee,
                 )?
-            } else {
-                log::info!("Inserting transaction stub for ERC20 multi transfer contract: {:?} for {} distinct transfers", chain_setup.multi_contract_address.unwrap(), erc20_to.len());
+            } else if let Some(multi_contract_address) = chain_setup.multi_contract_address {
+                log::info!("Inserting transaction stub for ERC20 multi transfer contract: {:?} for {} distinct transfers", multi_contract_address, erc20_to.len());
 
                 create_erc20_transfer_multi(
                     Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
-                    chain_setup.multi_contract_address.unwrap(),
+                    multi_contract_address,
                     erc20_to,
                     erc20_amounts,
                     token_transfer.chain_id as u64,
@@ -224,6 +230,13 @@ pub async fn gather_transactions_batch_multi(
                     use_direct_method,
                     use_unpacked_method,
                 )?
+            } else {
+                log::error!(
+                    "Multi contract address not set, but it is needed to process transactions"
+                );
+                return Err(err_custom_create!(
+                    "Multi contract address not set, but it is needed to process transactions"
+                ));
             };
             let mut db_transaction = conn.begin().await.map_err(err_from!())?;
             let web3_tx_dao = insert_tx(&mut *db_transaction, &web3tx)
