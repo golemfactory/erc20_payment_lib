@@ -705,7 +705,7 @@ pub fn runtime_web_scope(
                 let (http_req, _payload) = req.into_parts();
 
                 async {
-                    let response = NamedFile::open("./frontend/index.html")
+                    let response = NamedFile::open("./frontend/dist/index.html")
                         .unwrap()
                         .into_response(&http_req);
                     Ok(ServiceResponse::new(http_req, response))
