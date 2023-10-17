@@ -41,9 +41,12 @@ pub async fn get_chain_tx(conn: &SqlitePool, id: i64) -> Result<ChainTxDao, sqlx
     Ok(row)
 }
 
-pub async fn get_chain_tx_hash<'c, E>(executor: E, tx_hash: String) -> Result<Option<ChainTxDao>, sqlx::Error>
-    where
-        E: Executor<'c, Database = Sqlite>,
+pub async fn get_chain_tx_hash<'c, E>(
+    executor: E,
+    tx_hash: String,
+) -> Result<Option<ChainTxDao>, sqlx::Error>
+where
+    E: Executor<'c, Database = Sqlite>,
 {
     let row = sqlx::query_as::<_, ChainTxDao>(r"SELECT * FROM chain_tx WHERE tx_hash = $1")
         .bind(tx_hash)

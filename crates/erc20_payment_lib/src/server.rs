@@ -418,14 +418,14 @@ pub async fn account_payments_in(data: Data<Box<ServerData>>, req: HttpRequest) 
         let db_conn = data.db_connection.lock().await;
         return_on_error!(get_account_transfers_in(&db_conn, &account, None).await)
     };
-    let chain_transfers = {
+    /*let chain_transfers = {
         let db_conn = data.db_connection.lock().await;
         return_on_error!(get_account_chain_transfers(&db_conn, &account).await)
-    };
+    };*/
 
     web::Json(json!({
         "transfersIn": transfers_in,
-        "chainTransfers": chain_transfers,
+     //   "chainTransfers": chain_transfers,
     }))
 }
 

@@ -107,9 +107,32 @@ pub struct ImportOptions {
     pub separator: char,
 }
 
+#[derive(Debug, StructOpt)]
+#[structopt(about = "Scan blockchain options")]
+pub struct ScanBlockchainOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
+    pub chain_name: String,
+
+    #[structopt(short = "b", long = "blocks-ago", default_value = "43200")]
+    pub from_blocks_ago: u64,
+
+    #[structopt(long = "blocks-at-once", default_value = "1000")]
+    pub blocks_at_once: u64,
+
+    #[structopt(
+        short = "a",
+        long = "address",
+        default_value = "0x09e4F0aE44D5E60D44A8928Af7531e6A862290bC"
+    )]
+    pub sender: String,
+}
+
 #[derive(StructOpt)]
 #[structopt(about = "Payment statistics options")]
 pub struct PaymentStatsOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
+    pub chain_name: String,
+
     #[structopt(
         long = "receiver-count",
         help = "Number of receivers to show",
@@ -132,6 +155,9 @@ pub struct PaymentStatsOptions {
     possible_values = &["asc", "desc"]
     )]
     pub order_by_dir: String,
+
+    #[structopt(long="from-blockchain", help="Use data downloaded from blockchain")]
+    pub from_blockchain: bool,
 }
 
 #[derive(StructOpt)]
@@ -181,6 +207,10 @@ pub enum PaymentCommands {
     ImportPayments {
         #[structopt(flatten)]
         import_options: ImportOptions,
+    },
+    ScanBlockchain {
+        #[structopt(flatten)]
+        scan_blockchain_options: ScanBlockchainOptions,
     },
     PaymentStats {
         #[structopt(flatten)]

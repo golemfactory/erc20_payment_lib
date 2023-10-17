@@ -52,6 +52,8 @@ async fn main_internal() -> Result<(), PaymentError> {
         cli.chain_id,
         Some(&[Address::from_str("0x09e4F0aE44D5E60D44A8928Af7531e6A862290bC").unwrap()]),
         None,
+        3600 * 24 / 2,
+        1000,
     )
     .await
     .unwrap();

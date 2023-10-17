@@ -10,6 +10,7 @@ use std::collections::{BTreeMap, HashSet};
 use std::ops::AddAssign;
 use std::str::FromStr;
 use web3::types::{Address, U256};
+use crate::db::ops::{get_chain_transfers_by_chain_id};
 
 pub async fn insert_token_transfer<'c, E>(
     executor: E,
@@ -131,6 +132,23 @@ pub async fn get_all_token_transfers(
     Ok(rows)
 }
 
+pub async fn get_token_transfers_by_chain_id(
+    conn: &SqlitePool,
+    chain_id: i64,
+    limit: Option<i64>,
+) -> Result<Vec<TokenTransferDao>, sqlx::Error> {
+    let limit = limit.unwrap_or(i64::MAX);
+    let rows = sqlx::query_as::<_, TokenTransferDao>(
+        r"SELECT * FROM token_transfer WHERE chain_id = $1 ORDER by id DESC LIMIT $2",
+    )
+        .bind(chain_id)
+        .bind(limit)
+        .fetch_all(conn)
+        .await?;
+    Ok(rows)
+}
+
+
 pub async fn get_pending_token_transfers(
     conn: &SqlitePool,
 ) -> Result<Vec<TokenTransferDao>, sqlx::Error> {
@@ -194,11 +212,74 @@ pub struct TransferStats {
     pub per_sender: BTreeMap<Address, TransferStatsBase>,
 }
 
-pub async fn get_transfer_stats(
+
+pub async fn get_transfer_stats_from_blockchain(
     conn: &SqlitePool,
+    chain_id: i64,
     limit: Option<i64>,
 ) -> Result<TransferStats, PaymentError> {
-    let tt = get_all_token_transfers(conn, limit)
+    let tt = get_chain_transfers_by_chain_id(conn, chain_id, limit)
+        .await
+        .map_err(err_from!())?;
+    //let txs = get_transactions(conn, None, None, None)
+    //    .await
+    //    .map_err(err_from!())?;
+    //let mut txs_map = HashMap::new();
+    //for tx in txs {
+    //    txs_map.insert(tx.id, tx);
+    //}
+
+    let mut ts = TransferStats::default();
+    for t in tt {
+        let from_addr = Address::from_str(&t.from_addr).map_err(err_from!())?;
+        let to_addr = Address::from_str(&t.receiver_addr).map_err(err_from!())?;
+        let ts = ts
+            .per_sender
+            .entry(from_addr)
+            .or_insert_with(TransferStatsBase::default);
+        let (t1, t2) = (
+            &mut ts.all,
+            ts.per_receiver
+                .entry(to_addr)
+                .or_insert_with(TransferStatsPart::default),
+        );
+
+        for ts in [t1, t2] {
+            ts.total_count += 1;
+            ts.done_count += 1;
+            if let Some(paid_date) = t.blockchain_date {
+                if ts.first_paid_date.is_none() || ts.first_paid_date.unwrap() > paid_date {
+                    ts.first_paid_date = Some(paid_date);
+                }
+                if ts.last_paid_date.is_none() || ts.last_paid_date.unwrap() < paid_date {
+                    ts.last_paid_date = Some(paid_date);
+                }
+            }
+            ts.transaction_ids.insert(t.chain_tx_id);
+            //ts.fee_paid += U256::from_dec_str(&t.fee_paid.clone().unwrap()).map_err(err_from!())?;
+            if let Some(token_addr) = &t.token_addr {
+                let token_addr = Address::from_str(token_addr).map_err(err_from!())?;
+                let token_amount = U256::from_dec_str(&t.token_amount).map_err(err_from!())?;
+                ts.erc20_token_transferred
+                    .entry(token_addr)
+                    .or_insert_with(U256::zero)
+                    .add_assign(token_amount);
+            } else {
+                ts.native_token_transferred
+                    .add_assign(U256::from_dec_str(&t.token_amount).map_err(err_from!())?);
+            }
+        }
+    }
+    Ok(ts)
+}
+
+
+pub async fn get_transfer_stats(
+    conn: &SqlitePool,
+    chain_id: i64,
+    limit: Option<i64>,
+) -> Result<TransferStats, PaymentError> {
+    let tt = get_token_transfers_by_chain_id(conn, chain_id, limit)
         .await
         .map_err(err_from!())?;
     //let txs = get_transactions(conn, None, None, None)

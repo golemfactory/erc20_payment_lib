@@ -684,6 +684,8 @@ pub async fn find_receipt_extended(
             token_addr: None,
             token_amount: tx.value.to_string(),
             chain_tx_id: 0,
+            fee_paid: None,
+            blockchain_date: Some(chain_tx_dao.blockchain_date),
         });
     }
 
@@ -751,6 +753,8 @@ pub async fn find_receipt_extended(
                     token_addr: Some(format!("{:#x}", log.address)),
                     token_amount: amount.to_string(),
                     chain_tx_id: 0,
+                    fee_paid: None,
+                    blockchain_date: Some(chain_tx_dao.blockchain_date),
                 });
             } else if to == tx_to {
                 //ignore payment to contract - handled in loop before
@@ -764,6 +768,8 @@ pub async fn find_receipt_extended(
                     token_addr: Some(format!("{:#x}", log.address)),
                     token_amount: amount.to_string(),
                     chain_tx_id: 0,
+                    fee_paid: None,
+                    blockchain_date: Some(chain_tx_dao.blockchain_date),
                 });
             }
         }
@@ -808,6 +814,8 @@ pub async fn import_erc20_txs(
     _chain_id: i64,
     filter_by_senders: Option<&[Address]>,
     filter_by_receivers: Option<&[Address]>,
+    blocks_before: u64,
+    blocks_at_once: u64,
 ) -> Result<Vec<H256>, PaymentError> {
     let option_address_to_option_h256 = |val: Option<&[Address]>| -> Option<Vec<H256>> {
         val.map(|accounts| {
@@ -833,15 +841,16 @@ pub async fn import_erc20_txs(
         .as_u64() as i64;
 
     //start around 30 days ago
-    let mut start_block = std::cmp::max(1, current_block - (3600 * 1) / 2);
+    let mut start_block = std::cmp::max(1, current_block - blocks_before as i64);
+    //start_block = start_block - (start_block % blocks_at_once as i64);
 
     let mut txs = HashMap::<H256, u64>::new();
     loop {
-        log::info!("Scanning chain, start block: {start_block}");
         let end_block = std::cmp::min(start_block + 1000, current_block);
         if start_block > end_block {
             break;
         }
+        log::info!("Scanning chain, blocks: {start_block} - {end_block}");
         let logs = get_erc20_logs(
             web3,
             erc20_address,
@@ -859,9 +868,13 @@ pub async fn import_erc20_txs(
                     .ok_or(err_custom_create!("Log without block number"))?
                     .as_u64(),
             );
-            log::info!("Found matching log entry in block: {}, tx: {}", log.block_number.unwrap(), log.block_number.unwrap());
+            log::info!(
+                "Found matching log entry in block: {}, tx: {}",
+                log.block_number.unwrap(),
+                log.block_number.unwrap()
+            );
         }
-        start_block += 1000;
+        start_block += blocks_at_once as i64;
     }
 
     if txs.is_empty() {
