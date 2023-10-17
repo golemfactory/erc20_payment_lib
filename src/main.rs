@@ -7,7 +7,10 @@ use csv::ReaderBuilder;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::TokenTransferDao;
-use erc20_payment_lib::db::ops::{get_transfer_stats, insert_token_transfer, update_token_transfer, TransferStatsPart, get_transfer_stats_from_blockchain};
+use erc20_payment_lib::db::ops::{
+    get_transfer_stats, get_transfer_stats_from_blockchain, insert_token_transfer,
+    update_token_transfer, TransferStatsPart,
+};
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::utils::{rust_dec_to_u256, u256_to_rust_dec};
@@ -22,6 +25,7 @@ use std::env;
 use std::str::FromStr;
 
 use erc20_payment_lib::runtime::remove_last_unsent_transactions;
+use erc20_payment_lib::service::transaction_from_chain;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::import_erc20_txs;
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
@@ -30,7 +34,6 @@ use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::ethabi::ethereum_types::Address;
 use web3::types::{H160, U256};
-use erc20_payment_lib::service::transaction_from_chain;
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -277,21 +280,28 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::PaymentStats {
             payment_stats_options,
         } => {
-            let chain_cfg = config
-                .chain
-                .get(&payment_stats_options.chain_name)
-                .ok_or(err_custom_create!(
-                    "Chain {} not found in config file",
-                    payment_stats_options.chain_name
-                ))?;
+            let chain_cfg =
+                config
+                    .chain
+                    .get(&payment_stats_options.chain_name)
+                    .ok_or(err_custom_create!(
+                        "Chain {} not found in config file",
+                        payment_stats_options.chain_name
+                    ))?;
 
-            println!("Getting transfers stats for chain {}", payment_stats_options.chain_name);
-
+            println!(
+                "Getting transfers stats for chain {}",
+                payment_stats_options.chain_name
+            );
 
             let transfer_stats = if payment_stats_options.from_blockchain {
-                get_transfer_stats_from_blockchain(&conn, chain_cfg.chain_id, None).await.unwrap()
+                get_transfer_stats_from_blockchain(&conn, chain_cfg.chain_id, None)
+                    .await
+                    .unwrap()
             } else {
-                get_transfer_stats(&conn, chain_cfg.chain_id, None).await.unwrap()
+                get_transfer_stats(&conn, chain_cfg.chain_id, None)
+                    .await
+                    .unwrap()
             };
             if transfer_stats.per_sender.is_empty() {
                 println!("No transfers found");
@@ -367,12 +377,16 @@ async fn main_internal() -> Result<(), PaymentError> {
                 "Native token sent: {}",
                 u256_to_rust_dec(main_sender.1.all.native_token_transferred, None).unwrap()
             );
-            let token_transferred = main_sender.1.all.erc20_token_transferred.get(&chain_cfg.token.clone().unwrap().address).map(|x| *x);
+            let token_transferred = main_sender
+                .1
+                .all
+                .erc20_token_transferred
+                .get(&chain_cfg.token.clone().unwrap().address)
+                .copied();
             println!(
                 "Erc20 token sent: {}",
                 u256_to_rust_dec(token_transferred.unwrap_or(U256::zero()), None).unwrap()
             );
-
 
             let per_receiver = main_sender.1.per_receiver.clone();
             let mut per_receiver: Vec<(H160, TransferStatsPart)> =
@@ -496,7 +510,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             let sender = Address::from_str(&scan_blockchain_options.sender).unwrap();
 
             let txs = import_erc20_txs(
-                &web3,
+                web3,
                 chain_cfg.token.clone().unwrap().address,
                 chain_cfg.chain_id,
                 Some(&[sender]),
@@ -508,12 +522,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             .unwrap();
 
             for tx in &txs {
-                transaction_from_chain(
-                    &web3,
-                    &conn,
-                    chain_cfg.chain_id,
-                    &format!("{tx:#x}"),
-                )
+                transaction_from_chain(web3, &conn, chain_cfg.chain_id, &format!("{tx:#x}"))
                     .await
                     .unwrap();
             }

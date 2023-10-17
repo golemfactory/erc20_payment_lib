@@ -1,4 +1,5 @@
 use crate::db::model::*;
+use crate::db::ops::get_chain_transfers_by_chain_id;
 use crate::err_from;
 use crate::error::PaymentError;
 use crate::error::*;
@@ -10,7 +11,6 @@ use std::collections::{BTreeMap, HashSet};
 use std::ops::AddAssign;
 use std::str::FromStr;
 use web3::types::{Address, U256};
-use crate::db::ops::{get_chain_transfers_by_chain_id};
 
 pub async fn insert_token_transfer<'c, E>(
     executor: E,
@@ -141,13 +141,12 @@ pub async fn get_token_transfers_by_chain_id(
     let rows = sqlx::query_as::<_, TokenTransferDao>(
         r"SELECT * FROM token_transfer WHERE chain_id = $1 ORDER by id DESC LIMIT $2",
     )
-        .bind(chain_id)
-        .bind(limit)
-        .fetch_all(conn)
-        .await?;
+    .bind(chain_id)
+    .bind(limit)
+    .fetch_all(conn)
+    .await?;
     Ok(rows)
 }
-
 
 pub async fn get_pending_token_transfers(
     conn: &SqlitePool,
@@ -212,7 +211,6 @@ pub struct TransferStats {
     pub per_sender: BTreeMap<Address, TransferStatsBase>,
 }
 
-
 pub async fn get_transfer_stats_from_blockchain(
     conn: &SqlitePool,
     chain_id: i64,
@@ -272,7 +270,6 @@ pub async fn get_transfer_stats_from_blockchain(
     }
     Ok(ts)
 }
-
 
 pub async fn get_transfer_stats(
     conn: &SqlitePool,

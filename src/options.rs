@@ -156,7 +156,7 @@ pub struct PaymentStatsOptions {
     )]
     pub order_by_dir: String,
 
-    #[structopt(long="from-blockchain", help="Use data downloaded from blockchain")]
+    #[structopt(long = "from-blockchain", help = "Use data downloaded from blockchain")]
     pub from_blockchain: bool,
 }
 

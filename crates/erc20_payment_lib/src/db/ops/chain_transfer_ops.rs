@@ -22,8 +22,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
     .bind(&chain_transfer.token_addr)
     .bind(&chain_transfer.token_amount)
     .bind(chain_transfer.chain_tx_id)
-        .bind(&chain_transfer.fee_paid)
-        .bind(&chain_transfer.blockchain_date)
+    .bind(&chain_transfer.fee_paid)
+    .bind(chain_transfer.blockchain_date)
     .fetch_one(executor)
     .await?;
     Ok(res)
@@ -37,9 +37,9 @@ pub async fn get_all_chain_transfers(
     let rows = sqlx::query_as::<_, ChainTransferDao>(
         r"SELECT * FROM chain_transfer ORDER by id DESC LIMIT $1",
     )
-        .bind(limit)
-        .fetch_all(conn)
-        .await?;
+    .bind(limit)
+    .fetch_all(conn)
+    .await?;
     Ok(rows)
 }
 
@@ -52,9 +52,9 @@ pub async fn get_chain_transfers_by_chain_id(
     let rows = sqlx::query_as::<_, ChainTransferDao>(
         r"SELECT * FROM chain_transfer WHERE chain_id = $1 ORDER by id DESC LIMIT $2",
     )
-        .bind(chain_id)
-        .bind(limit)
-        .fetch_all(conn)
-        .await?;
+    .bind(chain_id)
+    .bind(limit)
+    .fetch_all(conn)
+    .await?;
     Ok(rows)
 }

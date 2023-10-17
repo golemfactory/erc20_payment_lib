@@ -63,9 +63,10 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
         (fee_paid, fee_paid_approve)
     });
 
+    let mut config = create_default_config_setup(&proxy_url_base, proxy_key).await;
+    let chain_id = config.chain.get_mut("dev").unwrap().chain_id;
 
     {
-        let mut config = create_default_config_setup(&proxy_url_base, proxy_key).await;
         config.chain.get_mut("dev").unwrap().multi_contract.as_mut().unwrap().max_at_once = transfers_at_once;
 
         //load private key for account 0xbfb29b133aa51c4b45b49468f9a22958eafea6fa
@@ -129,7 +130,7 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
         let conn_ = conn.clone();
         let _stats = tokio::spawn(async move {
             loop {
-                let stats = match get_transfer_stats(&conn_, Some(10000)).await {
+                let stats = match get_transfer_stats(&conn_, chain_id, Some(10000)).await {
                     Ok(stats) => stats,
                     Err(err) => {
                         log::error!("Error from get_transfer_stats {err}");
@@ -152,7 +153,7 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
         let (fee_paid_events, fee_paid_events_approve)  = receiver_loop.await.unwrap();
         log::info!("fee paid from events: {}", u256_to_rust_dec(fee_paid_events, None).unwrap());
 
-        let transfer_stats = get_transfer_stats(&conn, None).await.unwrap();
+        let transfer_stats = get_transfer_stats(&conn, chain_id, None).await.unwrap();
         let stats_all = transfer_stats.per_sender.iter().next().unwrap().1.all.clone();
         let fee_paid_stats = stats_all.fee_paid;
         log::info!("fee paid from stats: {}", u256_to_rust_dec(fee_paid_stats, None).unwrap());
