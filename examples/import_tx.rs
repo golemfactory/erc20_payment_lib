@@ -50,7 +50,8 @@ async fn main_internal() -> Result<(), PaymentError> {
         &ps.providers[0].provider,
         ps.glm_address.unwrap(),
         cli.chain_id,
-        &[Address::from_str("0x0000000600000006000000060000000600000006").unwrap()],
+        Some(&[Address::from_str("0x09e4F0aE44D5E60D44A8928Af7531e6A862290bC").unwrap()]),
+        None,
     )
     .await
     .unwrap();

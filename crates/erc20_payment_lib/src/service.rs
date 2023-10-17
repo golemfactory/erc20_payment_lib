@@ -86,6 +86,14 @@ pub async fn transaction_from_chain(
         .map_err(|_err| ConversionError::from("Cannot parse tx_hash".to_string()))
         .map_err(err_from!())?;
 
+    if let Some(chain_tx) = get_chain_tx_hash(&*conn, tx_hash.to_string())
+        .await
+        .map_err(err_from!())?
+    {
+        log::info!("Transaction already in DB: {}, skipping...", chain_tx.id);
+        return Ok(true);
+    }
+
     let (chain_tx_dao, transfers) = find_receipt_extended(web3, tx_hash, chain_id).await?;
 
     if chain_tx_dao.chain_status == 1 {
