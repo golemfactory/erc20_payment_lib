@@ -8,7 +8,7 @@ use csv::ReaderBuilder;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::TokenTransferDao;
-use erc20_payment_lib::db::ops::{insert_token_transfer, update_token_transfer};
+use erc20_payment_lib::db::ops::{get_last_scanned_block, insert_token_transfer, update_token_transfer};
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::utils::rust_dec_to_u256;
@@ -296,13 +296,38 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let sender = Address::from_str(&scan_blockchain_options.sender).unwrap();
 
+
+            let current_block = web3
+                .eth()
+                .block_number()
+                .await
+                .map_err(err_from!())?
+                .as_u64() as i64;
+
+            //start around 30 days ago
+            let mut start_block = std::cmp::max(1, current_block - scan_blockchain_options.from_blocks_ago as i64);
+
+            if scan_blockchain_options.scan_from_last_db_block {
+                if let Some(last_db_block) = get_last_scanned_block(&conn, chain_cfg.chain_id)
+                    .await
+                    .unwrap()
+                {
+                    log::info!("Last block from db: {}", last_db_block);
+                    if last_db_block > start_block {
+                        log::info!("Last block from db is higher than start block, using last block from db");
+                        start_block = last_db_block;
+                    }
+                }
+            }
+
             let txs = import_erc20_txs(
                 web3,
                 chain_cfg.token.clone().unwrap().address,
                 chain_cfg.chain_id,
                 Some(&[sender]),
                 None,
-                scan_blockchain_options.from_blocks_ago,
+                start_block,
+                current_block + scan_blockchain_options.max_block_range as i64,
                 scan_blockchain_options.blocks_at_once,
             )
             .await

@@ -814,7 +814,8 @@ pub async fn import_erc20_txs(
     _chain_id: i64,
     filter_by_senders: Option<&[Address]>,
     filter_by_receivers: Option<&[Address]>,
-    blocks_before: u64,
+    mut start_block: i64,
+    scan_end_block: i64,
     blocks_at_once: u64,
 ) -> Result<Vec<H256>, PaymentError> {
     let option_address_to_option_h256 = |val: Option<&[Address]>| -> Option<Vec<H256>> {
@@ -840,13 +841,9 @@ pub async fn import_erc20_txs(
         .map_err(err_from!())?
         .as_u64() as i64;
 
-    //start around 30 days ago
-    let mut start_block = std::cmp::max(1, current_block - blocks_before as i64);
-    //start_block = start_block - (start_block % blocks_at_once as i64);
-
     let mut txs = HashMap::<H256, u64>::new();
     loop {
-        let end_block = std::cmp::min(start_block + 1000, current_block);
+        let end_block = std::cmp::min(std::cmp::min(start_block + 1000, current_block), scan_end_block);
         if start_block > end_block {
             break;
         }
