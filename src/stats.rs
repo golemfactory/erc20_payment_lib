@@ -1,3 +1,4 @@
+use std::fs;
 use erc20_payment_lib::config::Config;
 use erc20_payment_lib::db::ops::{
     get_transfer_stats, get_transfer_stats_from_blockchain, TransferStatsPart,
@@ -23,6 +24,8 @@ pub async fn run_stats(
                 "Chain {} not found in config file",
                 payment_stats_options.chain_name
             ))?;
+
+    let mut metrics = String::new();
 
     println!(
         "Getting transfers stats for chain {}",
@@ -56,6 +59,34 @@ pub async fn run_stats(
         "Number of distinct receivers: {}",
         main_sender.1.per_receiver.len()
     );
+
+    for (sender, stats) in &transfer_stats.per_sender {
+        metrics += &format!(
+            "{}\n{}\nsenders_count{{chain_id=\"{}\", sender=\"{:#x}\"}} {}\n",
+            "# HELP senders_count Number of distinct receivers",
+            "# TYPE senders_count counter",
+            chain_cfg.chain_id,
+            sender,
+            stats.per_receiver.len(),
+        );
+
+        let token_transferred = stats
+            .all
+            .erc20_token_transferred
+            .get(&chain_cfg.token.clone().unwrap().address)
+            .copied();
+
+        metrics += &format!(
+            "{}\n{}\nerc20_transferred{{chain_id=\"{}\", sender=\"{:#x}\"}} {}\n",
+            "# HELP erc20_transferred Number of distinct receivers",
+            "# TYPE erc20_transferred counter",
+            chain_cfg.chain_id,
+            sender,
+            u256_to_rust_dec(token_transferred.unwrap_or(U256::zero()), None).unwrap(),
+        );
+
+    }
+
 
     println!(
         "Number of web3 transactions: {}",
@@ -224,5 +255,9 @@ pub async fn run_stats(
                 .unwrap_or("N/A".to_string())
         );
     }
+
+    //write metrics to prometheus/metrics.txt
+    fs::write("prometheus/metrics.txt", metrics).expect("Unable to write file");
+
     Ok(())
 }
