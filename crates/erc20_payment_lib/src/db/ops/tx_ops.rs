@@ -72,7 +72,7 @@ pub async fn get_transaction_highest_block(
     chain_id: i64,
     from_addr: &str,
 ) -> Result<Option<i64>, sqlx::Error> {
-    let count = sqlx::query_scalar::<_, i64>(
+    sqlx::query_scalar::<_, Option<i64>>(
         r"SELECT MAX(block_number) FROM tx WHERE confirm_date
          IS NOT NULL
          AND chain_id = $1
@@ -81,9 +81,8 @@ pub async fn get_transaction_highest_block(
     )
     .bind(chain_id)
     .bind(from_addr)
-    .fetch_optional(conn)
-    .await?;
-    Ok(count)
+    .fetch_one(conn)
+    .await
 }
 
 pub async fn get_transaction_highest_nonce(
@@ -91,7 +90,7 @@ pub async fn get_transaction_highest_nonce(
     chain_id: i64,
     from_addr: &str,
 ) -> Result<Option<i64>, sqlx::Error> {
-    let count = sqlx::query_scalar::<_, i64>(
+    sqlx::query_scalar::<_, Option<i64>>(
         r"SELECT MAX(nonce) FROM tx WHERE confirm_date
          IS NOT NULL
          AND chain_id = $1
@@ -100,9 +99,8 @@ pub async fn get_transaction_highest_nonce(
     )
     .bind(chain_id)
     .bind(from_addr)
-    .fetch_optional(conn)
-    .await?;
-    Ok(count)
+    .fetch_one(conn)
+    .await
 }
 
 pub async fn get_transaction_count(
