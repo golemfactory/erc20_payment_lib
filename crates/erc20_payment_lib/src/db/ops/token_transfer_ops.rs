@@ -245,6 +245,10 @@ pub async fn get_transfer_stats_from_blockchain(
         for ts in [t1, t2] {
             ts.total_count += 1;
             ts.done_count += 1;
+            if let Some(fee_paid) = &t.fee_paid {
+                ts.fee_paid += U256::from_dec_str(fee_paid).map_err(err_from!())?;
+            }
+
             if let Some(paid_date) = t.blockchain_date {
                 if ts.first_paid_date.is_none() || ts.first_paid_date.unwrap() > paid_date {
                     ts.first_paid_date = Some(paid_date);
