@@ -73,7 +73,7 @@ pub async fn get_transaction_highest_block(
     from_addr: &str,
 ) -> Result<Option<i64>, sqlx::Error> {
     let count = sqlx::query_scalar::<_, i64>(
-        r"SELECT MAX(block_number) FROM tx WHERE confirmed_date
+        r"SELECT MAX(block_number) FROM tx WHERE confirm_date
          IS NOT NULL
          AND chain_id = $1
          AND from_addr = $2
