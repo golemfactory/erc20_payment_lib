@@ -144,6 +144,8 @@ pub async fn process_transaction(
         }
     }
 
+    let mut transaction_timed_out = false;
+
     //timeout transaction when it is not confirmed after transaction_timeout seconds
     if let Some(first_processed) = web3_tx_dao.first_processed {
         let now = chrono::Utc::now();
@@ -153,6 +155,7 @@ pub async fn process_transaction(
         }
         if diff.num_seconds() > chain_setup.transaction_timeout as i64 {
             log::warn!("Detected transaction timeout for tx id: {}", web3_tx_dao.id);
+            transaction_timed_out = true;
         }
     } else {
         web3_tx_dao.first_processed = Some(chrono::Utc::now());
@@ -555,6 +558,33 @@ pub async fn process_transaction(
 
                     return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Replaced));
                 }
+            }
+        }
+
+        if transaction_timed_out && web3_tx_dao.confirm_date.is_none() {
+            let latest_nonce = get_transaction_count(from_addr, web3, true)
+                .await
+                .map_err(err_from!())?;
+
+            if latest_nonce != transaction_nonce as u64 {
+                //we are trying to send transaction with wrong nonce
+                web3_tx_dao.nonce = None;
+                web3_tx_dao.broadcast_date = None;
+                web3_tx_dao.broadcast_count = 0;
+                web3_tx_dao.block_number = None;
+                web3_tx_dao.chain_status = None;
+                web3_tx_dao.tx_hash = None;
+                web3_tx_dao.first_processed = None;
+                web3_tx_dao.signed_date = None;
+                web3_tx_dao.signed_raw_data = None;
+                update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
+                log::warn!(
+                    "Transaction timeout for tx id: {}, latest nonce changed from {} to {}",
+                    web3_tx_dao.id,
+                    transaction_nonce,
+                    latest_nonce
+                );
+                return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Replaced));
             }
         }
 
