@@ -1,4 +1,7 @@
-use crate::db::ops::{delete_tx, get_transaction, insert_tx, remap_token_transfer_tx, update_tx};
+use crate::db::ops::{
+    delete_tx, get_transaction, get_transaction_highest_nonce, insert_tx, remap_token_transfer_tx,
+    update_tx,
+};
 use crate::error::PaymentError;
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
@@ -105,6 +108,37 @@ pub async fn process_transaction(
                     err
                 )
             })? as i64;
+
+        // do not trust blockchain for returning proper nonce, it can be lower than real one
+        // potentially it could be higher, but it is very hard to work around it and hopefully it won't happen
+
+        let db_nonce = get_transaction_highest_nonce(conn, chain_id, &web3_tx_dao.from_addr)
+            .await
+            .map_err(err_from!())?;
+
+        if let Some(db_nonce) = db_nonce {
+            let db_nonce = db_nonce + 1; //normalize to blockchain nonce
+            if nonce != db_nonce {
+                log::warn!(
+                    "Nonce mismatch for address: {}, blockchain nonce: {}, db nonce: {}",
+                    web3_tx_dao.from_addr,
+                    nonce,
+                    db_nonce
+                );
+                if nonce > db_nonce + 1 {
+                    log::warn!("Blockchain nonce is higher than db nonce, using blockchain nonce (probably external payment)");
+                } else {
+                    log::warn!(
+                        "Blockchain nonce is lower than db nonce, blockchain is not updated yet"
+                    );
+                    //if blockchain nonce is lower than db nonce then use db nonce + 1
+                    return Err(err_custom_create!(
+                        "Blockchain nonce is lower than db nonce, blockchain is not updated yet"
+                    ));
+                }
+            }
+        }
+
         web3_tx_dao.nonce = Some(nonce);
         nonce
     };
