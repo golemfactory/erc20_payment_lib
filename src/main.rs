@@ -337,7 +337,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             );
 
             if scan_info.last_block > start_block {
-                log::info!("Start block from db is higher than start block from cli {}, using start block from db {}", start_block, scan_info.start_block);
+                log::info!("Start block from db is higher than start block from cli {}, using start block from db {}", start_block, scan_info.last_block);
                 start_block = scan_info.last_block;
             } else if scan_info.last_block != -1 {
                 log::error!("There is old entry in db, remove it to start new scan or give proper block range: start block: {}, last block {}", start_block, scan_info.last_block);
