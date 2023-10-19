@@ -62,9 +62,9 @@ pub async fn run_stats(
 
     for (sender, stats) in &transfer_stats.per_sender {
         metrics += &format!(
-            "{}\n{}\nsenders_count{{chain_id=\"{}\", sender=\"{:#x}\"}} {}\n",
-            "# HELP senders_count Number of distinct receivers",
-            "# TYPE senders_count counter",
+            "{}\n{}\nreceivers_count{{chain_id=\"{}\", receiver=\"{:#x}\"}} {}\n",
+            "# HELP receivers_count Number of distinct receivers",
+            "# TYPE receivers_count counter",
             chain_cfg.chain_id,
             sender,
             stats.per_receiver.len(),
@@ -83,6 +83,33 @@ pub async fn run_stats(
             chain_cfg.chain_id,
             sender,
             u256_to_rust_dec(token_transferred.unwrap_or(U256::zero()), None).unwrap(),
+        );
+
+        metrics += &format!(
+            "{}\n{}\npayment_count{{chain_id=\"{}\", sender=\"{:#x}\"}} {}\n",
+            "# HELP payment_count Number of distinct payments",
+            "# TYPE payment_count counter",
+            chain_cfg.chain_id,
+            sender,
+            stats.all.done_count,
+        );
+
+        metrics += &format!(
+            "{}\n{}\ntransaction_count{{chain_id=\"{}\", sender=\"{:#x}\"}} {}\n",
+            "# HELP transaction_count Number of web3 transactions",
+            "# TYPE transaction_count counter",
+            chain_cfg.chain_id,
+            sender,
+            stats.all.transaction_ids.len(),
+        );
+
+        metrics += &format!(
+            "{}\n{}\nfee_paid{{chain_id=\"{}\", sender=\"{:#x}\"}} {}\n",
+            "# HELP fee_paid Total fee paid",
+            "# TYPE fee_paid counter",
+            chain_cfg.chain_id,
+            sender,
+            u256_to_rust_dec(stats.all.fee_paid, None).unwrap_or_default(),
         );
     }
 
