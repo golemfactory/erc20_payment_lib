@@ -9,6 +9,7 @@ mod tx_ops;
 pub use allowance_ops::*;
 pub use chain_transfer_ops::*;
 pub use chain_tx_ops::*;
+pub use scan_ops::*;
 use std::future::Future;
 use std::time::Duration;
 pub use token_transfer_ops::*;

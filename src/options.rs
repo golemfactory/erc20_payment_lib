@@ -116,13 +116,26 @@ pub struct ScanBlockchainOptions {
     #[structopt(short = "b", long = "blocks-ago", default_value = "43200")]
     pub from_blocks_ago: u64,
 
-    #[structopt(long = "scan-from-last-db-block")]
-    pub scan_from_last_db_block: bool,
+    #[structopt(long = "start-new-scan")]
+    pub start_new_scan: bool,
 
-    #[structopt(long = "max-block-range", default_value = "200")]
-    pub max_block_range: u64,
+    #[structopt(
+        long = "max-block-range",
+        help = "Limit how much block to process from start"
+    )]
+    pub max_block_range: Option<u64>,
 
-    #[structopt(long = "blocks-at-once", default_value = "1000")]
+    #[structopt(
+        long = "blocks-behind",
+        help = "How much blocks behind scanner should stop"
+    )]
+    pub blocks_behind: Option<u64>,
+
+    #[structopt(
+        long = "blocks-at-once",
+        default_value = "1000",
+        help = "Limit how much block to process at once. If too much web3 endpoint can return error"
+    )]
     pub blocks_at_once: u64,
 
     #[structopt(

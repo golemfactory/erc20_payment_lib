@@ -1,7 +1,5 @@
-use std::path::Path;
 use crate::db::model::ScanDao;
 use sqlx::{Executor, Sqlite};
-use web3::Transport;
 
 pub async fn get_scan_info<'c, E>(
     executor: E,
@@ -29,13 +27,11 @@ pub async fn delete_scan_info<'c, E>(
 where
     E: Executor<'c, Database = Sqlite>,
 {
-    sqlx::query(
-        r"DELETE FROM scan_info WHERE chain_id = $1 AND filter = $2",
-    )
-    .bind(chain_id)
-    .bind(filter)
+    sqlx::query(r"DELETE FROM scan_info WHERE chain_id = $1 AND filter = $2")
+        .bind(chain_id)
+        .bind(filter)
         .execute(executor)
-    .await?;
+        .await?;
     Ok(())
 }
 
@@ -52,10 +48,10 @@ where
 VALUES ($1, $2, $3, $4) RETURNING *;
 ",
     )
-    .bind(&scan_dao.chain_id)
+    .bind(scan_dao.chain_id)
     .bind(&scan_dao.filter)
-    .bind(&scan_dao.start_block)
-    .bind(&scan_dao.last_block)
+    .bind(scan_dao.start_block)
+    .bind(scan_dao.last_block)
     .fetch_one(executor)
     .await?;
     Ok(res)

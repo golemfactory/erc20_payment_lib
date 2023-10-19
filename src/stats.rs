@@ -1,10 +1,10 @@
-use std::fs;
 use erc20_payment_lib::config::Config;
 use erc20_payment_lib::db::ops::{
     get_transfer_stats, get_transfer_stats_from_blockchain, TransferStatsPart,
 };
 use erc20_payment_lib::err_custom_create;
 use sqlx::SqlitePool;
+use std::fs;
 use web3::types::{H160, U256};
 
 use crate::options::PaymentStatsOptions;
@@ -84,9 +84,7 @@ pub async fn run_stats(
             sender,
             u256_to_rust_dec(token_transferred.unwrap_or(U256::zero()), None).unwrap(),
         );
-
     }
-
 
     println!(
         "Number of web3 transactions: {}",

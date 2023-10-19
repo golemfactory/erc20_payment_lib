@@ -7,8 +7,10 @@ use actix_web::{web, App, HttpServer};
 use csv::ReaderBuilder;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
-use erc20_payment_lib::db::model::TokenTransferDao;
-use erc20_payment_lib::db::ops::{get_last_scanned_block, insert_token_transfer, update_token_transfer};
+use erc20_payment_lib::db::model::{ScanDao, TokenTransferDao};
+use erc20_payment_lib::db::ops::{
+    delete_scan_info, get_scan_info, insert_token_transfer, update_token_transfer, upsert_scan_info,
+};
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::utils::rust_dec_to_u256;
@@ -24,10 +26,11 @@ use std::str::FromStr;
 
 use crate::stats::run_stats;
 use erc20_payment_lib::runtime::remove_last_unsent_transactions;
-use erc20_payment_lib::service::transaction_from_chain;
+use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::import_erc20_txs;
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
+
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
@@ -296,6 +299,29 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let sender = Address::from_str(&scan_blockchain_options.sender).unwrap();
 
+            let scan_info = ScanDao {
+                id: 0,
+                chain_id: chain_cfg.chain_id,
+                filter: format!("{sender:#x}"),
+                start_block: -1,
+                last_block: -1,
+            };
+            let scan_info_from_db = get_scan_info(&conn, chain_cfg.chain_id, &scan_info.filter)
+                .await
+                .map_err(err_from!())?;
+
+            let mut scan_info = if scan_blockchain_options.start_new_scan {
+                log::warn!("Starting new scan - removing old scan info from db");
+                delete_scan_info(&conn, scan_info.chain_id, &scan_info.filter)
+                    .await
+                    .map_err(err_from!())?;
+                scan_info
+            } else if let Some(scan_info_from_db) = scan_info_from_db {
+                log::debug!("Found scan info from db: {:?}", scan_info_from_db);
+                scan_info_from_db
+            } else {
+                scan_info
+            };
 
             let current_block = web3
                 .eth()
@@ -305,18 +331,30 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .as_u64() as i64;
 
             //start around 30 days ago
-            let mut start_block = std::cmp::max(1, current_block - scan_blockchain_options.from_blocks_ago as i64);
+            let mut start_block = std::cmp::max(
+                1,
+                current_block - scan_blockchain_options.from_blocks_ago as i64,
+            );
 
-            if scan_blockchain_options.scan_from_last_db_block {
-                if let Some(last_db_block) = get_last_scanned_block(&conn, chain_cfg.chain_id)
-                    .await
-                    .unwrap()
-                {
-                    log::info!("Last block from db: {}", last_db_block);
-                    if last_db_block > start_block {
-                        log::info!("Last block from db is higher than start block, using last block from db");
-                        start_block = last_db_block;
-                    }
+            if scan_info.last_block > start_block {
+                log::info!("Start block from db is higher than start block from cli {}, using start block from db {}", start_block, scan_info.start_block);
+                start_block = scan_info.last_block;
+            } else if scan_info.last_block != -1 {
+                log::error!("There is old entry in db, remove it to start new scan or give proper block range: start block: {}, last block {}", start_block, scan_info.last_block);
+                return Err(err_custom_create!("There is old entry in db, remove it to start new scan or give proper block range: start block: {}, last block {}", start_block, scan_info.last_block));
+            }
+
+            let mut end_block =
+                if let Some(max_block_range) = scan_blockchain_options.max_block_range {
+                    start_block + max_block_range as i64
+                } else {
+                    current_block
+                };
+
+            if let Some(blocks_behind) = scan_blockchain_options.blocks_behind {
+                if end_block > current_block - blocks_behind as i64 {
+                    log::info!("End block {} is too close to current block {}, using current block - blocks_behind: {}", end_block, current_block, current_block - blocks_behind as i64);
+                    end_block = current_block - blocks_behind as i64;
                 }
             }
 
@@ -327,17 +365,49 @@ async fn main_internal() -> Result<(), PaymentError> {
                 Some(&[sender]),
                 None,
                 start_block,
-                start_block + scan_blockchain_options.max_block_range as i64,
+                end_block,
                 scan_blockchain_options.blocks_at_once,
             )
             .await
             .unwrap();
 
+            let mut max_block_from_tx = None;
             for tx in &txs {
-                transaction_from_chain(web3, &conn, chain_cfg.chain_id, &format!("{tx:#x}"))
-                    .await
-                    .unwrap();
+                match transaction_from_chain_and_into_db(
+                    web3,
+                    &conn,
+                    chain_cfg.chain_id,
+                    &format!("{tx:#x}"),
+                )
+                .await
+                {
+                    Ok(Some(chain_tx)) => {
+                        if chain_tx.block_number > max_block_from_tx.unwrap_or(0) {
+                            max_block_from_tx = Some(chain_tx.block_number);
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(e) => {
+                        log::error!("Error when getting transaction from chain: {}", e);
+                        continue;
+                    }
+                }
             }
+
+            if scan_info.start_block == -1 {
+                scan_info.start_block = start_block;
+            }
+
+            //last blocks may be missing so we subtract 100 blocks from current to be sure
+            scan_info.last_block = std::cmp::min(end_block, current_block - 100);
+            log::info!(
+                "Updating db scan entry {} - {}",
+                scan_info.start_block,
+                scan_info.last_block
+            );
+            upsert_scan_info(&conn, &scan_info)
+                .await
+                .map_err(err_from!())?;
         }
         PaymentCommands::ImportPayments { import_options } => {
             log::info!("importing payments from file: {}", import_options.file);

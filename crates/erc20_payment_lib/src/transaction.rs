@@ -808,6 +808,7 @@ pub async fn get_erc20_logs(
         .map_err(|e| err_custom_create!("Error while getting logs: {}", e))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn import_erc20_txs(
     web3: &Web3<Http>,
     erc20_address: Address,
