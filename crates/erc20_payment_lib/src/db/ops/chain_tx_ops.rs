@@ -59,15 +59,14 @@ pub async fn get_last_scanned_block<'c, E>(
     executor: E,
     chain_id: i64,
 ) -> Result<Option<i64>, sqlx::Error>
-    where
-        E: Executor<'c, Database = Sqlite>,
+where
+    E: Executor<'c, Database = Sqlite>,
 {
     sqlx::query_scalar::<_, i64>(r"SELECT MAX(block_number) FROM chain_tx WHERE chain_id = $1")
         .bind(chain_id)
         .fetch_optional(executor)
         .await
 }
-
 
 #[tokio::test]
 async fn tx_chain_test() -> sqlx::Result<()> {

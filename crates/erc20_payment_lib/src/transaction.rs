@@ -843,7 +843,10 @@ pub async fn import_erc20_txs(
 
     let mut txs = HashMap::<H256, u64>::new();
     loop {
-        let end_block = std::cmp::min(std::cmp::min(start_block + 1000, current_block), scan_end_block);
+        let end_block = std::cmp::min(
+            std::cmp::min(start_block + 1000, current_block),
+            scan_end_block,
+        );
         if start_block > end_block {
             break;
         }

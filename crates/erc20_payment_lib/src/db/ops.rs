@@ -1,6 +1,7 @@
 mod allowance_ops;
 mod chain_transfer_ops;
 mod chain_tx_ops;
+mod scan_ops;
 mod token_transfer_ops;
 mod transfer_in_ops;
 mod tx_ops;
