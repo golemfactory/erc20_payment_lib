@@ -67,6 +67,42 @@ where
     Ok(())
 }
 
+pub async fn get_transaction_highest_block(
+    conn: &SqlitePool,
+    chain_id: i64,
+    from_addr: &str,
+) -> Result<Option<i64>, sqlx::Error> {
+    sqlx::query_scalar::<_, Option<i64>>(
+        r"SELECT MAX(block_number) FROM tx WHERE confirm_date
+         IS NOT NULL
+         AND chain_id = $1
+         AND from_addr = $2
+         ",
+    )
+    .bind(chain_id)
+    .bind(from_addr)
+    .fetch_one(conn)
+    .await
+}
+
+pub async fn get_transaction_highest_nonce(
+    conn: &SqlitePool,
+    chain_id: i64,
+    from_addr: &str,
+) -> Result<Option<i64>, sqlx::Error> {
+    sqlx::query_scalar::<_, Option<i64>>(
+        r"SELECT MAX(nonce) FROM tx WHERE confirm_date
+         IS NOT NULL
+         AND chain_id = $1
+         AND from_addr = $2
+         ",
+    )
+    .bind(chain_id)
+    .bind(from_addr)
+    .fetch_one(conn)
+    .await
+}
+
 pub async fn get_transaction_count(
     conn: &SqlitePool,
     transaction_filter: Option<&str>,
