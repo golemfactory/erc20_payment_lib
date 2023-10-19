@@ -327,7 +327,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 Some(&[sender]),
                 None,
                 start_block,
-                current_block + scan_blockchain_options.max_block_range as i64,
+                start_block + scan_blockchain_options.max_block_range as i64,
                 scan_blockchain_options.blocks_at_once,
             )
             .await
