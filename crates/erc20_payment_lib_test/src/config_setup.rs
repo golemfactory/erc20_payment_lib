@@ -29,7 +29,6 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
         }),
         transaction_timeout: 25,
         confirmation_blocks: 1,
-        allow_max_fee_greater_than_priority_fee: Some(false),
         faucet_eth_amount: Some(10.0),
         faucet_glm_amount: Some(20.0),
         block_explorer_url: Some("http://127.0.0.1:4000".to_string()),

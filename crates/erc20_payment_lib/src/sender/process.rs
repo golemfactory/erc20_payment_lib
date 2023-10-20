@@ -5,6 +5,7 @@ use crate::db::ops::{
 use crate::error::PaymentError;
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
+use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
 use sqlx::SqlitePool;
 use std::str::FromStr;
@@ -27,7 +28,9 @@ use crate::transaction::check_transaction;
 use crate::transaction::find_receipt;
 use crate::transaction::send_transaction;
 use crate::transaction::sign_transaction_with_callback;
-use crate::utils::{datetime_from_u256_timestamp, get_env_bool_value, u256_to_rust_dec};
+use crate::utils::{
+    datetime_from_u256_timestamp, get_env_bool_value, rust_dec_to_u256, u256_to_rust_dec,
+};
 
 #[derive(Debug)]
 pub enum ProcessTransactionResult {
@@ -72,9 +75,7 @@ pub async fn process_transaction(
 
     let is_polygon_eco_mode = chain_setup.chain_id == 137
         && get_env_bool_value("POLYGON_ECO_MODE")
-        && chain_setup
-            .allow_max_fee_greater_than_priority_fee
-            .unwrap_or(false);
+        ;
 
     let web3 = payment_setup.get_provider(chain_id).map_err(|_e| {
         err_create!(TransactionFailedError::new(&format!(
@@ -151,17 +152,55 @@ pub async fn process_transaction(
             let blockchain_gas_price = web3
                 .eth()
                 .block(BlockId::Number(BlockNumber::Latest))
-                .await.map_err(err_from!())?
+                .await
+                .map_err(err_from!())?
                 .ok_or(err_create!(TransactionFailedError::new(
                     "Failed to get latest block from RPC node"
                 )))?
-                .base_fee_per_gas.ok_or(err_create!(TransactionFailedError::new(
+                .base_fee_per_gas
+                .ok_or(err_create!(TransactionFailedError::new(
                     "Failed to get base_fee_per_gas from RPC node"
                 )))?;
-            if blockchain_gas_price * 11 < max_fee_per_gas * 10 {
-                log::warn!("Eco mode activated. Sending transaction with lower base fee");
 
-                web3_tx_dao.max_fee_per_gas = (blockchain_gas_price + U256::from(1000000000)).to_string();
+            let extra_gas = if let Ok(extra_gas) = std::env::var("POLYGON_ECO_MODE_EXTRA_GAS") {
+                let mut extra_gas = Decimal::from_str_exact(&extra_gas).map_err(|err| {
+                    err_custom_create!("POLYGON_ECO_MODE_EXTRA_GAS has to be decimal format {err}")
+                })?;
+
+                if extra_gas > Decimal::from(30) {
+                    log::warn!("Extra gas is too high, setting to 30");
+                    extra_gas = Decimal::from(30);
+                }
+                if extra_gas < Decimal::from(-10) {
+                    log::warn!("Extra gas is too low, setting to -10");
+                    extra_gas = Decimal::from(-10);
+                }
+                extra_gas
+            } else {
+                Decimal::zero()
+            };
+
+            let new_target_gas_u256 = if extra_gas >= Decimal::zero() {
+                let extra_gas_u256 = rust_dec_to_u256(extra_gas, Some(9)).map_err(err_from!())?;
+                blockchain_gas_price + extra_gas_u256
+            } else {
+                let extra_gas_u256 = rust_dec_to_u256(extra_gas, Some(9)).map_err(err_from!())?;
+                let min_base_price = U256::from(1_000_000_000u64);
+
+                let mut new_target_gas_u256 = blockchain_gas_price - extra_gas_u256;
+                if blockchain_gas_price < min_base_price + extra_gas_u256 {
+                    new_target_gas_u256 = min_base_price;
+                }
+                new_target_gas_u256
+            };
+
+            if new_target_gas_u256 * 11 < max_fee_per_gas * 10 {
+                log::warn!("Eco mode activated. Sending transaction with lower base fee. Blockchain base fee: {} Gwei, Tx base fee: {} Gwei",
+                    u256_to_rust_dec(blockchain_gas_price, Some(9)).map_err(err_from!())?,
+                    u256_to_rust_dec(new_target_gas_u256, Some(9)).map_err(err_from!())?,
+                    );
+
+                web3_tx_dao.max_fee_per_gas = new_target_gas_u256.to_string();
             }
         }
 
@@ -499,17 +538,14 @@ pub async fn process_transaction(
         let config_priority_fee =
             u256_to_rust_dec(chain_setup.priority_fee, Some(9)).map_err(err_from!())?;
 
-        if !chain_setup
-            .allow_max_fee_greater_than_priority_fee
-            .unwrap_or(false)
-            && tx_priority_fee > tx_fee_per_gas
+        if tx_priority_fee > tx_fee_per_gas
         {
             log::error!(
-                "Transaction priority fee is greater than max fee per gas for tx: {}. Setup allow_max_fee_greater_than_priority_fee if chain supports it",
+                "Transaction priority fee is greater than max fee per gas for tx: {}",
                 web3_tx_dao.id
             );
             return Err(err_custom_create!(
-                "Transaction priority fee is greater than max fee per gas for tx: {}. Setup allow_max_fee_greater_than_priority_fee if chain supports it",
+                "Transaction priority fee is greater than max fee per gas for tx: {}",
                 web3_tx_dao.id
             ));
         }
@@ -568,7 +604,7 @@ pub async fn process_transaction(
             if fee_per_gas_changed || priority_fee_changed {
                 let mut send_replacement_tx = false;
                 let mut replacement_priority_fee = chain_setup.priority_fee;
-                let replacement_max_fee_per_gas = chain_setup.max_fee_per_gas;
+                let mut replacement_max_fee_per_gas = chain_setup.max_fee_per_gas;
                 if priority_fee_changed_10 && fee_per_gas_bumped_10 {
                     send_replacement_tx = true;
                 } else if fee_per_gas_bumped_10 && !priority_fee_changed_10 {
@@ -576,18 +612,9 @@ pub async fn process_transaction(
                         tx_priority_fee_u256 * U256::from(11) / U256::from(10) + U256::from(1);
 
                     if replacement_priority_fee > replacement_max_fee_per_gas {
-                        if chain_setup
-                            .allow_max_fee_greater_than_priority_fee
-                            .unwrap_or(false)
-                        {
-                            //polygon is allowing to send transactions with priority fee greater than max fee per gas
-                            //no additional fixes are needed
-                        } else {
-                            //on other networks this fix is needed
-                            //priority fee cannot be greater than max fee per gas
-                            //it should cover very niche case, because almost always priority fee is lower than max fee per gas
-                            replacement_priority_fee = replacement_max_fee_per_gas;
-                        }
+                        //priority fee cannot be greater than max fee per gas
+                        //it should cover very niche case, because priority fee is lower than max fee per gas
+                        replacement_max_fee_per_gas = replacement_priority_fee;
                     }
                     log::warn!(
                         "Replacement priority fee is bumped by 10% from {} to {}",

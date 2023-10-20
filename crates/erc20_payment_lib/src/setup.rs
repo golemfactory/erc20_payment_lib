@@ -38,7 +38,6 @@ pub struct ChainSetup {
     pub transaction_timeout: u64,
     pub skip_multi_contract_check: bool,
     pub confirmation_blocks: u64,
-    pub allow_max_fee_greater_than_priority_fee: Option<bool>,
     pub faucet_eth_amount: Option<U256>,
     pub faucet_glm_amount: Option<U256>,
     pub block_explorer_url: Option<String>,
@@ -156,9 +155,6 @@ impl PaymentSetup {
                     currency_gas_symbol: chain_config.1.currency_symbol.clone(),
                     faucet_eth_amount,
                     faucet_glm_amount,
-                    allow_max_fee_greater_than_priority_fee: chain_config
-                        .1
-                        .allow_max_fee_greater_than_priority_fee,
                     block_explorer_url: chain_config.1.block_explorer_url.clone(),
                     chain_id: chain_config.1.chain_id,
                 },
