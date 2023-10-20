@@ -27,7 +27,7 @@ use crate::transaction::check_transaction;
 use crate::transaction::find_receipt;
 use crate::transaction::send_transaction;
 use crate::transaction::sign_transaction_with_callback;
-use crate::utils::{datetime_from_u256_timestamp, u256_to_rust_dec};
+use crate::utils::{datetime_from_u256_timestamp, get_env_bool_value, u256_to_rust_dec};
 
 #[derive(Debug)]
 pub enum ProcessTransactionResult {
@@ -69,6 +69,12 @@ pub async fn process_transaction(
         .await;
         return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Unknown));
     };
+
+    let is_polygon_eco_mode = chain_setup.chain_id == 137
+        && get_env_bool_value("POLYGON_ECO_MODE")
+        && chain_setup
+            .allow_max_fee_greater_than_priority_fee
+            .unwrap_or(false);
 
     let web3 = payment_setup.get_provider(chain_id).map_err(|_e| {
         err_create!(TransactionFailedError::new(&format!(
@@ -136,6 +142,26 @@ pub async fn process_transaction(
                         "Blockchain nonce is lower than db nonce, blockchain is not updated yet"
                     ));
                 }
+            }
+        }
+        let max_fee_per_gas =
+            U256::from_dec_str(&web3_tx_dao.max_fee_per_gas).map_err(err_from!())?;
+
+        if is_polygon_eco_mode {
+            let blockchain_gas_price = web3
+                .eth()
+                .block(BlockId::Number(BlockNumber::Latest))
+                .await.map_err(err_from!())?
+                .ok_or(err_create!(TransactionFailedError::new(
+                    "Failed to get latest block from RPC node"
+                )))?
+                .base_fee_per_gas.ok_or(err_create!(TransactionFailedError::new(
+                    "Failed to get base_fee_per_gas from RPC node"
+                )))?;
+            if blockchain_gas_price * 11 < max_fee_per_gas * 10 {
+                log::warn!("Eco mode activated. Sending transaction with lower base fee");
+
+                web3_tx_dao.max_fee_per_gas = (blockchain_gas_price + U256::from(1000000000)).to_string();
             }
         }
 
@@ -488,8 +514,18 @@ pub async fn process_transaction(
             ));
         }
 
-        let support_replacement_transactions = true;
-        if support_replacement_transactions {
+        let is_ready_for_replacement = if let Some(first_processed) = web3_tx_dao.first_processed {
+            let now = chrono::Utc::now();
+            let diff = now - first_processed;
+            if diff.num_seconds() < -10 {
+                log::warn!("Time changed?? time diff lower than 0");
+            }
+            diff.num_seconds() > 60
+        } else {
+            false
+        };
+
+        if is_ready_for_replacement {
             let mut fee_per_gas_changed = false;
             let mut fee_per_gas_bumped_10 = false;
             if tx_fee_per_gas != max_fee_per_gas {
