@@ -1,4 +1,5 @@
 mod options;
+mod stats;
 
 use crate::options::{PaymentCommands, PaymentOptions};
 use actix_web::Scope;
@@ -6,13 +7,13 @@ use actix_web::{web, App, HttpServer};
 use csv::ReaderBuilder;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
-use erc20_payment_lib::db::model::TokenTransferDao;
+use erc20_payment_lib::db::model::{ScanDao, TokenTransferDao};
 use erc20_payment_lib::db::ops::{
-    get_transfer_stats, insert_token_transfer, update_token_transfer, TransferStatsPart,
+    delete_scan_info, get_scan_info, insert_token_transfer, update_token_transfer, upsert_scan_info,
 };
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::signer::PrivateKeySigner;
-use erc20_payment_lib::utils::{rust_dec_to_u256, u256_to_rust_dec};
+use erc20_payment_lib::utils::rust_dec_to_u256;
 
 use erc20_payment_lib::{
     config, err_custom_create, err_from,
@@ -21,13 +22,19 @@ use erc20_payment_lib::{
     runtime::PaymentRuntime,
 };
 use std::env;
+use std::str::FromStr;
 
+use crate::stats::run_stats;
 use erc20_payment_lib::runtime::remove_last_unsent_transactions;
+use erc20_payment_lib::service::transaction_from_chain_and_into_db;
+use erc20_payment_lib::setup::PaymentSetup;
+use erc20_payment_lib::transaction::import_erc20_txs;
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
+
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
-use web3::types::{H160, U256};
+use web3::ethabi::ethereum_types::Address;
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -273,182 +280,134 @@ async fn main_internal() -> Result<(), PaymentError> {
         }
         PaymentCommands::PaymentStats {
             payment_stats_options,
+        } => run_stats(conn.clone(), payment_stats_options, &config).await?,
+        PaymentCommands::ScanBlockchain {
+            scan_blockchain_options,
         } => {
-            println!("Getting transfers stats...");
-            let transfer_stats = get_transfer_stats(&conn, None).await.unwrap();
-            let main_sender = transfer_stats.per_sender.iter().next().unwrap();
-            let stats_all = main_sender.1.all.clone();
-            let fee_paid_stats = stats_all.fee_paid;
-            println!(
-                "fee paid from stats: {}",
-                u256_to_rust_dec(fee_paid_stats, None).unwrap()
-            );
+            log::info!("Scanning blockchain {}", scan_blockchain_options.chain_name);
 
-            println!("Number of transfers done: {}", stats_all.done_count);
+            let payment_setup =
+                PaymentSetup::new(&config, vec![], true, false, false, 1, 1, false)?;
+            let chain_cfg = config
+                .chain
+                .get(&scan_blockchain_options.chain_name)
+                .ok_or(err_custom_create!(
+                    "Chain {} not found in config file",
+                    scan_blockchain_options.chain_name
+                ))?;
+            let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
 
-            println!(
-                "Number of distinct receivers: {}",
-                main_sender.1.per_receiver.len()
-            );
+            let sender = Address::from_str(&scan_blockchain_options.sender).unwrap();
 
-            println!(
-                "Number of web3 transactions: {}",
-                main_sender.1.all.transaction_ids.len()
-            );
+            let scan_info = ScanDao {
+                id: 0,
+                chain_id: chain_cfg.chain_id,
+                filter: format!("{sender:#x}"),
+                start_block: -1,
+                last_block: -1,
+            };
+            let scan_info_from_db = get_scan_info(&conn, chain_cfg.chain_id, &scan_info.filter)
+                .await
+                .map_err(err_from!())?;
 
-            println!(
-                "First transfer requested at {}",
-                main_sender
-                    .1
-                    .all
-                    .first_transfer_date
-                    .map(|d| d.to_string())
-                    .unwrap_or("N/A".to_string())
-            );
-            println!(
-                "First payment made {}",
-                main_sender
-                    .1
-                    .all
-                    .first_paid_date
-                    .map(|d| d.to_string())
-                    .unwrap_or("N/A".to_string())
-            );
-            println!(
-                "Last transfer requested at {}",
-                main_sender
-                    .1
-                    .all
-                    .last_transfer_date
-                    .map(|d| d.to_string())
-                    .unwrap_or("N/A".to_string())
-            );
-            println!(
-                "Last payment made {}",
-                main_sender
-                    .1
-                    .all
-                    .last_paid_date
-                    .map(|d| d.to_string())
-                    .unwrap_or("N/A".to_string())
-            );
-            println!(
-                "Max payment delay: {}",
-                main_sender
-                    .1
-                    .all
-                    .max_payment_delay
-                    .map(|d| d.num_seconds().to_string() + "s")
-                    .unwrap_or("N/A".to_string())
-            );
-
-            println!(
-                "Native token sent: {}",
-                u256_to_rust_dec(main_sender.1.all.native_token_transferred, None).unwrap()
-            );
-
-            let per_receiver = main_sender.1.per_receiver.clone();
-            let mut per_receiver: Vec<(H160, TransferStatsPart)> =
-                per_receiver.into_iter().collect();
-            if payment_stats_options.order_by == "payment_delay" {
-                per_receiver.sort_by(|r, b| {
-                    let left =
-                        r.1.max_payment_delay
-                            .unwrap_or(chrono::Duration::max_value());
-                    let right =
-                        b.1.max_payment_delay
-                            .unwrap_or(chrono::Duration::max_value());
-                    right.cmp(&left)
-                });
-            } else if payment_stats_options.order_by == "token_sent" {
-                per_receiver.sort_by(|r, b| {
-                    let left = *r.1.erc20_token_transferred.iter().next().unwrap().1;
-                    let right = *b.1.erc20_token_transferred.iter().next().unwrap().1;
-                    right.cmp(&left)
-                });
-            } else if payment_stats_options.order_by == "gas_paid"
-                || payment_stats_options.order_by == "fee_paid"
-            {
-                per_receiver.sort_by(|r, b| {
-                    let left = r.1.fee_paid;
-                    let right = b.1.fee_paid;
-                    right.cmp(&left)
-                });
+            let mut scan_info = if scan_blockchain_options.start_new_scan {
+                log::warn!("Starting new scan - removing old scan info from db");
+                delete_scan_info(&conn, scan_info.chain_id, &scan_info.filter)
+                    .await
+                    .map_err(err_from!())?;
+                scan_info
+            } else if let Some(scan_info_from_db) = scan_info_from_db {
+                log::debug!("Found scan info from db: {:?}", scan_info_from_db);
+                scan_info_from_db
             } else {
-                return Err(err_custom_create!(
-                    "Unknown order_by option: {}",
-                    payment_stats_options.order_by
-                ));
+                scan_info
+            };
+
+            let current_block = web3
+                .eth()
+                .block_number()
+                .await
+                .map_err(err_from!())?
+                .as_u64() as i64;
+
+            //start around 30 days ago
+            let mut start_block = std::cmp::max(
+                1,
+                current_block - scan_blockchain_options.from_blocks_ago as i64,
+            );
+
+            if scan_info.last_block > start_block {
+                log::info!("Start block from db is higher than start block from cli {}, using start block from db {}", start_block, scan_info.last_block);
+                start_block = scan_info.last_block;
+            } else if scan_info.last_block != -1 {
+                log::error!("There is old entry in db, remove it to start new scan or give proper block range: start block: {}, last block {}", start_block, scan_info.last_block);
+                return Err(err_custom_create!("There is old entry in db, remove it to start new scan or give proper block range: start block: {}, last block {}", start_block, scan_info.last_block));
             }
 
-            if payment_stats_options.order_by_dir == "asc" {
-                per_receiver.reverse();
-            }
-
-            for (el_no, receiver) in per_receiver.iter().enumerate() {
-                if el_no >= payment_stats_options.show_receiver_count {
-                    println!("... and more (max {} receivers shown)", el_no);
-                    break;
-                }
-                let ts = match receiver.1.erc20_token_transferred.iter().next() {
-                    None => U256::zero(),
-                    Some(x) => *x.1,
+            let mut end_block =
+                if let Some(max_block_range) = scan_blockchain_options.max_block_range {
+                    start_block + max_block_range as i64
+                } else {
+                    current_block
                 };
 
-                println!(
-                    "Receiver: {:#x}\n  count (payment/web3): {}/{}, gas: {}, native token sent: {}, token sent: {}",
-                    receiver.0,
-                    receiver.1.done_count,
-                    receiver.1.transaction_ids.len(),
-                    u256_to_rust_dec(receiver.1.fee_paid, None).unwrap(),
-                    u256_to_rust_dec(receiver.1.native_token_transferred, None).unwrap(),
-                    u256_to_rust_dec(
-                        ts,
-                        None
-                    )
-                    .unwrap(),
-                );
-                println!(
-                    "  First transfer requested at {}",
-                    receiver
-                        .1
-                        .first_transfer_date
-                        .map(|d| d.to_string())
-                        .unwrap_or("N/A".to_string())
-                );
-                println!(
-                    "  First payment made {}",
-                    receiver
-                        .1
-                        .first_paid_date
-                        .map(|d| d.to_string())
-                        .unwrap_or("N/A".to_string())
-                );
-                println!(
-                    "  Last transfer requested at {}",
-                    receiver
-                        .1
-                        .last_transfer_date
-                        .map(|d| d.to_string())
-                        .unwrap_or("N/A".to_string())
-                );
-                println!(
-                    "  Last payment made {}",
-                    receiver
-                        .1
-                        .last_paid_date
-                        .map(|d| d.to_string())
-                        .unwrap_or("N/A".to_string())
-                );
-                println!(
-                    "  Max payment delay: {}",
-                    receiver
-                        .1
-                        .max_payment_delay
-                        .map(|d| d.num_seconds().to_string() + "s")
-                        .unwrap_or("N/A".to_string())
-                );
+            if let Some(blocks_behind) = scan_blockchain_options.blocks_behind {
+                if end_block > current_block - blocks_behind as i64 {
+                    log::info!("End block {} is too close to current block {}, using current block - blocks_behind: {}", end_block, current_block, current_block - blocks_behind as i64);
+                    end_block = current_block - blocks_behind as i64;
+                }
             }
+
+            let txs = import_erc20_txs(
+                web3,
+                chain_cfg.token.clone().unwrap().address,
+                chain_cfg.chain_id,
+                Some(&[sender]),
+                None,
+                start_block,
+                end_block,
+                scan_blockchain_options.blocks_at_once,
+            )
+            .await
+            .unwrap();
+
+            let mut max_block_from_tx = None;
+            for tx in &txs {
+                match transaction_from_chain_and_into_db(
+                    web3,
+                    &conn,
+                    chain_cfg.chain_id,
+                    &format!("{tx:#x}"),
+                )
+                .await
+                {
+                    Ok(Some(chain_tx)) => {
+                        if chain_tx.block_number > max_block_from_tx.unwrap_or(0) {
+                            max_block_from_tx = Some(chain_tx.block_number);
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(e) => {
+                        log::error!("Error when getting transaction from chain: {}", e);
+                        continue;
+                    }
+                }
+            }
+
+            if scan_info.start_block == -1 {
+                scan_info.start_block = start_block;
+            }
+
+            //last blocks may be missing so we subtract 100 blocks from current to be sure
+            scan_info.last_block = std::cmp::min(end_block, current_block - 100);
+            log::info!(
+                "Updating db scan entry {} - {}",
+                scan_info.start_block,
+                scan_info.last_block
+            );
+            upsert_scan_info(&conn, &scan_info)
+                .await
+                .map_err(err_from!())?;
         }
         PaymentCommands::ImportPayments { import_options } => {
             log::info!("importing payments from file: {}", import_options.file);

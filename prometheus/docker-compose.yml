@@ -1,0 +1,19 @@
+services:
+  expose:
+    image: python:alpine
+    volumes:
+      - type: bind
+        source: ./metrics.txt
+        target: /expose/metrics.txt
+    working_dir: /expose
+    command: python -u -m http.server 5000
+    ports:
+      - 5000:5000
+  prometeus:
+    image: prom/prometheus
+    volumes:
+      - type: bind
+        source: ./prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090

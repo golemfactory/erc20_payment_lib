@@ -12,8 +12,8 @@ where
 {
     let res = sqlx::query_as::<_, ChainTransferDao>(
         r"INSERT INTO chain_transfer
-(from_addr, receiver_addr, chain_id, token_addr, token_amount, chain_tx_id)
-VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;
+(from_addr, receiver_addr, chain_id, token_addr, token_amount, chain_tx_id, fee_paid, blockchain_date)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
 ",
     )
     .bind(&chain_transfer.from_addr)
@@ -22,21 +22,39 @@ VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;
     .bind(&chain_transfer.token_addr)
     .bind(&chain_transfer.token_amount)
     .bind(chain_transfer.chain_tx_id)
+    .bind(&chain_transfer.fee_paid)
+    .bind(chain_transfer.blockchain_date)
     .fetch_one(executor)
     .await?;
     Ok(res)
 }
 
-pub async fn get_account_chain_transfers(
+pub async fn get_all_chain_transfers(
     conn: &SqlitePool,
-    account: &str,
-) -> Result<Vec<ChainTransferDaoExt>, sqlx::Error> {
-    let rows = sqlx::query_as::<_, ChainTransferDaoExt>(r"
-SELECT ct.id, ct.chain_id, ct.from_addr, ct.receiver_addr, ct.token_addr, ct.chain_tx_id, ct.token_amount, cx.blockchain_date
-FROM chain_transfer as ct
-JOIN chain_tx as cx on ct.chain_tx_id = cx.id
-WHERE ct.receiver_addr = $1
-").bind(account).fetch_all(conn).await?;
+    limit: Option<i64>,
+) -> Result<Vec<ChainTransferDao>, sqlx::Error> {
+    let limit = limit.unwrap_or(i64::MAX);
+    let rows = sqlx::query_as::<_, ChainTransferDao>(
+        r"SELECT * FROM chain_transfer ORDER by id DESC LIMIT $1",
+    )
+    .bind(limit)
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
 
+pub async fn get_chain_transfers_by_chain_id(
+    conn: &SqlitePool,
+    chain_id: i64,
+    limit: Option<i64>,
+) -> Result<Vec<ChainTransferDao>, sqlx::Error> {
+    let limit = limit.unwrap_or(i64::MAX);
+    let rows = sqlx::query_as::<_, ChainTransferDao>(
+        r"SELECT * FROM chain_transfer WHERE chain_id = $1 ORDER by id DESC LIMIT $2",
+    )
+    .bind(chain_id)
+    .bind(limit)
+    .fetch_all(conn)
+    .await?;
     Ok(rows)
 }

@@ -41,6 +41,33 @@ pub async fn get_chain_tx(conn: &SqlitePool, id: i64) -> Result<ChainTxDao, sqlx
     Ok(row)
 }
 
+pub async fn get_chain_tx_hash<'c, E>(
+    executor: E,
+    tx_hash: String,
+) -> Result<Option<ChainTxDao>, sqlx::Error>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let row = sqlx::query_as::<_, ChainTxDao>(r"SELECT * FROM chain_tx WHERE tx_hash = $1")
+        .bind(tx_hash)
+        .fetch_optional(executor)
+        .await?;
+    Ok(row)
+}
+
+pub async fn get_last_scanned_block<'c, E>(
+    executor: E,
+    chain_id: i64,
+) -> Result<Option<i64>, sqlx::Error>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    sqlx::query_scalar::<_, i64>(r"SELECT MAX(block_number) FROM chain_tx WHERE chain_id = $1")
+        .bind(chain_id)
+        .fetch_optional(executor)
+        .await
+}
+
 #[tokio::test]
 async fn tx_chain_test() -> sqlx::Result<()> {
     println!("Start tx_chain_test...");

@@ -684,6 +684,8 @@ pub async fn find_receipt_extended(
             token_addr: None,
             token_amount: tx.value.to_string(),
             chain_tx_id: 0,
+            fee_paid: None,
+            blockchain_date: Some(chain_tx_dao.blockchain_date),
         });
     }
 
@@ -751,6 +753,8 @@ pub async fn find_receipt_extended(
                     token_addr: Some(format!("{:#x}", log.address)),
                     token_amount: amount.to_string(),
                     chain_tx_id: 0,
+                    fee_paid: None,
+                    blockchain_date: Some(chain_tx_dao.blockchain_date),
                 });
             } else if to == tx_to {
                 //ignore payment to contract - handled in loop before
@@ -764,6 +768,8 @@ pub async fn find_receipt_extended(
                     token_addr: Some(format!("{:#x}", log.address)),
                     token_amount: amount.to_string(),
                     chain_tx_id: 0,
+                    fee_paid: None,
+                    blockchain_date: Some(chain_tx_dao.blockchain_date),
                 });
             }
         }
@@ -775,7 +781,8 @@ pub async fn find_receipt_extended(
 pub async fn get_erc20_logs(
     web3: &Web3<Http>,
     erc20_address: Address,
-    topic_receivers: Vec<H256>,
+    topic_senders: Option<Vec<H256>>,
+    topic_receivers: Option<Vec<H256>>,
     from_block: i64,
     to_block: i64,
 ) -> Result<Vec<web3::types::Log>, PaymentError> {
@@ -789,8 +796,8 @@ pub async fn get_erc20_logs(
                 "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
             )
             .unwrap()]),
-            None,
-            Some(topic_receivers),
+            topic_senders,
+            topic_receivers,
             None,
         )
         .from_block(BlockNumber::Number(U64::from(from_block as u64)))
@@ -801,22 +808,32 @@ pub async fn get_erc20_logs(
         .map_err(|e| err_custom_create!("Error while getting logs: {}", e))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn import_erc20_txs(
     web3: &Web3<Http>,
     erc20_address: Address,
     _chain_id: i64,
-    accounts: &[Address],
+    filter_by_senders: Option<&[Address]>,
+    filter_by_receivers: Option<&[Address]>,
+    mut start_block: i64,
+    scan_end_block: i64,
+    blocks_at_once: u64,
 ) -> Result<Vec<H256>, PaymentError> {
-    let topic_receivers: Vec<H256> = accounts
-        .iter()
-        .map(|f| {
-            let mut topic = [0u8; 32];
-            topic[12..32].copy_from_slice(&f.to_fixed_bytes());
-            H256::from(topic)
+    let option_address_to_option_h256 = |val: Option<&[Address]>| -> Option<Vec<H256>> {
+        val.map(|accounts| {
+            accounts
+                .iter()
+                .map(|f| {
+                    let mut topic = [0u8; 32];
+                    topic[12..32].copy_from_slice(&f.to_fixed_bytes());
+                    H256::from(topic)
+                })
+                .collect()
         })
-        .collect();
+    };
 
-    println!("{:#x}", topic_receivers[0]);
+    let topic_receivers = option_address_to_option_h256(filter_by_receivers);
+    let topic_senders = option_address_to_option_h256(filter_by_senders);
 
     let current_block = web3
         .eth()
@@ -825,26 +842,26 @@ pub async fn import_erc20_txs(
         .map_err(err_from!())?
         .as_u64() as i64;
 
-    //start around 30 days ago
-    let mut start_block = std::cmp::max(1, current_block - (3600 * 24 * 30) / 2);
-
     let mut txs = HashMap::<H256, u64>::new();
     loop {
-        println!("start block: {start_block}");
-        let end_block = std::cmp::min(start_block + 1000, current_block);
+        let end_block = std::cmp::min(
+            std::cmp::min(start_block + 1000, current_block),
+            scan_end_block,
+        );
         if start_block > end_block {
             break;
         }
+        log::info!("Scanning chain, blocks: {start_block} - {end_block}");
         let logs = get_erc20_logs(
             web3,
             erc20_address,
+            topic_senders.clone(),
             topic_receivers.clone(),
             start_block,
             end_block,
         )
         .await?;
         for log in logs.into_iter() {
-            println!("Block number: {}", log.block_number.unwrap());
             txs.insert(
                 log.transaction_hash
                     .ok_or(err_custom_create!("Log without transaction hash"))?,
@@ -852,16 +869,21 @@ pub async fn import_erc20_txs(
                     .ok_or(err_custom_create!("Log without block number"))?
                     .as_u64(),
             );
+            log::info!(
+                "Found matching log entry in block: {}, tx: {}",
+                log.block_number.unwrap(),
+                log.block_number.unwrap()
+            );
         }
-        start_block += 1000;
+        start_block += blocks_at_once as i64;
     }
 
     if txs.is_empty() {
-        println!("No logs found");
+        log::info!("No logs found");
+    } else {
+        log::info!("Found {} transactions", txs.len());
     }
-    for tx in &txs {
-        println!("Transaction: {:#x}", tx.0);
-    }
+
     //return transactions sorted by block number
     let mut vec = txs.into_iter().collect::<Vec<(H256, u64)>>();
     vec.sort_by(|a, b| a.1.cmp(&b.1));
