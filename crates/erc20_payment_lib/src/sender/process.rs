@@ -463,7 +463,7 @@ pub async fn process_transaction(
             U256::from_dec_str(&web3_tx_dao.max_fee_per_gas).map_err(err_from!())?,
             Some(9),
         )
-            .map_err(err_from!())?;
+        .map_err(err_from!())?;
         let max_fee_per_gas =
             u256_to_rust_dec(chain_setup.max_fee_per_gas, Some(9)).map_err(err_from!())?;
         let tx_priority_fee_u256 =
@@ -473,7 +473,11 @@ pub async fn process_transaction(
         let config_priority_fee =
             u256_to_rust_dec(chain_setup.priority_fee, Some(9)).map_err(err_from!())?;
 
-        if !chain_setup.allow_max_fee_greater_than_priority_fee.unwrap_or(false) && tx_priority_fee > tx_fee_per_gas {
+        if !chain_setup
+            .allow_max_fee_greater_than_priority_fee
+            .unwrap_or(false)
+            && tx_priority_fee > tx_fee_per_gas
+        {
             log::error!(
                 "Transaction priority fee is greater than max fee per gas for tx: {}. Setup allow_max_fee_greater_than_priority_fee if chain supports it",
                 web3_tx_dao.id
@@ -536,7 +540,10 @@ pub async fn process_transaction(
                         tx_priority_fee_u256 * U256::from(11) / U256::from(10) + U256::from(1);
 
                     if replacement_priority_fee > replacement_max_fee_per_gas {
-                        if chain_setup.allow_max_fee_greater_than_priority_fee.unwrap_or(false) {
+                        if chain_setup
+                            .allow_max_fee_greater_than_priority_fee
+                            .unwrap_or(false)
+                        {
                             //polygon is allowing to send transactions with priority fee greater than max fee per gas
                             //no additional fixes are needed
                         } else {

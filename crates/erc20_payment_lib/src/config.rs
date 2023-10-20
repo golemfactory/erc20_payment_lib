@@ -81,7 +81,7 @@ pub struct Chain {
     pub faucet_eth_amount: Option<f64>,
     pub faucet_glm_amount: Option<f64>,
     pub block_explorer_url: Option<String>,
-    pub allow_max_fee_greater_than_priority_fee: Option<bool>
+    pub allow_max_fee_greater_than_priority_fee: Option<bool>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
