@@ -537,7 +537,7 @@ pub async fn find_tx(web3: &Web3<Http>, web3_tx_dao: &mut TxDao) -> Result<bool,
 pub async fn find_receipt(
     web3: &Web3<Http>,
     web3_tx_dao: &mut TxDao,
-) -> Result<bool, PaymentError> {
+) -> Result<Option<U256>, PaymentError> {
     if let Some(tx_hash) = web3_tx_dao.tx_hash.as_ref() {
         let tx_hash = web3::types::H256::from_str(tx_hash)
             .map_err(|_err| ConversionError::from("Cannot parse tx_hash".to_string()))
@@ -558,12 +558,12 @@ pub async fn find_receipt(
                 .effective_gas_price
                 .ok_or_else(|| err_custom_create!("Effective gas price expected"))?;
             web3_tx_dao.fee_paid = Some((gas_used * effective_gas_price).to_string());
-            Ok(true)
+            Ok(Some(effective_gas_price))
         } else {
             web3_tx_dao.block_number = None;
             web3_tx_dao.chain_status = None;
             web3_tx_dao.fee_paid = None;
-            Ok(false)
+            Ok(None)
         }
     } else {
         Err(err_custom_create!("No tx hash"))

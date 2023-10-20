@@ -1,6 +1,6 @@
 [engine]
-service-sleep = 1
-process-sleep = 1
+service-sleep = 10
+process-sleep = 10
 automatic-recover = false
 
 [chain.rinkeby]

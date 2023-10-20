@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
 use web3::transports::Http;
-use web3::types::{Address, BlockId, BlockNumber, U256};
+use web3::types::{Address, BlockId, BlockNumber, U256, U64};
 use web3::Web3;
 
 use crate::db::model::TxDao;
@@ -411,7 +411,7 @@ pub async fn process_transaction(
             let mut current_tx = web3_tx_dao.clone();
             let res = loop {
                 let res = find_receipt(web3, &mut current_tx).await?;
-                if res {
+                if res.is_some() {
                     //if receipt found then break early, we found our transaction
                     break res;
                 }
@@ -425,13 +425,14 @@ pub async fn process_transaction(
                 }
             };
 
-            if res {
+            if let Some(effective_gas_price) = res {
                 let Some(block_number) = current_tx.block_number.map(|bn| bn as u64) else {
                     return Err(err_custom_create!(
                         "Block number not found on dao for tx: {}",
                         current_tx.id
                     ));
                 };
+
                 log::info!(
                     "Receipt found: tx {} tx_hash: {}",
                     current_tx.id,
@@ -444,6 +445,40 @@ pub async fn process_transaction(
                         current_tx.id,
                         current_tx.tx_hash.clone().unwrap_or_default()
                     );
+
+                    if is_polygon_eco_mode {
+                        let blockchain_gas_price = web3
+                            .eth()
+                            .block(BlockId::Number(BlockNumber::Number(U64::from(
+                                block_number,
+                            ))))
+                            .await;
+                        if let Ok(Some(block)) = blockchain_gas_price {
+                            if let Some(base_fee_per_gas_u256) = block.base_fee_per_gas {
+                                if effective_gas_price > base_fee_per_gas_u256 {
+                                    let base_fee_per_gas =
+                                        u256_to_rust_dec(base_fee_per_gas_u256, Some(9))
+                                            .unwrap_or_default();
+                                    let effective_priority_fee = u256_to_rust_dec(
+                                        effective_gas_price - base_fee_per_gas_u256,
+                                        Some(9),
+                                    )
+                                    .unwrap_or_default();
+                                    log::info!(
+                                        "Effective priority fee: {}",
+                                        effective_priority_fee
+                                    );
+                                    log::info!(
+                                        "Saved: {:.2} Gwei ({:.1}%)",
+                                        Decimal::from(30) - effective_priority_fee,
+                                        Decimal::from(100)
+                                            * (Decimal::from(30) - effective_priority_fee)
+                                            / (base_fee_per_gas + Decimal::from(30))
+                                    );
+                                }
+                            }
+                        };
+                    }
 
                     //cleanup txs
                     //let confirmed_tx = current_tx.clone();
