@@ -180,11 +180,11 @@ pub async fn process_transaction(
                 Decimal::zero()
             };
 
-            let new_target_gas_u256 = if extra_gas >= Decimal::zero() {
+            let mut new_target_gas_u256 = if extra_gas >= Decimal::zero() {
                 let extra_gas_u256 = rust_dec_to_u256(extra_gas, Some(9)).map_err(err_from!())?;
                 blockchain_gas_price + extra_gas_u256
             } else {
-                let extra_gas_u256 = rust_dec_to_u256(extra_gas, Some(9)).map_err(err_from!())?;
+                let extra_gas_u256 = rust_dec_to_u256(-extra_gas, Some(9)).map_err(err_from!())?;
                 let min_base_price = U256::from(1_000_000_000u64);
 
                 let mut new_target_gas_u256 = blockchain_gas_price - extra_gas_u256;
@@ -193,6 +193,13 @@ pub async fn process_transaction(
                 }
                 new_target_gas_u256
             };
+            let tx_priority_fee_u256 =
+                U256::from_dec_str(&web3_tx_dao.priority_fee).map_err(err_from!())?;
+
+            //max_fee_per_gas cannot be lower than priority fee
+            if new_target_gas_u256 < tx_priority_fee_u256 {
+                new_target_gas_u256 = tx_priority_fee_u256;
+            }
 
             if new_target_gas_u256 * 11 < max_fee_per_gas * 10 {
                 log::warn!("Eco mode activated. Sending transaction with lower base fee. Blockchain base fee: {} Gwei, Tx base fee: {} Gwei",
