@@ -523,6 +523,13 @@ pub async fn process_transaction(
                 } else if fee_per_gas_bumped_10 && !priority_fee_changed_10 {
                     replacement_priority_fee =
                         tx_priority_fee_u256 * U256::from(11) / U256::from(10) + U256::from(1);
+
+                    //polygon is allowing to send transactions with priority fee greater than max fee per gas
+                    //on other networks this fix is needed
+                    if web3_tx_dao.chain_id != 137 && replacement_priority_fee > replacement_max_fee_per_gas {
+                        //priority fee cannot be greater than max fee per gas
+                        replacement_priority_fee = replacement_max_fee_per_gas;
+                    }
                     log::warn!(
                         "Replacement priority fee is bumped by 10% from {} to {}",
                         tx_priority_fee,
