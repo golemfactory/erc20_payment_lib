@@ -600,6 +600,10 @@ pub async fn process_transaction(
                         .as_ref()
                         .map(|testing| testing.erc20_lib_test_replacement_timeout)
                     {
+                        log::warn!(
+                            "TESTING - sleeping for {} seconds",
+                            erc20_lib_test_replacement_timeout.as_secs()
+                        );
                         tokio::time::sleep(erc20_lib_test_replacement_timeout).await;
                     }
                     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
