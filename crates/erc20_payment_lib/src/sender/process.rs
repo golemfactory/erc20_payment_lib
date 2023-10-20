@@ -459,22 +459,37 @@ pub async fn process_transaction(
             .await
             .map_err(err_from!())?;
 
+        let tx_fee_per_gas = u256_to_rust_dec(
+            U256::from_dec_str(&web3_tx_dao.max_fee_per_gas).map_err(err_from!())?,
+            Some(9),
+        )
+        .map_err(err_from!())?;
+        let max_fee_per_gas =
+            u256_to_rust_dec(chain_setup.max_fee_per_gas, Some(9)).map_err(err_from!())?;
+        let tx_priority_fee_u256 =
+            U256::from_dec_str(&web3_tx_dao.priority_fee).map_err(err_from!())?;
+        let tx_priority_fee =
+            u256_to_rust_dec(tx_priority_fee_u256, Some(9)).map_err(err_from!())?;
+        let config_priority_fee =
+            u256_to_rust_dec(chain_setup.priority_fee, Some(9)).map_err(err_from!())?;
+
+        if !chain_setup
+            .allow_max_fee_greater_than_priority_fee
+            .unwrap_or(false)
+            && tx_priority_fee > tx_fee_per_gas
+        {
+            log::error!(
+                "Transaction priority fee is greater than max fee per gas for tx: {}. Setup allow_max_fee_greater_than_priority_fee if chain supports it",
+                web3_tx_dao.id
+            );
+            return Err(err_custom_create!(
+                "Transaction priority fee is greater than max fee per gas for tx: {}. Setup allow_max_fee_greater_than_priority_fee if chain supports it",
+                web3_tx_dao.id
+            ));
+        }
+
         let support_replacement_transactions = true;
         if support_replacement_transactions {
-            let tx_fee_per_gas = u256_to_rust_dec(
-                U256::from_dec_str(&web3_tx_dao.max_fee_per_gas).map_err(err_from!())?,
-                Some(9),
-            )
-            .map_err(err_from!())?;
-            let max_fee_per_gas =
-                u256_to_rust_dec(chain_setup.max_fee_per_gas, Some(9)).map_err(err_from!())?;
-            let tx_priority_fee_u256 =
-                U256::from_dec_str(&web3_tx_dao.priority_fee).map_err(err_from!())?;
-            let tx_priority_fee =
-                u256_to_rust_dec(tx_priority_fee_u256, Some(9)).map_err(err_from!())?;
-            let config_priority_fee =
-                u256_to_rust_dec(chain_setup.priority_fee, Some(9)).map_err(err_from!())?;
-
             let mut fee_per_gas_changed = false;
             let mut fee_per_gas_bumped_10 = false;
             if tx_fee_per_gas != max_fee_per_gas {
@@ -523,9 +538,20 @@ pub async fn process_transaction(
                 } else if fee_per_gas_bumped_10 && !priority_fee_changed_10 {
                     replacement_priority_fee =
                         tx_priority_fee_u256 * U256::from(11) / U256::from(10) + U256::from(1);
+
                     if replacement_priority_fee > replacement_max_fee_per_gas {
-                        //priority fee cannot be greater than max fee per gas
-                        replacement_priority_fee = replacement_max_fee_per_gas;
+                        if chain_setup
+                            .allow_max_fee_greater_than_priority_fee
+                            .unwrap_or(false)
+                        {
+                            //polygon is allowing to send transactions with priority fee greater than max fee per gas
+                            //no additional fixes are needed
+                        } else {
+                            //on other networks this fix is needed
+                            //priority fee cannot be greater than max fee per gas
+                            //it should cover very niche case, because almost always priority fee is lower than max fee per gas
+                            replacement_priority_fee = replacement_max_fee_per_gas;
+                        }
                     }
                     log::warn!(
                         "Replacement priority fee is bumped by 10% from {} to {}",
@@ -574,6 +600,10 @@ pub async fn process_transaction(
                         .as_ref()
                         .map(|testing| testing.erc20_lib_test_replacement_timeout)
                     {
+                        log::warn!(
+                            "TESTING - sleeping for {} seconds",
+                            erc20_lib_test_replacement_timeout.as_secs()
+                        );
                         tokio::time::sleep(erc20_lib_test_replacement_timeout).await;
                     }
                     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
