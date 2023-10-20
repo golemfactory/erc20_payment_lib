@@ -73,9 +73,7 @@ pub async fn process_transaction(
         return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Unknown));
     };
 
-    let is_polygon_eco_mode = chain_setup.chain_id == 137
-        && get_env_bool_value("POLYGON_ECO_MODE")
-        ;
+    let is_polygon_eco_mode = chain_setup.chain_id == 137 && get_env_bool_value("POLYGON_ECO_MODE");
 
     let web3 = payment_setup.get_provider(chain_id).map_err(|_e| {
         err_create!(TransactionFailedError::new(&format!(
@@ -545,8 +543,7 @@ pub async fn process_transaction(
         let config_priority_fee =
             u256_to_rust_dec(chain_setup.priority_fee, Some(9)).map_err(err_from!())?;
 
-        if tx_priority_fee > tx_fee_per_gas
-        {
+        if tx_priority_fee > tx_fee_per_gas {
             log::error!(
                 "Transaction priority fee is greater than max fee per gas for tx: {}",
                 web3_tx_dao.id
