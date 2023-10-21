@@ -113,7 +113,7 @@ pub struct ScanBlockchainOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
     pub chain_name: String,
 
-    #[structopt(short = "b", long = "from_block")]
+    #[structopt(short = "b", long = "from-block")]
     pub from_block: u64,
 
     #[structopt(long = "start-new-scan")]
