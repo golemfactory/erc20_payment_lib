@@ -29,7 +29,8 @@ use crate::transaction::find_receipt;
 use crate::transaction::send_transaction;
 use crate::transaction::sign_transaction_with_callback;
 use crate::utils::{
-    datetime_from_u256_timestamp, get_env_bool_value, rust_dec_to_u256, u256_to_rust_dec,
+    datetime_from_u256_timestamp, get_env_bool_value, rust_dec_to_u256, u256_to_gwei,
+    u256_to_rust_dec,
 };
 
 #[derive(Debug)]
@@ -564,21 +565,12 @@ pub async fn process_transaction(
             .await
             .map_err(err_from!())?;
 
-        let tx_fee_per_gas = u256_to_rust_dec(
-            U256::from_dec_str(&web3_tx_dao.max_fee_per_gas).map_err(err_from!())?,
-            Some(9),
-        )
-        .map_err(err_from!())?;
-        let max_fee_per_gas =
-            u256_to_rust_dec(chain_setup.max_fee_per_gas, Some(9)).map_err(err_from!())?;
-        let tx_priority_fee_u256 =
-            U256::from_dec_str(&web3_tx_dao.priority_fee).map_err(err_from!())?;
-        let tx_priority_fee =
-            u256_to_rust_dec(tx_priority_fee_u256, Some(9)).map_err(err_from!())?;
-        let config_priority_fee =
-            u256_to_rust_dec(chain_setup.priority_fee, Some(9)).map_err(err_from!())?;
+        let (_, tx_fee_per_gas) = web3_tx_dao.get_max_fee_per_gas().map_err(err_from!())?;
+        let max_fee_per_gas = u256_to_gwei(chain_setup.max_fee_per_gas).map_err(err_from!())?;
+        let (tx_pr_fee_u256, tx_pr_fee) = web3_tx_dao.get_priority_fee().map_err(err_from!())?;
+        let config_priority_fee = u256_to_gwei(chain_setup.priority_fee).map_err(err_from!())?;
 
-        if tx_priority_fee > tx_fee_per_gas {
+        if tx_pr_fee > tx_fee_per_gas {
             log::error!(
                 "Transaction priority fee is greater than max fee per gas for tx: {}",
                 web3_tx_dao.id
@@ -625,9 +617,9 @@ pub async fn process_transaction(
 
             let mut priority_fee_changed = false;
             let mut priority_fee_changed_10 = false;
-            if tx_priority_fee != config_priority_fee {
+            if tx_pr_fee != config_priority_fee {
                 priority_fee_changed = true;
-                if tx_priority_fee * Decimal::from(11) <= config_priority_fee * Decimal::from(10) {
+                if tx_pr_fee * Decimal::from(11) <= config_priority_fee * Decimal::from(10) {
                     priority_fee_changed_10 = true;
                     log::warn!(
                         "Transaction priority fee bumped more than 10% from {} to {} for tx: {}",
@@ -648,7 +640,7 @@ pub async fn process_transaction(
                     send_replacement_tx = true;
                 } else if fee_per_gas_bumped_10 && !priority_fee_changed_10 {
                     replacement_priority_fee =
-                        tx_priority_fee_u256 * U256::from(11) / U256::from(10) + U256::from(1);
+                        tx_pr_fee_u256 * U256::from(11) / U256::from(10) + U256::from(1);
 
                     if replacement_priority_fee > replacement_max_fee_per_gas {
                         //priority fee cannot be greater than max fee per gas
@@ -657,7 +649,7 @@ pub async fn process_transaction(
                     }
                     log::warn!(
                         "Replacement priority fee is bumped by 10% from {} to {}",
-                        tx_priority_fee,
+                        tx_pr_fee,
                         u256_to_rust_dec(replacement_priority_fee, Some(9)).map_err(err_from!())?
                     );
                     send_replacement_tx = true;

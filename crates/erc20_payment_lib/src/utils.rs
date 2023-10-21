@@ -136,6 +136,14 @@ pub fn u256_to_rust_dec(
     Ok(Decimal::from(amount.as_u128()) / dec_base)
 }
 
+pub fn u256_to_gwei(amount: U256) -> Result<Decimal, ConversionError> {
+    u256_to_rust_dec(amount, Some(9))
+}
+
+pub fn u256_to_eth(amount: U256) -> Result<Decimal, ConversionError> {
+    u256_to_rust_dec(amount, Some(18))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
