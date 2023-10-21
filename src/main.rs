@@ -331,10 +331,21 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .as_u64() as i64;
 
             //start around 30 days ago
-            let mut start_block = std::cmp::max(
-                1,
-                current_block - scan_blockchain_options.from_blocks_ago as i64,
-            );
+            let mut start_block = std::cmp::max(1, scan_blockchain_options.from_block as i64);
+
+            if scan_blockchain_options.from_block > current_block as u64 {
+                log::warn!(
+                    "From block {} is higher than current block {}, no newer data on blockchain",
+                    scan_blockchain_options.from_block,
+                    current_block
+                );
+                return Ok(());
+            }
+
+            if current_block < scan_info.last_block {
+                log::warn!("Current block {} is lower than last block from db {}, no newer data on blockchain", current_block, scan_info.last_block);
+                return Ok(());
+            }
 
             if scan_info.last_block > start_block {
                 log::info!("Start block from db is higher than start block from cli {}, using start block from db {}", start_block, scan_info.last_block);
