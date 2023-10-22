@@ -24,7 +24,7 @@ use erc20_payment_lib::{
 use std::env;
 use std::str::FromStr;
 
-use crate::stats::run_stats;
+use crate::stats::{export_stats, run_stats};
 use erc20_payment_lib::runtime::remove_last_unsent_transactions;
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
@@ -278,6 +278,9 @@ async fn main_internal() -> Result<(), PaymentError> {
             generate_test_payments(generate_options, &config, public_addrs, Some(conn.clone()))
                 .await?;
         }
+        PaymentCommands::ExportHistory {
+            export_history_stats_options,
+        } => export_stats(conn.clone(), export_history_stats_options, &config).await?,
         PaymentCommands::PaymentStats {
             payment_stats_options,
         } => run_stats(conn.clone(), payment_stats_options, &config).await?,

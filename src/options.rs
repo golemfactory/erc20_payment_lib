@@ -147,6 +147,13 @@ pub struct ScanBlockchainOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Export history stats")]
+pub struct ExportHistoryStatsOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
+    pub chain_name: String,
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Payment statistics options")]
 pub struct PaymentStatsOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
@@ -234,6 +241,10 @@ pub enum PaymentCommands {
     PaymentStats {
         #[structopt(flatten)]
         payment_stats_options: PaymentStatsOptions,
+    },
+    ExportHistory {
+        #[structopt(flatten)]
+        export_history_stats_options: ExportHistoryStatsOptions,
     },
     DecryptKeyStore {
         #[structopt(flatten)]

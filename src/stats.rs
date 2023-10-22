@@ -1,15 +1,76 @@
+use chrono::{DateTime, NaiveDateTime, TimeZone};
+use csv::WriterBuilder;
 use erc20_payment_lib::config::Config;
 use erc20_payment_lib::db::ops::{
-    get_transfer_stats, get_transfer_stats_from_blockchain, TransferStatsPart,
+    get_all_chain_transfers, get_chain_transfers_by_chain_id, get_transfer_stats,
+    get_transfer_stats_from_blockchain, TransferStatsPart,
 };
 use erc20_payment_lib::err_custom_create;
+use itertools::{sorted, Itertools};
+use rust_decimal::Decimal;
 use sqlx::SqlitePool;
 use std::fs;
+use std::str::FromStr;
+use std::time::{SystemTime, UNIX_EPOCH};
 use web3::types::{H160, U256};
 
-use crate::options::PaymentStatsOptions;
+use crate::options::{ExportHistoryStatsOptions, PaymentStatsOptions};
 use erc20_payment_lib::error::PaymentError;
-use erc20_payment_lib::utils::u256_to_rust_dec;
+use erc20_payment_lib::utils::{u256_eth_from_str, u256_to_rust_dec};
+
+pub async fn export_stats(
+    conn: SqlitePool,
+    payment_stats_options: ExportHistoryStatsOptions,
+    config: &Config,
+) -> Result<(), PaymentError> {
+    let chain_cfg =
+        config
+            .chain
+            .get(&payment_stats_options.chain_name)
+            .ok_or(err_custom_create!(
+                "Chain {} not found in config file",
+                payment_stats_options.chain_name
+            ))?;
+
+    let mut writer = WriterBuilder::new()
+        .delimiter(b';')
+        .from_writer(std::fs::File::create("export.csv").unwrap());
+
+    let tchains = get_chain_transfers_by_chain_id(&conn, chain_cfg.chain_id, None)
+        .await
+        .unwrap();
+
+    let tchains = tchains
+        .into_iter()
+        .sorted_by_key(|t| t.blockchain_date.unwrap())
+        .collect_vec();
+
+    writer
+        .write_record(["time", "fee_paid", "fee_paid_total"])
+        .unwrap();
+    let mut fee_paid_total = Decimal::default();
+    for chain in tchains {
+        let Some(blockchain_date) = chain.blockchain_date else {
+            log::warn!("No blockchain date for transfer {}", chain.id);
+            continue;
+        };
+        let Some(fee_paid) = chain.fee_paid else {
+            log::warn!("No fee paid for transfer {}", chain.id);
+            continue;
+        };
+
+        let (_, fee_paid) = u256_eth_from_str(&fee_paid).unwrap();
+        fee_paid_total += fee_paid;
+        writer
+            .write_record([
+                blockchain_date.format("%Y-%m-%dT%H:%M:%S%.3f").to_string(),
+                format!("{:.6}", fee_paid),
+                format!("{:.6}", fee_paid_total),
+            ])
+            .unwrap();
+    }
+    Ok(())
+}
 
 pub async fn run_stats(
     conn: SqlitePool,

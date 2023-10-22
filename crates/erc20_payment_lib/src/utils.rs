@@ -144,6 +144,20 @@ pub fn u256_to_eth(amount: U256) -> Result<Decimal, ConversionError> {
     u256_to_rust_dec(amount, Some(18))
 }
 
+pub fn u256_eth_from_str(val: &str) -> Result<(U256, Decimal), ConversionError> {
+    let u256 = U256::from_dec_str(val)
+        .map_err(|err| ConversionError::from(format!("Invalid string when converting: {err:?}")))?;
+    let eth = u256_to_eth(u256)?;
+    Ok((u256, eth))
+}
+
+pub fn u256_gwei_from_str(val: &str) -> Result<(U256, Decimal), ConversionError> {
+    let u256 = U256::from_dec_str(val)
+        .map_err(|err| ConversionError::from(format!("Invalid string when converting: {err:?}")))?;
+    let gwei = u256_to_gwei(u256)?;
+    Ok((u256, gwei))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
