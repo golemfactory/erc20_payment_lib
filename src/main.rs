@@ -13,7 +13,6 @@ use erc20_payment_lib::db::ops::{
 };
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::signer::PrivateKeySigner;
-use erc20_payment_lib::utils::rust_dec_to_u256;
 
 use erc20_payment_lib::{
     config, err_custom_create, err_from,
@@ -24,13 +23,14 @@ use erc20_payment_lib::{
 use std::env;
 use std::str::FromStr;
 
-use crate::stats::run_stats;
+use crate::stats::{export_stats, run_stats};
 use erc20_payment_lib::runtime::remove_last_unsent_transactions;
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::import_erc20_txs;
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 
+use erc20_payment_lib::utils::DecimalConvExt;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
@@ -229,7 +229,9 @@ async fn main_internal() -> Result<(), PaymentError> {
                     receiver_addr: format!("{:#x}", single_transfer_options.recipient),
                     chain_id: chain_cfg.chain_id,
                     token_addr: token,
-                    token_amount: rust_dec_to_u256(single_transfer_options.amount, Some(18))
+                    token_amount: single_transfer_options
+                        .amount
+                        .to_u256_from_eth()
                         .unwrap()
                         .to_string(),
                     create_date: Default::default(),
@@ -278,6 +280,9 @@ async fn main_internal() -> Result<(), PaymentError> {
             generate_test_payments(generate_options, &config, public_addrs, Some(conn.clone()))
                 .await?;
         }
+        PaymentCommands::ExportHistory {
+            export_history_stats_options,
+        } => export_stats(conn.clone(), export_history_stats_options, &config).await?,
         PaymentCommands::PaymentStats {
             payment_stats_options,
         } => run_stats(conn.clone(), payment_stats_options, &config).await?,
@@ -331,10 +336,21 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .as_u64() as i64;
 
             //start around 30 days ago
-            let mut start_block = std::cmp::max(
-                1,
-                current_block - scan_blockchain_options.from_blocks_ago as i64,
-            );
+            let mut start_block = std::cmp::max(1, scan_blockchain_options.from_block as i64);
+
+            if scan_blockchain_options.from_block > current_block as u64 {
+                log::warn!(
+                    "From block {} is higher than current block {}, no newer data on blockchain",
+                    scan_blockchain_options.from_block,
+                    current_block
+                );
+                return Ok(());
+            }
+
+            if current_block < scan_info.last_block {
+                log::warn!("Current block {} is lower than last block from db {}, no newer data on blockchain", current_block, scan_info.last_block);
+                return Ok(());
+            }
 
             if scan_info.last_block > start_block {
                 log::info!("Start block from db is higher than start block from cli {}, using start block from db {}", start_block, scan_info.last_block);

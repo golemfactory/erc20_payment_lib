@@ -6,7 +6,7 @@ use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{verify_transaction, DriverEvent, PaymentRuntime};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
-use erc20_payment_lib::utils::u256_to_rust_dec;
+use erc20_payment_lib::utils::U256ConvExt;
 use erc20_payment_lib_test::*;
 use rust_decimal::prelude::ToPrimitive;
 use std::str::FromStr;
@@ -105,7 +105,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
     {
         // *** RESULT CHECK ***
         let (fee_paid_u256, tx_dao) = receiver_loop.await.unwrap();
-        let fee_paid = u256_to_rust_dec(fee_paid_u256,None).unwrap();
+        let fee_paid = fee_paid_u256.to_eth().unwrap();
         log::info!("fee paid: {}", fee_paid);
         assert!(fee_paid.to_f64().unwrap() > 0.00008 && fee_paid.to_f64().unwrap() < 0.00015);
 

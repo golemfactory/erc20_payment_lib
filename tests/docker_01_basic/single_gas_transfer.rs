@@ -5,7 +5,7 @@ use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
-use erc20_payment_lib::utils::u256_to_rust_dec;
+use erc20_payment_lib::utils::U256ConvExt;
 use erc20_payment_lib_test::*;
 use rust_decimal::prelude::ToPrimitive;
 use std::str::FromStr;
@@ -94,7 +94,7 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
     {
         // *** RESULT CHECK ***
         let fee_paid_u256 = receiver_loop.await.unwrap();
-        let fee_paid = u256_to_rust_dec(fee_paid_u256,None).unwrap();
+        let fee_paid = fee_paid_u256.to_eth().unwrap();
         log::info!("fee paid: {}", fee_paid);
         assert!(fee_paid.to_f64().unwrap() > 0.00002 && fee_paid.to_f64().unwrap() < 0.00003);
         let res = test_get_balance(&proxy_url_base, "0x653b48e1348f480149047aa3a58536eb0dbbb2e2,0x41162e565ebbf1a52ec904c7365e239c40d82568").await?;

@@ -80,7 +80,7 @@ fn compute_base(num_decimals: u32) -> rust_decimal::Decimal {
 }
 
 ///good from one gwei up to at least one billion ethers
-pub fn rust_dec_to_u256(
+fn rust_dec_to_u256(
     dec_amount: rust_decimal::Decimal,
     decimals: Option<u32>,
 ) -> Result<U256, ConversionError> {
@@ -113,7 +113,7 @@ pub fn rust_dec_to_u256(
     Ok(U256::from(u128))
 }
 
-pub fn u256_to_rust_dec(
+fn u256_to_rust_dec(
     amount: U256,
     decimals: Option<u32>,
 ) -> Result<rust_decimal::Decimal, ConversionError> {
@@ -134,6 +134,75 @@ pub fn u256_to_rust_dec(
     }
 
     Ok(Decimal::from(amount.as_u128()) / dec_base)
+}
+
+fn u256_to_gwei(amount: U256) -> Result<Decimal, ConversionError> {
+    u256_to_rust_dec(amount, Some(9))
+}
+
+pub trait U256ConvExt {
+    fn to_gwei(&self) -> Result<Decimal, ConversionError>;
+    fn to_eth(&self) -> Result<Decimal, ConversionError>;
+}
+impl U256ConvExt for U256 {
+    fn to_gwei(&self) -> Result<Decimal, ConversionError> {
+        u256_to_gwei(*self)
+    }
+    fn to_eth(&self) -> Result<Decimal, ConversionError> {
+        u256_to_eth(*self)
+    }
+}
+
+pub trait StringConvExt {
+    fn to_gwei(&self) -> Result<Decimal, ConversionError>;
+    fn to_eth(&self) -> Result<Decimal, ConversionError>;
+    fn to_u256(&self) -> Result<U256, ConversionError>;
+}
+impl StringConvExt for String {
+    fn to_gwei(&self) -> Result<Decimal, ConversionError> {
+        self.to_u256()?.to_gwei()
+    }
+    fn to_eth(&self) -> Result<Decimal, ConversionError> {
+        self.to_u256()?.to_eth()
+    }
+
+    fn to_u256(&self) -> Result<U256, ConversionError> {
+        U256::from_dec_str(self).map_err(|err| {
+            ConversionError::from(format!("Invalid string when converting: {err:?}"))
+        })
+    }
+}
+
+pub trait DecimalConvExt {
+    fn to_u256_from_gwei(&self) -> Result<U256, ConversionError>;
+    fn to_u256_from_eth(&self) -> Result<U256, ConversionError>;
+}
+
+impl DecimalConvExt for Decimal {
+    fn to_u256_from_gwei(&self) -> Result<U256, ConversionError> {
+        rust_dec_to_u256(*self, Some(9))
+    }
+    fn to_u256_from_eth(&self) -> Result<U256, ConversionError> {
+        rust_dec_to_u256(*self, Some(18))
+    }
+}
+
+fn u256_to_eth(amount: U256) -> Result<Decimal, ConversionError> {
+    u256_to_rust_dec(amount, Some(18))
+}
+
+pub fn u256_eth_from_str(val: &str) -> Result<(U256, Decimal), ConversionError> {
+    let u256 = U256::from_dec_str(val)
+        .map_err(|err| ConversionError::from(format!("Invalid string when converting: {err:?}")))?;
+    let eth = u256_to_eth(u256)?;
+    Ok((u256, eth))
+}
+
+pub fn u256_gwei_from_str(val: &str) -> Result<(U256, Decimal), ConversionError> {
+    let u256 = U256::from_dec_str(val)
+        .map_err(|err| ConversionError::from(format!("Invalid string when converting: {err:?}")))?;
+    let gwei = u256_to_gwei(u256)?;
+    Ok((u256, gwei))
 }
 
 #[cfg(test)]

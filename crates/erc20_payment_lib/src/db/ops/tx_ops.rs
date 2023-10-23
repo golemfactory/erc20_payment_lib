@@ -8,6 +8,7 @@ pub const TRANSACTION_FILTER_PROCESSING: &str = "processing > 0 AND first_proces
 pub const TRANSACTION_FILTER_TO_PROCESS: &str = "processing > 0";
 pub const TRANSACTION_FILTER_ALL: &str = "id >= 0";
 pub const TRANSACTION_FILTER_DONE: &str = "processing = 0";
+pub const TRANSACTION_ORDER_BY_ID_AND_REPLACEMENT_ID: &str = "orig_tx_id DESC,id ASC";
 pub const TRANSACTION_ORDER_BY_CREATE_DATE: &str = "created_date ASC";
 pub const TRANSACTION_ORDER_BY_FIRST_PROCESSED_DATE_DESC: &str = "first_processed DESC";
 
@@ -124,7 +125,7 @@ pub async fn get_next_transactions_to_process(
         conn,
         Some(TRANSACTION_FILTER_TO_PROCESS),
         Some(limit),
-        Some(TRANSACTION_ORDER_BY_CREATE_DATE),
+        Some(TRANSACTION_ORDER_BY_ID_AND_REPLACEMENT_ID),
     )
     .await
 }

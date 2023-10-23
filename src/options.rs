@@ -113,8 +113,8 @@ pub struct ScanBlockchainOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
     pub chain_name: String,
 
-    #[structopt(short = "b", long = "blocks-ago", default_value = "43200")]
-    pub from_blocks_ago: u64,
+    #[structopt(short = "b", long = "from-block")]
+    pub from_block: u64,
 
     #[structopt(long = "start-new-scan")]
     pub start_new_scan: bool,
@@ -144,6 +144,13 @@ pub struct ScanBlockchainOptions {
         default_value = "0x09e4F0aE44D5E60D44A8928Af7531e6A862290bC"
     )]
     pub sender: String,
+}
+
+#[derive(StructOpt)]
+#[structopt(about = "Export history stats")]
+pub struct ExportHistoryStatsOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
+    pub chain_name: String,
 }
 
 #[derive(StructOpt)]
@@ -234,6 +241,10 @@ pub enum PaymentCommands {
     PaymentStats {
         #[structopt(flatten)]
         payment_stats_options: PaymentStatsOptions,
+    },
+    ExportHistory {
+        #[structopt(flatten)]
+        export_history_stats_options: ExportHistoryStatsOptions,
     },
     DecryptKeyStore {
         #[structopt(flatten)]

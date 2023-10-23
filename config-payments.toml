@@ -1,6 +1,6 @@
 [engine]
-service-sleep = 1
-process-sleep = 1
+service-sleep = 10
+process-sleep = 10
 automatic-recover = false
 
 [chain.rinkeby]
@@ -61,7 +61,6 @@ transaction-timeout = 100
 token = { address = "0x0B220b82F3eA3B7F6d9A1D8ab58930C064A2b5Bf", symbol = "GLM" }
 # multi-contract = { address = "0x50100d4faf5f3b09987dea36dc2eddd57a3e561b", max-at-once = 10 }
 confirmation-blocks = 1
-allow-max-fee-greater-than-priority-fee = true
 block-explorer-url = "https://polygonscan.com"
 
 [chain.dev]
