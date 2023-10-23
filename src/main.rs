@@ -394,6 +394,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     &conn,
                     chain_cfg.chain_id,
                     &format!("{tx:#x}"),
+                    chain_cfg.token.clone().unwrap().address,
                 )
                 .await
                 {

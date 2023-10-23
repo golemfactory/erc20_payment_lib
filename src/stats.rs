@@ -1,21 +1,21 @@
-use csv::WriterBuilder;
+use crate::options::{ExportHistoryStatsOptions, PaymentStatsOptions};
 use erc20_payment_lib::config::Config;
+use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::ChainTxDao;
 use erc20_payment_lib::db::ops::{
     get_chain_transfers_by_chain_id, get_chain_txs_by_chain_id, get_transfer_stats,
     get_transfer_stats_from_blockchain, TransferStatsPart,
 };
-use erc20_payment_lib::err_custom_create;
-use itertools::Itertools;
-use rust_decimal::Decimal;
-use sqlx::SqlitePool;
-use std::collections::HashMap;
-use std::fs;
-use web3::types::{H160, U256};
-
-use crate::options::{ExportHistoryStatsOptions, PaymentStatsOptions};
+use erc20_payment_lib::error::ErrorBag;
 use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::utils::{u256_eth_from_str, U256ConvExt};
+use erc20_payment_lib::{err_custom_create, err_from};
+use itertools::Itertools;
+use rust_decimal::Decimal;
+use sqlx::{Executor, SqlitePool};
+use std::collections::HashMap;
+use std::{env, fs};
+use web3::types::{H160, U256};
 
 pub async fn export_stats(
     conn: SqlitePool,
@@ -31,9 +31,34 @@ pub async fn export_stats(
                 payment_stats_options.chain_name
             ))?;
 
-    let mut writer = WriterBuilder::new()
-        .delimiter(b';')
-        .from_writer(std::fs::File::create("export.csv").unwrap());
+    let time_started = chrono::Utc::now();
+
+    env::set_var("ERC20_LIB_SQLITE_JOURNAL_MODE", "Wal");
+    let export_conn = create_sqlite_connection(
+        Some(&payment_stats_options.export_sqlite_file),
+        None,
+        false,
+        false,
+    )
+    .await?;
+
+    export_conn
+        .execute("DROP TABLE IF EXISTS stats")
+        .await
+        .map_err(err_from!())?;
+
+    export_conn
+        .execute(
+            "CREATE TABLE stats (
+        time INTEGER NOT NULL,
+        fee_paid REAL NOT NULL,
+        fee_paid_total REAL NOT NULL,
+        tx_count INTEGER NOT NULL,
+        payment_count INTEGER NOT NULL
+    ) STRICT",
+        )
+        .await
+        .map_err(err_from!())?;
 
     let tchains = get_chain_transfers_by_chain_id(&conn, chain_cfg.chain_id, None)
         .await
@@ -63,31 +88,26 @@ pub async fn export_stats(
         .sorted_by_key(|t| t.blockchain_date)
         .collect_vec();
 
-    writer
-        .write_record([
-            "time",
-            "fee_paid",
-            "fee_paid_total",
-            "tx_count",
-            "payment_count",
-        ])
-        .unwrap();
     let mut fee_paid_total = Decimal::default();
     for tx in txs {
         let (_, fee_paid) = u256_eth_from_str(&tx.fee_paid).unwrap();
         fee_paid_total += fee_paid;
-        writer
-            .write_record([
-                tx.blockchain_date
-                    .format("%Y-%m-%dT%H:%M:%S%.3f")
-                    .to_string(),
-                format!("{:.6}", fee_paid),
-                format!("{:.6}", fee_paid_total),
-                1.to_string(),
-                transaction_ids.get(&tx.id).unwrap().len().to_string(),
-            ])
-            .unwrap();
+        sqlx::query("INSERT INTO stats (time, fee_paid, fee_paid_total, tx_count, payment_count) VALUES ($1, $2, $3, $4, $5)")
+            .bind(tx.blockchain_date.timestamp())
+            //.bind(tx.blockchain_date.format("%Y-%m-%dT%H:%M:%S%.3f").to_string())
+            .bind(format!("{:.6}", fee_paid))
+            .bind(format!("{:.6}", fee_paid_total))
+            .bind(1.to_string())
+            .bind(transaction_ids.get(&tx.id).unwrap().len().to_string())
+            .execute(&export_conn).await.map_err(err_from!())?;
     }
+    export_conn.close().await;
+
+    let time_ended = chrono::Utc::now();
+    println!(
+        "Exported stats time - {} seconds",
+        (time_ended - time_started).num_milliseconds() as f64 / 1000.0
+    );
     Ok(())
 }
 

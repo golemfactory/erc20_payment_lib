@@ -574,6 +574,7 @@ pub async fn find_receipt_extended(
     web3: &Web3<Http>,
     tx_hash: H256,
     chain_id: i64,
+    glm_address: Address
 ) -> Result<(ChainTxDao, Vec<ChainTransferDao>), PaymentError> {
     let mut chain_tx_dao = ChainTxDao {
         id: -1,
@@ -595,6 +596,8 @@ pub async fn find_receipt_extended(
         block_number: 0,
         chain_status: 0,
         fee_paid: "".to_string(),
+        balance_eth: None,
+        balance_glm: None,
     };
 
     let receipt = web3
@@ -695,6 +698,9 @@ pub async fn find_receipt_extended(
 
     //check if there is special transfer to contract
     for log in &receipt.logs {
+        if log.address != glm_address {
+            continue;
+        }
         if log.topics.len() == 3 && log.topics[0] == erc20_transfer_event_signature {
             let from = Address::from_slice(&log.topics[1][12..]);
             let to = Address::from_slice(&log.topics[2][12..]);
@@ -726,6 +732,9 @@ pub async fn find_receipt_extended(
     }
 
     for log in &receipt.logs {
+        if log.address != glm_address {
+            continue;
+        }
         if log.topics.len() == 3 && log.topics[0] == erc20_transfer_event_signature {
             let from = Address::from_slice(&log.topics[1][12..]);
             let to = Address::from_slice(&log.topics[2][12..]);

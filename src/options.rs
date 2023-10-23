@@ -151,6 +151,13 @@ pub struct ScanBlockchainOptions {
 pub struct ExportHistoryStatsOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
     pub chain_name: String,
+
+    #[structopt(
+        long = "export-sqlite-file",
+        help = "Export sqlite db file",
+        default_value = "export.sqlite"
+    )]
+    pub export_sqlite_file: PathBuf,
 }
 
 #[derive(StructOpt)]
