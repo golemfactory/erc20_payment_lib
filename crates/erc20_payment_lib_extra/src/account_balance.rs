@@ -1,7 +1,7 @@
 use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::eth::get_balance;
 use erc20_payment_lib::setup::PaymentSetup;
-use erc20_payment_lib::utils::u256_to_rust_dec;
+use erc20_payment_lib::utils::U256Ext;
 use erc20_payment_lib::{config, err_custom_create};
 use futures_util::{stream, StreamExt};
 use serde::{Deserialize, Serialize};
@@ -124,10 +124,10 @@ pub async fn account_balance(
                 log::debug!("{:#x} token: {:?}", job, token_balance);
                 let gas_balance_decimal = balance
                     .gas_balance
-                    .map(|v| u256_to_rust_dec(v, None).unwrap_or_default().to_string());
+                    .map(|v| v.to_eth().unwrap_or_default().to_string());
                 let token_balance_decimal = balance
                     .token_balance
-                    .map(|v| u256_to_rust_dec(v, None).unwrap_or_default().to_string());
+                    .map(|v| v.to_eth().unwrap_or_default().to_string());
                 let gas_balance_human = gas_balance_decimal.clone().map(|v| {
                     format!(
                         "{:.03} {}",

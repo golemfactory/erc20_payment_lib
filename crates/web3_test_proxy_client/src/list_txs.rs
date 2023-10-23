@@ -1,5 +1,5 @@
 use crate::{get_calls, JSONRPCResult};
-use erc20_payment_lib::utils::u256_to_rust_dec;
+use erc20_payment_lib::utils::U256Ext;
 use web3::types::U256;
 
 /// List transactions captured by web3 proxy in human readable format
@@ -71,9 +71,7 @@ pub async fn list_transactions_human(proxy_url_base: &str, proxy_key: &str) -> V
         let result = if let Some(result_int) = result_int {
             result_int.to_string()
         } else if let Some(result_balance) = result_balance {
-            u256_to_rust_dec(result_balance, Some(18))
-                .unwrap()
-                .to_string()
+            result_balance.to_eth().unwrap().to_string()
         } else if c.method == "eth_getTransactionReceipt" {
             "details?".to_string()
         } else if call.status_code != 200 {
