@@ -6,14 +6,13 @@ use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime, TransactionStuckReason};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
-use erc20_payment_lib::utils::u256_to_rust_dec;
+use erc20_payment_lib::utils::U256Ext;
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
 use std::time::Duration;
 use tokio::task;
 use web3::types::{Address, U256};
 use web3_test_proxy_client::{list_transactions_human, EndpointSimulateProblems};
-
 #[rustfmt::skip]
 async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
@@ -151,7 +150,7 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
     {
         // *** RESULT CHECK ***
         let fee_paid = receiver_loop.await.unwrap();
-        log::info!("fee paid: {}", u256_to_rust_dec(fee_paid, None).unwrap());
+        log::info!("fee paid: {}", fee_paid.to_eth().unwrap());
         let res = test_get_balance(&proxy_url_base, "0x653b48e1348f480149047aa3a58536eb0dbbb2e2,0x41162e565ebbf1a52ec904c7365e239c40d82568").await?;
         assert_eq!(res["0x41162e565ebbf1a52ec904c7365e239c40d82568"].gas_decimal,   Some("0.456000000000000222".to_string()));
         assert_eq!(res["0x41162e565ebbf1a52ec904c7365e239c40d82568"].token_decimal, Some("0".to_string()));

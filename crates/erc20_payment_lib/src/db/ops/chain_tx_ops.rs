@@ -33,6 +33,22 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) R
     Ok(res)
 }
 
+pub async fn get_chain_txs_by_chain_id(
+    conn: &SqlitePool,
+    chain_id: i64,
+    limit: Option<i64>,
+) -> Result<Vec<ChainTxDao>, sqlx::Error> {
+    let limit = limit.unwrap_or(i64::MAX);
+    let rows = sqlx::query_as::<_, ChainTxDao>(
+        r"SELECT * FROM chain_tx WHERE chain_id = $1 ORDER by id DESC LIMIT $2",
+    )
+    .bind(chain_id)
+    .bind(limit)
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
 pub async fn get_chain_tx(conn: &SqlitePool, id: i64) -> Result<ChainTxDao, sqlx::Error> {
     let row = sqlx::query_as::<_, ChainTxDao>(r"SELECT * FROM chain_tx WHERE id = $1")
         .bind(id)

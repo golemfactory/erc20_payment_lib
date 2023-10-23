@@ -9,7 +9,7 @@ use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime};
 use erc20_payment_lib::signer::PrivateKeySigner;
-use erc20_payment_lib::utils::u256_to_rust_dec;
+use erc20_payment_lib::utils::U256Ext;
 use erc20_payment_lib_extra::{generate_test_payments, GenerateOptions};
 use std::env;
 use std::path::Path;
@@ -152,12 +152,12 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
     {
         // *** RESULT CHECK ***
         let (fee_paid_events, fee_paid_events_approve)  = receiver_loop.await.unwrap();
-        log::info!("fee paid from events: {}", u256_to_rust_dec(fee_paid_events, None).unwrap());
+        log::info!("fee paid from events: {}", fee_paid_events.to_eth().unwrap());
 
         let transfer_stats = get_transfer_stats(&conn, chain_id, None).await.unwrap();
         let stats_all = transfer_stats.per_sender.iter().next().unwrap().1.all.clone();
         let fee_paid_stats = stats_all.fee_paid;
-        log::info!("fee paid from stats: {}", u256_to_rust_dec(fee_paid_stats, None).unwrap());
+        log::info!("fee paid from stats: {}", fee_paid_stats.to_eth().unwrap());
 
         assert_eq!(fee_paid_events, fee_paid_stats);
 

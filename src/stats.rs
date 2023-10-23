@@ -1,22 +1,21 @@
-use chrono::{DateTime, NaiveDateTime, TimeZone};
 use csv::WriterBuilder;
 use erc20_payment_lib::config::Config;
+use erc20_payment_lib::db::model::ChainTxDao;
 use erc20_payment_lib::db::ops::{
-    get_all_chain_transfers, get_chain_transfers_by_chain_id, get_transfer_stats,
+    get_chain_transfers_by_chain_id, get_chain_txs_by_chain_id, get_transfer_stats,
     get_transfer_stats_from_blockchain, TransferStatsPart,
 };
 use erc20_payment_lib::err_custom_create;
-use itertools::{sorted, Itertools};
+use itertools::Itertools;
 use rust_decimal::Decimal;
 use sqlx::SqlitePool;
+use std::collections::HashMap;
 use std::fs;
-use std::str::FromStr;
-use std::time::{SystemTime, UNIX_EPOCH};
 use web3::types::{H160, U256};
 
 use crate::options::{ExportHistoryStatsOptions, PaymentStatsOptions};
 use erc20_payment_lib::error::PaymentError;
-use erc20_payment_lib::utils::{u256_eth_from_str, u256_to_rust_dec};
+use erc20_payment_lib::utils::{u256_eth_from_str, U256Ext};
 
 pub async fn export_stats(
     conn: SqlitePool,
@@ -40,32 +39,52 @@ pub async fn export_stats(
         .await
         .unwrap();
 
-    let tchains = tchains
+    let txs = get_chain_txs_by_chain_id(&conn, chain_cfg.chain_id, None)
+        .await
+        .unwrap();
+
+    let _tx_by_id = txs
+        .clone()
         .into_iter()
-        .sorted_by_key(|t| t.blockchain_date.unwrap())
+        .map(|tx| (tx.id, tx))
+        .collect::<std::collections::HashMap<i64, ChainTxDao>>();
+
+    let mut transaction_ids = HashMap::<i64, Vec<i64>>::new();
+    for tchain in tchains {
+        transaction_ids
+            .entry(tchain.chain_tx_id)
+            .or_insert_with(Vec::new)
+            .push(tchain.id);
+    }
+
+    let txs = txs
+        .clone()
+        .into_iter()
+        .sorted_by_key(|t| t.blockchain_date)
         .collect_vec();
 
     writer
-        .write_record(["time", "fee_paid", "fee_paid_total"])
+        .write_record([
+            "time",
+            "fee_paid",
+            "fee_paid_total",
+            "tx_count",
+            "payment_count",
+        ])
         .unwrap();
     let mut fee_paid_total = Decimal::default();
-    for chain in tchains {
-        let Some(blockchain_date) = chain.blockchain_date else {
-            log::warn!("No blockchain date for transfer {}", chain.id);
-            continue;
-        };
-        let Some(fee_paid) = chain.fee_paid else {
-            log::warn!("No fee paid for transfer {}", chain.id);
-            continue;
-        };
-
-        let (_, fee_paid) = u256_eth_from_str(&fee_paid).unwrap();
+    for tx in txs {
+        let (_, fee_paid) = u256_eth_from_str(&tx.fee_paid).unwrap();
         fee_paid_total += fee_paid;
         writer
             .write_record([
-                blockchain_date.format("%Y-%m-%dT%H:%M:%S%.3f").to_string(),
+                tx.blockchain_date
+                    .format("%Y-%m-%dT%H:%M:%S%.3f")
+                    .to_string(),
                 format!("{:.6}", fee_paid),
                 format!("{:.6}", fee_paid_total),
+                1.to_string(),
+                transaction_ids.get(&tx.id).unwrap().len().to_string(),
             ])
             .unwrap();
     }
@@ -109,10 +128,7 @@ pub async fn run_stats(
     let main_sender = transfer_stats.per_sender.iter().next().unwrap();
     let stats_all = main_sender.1.all.clone();
     let fee_paid_stats = stats_all.fee_paid;
-    println!(
-        "fee paid from stats: {}",
-        u256_to_rust_dec(fee_paid_stats, None).unwrap()
-    );
+    println!("fee paid from stats: {}", fee_paid_stats.to_eth().unwrap());
 
     println!("Number of transfers done: {}", stats_all.done_count);
 
@@ -143,7 +159,7 @@ pub async fn run_stats(
             "# TYPE erc20_transferred counter",
             chain_cfg.chain_id,
             sender,
-            u256_to_rust_dec(token_transferred.unwrap_or(U256::zero()), None).unwrap(),
+            token_transferred.unwrap_or_default().to_eth().unwrap(),
         );
 
         metrics += &format!(
@@ -170,7 +186,7 @@ pub async fn run_stats(
             "# TYPE fee_paid counter",
             chain_cfg.chain_id,
             sender,
-            u256_to_rust_dec(stats.all.fee_paid, None).unwrap_or_default(),
+            stats.all.fee_paid.to_eth().unwrap_or_default(),
         );
     }
 
@@ -227,7 +243,7 @@ pub async fn run_stats(
 
     println!(
         "Native token sent: {}",
-        u256_to_rust_dec(main_sender.1.all.native_token_transferred, None).unwrap()
+        main_sender.1.all.native_token_transferred.to_eth().unwrap()
     );
     let token_transferred = main_sender
         .1
@@ -237,7 +253,7 @@ pub async fn run_stats(
         .copied();
     println!(
         "Erc20 token sent: {}",
-        u256_to_rust_dec(token_transferred.unwrap_or(U256::zero()), None).unwrap()
+        token_transferred.unwrap_or_default().to_eth().unwrap()
     );
 
     let per_receiver = main_sender.1.per_receiver.clone();
@@ -292,13 +308,9 @@ pub async fn run_stats(
             receiver.0,
             receiver.1.done_count,
             receiver.1.transaction_ids.len(),
-            u256_to_rust_dec(receiver.1.fee_paid, None).unwrap(),
-            u256_to_rust_dec(receiver.1.native_token_transferred, None).unwrap(),
-            u256_to_rust_dec(
-                ts,
-                None
-            )
-                .unwrap(),
+            receiver.1.fee_paid.to_eth().unwrap(),
+            receiver.1.native_token_transferred.to_eth().unwrap(),
+            ts.to_eth().unwrap(),
         );
         println!(
             "  First transfer requested at {}",

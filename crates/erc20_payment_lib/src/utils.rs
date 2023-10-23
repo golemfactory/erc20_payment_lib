@@ -113,7 +113,7 @@ pub fn rust_dec_to_u256(
     Ok(U256::from(u128))
 }
 
-pub fn u256_to_rust_dec(
+fn u256_to_rust_dec(
     amount: U256,
     decimals: Option<u32>,
 ) -> Result<rust_decimal::Decimal, ConversionError> {
@@ -140,7 +140,36 @@ pub fn u256_to_gwei(amount: U256) -> Result<Decimal, ConversionError> {
     u256_to_rust_dec(amount, Some(9))
 }
 
-pub fn u256_to_eth(amount: U256) -> Result<Decimal, ConversionError> {
+pub trait U256Ext {
+    fn to_gwei(&self) -> Result<Decimal, ConversionError>;
+    fn to_eth(&self) -> Result<Decimal, ConversionError>;
+}
+impl U256Ext for U256 {
+    fn to_gwei(&self) -> Result<Decimal, ConversionError> {
+        u256_to_gwei(*self)
+    }
+    fn to_eth(&self) -> Result<Decimal, ConversionError> {
+        u256_to_eth(*self)
+    }
+}
+impl U256Ext for String {
+    fn to_gwei(&self) -> Result<Decimal, ConversionError> {
+        U256::from_dec_str(self)
+            .map_err(|err| {
+                ConversionError::from(format!("Invalid string when converting: {err:?}"))
+            })?
+            .to_gwei()
+    }
+    fn to_eth(&self) -> Result<Decimal, ConversionError> {
+        U256::from_dec_str(self)
+            .map_err(|err| {
+                ConversionError::from(format!("Invalid string when converting: {err:?}"))
+            })?
+            .to_eth()
+    }
+}
+
+fn u256_to_eth(amount: U256) -> Result<Decimal, ConversionError> {
     u256_to_rust_dec(amount, Some(18))
 }
 

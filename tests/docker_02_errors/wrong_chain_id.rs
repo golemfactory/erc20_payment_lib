@@ -5,12 +5,11 @@ use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime, TransactionFailedReason};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
-use erc20_payment_lib::utils::u256_to_rust_dec;
+use erc20_payment_lib::utils::U256Ext;
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
-
 #[tokio::test(flavor = "multi_thread")]
 #[rustfmt::skip]
 async fn test_wrong_chain_id() -> Result<(), anyhow::Error> {
@@ -113,7 +112,7 @@ async fn test_wrong_chain_id() -> Result<(), anyhow::Error> {
         // *** RESULT CHECK ***
         let fee_paid = receiver_loop.await.unwrap();
         assert_eq!(fee_paid, U256::zero());
-        log::info!("fee paid: {}", u256_to_rust_dec(fee_paid, None).unwrap());
+        log::info!("fee paid: {}", fee_paid.to_eth().unwrap());
 
 
         let res = test_get_balance(&proxy_url_base, "0x653b48E1348F480149047AA3a58536eb0dbBB2E2,0x41162E565ebBF1A52eC904c7365E239c40d82568").await?;

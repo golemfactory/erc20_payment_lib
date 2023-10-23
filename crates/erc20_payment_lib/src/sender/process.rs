@@ -29,8 +29,7 @@ use crate::transaction::find_receipt;
 use crate::transaction::send_transaction;
 use crate::transaction::sign_transaction_with_callback;
 use crate::utils::{
-    datetime_from_u256_timestamp, get_env_bool_value, rust_dec_to_u256, u256_to_gwei,
-    u256_to_rust_dec,
+    datetime_from_u256_timestamp, get_env_bool_value, rust_dec_to_u256, u256_to_gwei, U256Ext,
 };
 
 #[derive(Debug)]
@@ -202,8 +201,8 @@ pub async fn process_transaction(
 
             if new_target_gas_u256 * 11 < max_fee_per_gas * 10 {
                 log::warn!("Eco mode activated. Sending transaction with lower base fee. Blockchain base fee: {} Gwei, Tx base fee: {} Gwei",
-                    u256_to_rust_dec(blockchain_gas_price, Some(9)).map_err(err_from!())?,
-                    u256_to_rust_dec(new_target_gas_u256, Some(9)).map_err(err_from!())?,
+                    blockchain_gas_price.to_gwei().map_err(err_from!())?,
+                    new_target_gas_u256.to_gwei().map_err(err_from!())?,
                     );
 
                 web3_tx_dao.max_fee_per_gas = new_target_gas_u256.to_string();
@@ -243,8 +242,8 @@ pub async fn process_transaction(
                 msg,
                 chain_id,
                 from_addr,
-                u256_to_rust_dec(gas_balance, Some(18)).map_err(err_from!())?,
-                u256_to_rust_dec(expected_gas_balance, Some(18)).map_err(err_from!())?
+                gas_balance.to_eth().map_err(err_from!())?,
+                expected_gas_balance.to_eth().map_err(err_from!())?
             );
         }
     }
@@ -282,29 +281,24 @@ pub async fn process_transaction(
                     if gas_balance < res {
                         log::warn!(
                             "Gas balance too low for gas {} - vs needed: {}",
-                            u256_to_rust_dec(gas_balance, Some(18)).map_err(err_from!())?,
-                            u256_to_rust_dec(res, Some(18)).map_err(err_from!())?
+                            gas_balance.to_eth().map_err(err_from!())?,
+                            res.to_eth().map_err(err_from!())?
                         );
                         send_driver_event(
                             &event_sender,
                             DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
                                 NoGasDetails {
                                     tx: web3_tx_dao.clone(),
-                                    gas_balance: Some(
-                                        u256_to_rust_dec(gas_balance, Some(18))
-                                            .map_err(err_from!())?,
-                                    ),
-                                    gas_needed: Some(
-                                        u256_to_rust_dec(res, Some(18)).map_err(err_from!())?,
-                                    ),
+                                    gas_balance: Some(gas_balance.to_eth().map_err(err_from!())?),
+                                    gas_needed: Some(res.to_eth().map_err(err_from!())?),
                                 },
                             )),
                         )
                         .await;
                         return Err(err_custom_create!(
                             "Gas balance too low for gas {} - vs needed: {}",
-                            u256_to_rust_dec(gas_balance, Some(18)).map_err(err_from!())?,
-                            u256_to_rust_dec(res, Some(18)).map_err(err_from!())?
+                            gas_balance.to_eth().map_err(err_from!())?,
+                            res.to_eth().map_err(err_from!())?
                         ));
                     }
                 }
@@ -458,13 +452,11 @@ pub async fn process_transaction(
                             if let Some(base_fee_per_gas_u256) = block.base_fee_per_gas {
                                 if effective_gas_price > base_fee_per_gas_u256 {
                                     let base_fee_per_gas =
-                                        u256_to_rust_dec(base_fee_per_gas_u256, Some(9))
-                                            .unwrap_or_default();
-                                    let effective_priority_fee = u256_to_rust_dec(
-                                        effective_gas_price - base_fee_per_gas_u256,
-                                        Some(9),
-                                    )
-                                    .unwrap_or_default();
+                                        base_fee_per_gas_u256.to_gwei().unwrap_or_default();
+                                    let effective_priority_fee = (effective_gas_price
+                                        - base_fee_per_gas_u256)
+                                        .to_gwei()
+                                        .unwrap_or_default();
                                     log::info!(
                                         "Effective priority fee: {}",
                                         effective_priority_fee
@@ -650,7 +642,7 @@ pub async fn process_transaction(
                     log::warn!(
                         "Replacement priority fee is bumped by 10% from {} to {}",
                         tx_pr_fee,
-                        u256_to_rust_dec(replacement_priority_fee, Some(9)).map_err(err_from!())?
+                        replacement_priority_fee.to_gwei().map_err(err_from!())?
                     );
                     send_replacement_tx = true;
                 } else {
@@ -755,17 +747,14 @@ pub async fn process_transaction(
                         if let Ok(Some(block)) =
                             web3.eth().block(BlockId::Number(BlockNumber::Latest)).await
                         {
-                            let block_base_fee_per_gas_gwei = u256_to_rust_dec(
-                                block.base_fee_per_gas.unwrap_or(U256::zero()),
-                                Some(9),
-                            )
-                            .map_err(err_from!())?;
-                            let tx_max_fee_per_gas_gwei = u256_to_rust_dec(
-                                U256::from_dec_str(&web3_tx_dao.max_fee_per_gas)
-                                    .map_err(err_from!())?,
-                                Some(9),
-                            )
-                            .map_err(err_from!())?;
+                            let block_base_fee_per_gas_gwei = block
+                                .base_fee_per_gas
+                                .unwrap_or_default()
+                                .to_gwei()
+                                .map_err(err_from!())?;
+
+                            let tx_max_fee_per_gas_gwei =
+                                web3_tx_dao.max_fee_per_gas.to_gwei().map_err(err_from!())?;
                             let assumed_min_priority_fee_gwei = if web3_tx_dao.chain_id == 137 {
                                 const POLYGON_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK: u32 = 30;
                                 Decimal::from(POLYGON_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK)
