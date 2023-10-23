@@ -1,5 +1,5 @@
 use crate::{get_calls, JSONRPCResult};
-use erc20_payment_lib::utils::U256Ext;
+use erc20_payment_lib::utils::U256ConvExt;
 use web3::types::U256;
 
 /// List transactions captured by web3 proxy in human readable format

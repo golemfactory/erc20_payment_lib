@@ -9,7 +9,7 @@ use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
 use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime};
 use erc20_payment_lib::signer::PrivateKeySigner;
-use erc20_payment_lib::utils::U256Ext;
+use erc20_payment_lib::utils::U256ConvExt;
 use erc20_payment_lib_extra::{generate_test_payments, GenerateOptions};
 use std::env;
 use std::path::Path;

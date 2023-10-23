@@ -1,7 +1,7 @@
 use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::eth::get_balance;
 use erc20_payment_lib::setup::PaymentSetup;
-use erc20_payment_lib::utils::U256Ext;
+use erc20_payment_lib::utils::U256ConvExt;
 use erc20_payment_lib::{config, err_custom_create};
 use futures_util::{stream, StreamExt};
 use serde::{Deserialize, Serialize};

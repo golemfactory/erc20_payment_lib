@@ -13,7 +13,6 @@ use erc20_payment_lib::db::ops::{
 };
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::signer::PrivateKeySigner;
-use erc20_payment_lib::utils::rust_dec_to_u256;
 
 use erc20_payment_lib::{
     config, err_custom_create, err_from,
@@ -31,6 +30,7 @@ use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::import_erc20_txs;
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 
+use erc20_payment_lib::utils::DecimalConvExt;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
@@ -229,7 +229,9 @@ async fn main_internal() -> Result<(), PaymentError> {
                     receiver_addr: format!("{:#x}", single_transfer_options.recipient),
                     chain_id: chain_cfg.chain_id,
                     token_addr: token,
-                    token_amount: rust_dec_to_u256(single_transfer_options.amount, Some(18))
+                    token_amount: single_transfer_options
+                        .amount
+                        .to_u256_from_eth()
                         .unwrap()
                         .to_string(),
                     create_date: Default::default(),

@@ -1,8 +1,5 @@
-use crate::utils::{u256_to_gwei, ConversionError};
 use chrono::{DateTime, Utc};
-use rust_decimal::Decimal;
 use serde::Serialize;
-use web3::types::U256;
 
 #[derive(Serialize, sqlx::FromRow, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -39,7 +36,7 @@ pub struct TxDao {
     #[sqlx(default)]
     pub engine_error: Option<String>,
 }
-
+/*
 impl TxDao {
     pub fn get_max_fee_per_gas(&self) -> Result<(U256, Decimal), ConversionError> {
         let u256 = U256::from_dec_str(&self.max_fee_per_gas).map_err(|err| {
@@ -56,4 +53,4 @@ impl TxDao {
         let gwei = u256_to_gwei(u256)?;
         Ok((u256, gwei))
     }
-}
+}*/

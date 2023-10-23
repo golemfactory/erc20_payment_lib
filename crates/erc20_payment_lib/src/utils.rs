@@ -80,7 +80,7 @@ fn compute_base(num_decimals: u32) -> rust_decimal::Decimal {
 }
 
 ///good from one gwei up to at least one billion ethers
-pub fn rust_dec_to_u256(
+fn rust_dec_to_u256(
     dec_amount: rust_decimal::Decimal,
     decimals: Option<u32>,
 ) -> Result<U256, ConversionError> {
@@ -136,15 +136,15 @@ fn u256_to_rust_dec(
     Ok(Decimal::from(amount.as_u128()) / dec_base)
 }
 
-pub fn u256_to_gwei(amount: U256) -> Result<Decimal, ConversionError> {
+fn u256_to_gwei(amount: U256) -> Result<Decimal, ConversionError> {
     u256_to_rust_dec(amount, Some(9))
 }
 
-pub trait U256Ext {
+pub trait U256ConvExt {
     fn to_gwei(&self) -> Result<Decimal, ConversionError>;
     fn to_eth(&self) -> Result<Decimal, ConversionError>;
 }
-impl U256Ext for U256 {
+impl U256ConvExt for U256 {
     fn to_gwei(&self) -> Result<Decimal, ConversionError> {
         u256_to_gwei(*self)
     }
@@ -152,20 +152,38 @@ impl U256Ext for U256 {
         u256_to_eth(*self)
     }
 }
-impl U256Ext for String {
+
+pub trait StringConvExt {
+    fn to_gwei(&self) -> Result<Decimal, ConversionError>;
+    fn to_eth(&self) -> Result<Decimal, ConversionError>;
+    fn to_u256(&self) -> Result<U256, ConversionError>;
+}
+impl StringConvExt for String {
     fn to_gwei(&self) -> Result<Decimal, ConversionError> {
-        U256::from_dec_str(self)
-            .map_err(|err| {
-                ConversionError::from(format!("Invalid string when converting: {err:?}"))
-            })?
-            .to_gwei()
+        self.to_u256()?.to_gwei()
     }
     fn to_eth(&self) -> Result<Decimal, ConversionError> {
-        U256::from_dec_str(self)
-            .map_err(|err| {
-                ConversionError::from(format!("Invalid string when converting: {err:?}"))
-            })?
-            .to_eth()
+        self.to_u256()?.to_eth()
+    }
+
+    fn to_u256(&self) -> Result<U256, ConversionError> {
+        U256::from_dec_str(self).map_err(|err| {
+            ConversionError::from(format!("Invalid string when converting: {err:?}"))
+        })
+    }
+}
+
+pub trait DecimalConvExt {
+    fn to_u256_from_gwei(&self) -> Result<U256, ConversionError>;
+    fn to_u256_from_eth(&self) -> Result<U256, ConversionError>;
+}
+
+impl DecimalConvExt for Decimal {
+    fn to_u256_from_gwei(&self) -> Result<U256, ConversionError> {
+        rust_dec_to_u256(*self, Some(9))
+    }
+    fn to_u256_from_eth(&self) -> Result<U256, ConversionError> {
+        rust_dec_to_u256(*self, Some(18))
     }
 }
 

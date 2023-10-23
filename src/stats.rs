@@ -15,7 +15,7 @@ use web3::types::{H160, U256};
 
 use crate::options::{ExportHistoryStatsOptions, PaymentStatsOptions};
 use erc20_payment_lib::error::PaymentError;
-use erc20_payment_lib::utils::{u256_eth_from_str, U256Ext};
+use erc20_payment_lib::utils::{u256_eth_from_str, U256ConvExt};
 
 pub async fn export_stats(
     conn: SqlitePool,

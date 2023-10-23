@@ -29,7 +29,7 @@ use crate::transaction::find_receipt;
 use crate::transaction::send_transaction;
 use crate::transaction::sign_transaction_with_callback;
 use crate::utils::{
-    datetime_from_u256_timestamp, get_env_bool_value, rust_dec_to_u256, u256_to_gwei, U256Ext,
+    datetime_from_u256_timestamp, get_env_bool_value, DecimalConvExt, StringConvExt, U256ConvExt,
 };
 
 #[derive(Debug)]
@@ -179,10 +179,10 @@ pub async fn process_transaction(
             };
 
             let mut new_target_gas_u256 = if extra_gas >= Decimal::zero() {
-                let extra_gas_u256 = rust_dec_to_u256(extra_gas, Some(9)).map_err(err_from!())?;
+                let extra_gas_u256 = extra_gas.to_u256_from_gwei().map_err(err_from!())?;
                 blockchain_gas_price + extra_gas_u256
             } else {
-                let extra_gas_u256 = rust_dec_to_u256(-extra_gas, Some(9)).map_err(err_from!())?;
+                let extra_gas_u256 = extra_gas.to_u256_from_gwei().map_err(err_from!())?;
                 let min_base_price = U256::from(1_000_000_000u64);
 
                 let mut new_target_gas_u256 = blockchain_gas_price - extra_gas_u256;
@@ -557,10 +557,11 @@ pub async fn process_transaction(
             .await
             .map_err(err_from!())?;
 
-        let (_, tx_fee_per_gas) = web3_tx_dao.get_max_fee_per_gas().map_err(err_from!())?;
-        let max_fee_per_gas = u256_to_gwei(chain_setup.max_fee_per_gas).map_err(err_from!())?;
-        let (tx_pr_fee_u256, tx_pr_fee) = web3_tx_dao.get_priority_fee().map_err(err_from!())?;
-        let config_priority_fee = u256_to_gwei(chain_setup.priority_fee).map_err(err_from!())?;
+        let tx_fee_per_gas = web3_tx_dao.max_fee_per_gas.to_gwei().map_err(err_from!())?;
+        let max_fee_per_gas = chain_setup.max_fee_per_gas.to_gwei().map_err(err_from!())?;
+        let tx_pr_fee_u256 = web3_tx_dao.priority_fee.to_u256().map_err(err_from!())?;
+        let tx_pr_fee = tx_pr_fee_u256.to_gwei().map_err(err_from!())?;
+        let config_priority_fee = chain_setup.priority_fee.to_gwei().map_err(err_from!())?;
 
         if tx_pr_fee > tx_fee_per_gas {
             log::error!(
