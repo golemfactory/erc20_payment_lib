@@ -81,7 +81,7 @@ pub struct Chain {
     pub faucet_eth_amount: Option<f64>,
     pub faucet_glm_amount: Option<f64>,
     pub block_explorer_url: Option<String>,
-    pub replacement_timeout: Option<f64>
+    pub replacement_timeout: Option<f64>,
 }
 
 #[derive(Deserialize, Debug, Clone)]

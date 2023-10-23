@@ -32,7 +32,7 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
         faucet_eth_amount: Some(10.0),
         faucet_glm_amount: Some(20.0),
         block_explorer_url: Some("http://127.0.0.1:4000".to_string()),
-        replacement_timeout: Some(1.0)
+        replacement_timeout: Some(1.0),
     };
     let mut chain_map = BTreeMap::new();
     chain_map.insert("dev".to_string(), chain);
