@@ -41,6 +41,7 @@ pub struct ChainSetup {
     pub faucet_eth_amount: Option<U256>,
     pub faucet_glm_amount: Option<U256>,
     pub block_explorer_url: Option<String>,
+    pub replacement_timeout: Option<f64>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -157,6 +158,7 @@ impl PaymentSetup {
                     faucet_glm_amount,
                     block_explorer_url: chain_config.1.block_explorer_url.clone(),
                     chain_id: chain_config.1.chain_id,
+                    replacement_timeout: chain_config.1.replacement_timeout,
                 },
             );
         }

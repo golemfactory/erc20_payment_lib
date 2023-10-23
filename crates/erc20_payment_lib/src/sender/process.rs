@@ -580,7 +580,7 @@ pub async fn process_transaction(
             if diff.num_seconds() < -10 {
                 log::warn!("Time changed?? time diff lower than 0");
             }
-            diff.num_seconds() > std::cmp::min(chain_setup.transaction_timeout, 60) as i64
+            diff.num_seconds() > chain_setup.replacement_timeout.unwrap_or(60.0).floor() as i64
         } else {
             false
         };
