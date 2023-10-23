@@ -53,7 +53,7 @@ pub async fn export_stats(
     for tchain in tchains {
         transaction_ids
             .entry(tchain.chain_tx_id)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(tchain.id);
     }
 
