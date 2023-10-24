@@ -67,11 +67,7 @@ pub async fn account_balance(
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
 
     let token = if !account_balance_options.hide_token {
-        Some(
-            chain_cfg
-                .token
-                .address,
-        )
+        Some(chain_cfg.token.address)
     } else {
         None
     };

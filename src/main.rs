@@ -452,9 +452,9 @@ async fn main_internal() -> Result<(), PaymentError> {
                                 token_transfer.chain_id
                             ))?;
 
-                        if let Some(token_addr) = &token_transfer.token_addr
-                        {
-                            if format!("{:#x}", chain_cfg.token.address) != token_addr.to_lowercase()
+                        if let Some(token_addr) = &token_transfer.token_addr {
+                            if format!("{:#x}", chain_cfg.token.address)
+                                != token_addr.to_lowercase()
                             {
                                 return Err(err_custom_create!(
                                     "Token address in line {} is different from default token address {} != {:#x}",
