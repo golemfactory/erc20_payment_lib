@@ -2,6 +2,7 @@ use crate::db::model::*;
 use crate::db::ops::*;
 use crate::error::{ErrorBag, PaymentError};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
 
 use crate::sender::process::{process_transaction, ProcessTransactionResult};
@@ -160,7 +161,6 @@ pub async fn update_approve_result(
         ProcessTransactionResult::Confirmed => {
             tx.processing = 0;
 
-            log::error!("Updating approve result {tx:?}");
             let mut db_transaction = conn.begin().await.map_err(err_from!())?;
             let mut allowance = get_allowance_by_tx(&mut *db_transaction, tx.id)
                 .await
@@ -266,83 +266,83 @@ pub async fn process_transactions(
             .await
             .map_err(err_from!())?;
 
-        if let Some(tx) = transactions.get_mut(0) {
-            let (mut tx, process_t_res) = if shared_state.lock().await.is_skipped(tx.id) {
-                (
-                    tx.clone(),
-                    ProcessTransactionResult::InternalError("Transaction skipped by user".into()),
-                )
-            } else {
-                shared_state
-                    .lock()
-                    .await
-                    .set_tx_message(tx.id, "Processing".to_string());
-                match process_transaction(
-                    event_sender.clone(),
-                    shared_state.clone(),
-                    conn,
-                    tx,
-                    payment_setup,
-                    signer,
-                    false,
-                )
-                .await
-                {
-                    Ok((tx_dao, process_result)) => (tx_dao, process_result),
-                    Err(err) => match err.inner {
-                        ErrorBag::TransactionFailedError(err2) => {
-                            shared_state
-                                .lock()
-                                .await
-                                .set_tx_error(tx.id, Some(err2.message.clone()));
-
-                            return Err(err_create!(err2));
-                        }
-                        _ => {
-                            log::error!("Error in process transaction: {}", err.inner);
-                            shared_state
-                                .lock()
-                                .await
-                                .set_tx_error(tx.id, Some(format!("{}", err.inner)));
-                            return Err(err);
-                        }
-                    },
-                }
-            };
-            if let ProcessTransactionResult::Replaced = process_t_res {
-                continue;
-            };
-            if tx.method.starts_with("MULTI.golemTransfer")
-                || tx.method == "ERC20.transfer"
-                || tx.method == "transfer"
-            {
-                log::debug!("Updating token transfer result");
-                update_token_transfer_result(event_sender.clone(), conn, &mut tx, &process_t_res)
-                    .await?;
-            } else if tx.method == "ERC20.approve" {
-                log::debug!("Updating token approve result");
-                update_approve_result(event_sender.clone(), conn, &mut tx, &process_t_res).await?;
-            } else {
-                log::debug!("Updating plain tx result");
-                update_tx_result(conn, &mut tx, &process_t_res).await?;
-            }
-            match process_t_res {
-                ProcessTransactionResult::Unknown => {}
-                ProcessTransactionResult::Confirmed => {
-                    send_driver_event(
-                        &event_sender,
-                        DriverEventContent::TransactionConfirmed(tx.clone()),
-                    )
-                    .await;
-                }
-                _ => {
-                    shared_state.lock().await.current_tx_info.remove(&tx.id);
-                }
-            }
-        }
-        if transactions.is_empty() {
+        let Some(tx) = transactions.get_mut(0) else {
             break;
+        };
+
+        let (mut tx, process_t_res) = if shared_state.lock().await.is_skipped(tx.id) {
+            (
+                tx.clone(),
+                ProcessTransactionResult::InternalError("Transaction skipped by user".into()),
+            )
+        } else {
+            shared_state
+                .lock()
+                .await
+                .set_tx_message(tx.id, "Processing".to_string());
+            match process_transaction(
+                event_sender.clone(),
+                shared_state.clone(),
+                conn,
+                tx,
+                payment_setup,
+                signer,
+                false,
+            )
+            .await
+            {
+                Ok((tx_dao, process_result)) => (tx_dao, process_result),
+                Err(err) => match err.inner {
+                    ErrorBag::TransactionFailedError(err2) => {
+                        shared_state
+                            .lock()
+                            .await
+                            .set_tx_error(tx.id, Some(err2.message.clone()));
+
+                        return Err(err_create!(err2));
+                    }
+                    _ => {
+                        log::error!("Error in process transaction: {}", err.inner);
+                        shared_state
+                            .lock()
+                            .await
+                            .set_tx_error(tx.id, Some(format!("{}", err.inner)));
+                        return Err(err);
+                    }
+                },
+            }
+        };
+        if let ProcessTransactionResult::Replaced = process_t_res {
+            continue;
+        };
+        if tx.method.starts_with("MULTI.golemTransfer")
+            || tx.method == "ERC20.transfer"
+            || tx.method == "transfer"
+        {
+            log::debug!("Updating token transfer result");
+            update_token_transfer_result(event_sender.clone(), conn, &mut tx, &process_t_res)
+                .await?;
+        } else if tx.method == "ERC20.approve" {
+            log::debug!("Updating token approve result");
+            update_approve_result(event_sender.clone(), conn, &mut tx, &process_t_res).await?;
+        } else {
+            log::debug!("Updating plain tx result");
+            update_tx_result(conn, &mut tx, &process_t_res).await?;
         }
+        match process_t_res {
+            ProcessTransactionResult::Unknown => {}
+            ProcessTransactionResult::Confirmed => {
+                send_driver_event(
+                    &event_sender,
+                    DriverEventContent::TransactionConfirmed(tx.clone()),
+                )
+                .await;
+            }
+            _ => {
+                shared_state.lock().await.current_tx_info.remove(&tx.id);
+            }
+        }
+
         tokio::time::sleep(std::time::Duration::from_secs(payment_setup.service_sleep)).await;
     }
     Ok(())
@@ -355,58 +355,53 @@ pub async fn service_loop(
     signer: impl Signer + Send + Sync + 'static,
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
 ) {
-    let process_transactions_interval = payment_setup.process_sleep as i64;
-    let gather_transactions_interval = payment_setup.process_sleep as i64;
-    let mut last_update_time1 =
-        chrono::Utc::now() - chrono::Duration::seconds(process_transactions_interval);
-    let mut last_update_time2 =
-        chrono::Utc::now() - chrono::Duration::seconds(gather_transactions_interval);
+    let gather_transactions_interval = payment_setup.gather_sleep as i64;
+    let mut last_gather_time = if payment_setup.gather_at_start {
+        chrono::Utc::now() - chrono::Duration::seconds(gather_transactions_interval)
+    } else {
+        chrono::Utc::now()
+    };
 
-    let mut process_tx_needed = true;
-    let mut process_tx_instantly = true;
+    let mut process_tx_needed;
     loop {
         log::debug!("Sender service loop - start loop");
         let current_time = chrono::Utc::now();
-        if current_time < last_update_time1 {
-            //handle case when system time changed
-            last_update_time1 = current_time;
+
+        if payment_setup.generate_tx_only {
+            log::warn!("Skipping processing transactions...");
+        } else if let Err(e) = process_transactions(
+            event_sender.clone(),
+            shared_state.clone(),
+            conn,
+            payment_setup,
+            &signer,
+        )
+        .await
+        {
+            log::error!("Error in process transactions: {}", e);
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            continue;
         }
 
-        if process_tx_instantly
-            || (process_tx_needed
-                && current_time
-                    > last_update_time1 + chrono::Duration::seconds(process_transactions_interval))
-        {
-            process_tx_instantly = false;
-            if payment_setup.generate_tx_only {
-                log::warn!("Skipping processing transactions...");
-                process_tx_needed = false;
-            } else {
-                match process_transactions(
-                    event_sender.clone(),
-                    shared_state.clone(),
-                    conn,
-                    payment_setup,
-                    &signer,
-                )
-                .await
-                {
-                    Ok(_) => {
-                        //all pending transactions processed
-                        process_tx_needed = false;
-                    }
-                    Err(e) => {
-                        log::error!("Error in process transactions: {}", e);
-                    }
-                };
-            }
-            last_update_time1 = current_time;
-        }
+        process_tx_needed = false;
 
-        if current_time
-            > last_update_time2 + chrono::Duration::seconds(gather_transactions_interval)
-            && !process_tx_needed
-        {
+        //we should be here only when all pending transactions are processed
+
+        let next_gather_time =
+            last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
+        if current_time < next_gather_time {
+            log::info!(
+                "Transaction will be gathered in {} seconds",
+                humantime::format_duration(Duration::from_secs(
+                    (next_gather_time - current_time).num_seconds() as u64
+                ))
+            );
+            tokio::time::sleep(Duration::from_secs(std::cmp::min(
+                60,
+                (next_gather_time - current_time).num_seconds() as u64,
+            )))
+            .await;
+        } else {
             log::info!("Gathering transfers...");
             let mut token_transfer_map = match gather_transactions_pre(conn, payment_setup).await {
                 Ok(token_transfer_map) => token_transfer_map,
@@ -429,7 +424,6 @@ pub async fn service_loop(
                 Ok(count) => {
                     if count > 0 {
                         process_tx_needed = true;
-                        process_tx_instantly = true;
                     } else {
                         log::info!("No new transfers to process");
                     }
@@ -443,8 +437,6 @@ pub async fn service_loop(
                             {
                                 Ok(_) => {
                                     //process transaction instantly
-                                    process_tx_needed = true;
-                                    process_tx_instantly = true;
                                     shared_state.lock().await.idling = false;
                                     continue;
                                 }
@@ -462,7 +454,7 @@ pub async fn service_loop(
                     log::error!("Error in gather transactions: {}", e);
                 }
             };
-            last_update_time2 = current_time;
+            last_gather_time = current_time;
             if payment_setup.finish_when_done && !process_tx_needed {
                 log::info!("No more work to do, exiting...");
                 break;
@@ -474,7 +466,6 @@ pub async fn service_loop(
                 shared_state.lock().await.idling = false;
             }
         }
-
-        tokio::time::sleep(std::time::Duration::from_secs(payment_setup.service_sleep)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
     }
 }
