@@ -143,8 +143,16 @@ pub async fn process_transaction(
                 }
             }
         }
-        let max_fee_per_gas =
-            U256::from_dec_str(&web3_tx_dao.max_fee_per_gas).map_err(err_from!())?;
+        let mut max_fee_per_gas = if let Some(max_fee_per_gas) = &web3_tx_dao.max_fee_per_gas {
+            U256::from_dec_str(max_fee_per_gas).map_err(err_from!())?
+        } else {
+            chain_setup.max_fee_per_gas
+        };
+        let max_priority_fee = if let Some(priority_fee) = &web3_tx_dao.priority_fee {
+            U256::from_dec_str(priority_fee).map_err(err_from!())?
+        } else {
+            chain_setup.priority_fee
+        };
 
         if is_polygon_eco_mode {
             let blockchain_gas_price = web3
@@ -191,8 +199,7 @@ pub async fn process_transaction(
                 }
                 new_target_gas_u256
             };
-            let tx_priority_fee_u256 =
-                U256::from_dec_str(&web3_tx_dao.priority_fee).map_err(err_from!())?;
+            let tx_priority_fee_u256 = max_priority_fee;
 
             //max_fee_per_gas cannot be lower than priority fee
             if new_target_gas_u256 < tx_priority_fee_u256 {
@@ -205,10 +212,11 @@ pub async fn process_transaction(
                     new_target_gas_u256.to_gwei().map_err(err_from!())?,
                     );
 
-                web3_tx_dao.max_fee_per_gas = new_target_gas_u256.to_string();
+                max_fee_per_gas = new_target_gas_u256;
             }
         }
-
+        web3_tx_dao.max_fee_per_gas = Some(max_fee_per_gas.to_string());
+        web3_tx_dao.priority_fee = Some(max_priority_fee.to_string());
         web3_tx_dao.nonce = Some(nonce);
         nonce
     };
@@ -557,9 +565,23 @@ pub async fn process_transaction(
             .await
             .map_err(err_from!())?;
 
-        let tx_fee_per_gas = web3_tx_dao.max_fee_per_gas.to_gwei().map_err(err_from!())?;
+        let max_tx_fee_per_gas_str =
+            web3_tx_dao
+                .max_fee_per_gas
+                .clone()
+                .ok_or(err_create!(TransactionFailedError::new(
+                    "Max fee per gas not found"
+                )))?;
+        let max_tx_priority_fee_str =
+            web3_tx_dao
+                .priority_fee
+                .clone()
+                .ok_or(err_create!(TransactionFailedError::new(
+                    "Priority fee not found"
+                )))?;
+        let tx_fee_per_gas = max_tx_fee_per_gas_str.to_gwei().map_err(err_from!())?;
         let max_fee_per_gas = chain_setup.max_fee_per_gas.to_gwei().map_err(err_from!())?;
-        let tx_pr_fee_u256 = web3_tx_dao.priority_fee.to_u256().map_err(err_from!())?;
+        let tx_pr_fee_u256 = max_tx_priority_fee_str.to_u256().map_err(err_from!())?;
         let tx_pr_fee = tx_pr_fee_u256.to_gwei().map_err(err_from!())?;
         let config_priority_fee = chain_setup.priority_fee.to_gwei().map_err(err_from!())?;
 
@@ -594,14 +616,14 @@ pub async fn process_transaction(
                     fee_per_gas_bumped_10 = true;
                     log::warn!(
                         "Transaction max fee bumped more than 10% from {} to {} for tx: {}",
-                        web3_tx_dao.max_fee_per_gas,
+                        max_tx_fee_per_gas_str,
                         chain_setup.max_fee_per_gas,
                         web3_tx_dao.id
                     );
                 } else {
                     log::warn!(
                         "Transaction max fee changed less than 10% more from {} to {} for tx: {}",
-                        web3_tx_dao.max_fee_per_gas,
+                        max_tx_fee_per_gas_str,
                         chain_setup.max_fee_per_gas,
                         web3_tx_dao.id
                     );
@@ -616,12 +638,12 @@ pub async fn process_transaction(
                     priority_fee_changed_10 = true;
                     log::warn!(
                         "Transaction priority fee bumped more than 10% from {} to {} for tx: {}",
-                        web3_tx_dao.priority_fee,
+                        max_tx_priority_fee_str,
                         chain_setup.priority_fee,
                         web3_tx_dao.id
                     );
                 } else {
-                    log::warn!("Transaction priority fee changed less than 10% more from {} to {} for tx: {}", web3_tx_dao.priority_fee, chain_setup.priority_fee, web3_tx_dao.id);
+                    log::warn!("Transaction priority fee changed less than 10% more from {} to {} for tx: {}", max_tx_priority_fee_str, chain_setup.priority_fee, web3_tx_dao.id);
                 }
             }
 
@@ -659,8 +681,8 @@ pub async fn process_transaction(
                         to_addr: tx.to_addr.clone(),
                         chain_id: tx.chain_id,
                         gas_limit: tx.gas_limit,
-                        max_fee_per_gas: replacement_max_fee_per_gas.to_string(),
-                        priority_fee: replacement_priority_fee.to_string(),
+                        max_fee_per_gas: Some(replacement_max_fee_per_gas.to_string()),
+                        priority_fee: Some(replacement_priority_fee.to_string()),
                         val: tx.val.clone(),
                         nonce: tx.nonce,
                         processing: tx.processing,
@@ -754,8 +776,13 @@ pub async fn process_transaction(
                                 .to_gwei()
                                 .map_err(err_from!())?;
 
+                            let max_tx_fee_per_gas_str =
+                                web3_tx_dao.max_fee_per_gas.clone().ok_or(err_create!(
+                                    TransactionFailedError::new("Max fee per gas not found")
+                                ))?;
+
                             let tx_max_fee_per_gas_gwei =
-                                web3_tx_dao.max_fee_per_gas.to_gwei().map_err(err_from!())?;
+                                max_tx_fee_per_gas_str.to_gwei().map_err(err_from!())?;
                             let assumed_min_priority_fee_gwei = if web3_tx_dao.chain_id == 137 {
                                 const POLYGON_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK: u32 = 30;
                                 Decimal::from(POLYGON_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK)

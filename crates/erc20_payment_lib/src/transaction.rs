@@ -41,10 +41,22 @@ pub fn dao_to_call_request(web3_tx_dao: &TxDao) -> Result<CallRequest, PaymentEr
         transaction_type: Some(U64::from(2)),
         access_list: None,
         max_fee_per_gas: Some(
-            U256::from_dec_str(&web3_tx_dao.max_fee_per_gas).map_err(err_from!())?,
+            U256::from_dec_str(
+                &web3_tx_dao
+                    .max_fee_per_gas
+                    .clone()
+                    .ok_or(err_custom_create!("max_fee_per_gas has to be set"))?,
+            )
+            .map_err(err_from!())?,
         ),
         max_priority_fee_per_gas: Some(
-            U256::from_dec_str(&web3_tx_dao.priority_fee).map_err(err_from!())?,
+            U256::from_dec_str(
+                &web3_tx_dao
+                    .priority_fee
+                    .clone()
+                    .ok_or(err_custom_create!("priority_fee has to be set"))?,
+            )
+            .map_err(err_from!())?,
         ),
     })
 }
@@ -69,10 +81,22 @@ pub fn dao_to_transaction(web3_tx_dao: &TxDao) -> Result<TransactionParameters, 
         transaction_type: Some(U64::from(2)),
         access_list: None,
         max_fee_per_gas: Some(
-            U256::from_dec_str(&web3_tx_dao.max_fee_per_gas).map_err(err_from!())?,
+            U256::from_dec_str(
+                &web3_tx_dao
+                    .max_fee_per_gas
+                    .clone()
+                    .ok_or(err_custom_create!("max_fee_per_gas has to be set"))?,
+            )
+            .map_err(err_from!())?,
         ),
         max_priority_fee_per_gas: Some(
-            U256::from_dec_str(&web3_tx_dao.priority_fee).map_err(err_from!())?,
+            U256::from_dec_str(
+                &web3_tx_dao
+                    .priority_fee
+                    .clone()
+                    .ok_or(err_custom_create!("priority_fee has to be set"))?,
+            )
+            .map_err(err_from!())?,
         ),
     })
 }
@@ -108,8 +132,6 @@ pub fn create_eth_transfer(
     to: Address,
     chain_id: u64,
     gas_limit: Option<u64>,
-    max_fee_per_gas: U256,
-    priority_fee: U256,
     amount: U256,
 ) -> TxDao {
     TxDao {
@@ -119,8 +141,8 @@ pub fn create_eth_transfer(
         to_addr: format!("{to:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        max_fee_per_gas: max_fee_per_gas.to_string(),
-        priority_fee: priority_fee.to_string(),
+        max_fee_per_gas: None,
+        priority_fee: None,
         val: amount.to_string(),
         nonce: None,
         processing: 1,
@@ -149,8 +171,6 @@ pub fn create_eth_transfer_str(
     to_addr: String,
     chain_id: u64,
     gas_limit: Option<u64>,
-    max_fee_per_gas: String,
-    priority_fee: String,
     amount: String,
 ) -> TxDao {
     TxDao {
@@ -160,8 +180,8 @@ pub fn create_eth_transfer_str(
         to_addr,
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        max_fee_per_gas,
-        priority_fee,
+        max_fee_per_gas: None,
+        priority_fee: None,
         val: amount,
         nonce: None,
         processing: 1,
@@ -192,8 +212,6 @@ pub fn create_erc20_transfer(
     erc20_amount: U256,
     chain_id: u64,
     gas_limit: Option<u64>,
-    max_fee_per_gas: U256,
-    priority_fee: U256,
 ) -> Result<TxDao, PaymentError> {
     Ok(TxDao {
         id: 0,
@@ -202,8 +220,8 @@ pub fn create_erc20_transfer(
         to_addr: format!("{token:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        max_fee_per_gas: max_fee_per_gas.to_string(),
-        priority_fee: priority_fee.to_string(),
+        max_fee_per_gas: None,
+        priority_fee: None,
         val: "0".to_string(),
         nonce: None,
         processing: 1,
@@ -237,8 +255,6 @@ pub fn create_erc20_transfer_multi(
     erc20_amount: Vec<U256>,
     chain_id: u64,
     gas_limit: Option<u64>,
-    max_fee_per_gas: U256,
-    priority_fee: U256,
     direct: bool,
     unpacked: bool,
 ) -> Result<TxDao, PaymentError> {
@@ -277,8 +293,8 @@ pub fn create_erc20_transfer_multi(
         to_addr: format!("{contract:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        max_fee_per_gas: max_fee_per_gas.to_string(),
-        priority_fee: priority_fee.to_string(),
+        max_fee_per_gas: None,
+        priority_fee: None,
         val: "0".to_string(),
         nonce: None,
         processing: 1,
@@ -307,8 +323,6 @@ pub fn create_erc20_approve(
     contract_to_approve: Address,
     chain_id: u64,
     gas_limit: Option<u64>,
-    max_fee_per_gas: U256,
-    priority_fee: U256,
 ) -> Result<TxDao, PaymentError> {
     Ok(TxDao {
         id: 0,
@@ -317,8 +331,8 @@ pub fn create_erc20_approve(
         to_addr: format!("{token:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        max_fee_per_gas: max_fee_per_gas.to_string(),
-        priority_fee: priority_fee.to_string(),
+        max_fee_per_gas: None,
+        priority_fee: None,
         val: "0".to_string(),
         nonce: None,
         processing: 1,
@@ -392,8 +406,13 @@ pub async fn check_transaction(
         log::info!("Set gas limit basing on gas estimation: {gas_limit}");
         web3_tx_dao.gas_limit = Some(gas_limit.as_u64() as i64);
 
-        let max_fee_per_gas =
-            U256::from_dec_str(&web3_tx_dao.max_fee_per_gas).map_err(err_from!())?;
+        let max_fee_per_gas = U256::from_dec_str(
+            &web3_tx_dao
+                .max_fee_per_gas
+                .clone()
+                .ok_or(err_custom_create!("max_fee_per_gas has to be set here"))?,
+        )
+        .map_err(err_from!())?;
         let gas_needed_for_tx = U256::from_dec_str(&web3_tx_dao.val).map_err(err_from!())?;
         let maximum_gas_needed = gas_needed_for_tx + gas_limit * max_fee_per_gas;
         Ok(maximum_gas_needed)

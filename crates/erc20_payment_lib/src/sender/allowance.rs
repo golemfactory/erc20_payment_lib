@@ -22,10 +22,7 @@ pub async fn process_allowance(
     signer: &impl Signer,
 ) -> Result<u32, PaymentError> {
     let minimum_allowance: U256 = U256::max_value() / U256::from(2);
-    let chain_setup = payment_setup.get_chain_setup(allowance_request.chain_id)?;
     let web3 = payment_setup.get_provider(allowance_request.chain_id)?;
-    let max_fee_per_gas = chain_setup.max_fee_per_gas;
-    let priority_fee = chain_setup.priority_fee;
 
     let mut db_allowance = find_allowance(
         conn,
@@ -129,8 +126,6 @@ pub async fn process_allowance(
             Address::from_str(&allowance_request.spender_addr).map_err(err_from!())?,
             allowance_request.chain_id as u64,
             None,
-            max_fee_per_gas,
-            priority_fee,
         )?;
         let mut db_transaction = conn.begin().await.map_err(err_from!())?;
         let web3_tx_dao = insert_tx(&mut *db_transaction, &approve_tx)
