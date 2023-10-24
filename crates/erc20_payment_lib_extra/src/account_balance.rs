@@ -67,13 +67,7 @@ pub async fn account_balance(
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
 
     let token = if !account_balance_options.hide_token {
-        Some(
-            chain_cfg
-                .token
-                .clone()
-                .ok_or(err_custom_create!("Token not found in config"))?
-                .address,
-        )
+        Some(chain_cfg.token.address)
     } else {
         None
     };
@@ -139,7 +133,7 @@ pub async fn account_balance(
                     format!(
                         "{:.03} {}",
                         (f64::from_str(&v).unwrap_or(0.0) * 1000.0).floor() / 1000.0,
-                        &chain_cfg.token.clone().unwrap().symbol
+                        &chain_cfg.token.symbol
                     )
                 });
                 result_map.borrow_mut().insert(

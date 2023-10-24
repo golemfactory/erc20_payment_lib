@@ -74,7 +74,7 @@ pub struct Chain {
     pub priority_fee: f64,
     pub max_fee_per_gas: f64,
     pub gas_left_warning_limit: u64,
-    pub token: Option<Token>,
+    pub token: Token,
     pub multi_contract: Option<MultiContractSettings>,
     pub transaction_timeout: u64,
     pub confirmation_blocks: u64,

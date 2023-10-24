@@ -128,7 +128,7 @@ pub async fn generate_test_payments(
         Rc::new(RefCell::new(rng)),
         chain_cfg.chain_id,
         &from_addrs,
-        Some(chain_cfg.token.clone().unwrap().address),
+        Some(chain_cfg.token.address),
         &addr_pool,
         generate_options.random_receivers,
         &amount_pool,

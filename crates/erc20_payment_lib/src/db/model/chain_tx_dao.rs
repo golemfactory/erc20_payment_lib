@@ -21,6 +21,9 @@ pub struct ChainTxDao {
     pub chain_status: i64,
     pub fee_paid: String,
     pub error: Option<String>,
+
+    pub balance_eth: Option<String>,
+    pub balance_glm: Option<String>,
     #[sqlx(default)]
     pub engine_message: Option<String>,
     #[sqlx(default)]

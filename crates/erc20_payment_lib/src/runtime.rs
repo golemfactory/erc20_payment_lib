@@ -472,14 +472,7 @@ impl PaymentRuntime {
                 chain_name
             ))?;
 
-        let token_address = chain_cfg
-            .token
-            .as_ref()
-            .ok_or(err_custom_create!(
-                "Chain {} doesn't define a token",
-                chain_name
-            ))?
-            .address;
+        let token_address = chain_cfg.token.address;
 
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
@@ -534,14 +527,7 @@ impl PaymentRuntime {
 
         let token_addr = match tx_type {
             TransferType::Token => {
-                let address = chain_cfg
-                    .token
-                    .as_ref()
-                    .ok_or(err_custom_create!(
-                        "Chain {} doesn't define its token",
-                        chain_name
-                    ))?
-                    .address;
+                let address = chain_cfg.token.address;
                 Some(address)
             }
             TransferType::Gas => None,
@@ -587,8 +573,21 @@ impl PaymentRuntime {
             "Chain {} not found in config file",
             chain_id
         ))?;
+        let glm_address = self
+            .get_chain(chain_id)
+            .ok_or(err_custom_create!("Chain {} not found", chain_id))?
+            .glm_address;
         let prov = self.get_web3_provider(network_name).await?;
-        verify_transaction(&prov, chain_id, tx_hash, sender, receiver, amount).await
+        verify_transaction(
+            &prov,
+            chain_id,
+            tx_hash,
+            sender,
+            receiver,
+            amount,
+            glm_address,
+        )
+        .await
     }
 
     pub fn chains(&self) -> Vec<i64> {
@@ -609,8 +608,10 @@ pub async fn verify_transaction(
     sender: Address,
     receiver: Address,
     amount: U256,
+    glm_address: Address,
 ) -> Result<VerifyTransactionResult, PaymentError> {
-    let (chain_tx_dao, transfers) = find_receipt_extended(web3, tx_hash, chain_id).await?;
+    let (chain_tx_dao, transfers) =
+        find_receipt_extended(web3, tx_hash, chain_id, glm_address).await?;
     if chain_tx_dao.chain_status == 1 {
         //one transaction can contain multiple transfers. Search for ours.
         for transfer in transfers {

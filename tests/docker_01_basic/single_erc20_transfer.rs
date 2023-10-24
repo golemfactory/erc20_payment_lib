@@ -61,9 +61,9 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
         assert_eq!(approve_contract_message_count, 1);
         (fee_paid, tx_dao_return)
     });
+    let config = create_default_config_setup(&proxy_url_base, proxy_key).await;
+    let token_address = config.chain.get("dev").unwrap().token.address;
     let web3 = {
-        let config = create_default_config_setup(&proxy_url_base, proxy_key).await;
-
         //load private key for account 0xbfb29b133aa51c4b45b49468f9a22958eafea6fa
         let private_keys = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963")?;
         let signer = PrivateKeySigner::new(private_keys.0.clone());
@@ -76,7 +76,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
                 Address::from_str("0xf2f86a61b769c91fc78f15059a5bd2c189b84be2").unwrap(),
                 config.chain.get("dev").unwrap().chain_id,
                 Some("test_payment"),
-                Some(config.chain.get("dev").unwrap().token.clone().unwrap().address),
+                Some(token_address),
                 U256::from(2222000000000000222_u128),
             )
         ).await?;
@@ -128,10 +128,10 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
         let fr_str_wrong = Address::from_str("0xcfb29b133aa51c4b45b49468f9a22958eafea6fa").unwrap();
         let to_str = Address::from_str("0xf2f86a61b769c91fc78f15059a5bd2c189b84be2").unwrap();
         let to_str_wrong = Address::from_str("0x02f86a61b769c91fc78f15059a5bd2c189b84be2").unwrap();
-        assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str,to_str,U256::from(2222000000000000222_u128)).await.unwrap().verified, true);
-        assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str,to_str_wrong,U256::from(2222000000000000222_u128)).await.unwrap().verified, false);
-        assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str_wrong,to_str,U256::from(2222000000000000222_u128)).await.unwrap().verified, false);
-        assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str,to_str,U256::from(2222000000000000223_u128)).await.unwrap().verified, false);
+        assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str,to_str,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified, true);
+        assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str,to_str_wrong,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified, false);
+        assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str_wrong,to_str,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified, false);
+        assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str,to_str,U256::from(2222000000000000223_u128), token_address).await.unwrap().verified, false);
 
 
     }

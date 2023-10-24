@@ -9,8 +9,8 @@ where
 {
     let res = sqlx::query_as::<_, ChainTxDao>(
         r"INSERT INTO chain_tx
-(tx_hash, method, from_addr, to_addr, chain_id, gas_limit, max_fee_per_gas, priority_fee, val, nonce, checked_date, blockchain_date, block_number, chain_status, fee_paid, error)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING *",
+(tx_hash, method, from_addr, to_addr, chain_id, gas_limit, max_fee_per_gas, priority_fee, val, nonce, checked_date, blockchain_date, block_number, chain_status, fee_paid, error, balance_eth, balance_glm)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING *",
     )
     .bind(&tx.tx_hash)
     .bind(&tx.method)
@@ -28,6 +28,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) R
     .bind(tx.chain_status)
     .bind(&tx.fee_paid)
     .bind(&tx.error)
+    .bind(&tx.balance_eth)
+    .bind(&tx.balance_glm)
     .fetch_one(executor)
     .await?;
     Ok(res)
@@ -115,6 +117,8 @@ async fn tx_chain_test() -> sqlx::Result<()> {
         error: Some("Test error message".to_string()),
         engine_message: None,
         engine_error: None,
+        balance_eth: Some("4".to_string()),
+        balance_glm: Some("5".to_string()),
     };
 
     let tx_from_insert = insert_chain_tx(&conn, &tx_to_insert).await?;

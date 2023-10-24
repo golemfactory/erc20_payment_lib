@@ -7,15 +7,16 @@ use crate::db::ops::*;
 use crate::error::{ErrorBag, PaymentError};
 
 use crate::transaction::find_receipt_extended;
-use crate::utils::ConversionError;
+use crate::utils::{ConversionError, U256ConvExt};
 
+use crate::err_from;
 use crate::setup::{ChainSetup, PaymentSetup};
-use crate::{err_custom_create, err_from};
 
+use crate::contracts::encode_erc20_balance_of;
 use crate::runtime::SharedState;
 use sqlx::SqlitePool;
 use web3::transports::Http;
-use web3::types::{Address, U256};
+use web3::types::{Address, BlockNumber, CallRequest, U256};
 use web3::Web3;
 
 pub async fn add_payment_request_2(
@@ -58,13 +59,7 @@ pub async fn add_glm_request(
         from_addr: format!("{payer_addr:#x}"),
         receiver_addr: format!("{receiver_addr:#x}"),
         chain_id: chain_setup.chain_id,
-        token_addr: Some(format!(
-            "{:#x}",
-            chain_setup.glm_address.ok_or(err_custom_create!(
-                "GLM address not set for chain {}",
-                chain_setup.chain_id
-            ))?
-        )),
+        token_addr: Some(format!("{:#x}", chain_setup.glm_address)),
         token_amount: token_amount.to_string(),
         tx_hash: None,
         requested_date: chrono::Utc::now(),
@@ -80,6 +75,7 @@ pub async fn transaction_from_chain_and_into_db(
     conn: &SqlitePool,
     chain_id: i64,
     tx_hash: &str,
+    glm_address: Address,
 ) -> Result<Option<ChainTxDao>, PaymentError> {
     println!("tx_hash: {tx_hash}");
     let tx_hash = web3::types::H256::from_str(tx_hash)
@@ -94,11 +90,90 @@ pub async fn transaction_from_chain_and_into_db(
         return Ok(Some(chain_tx));
     }
 
-    let (chain_tx_dao, transfers) = find_receipt_extended(web3, tx_hash, chain_id).await?;
+    let (mut chain_tx_dao, transfers) =
+        find_receipt_extended(web3, tx_hash, chain_id, glm_address).await?;
 
     if chain_tx_dao.chain_status != 1 {
         return Ok(None);
     }
+
+    let mut loop_no = 0;
+    let balance = loop {
+        loop_no += 1;
+        match web3
+            .eth()
+            .balance(
+                Address::from_str(&chain_tx_dao.from_addr).unwrap(),
+                Some(BlockNumber::Number(chain_tx_dao.block_number.into())),
+            )
+            .await
+        {
+            Ok(v) => break Some(v),
+            Err(e) => {
+                log::debug!("Error getting balance: {}", e);
+                if loop_no > 1000 {
+                    break None;
+                }
+            }
+        };
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    };
+
+    log::info!(
+        "Balance: {:.5} for block {}",
+        balance.unwrap_or_default().to_eth().unwrap(),
+        chain_tx_dao.block_number
+    );
+
+    loop_no = 0;
+    let token_balance = loop {
+        let call_data = encode_erc20_balance_of(glm_address).map_err(err_from!())?;
+        match web3
+            .eth()
+            .call(
+                CallRequest {
+                    from: None,
+                    to: Some(glm_address),
+                    gas: None,
+                    gas_price: None,
+                    value: None,
+                    data: Some(web3::types::Bytes::from(call_data)),
+                    transaction_type: None,
+                    access_list: None,
+                    max_fee_per_gas: None,
+                    max_priority_fee_per_gas: None,
+                },
+                Some(web3::types::BlockId::Number(BlockNumber::Number(
+                    chain_tx_dao.block_number.into(),
+                ))),
+            )
+            .await
+        {
+            Ok(v) => {
+                if v.0.len() == 32 {
+                    break Some(U256::from_big_endian(&v.0));
+                }
+            }
+            Err(e) => {
+                log::debug!("Error getting token balance: {}", e);
+            }
+        };
+        if loop_no > 1000 {
+            break None;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    };
+
+    log::info!(
+        "Token balance: {:.5} for block {}",
+        token_balance
+            .map(|v| v.to_eth().unwrap())
+            .unwrap_or_default(),
+        chain_tx_dao.block_number
+    );
+
+    chain_tx_dao.balance_eth = balance.map(|b| b.to_string());
+    chain_tx_dao.balance_glm = token_balance.map(|v| v.to_string());
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
 

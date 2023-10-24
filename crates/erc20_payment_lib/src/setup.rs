@@ -32,7 +32,7 @@ pub struct ChainSetup {
     pub max_fee_per_gas: U256,
     pub gas_left_warning_limit: u64,
     pub priority_fee: U256,
-    pub glm_address: Option<Address>,
+    pub glm_address: Address,
     pub multi_contract_address: Option<Address>,
     pub multi_contract_max_at_once: usize,
     pub transaction_timeout: u64,
@@ -131,13 +131,8 @@ impl PaymentSetup {
                     max_fee_per_gas: gwei_to_u256(chain_config.1.max_fee_per_gas)
                         .map_err(err_from!())?,
                     priority_fee: gwei_to_u256(chain_config.1.priority_fee).map_err(err_from!())?,
-                    glm_address: chain_config.1.token.clone().map(|t| t.address),
-                    currency_glm_symbol: chain_config
-                        .1
-                        .token
-                        .clone()
-                        .map(|t| t.symbol)
-                        .unwrap_or_else(|| "GLM".to_string()),
+                    glm_address: chain_config.1.token.address,
+                    currency_glm_symbol: chain_config.1.token.symbol.clone(),
                     multi_contract_address: chain_config
                         .1
                         .multi_contract

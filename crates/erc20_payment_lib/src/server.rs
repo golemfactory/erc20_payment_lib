@@ -586,7 +586,7 @@ pub async fn faucet(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Respo
             }
         }
 
-        let glm_address = return_on_error!(chain.glm_address.ok_or("GLM address not set on chain"));
+        let glm_address = chain.glm_address;
 
         let from_secret = return_on_error!(data
             .payment_setup
