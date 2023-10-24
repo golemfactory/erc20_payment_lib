@@ -207,10 +207,11 @@ pub async fn process_transaction(
             }
 
             if new_target_gas_u256 * 11 < max_fee_per_gas * 10 {
-                log::warn!("Eco mode activated. Sending transaction with lower base fee. Blockchain base fee: {} Gwei, Tx base fee: {} Gwei",
+                log::warn!(
+                    "Eco mode activated. Sending transaction with lower base fee. Blockchain base fee: {} Gwei, Tx base fee: {} Gwei",
                     blockchain_gas_price.to_gwei().map_err(err_from!())?,
                     new_target_gas_u256.to_gwei().map_err(err_from!())?,
-                    );
+                );
 
                 max_fee_per_gas = new_target_gas_u256;
             }
@@ -531,7 +532,12 @@ pub async fn process_transaction(
                     db_transaction.commit().await.map_err(err_from!())?;
                     return Ok((current_tx.clone(), ProcessTransactionResult::Confirmed));
                 } else {
-                    log::info!("Waiting for confirmations: tx: {}. Current block {}, expected at least: {}", web3_tx_dao.id, current_block_number, block_number + chain_setup.confirmation_blocks);
+                    log::info!(
+                        "Waiting for confirmations: tx: {}. Current block {}, expected at least: {}",
+                        web3_tx_dao.id,
+                        current_block_number,
+                        block_number + chain_setup.confirmation_blocks
+                    );
                 }
             } else {
                 tx_not_found_count += 1;
@@ -645,7 +651,12 @@ pub async fn process_transaction(
                         web3_tx_dao.id
                     );
                 } else {
-                    log::warn!("Transaction priority fee changed less than 10% more from {} to {} for tx: {}", max_tx_priority_fee_str, chain_setup.priority_fee, web3_tx_dao.id);
+                    log::warn!(
+                        "Transaction priority fee changed less than 10% more from {} to {} for tx: {}",
+                        max_tx_priority_fee_str,
+                        chain_setup.priority_fee,
+                        web3_tx_dao.id
+                    );
                 }
             }
 
@@ -806,22 +817,23 @@ pub async fn process_transaction(
                                     > tx_max_fee_per_gas_gwei
                                 {
                                     send_driver_event(
-                                    &event_sender,
-                                    DriverEventContent::TransactionStuck(
-                                        TransactionStuckReason::GasPriceLow(
-                                            GasLowInfo {
-                                                tx: web3_tx_dao.clone(),
-                                                tx_max_fee_per_gas_gwei,
-                                                block_date,
-                                                block_number: block.number.unwrap().as_u64(),
-                                                block_base_fee_per_gas_gwei,
-                                                assumed_min_priority_fee_gwei,
-                                                user_friendly_message:
-                                                format!("Transaction not processed after {} seconds, block base fee per gas + priority fee: {} Gwei is greater than transaction max fee per gas: {} Gwei", chain_setup.transaction_timeout, block_base_fee_per_gas_gwei + assumed_min_priority_fee_gwei, tx_max_fee_per_gas_gwei),
-                                            }
+                                        &event_sender,
+                                        DriverEventContent::TransactionStuck(TransactionStuckReason::GasPriceLow(GasLowInfo {
+                                            tx: web3_tx_dao.clone(),
+                                            tx_max_fee_per_gas_gwei,
+                                            block_date,
+                                            block_number: block.number.unwrap().as_u64(),
+                                            block_base_fee_per_gas_gwei,
+                                            assumed_min_priority_fee_gwei,
+                                            user_friendly_message: format!(
+                                                "Transaction not processed after {} seconds, block base fee per gas + priority fee: {} Gwei is greater than transaction max fee per gas: {} Gwei",
+                                                chain_setup.transaction_timeout,
+                                                block_base_fee_per_gas_gwei + assumed_min_priority_fee_gwei,
+                                                tx_max_fee_per_gas_gwei
                                             ),
-                                ))
-                                .await;
+                                        })),
+                                    )
+                                    .await;
                                 }
                             }
                         }

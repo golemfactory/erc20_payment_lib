@@ -99,7 +99,9 @@ pub async fn export_stats(
             .bind(format!("{:.6}", fee_paid_total))
             .bind(1.to_string())
             .bind(transaction_ids.get(&tx.id).unwrap().len().to_string())
-            .execute(&export_conn).await.map_err(err_from!())?;
+            .execute(&export_conn)
+            .await
+            .map_err(err_from!())?;
     }
     export_conn.close().await;
 

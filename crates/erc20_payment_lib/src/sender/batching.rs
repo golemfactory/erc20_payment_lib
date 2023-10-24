@@ -211,7 +211,11 @@ pub async fn gather_transactions_batch_multi(
                     None,
                 )?
             } else if let Some(multi_contract_address) = chain_setup.multi_contract_address {
-                log::info!("Inserting transaction stub for ERC20 multi transfer contract: {:?} for {} distinct transfers", multi_contract_address, erc20_to.len());
+                log::info!(
+                    "Inserting transaction stub for ERC20 multi transfer contract: {:?} for {} distinct transfers",
+                    multi_contract_address,
+                    erc20_to.len()
+                );
 
                 create_erc20_transfer_multi(
                     Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,

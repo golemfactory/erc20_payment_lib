@@ -320,7 +320,8 @@ impl GethContainer {
             "GLM_CONTRACT_ADDRESS=0xfff17584d526aba263025eE7fEF517E4A31D4246".to_string(),
             "FAUCET_ACCOUNT_PUBLIC_ADDRESS=0xafca53fc9628F0E7603bb2bf8E75F07Ee6442cE6".to_string(),
             "MAIN_ACCOUNT_PUBLIC_ADDRESS=0x4D6947E072C1Ac37B64600B885772Bd3f27D3E91".to_string(),
-            "FAUCET_ACCOUNT_PRIVATE_KEY=078d8f6c16446cdb8efbee80535ce8cb32d5b69563bca33e5e6bc0f13f0666b3".to_string()];
+            "FAUCET_ACCOUNT_PRIVATE_KEY=078d8f6c16446cdb8efbee80535ce8cb32d5b69563bca33e5e6bc0f13f0666b3".to_string(),
+        ];
 
         let (web3_proxy_port, geth_rpc_port) = if let (Some(web3_proxy_port), Some(geth_rpc_port)) =
             (opt.web3_proxy_port, opt.web3_port)
