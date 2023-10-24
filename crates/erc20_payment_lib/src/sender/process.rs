@@ -523,6 +523,8 @@ pub async fn process_transaction(
                         }
                     }
                     current_tx.orig_tx_id = None;
+                    //signed raw data is no longer needed
+                    current_tx.signed_raw_data = None;
                     update_tx(&mut *db_transaction, &current_tx)
                         .await
                         .map_err(err_from!())?;
