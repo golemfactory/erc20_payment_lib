@@ -574,7 +574,7 @@ pub async fn find_receipt_extended(
     web3: &Web3<Http>,
     tx_hash: H256,
     chain_id: i64,
-    glm_address: Address
+    glm_address: Address,
 ) -> Result<(ChainTxDao, Vec<ChainTransferDao>), PaymentError> {
     let mut chain_tx_dao = ChainTxDao {
         id: -1,

@@ -6,7 +6,7 @@ use crate::signer::Signer;
 use crate::transaction::{create_token_transfer, find_receipt_extended};
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
-use std::ops::{DerefMut};
+use std::ops::DerefMut;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -582,14 +582,23 @@ impl PaymentRuntime {
         sender: Address,
         receiver: Address,
         amount: U256,
-        glm_address: Address
+        glm_address: Address,
     ) -> Result<VerifyTransactionResult, PaymentError> {
         let network_name = self.network_name(chain_id).ok_or(err_custom_create!(
             "Chain {} not found in config file",
             chain_id
         ))?;
         let prov = self.get_web3_provider(network_name).await?;
-        verify_transaction(&prov, chain_id, tx_hash, sender, receiver, amount, glm_address).await
+        verify_transaction(
+            &prov,
+            chain_id,
+            tx_hash,
+            sender,
+            receiver,
+            amount,
+            glm_address,
+        )
+        .await
     }
 
     pub fn chains(&self) -> Vec<i64> {
@@ -610,9 +619,10 @@ pub async fn verify_transaction(
     sender: Address,
     receiver: Address,
     amount: U256,
-    glm_address: Address
+    glm_address: Address,
 ) -> Result<VerifyTransactionResult, PaymentError> {
-    let (chain_tx_dao, transfers) = find_receipt_extended(web3, tx_hash, chain_id, glm_address).await?;
+    let (chain_tx_dao, transfers) =
+        find_receipt_extended(web3, tx_hash, chain_id, glm_address).await?;
     if chain_tx_dao.chain_status == 1 {
         //one transaction can contain multiple transfers. Search for ours.
         for transfer in transfers {
