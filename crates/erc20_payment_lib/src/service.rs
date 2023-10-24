@@ -9,8 +9,8 @@ use crate::error::{ErrorBag, PaymentError};
 use crate::transaction::find_receipt_extended;
 use crate::utils::{ConversionError, U256ConvExt};
 
+use crate::err_from;
 use crate::setup::{ChainSetup, PaymentSetup};
-use crate::{err_custom_create, err_from};
 
 use crate::contracts::encode_erc20_balance_of;
 use crate::runtime::SharedState;
@@ -59,13 +59,7 @@ pub async fn add_glm_request(
         from_addr: format!("{payer_addr:#x}"),
         receiver_addr: format!("{receiver_addr:#x}"),
         chain_id: chain_setup.chain_id,
-        token_addr: Some(format!(
-            "{:#x}",
-            chain_setup.glm_address.ok_or(err_custom_create!(
-                "GLM address not set for chain {}",
-                chain_setup.chain_id
-            ))?
-        )),
+        token_addr: Some(format!("{:#x}", chain_setup.glm_address)),
         token_amount: token_amount.to_string(),
         tx_hash: None,
         requested_date: chrono::Utc::now(),

@@ -170,7 +170,7 @@ pub async fn run_stats(
         let token_transferred = stats
             .all
             .erc20_token_transferred
-            .get(&chain_cfg.token.clone().unwrap().address)
+            .get(&chain_cfg.token.address)
             .copied();
 
         metrics += &format!(
@@ -269,7 +269,7 @@ pub async fn run_stats(
         .1
         .all
         .erc20_token_transferred
-        .get(&chain_cfg.token.clone().unwrap().address)
+        .get(&chain_cfg.token.address)
         .copied();
     println!(
         "Erc20 token sent: {}",

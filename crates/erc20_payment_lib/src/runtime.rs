@@ -472,14 +472,7 @@ impl PaymentRuntime {
                 chain_name
             ))?;
 
-        let token_address = chain_cfg
-            .token
-            .as_ref()
-            .ok_or(err_custom_create!(
-                "Chain {} doesn't define a token",
-                chain_name
-            ))?
-            .address;
+        let token_address = chain_cfg.token.address;
 
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
@@ -534,14 +527,7 @@ impl PaymentRuntime {
 
         let token_addr = match tx_type {
             TransferType::Token => {
-                let address = chain_cfg
-                    .token
-                    .as_ref()
-                    .ok_or(err_custom_create!(
-                        "Chain {} doesn't define its token",
-                        chain_name
-                    ))?
-                    .address;
+                let address = chain_cfg.token.address;
                 Some(address)
             }
             TransferType::Gas => None,
@@ -582,12 +568,15 @@ impl PaymentRuntime {
         sender: Address,
         receiver: Address,
         amount: U256,
-        glm_address: Address,
     ) -> Result<VerifyTransactionResult, PaymentError> {
         let network_name = self.network_name(chain_id).ok_or(err_custom_create!(
             "Chain {} not found in config file",
             chain_id
         ))?;
+        let glm_address = self
+            .get_chain(chain_id)
+            .ok_or(err_custom_create!("Chain {} not found", chain_id))?
+            .glm_address;
         let prov = self.get_web3_provider(network_name).await?;
         verify_transaction(
             &prov,

@@ -62,7 +62,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
         (fee_paid, tx_dao_return)
     });
     let config = create_default_config_setup(&proxy_url_base, proxy_key).await;
-    let token_address = config.chain.get("dev").unwrap().token.clone().unwrap().address;
+    let token_address = config.chain.get("dev").unwrap().token.address;
     let web3 = {
         //load private key for account 0xbfb29b133aa51c4b45b49468f9a22958eafea6fa
         let private_keys = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963")?;

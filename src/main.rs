@@ -202,7 +202,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             #[allow(clippy::if_same_then_else)]
             let token = if single_transfer_options.token == "glm" {
-                Some(format!("{:#x}", chain_cfg.token.clone().unwrap().address))
+                Some(format!("{:#x}", chain_cfg.token.address))
             } else if single_transfer_options.token == "eth" {
                 None
             } else if single_transfer_options.token == "matic" {
@@ -376,7 +376,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let txs = import_erc20_txs(
                 web3,
-                chain_cfg.token.clone().unwrap().address,
+                chain_cfg.token.address,
                 chain_cfg.chain_id,
                 Some(&[sender]),
                 None,
@@ -394,7 +394,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     &conn,
                     chain_cfg.chain_id,
                     &format!("{tx:#x}"),
-                    chain_cfg.token.clone().unwrap().address,
+                    chain_cfg.token.address,
                 )
                 .await
                 {
@@ -452,17 +452,15 @@ async fn main_internal() -> Result<(), PaymentError> {
                                 token_transfer.chain_id
                             ))?;
 
-                        if let (Some(token_chain_cfg), Some(token_addr)) =
-                            (&chain_cfg.token, &token_transfer.token_addr)
+                        if let Some(token_addr) = &token_transfer.token_addr
                         {
-                            if format!("{:#x}", token_chain_cfg.address)
-                                != token_addr.to_lowercase()
+                            if format!("{:#x}", chain_cfg.token.address) != token_addr.to_lowercase()
                             {
                                 return Err(err_custom_create!(
                                     "Token address in line {} is different from default token address {} != {:#x}",
                                     line_no,
                                     token_addr.to_lowercase(),
-                                    token_chain_cfg.address
+                                    chain_cfg.token.address
                                 ));
                             }
                         }

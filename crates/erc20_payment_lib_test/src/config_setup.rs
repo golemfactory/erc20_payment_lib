@@ -18,11 +18,11 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
         priority_fee: 1.1,
         max_fee_per_gas: 500.0,
         gas_left_warning_limit: 1000000,
-        token: Some(Token {
+        token: Token {
             symbol: "tGLM".to_string(),
             address: Address::from_str("0xfff17584d526aba263025eE7fEF517E4A31D4246").unwrap(),
             faucet: None,
-        }),
+        },
         multi_contract: Some(MultiContractSettings {
             address: Address::from_str("0xF9861F83766CD507E0d2749B60d4fD6C68E5B96C").unwrap(),
             max_at_once: 10,

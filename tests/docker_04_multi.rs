@@ -98,7 +98,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
         ("0x0000000000000000000000000000000000000009", 600000000000000678_u128)];
 
     let config = create_default_config_setup(&proxy_url_base, proxy_key).await;
-    let token_address = config.chain.get("dev").unwrap().token.clone().unwrap().address;
+    let token_address = config.chain.get("dev").unwrap().token.address;
     let web3 = {
         //config.chain.get_mut("dev").unwrap().confirmation_blocks = 0;
 
@@ -116,7 +116,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
                     Address::from_str(addr).unwrap(),
                     config.chain.get("dev").unwrap().chain_id,
                     Some("test_payment"),
-                    Some(config.chain.get("dev").unwrap().token.clone().unwrap().address),
+                    Some(config.chain.get("dev").unwrap().token.address),
                     U256::from(*val),
                 )
             ).await?;
