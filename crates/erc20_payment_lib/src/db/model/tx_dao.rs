@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-#[derive(Serialize, sqlx::FromRow, Debug, Clone)]
+#[derive(Serialize, sqlx::FromRow, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TxDao {
     pub id: i64,
