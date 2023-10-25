@@ -365,6 +365,7 @@ impl PaymentRuntime {
             config.engine.process_interval,
             config.engine.process_interval_after_error,
             config.engine.process_interval_after_send,
+            config.engine.report_alive_interval,
             config.engine.gather_interval,
             config.engine.gather_at_start,
             config.engine.automatic_recover,
