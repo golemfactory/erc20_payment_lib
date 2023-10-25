@@ -345,11 +345,11 @@ pub async fn process_transactions(
             }
         }
 
-        log::debug!("Sleeping for {} seconds (process interval)", payment_setup.process_interval);
-        tokio::time::sleep(Duration::from_secs(
-            payment_setup.process_interval,
-        ))
-        .await;
+        log::debug!(
+            "Sleeping for {} seconds (process interval)",
+            payment_setup.process_interval
+        );
+        tokio::time::sleep(Duration::from_secs(payment_setup.process_interval)).await;
     }
     Ok(())
 }
