@@ -62,7 +62,7 @@ pub async fn process_transaction(
     let gather_sleep = Duration::from_secs(payment_setup.gather_sleep);
 
     let chain_id = web3_tx_dao.chain_id;
-    let Ok(chain_setup) = payment_setup.get_chain_setup(chain_id) else {
+    let Some(chain_setup) = payment_setup.chain_setup.get(&chain_id) else {
         send_driver_event(
             &event_sender,
             DriverEventContent::TransactionFailed(TransactionFailedReason::InvalidChainId(

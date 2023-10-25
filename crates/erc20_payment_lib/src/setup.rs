@@ -162,11 +162,6 @@ impl PaymentSetup {
         }
         Ok(ps)
     }
-    pub fn get_chain_setup(&self, chain_id: i64) -> Result<&ChainSetup, PaymentError> {
-        self.chain_setup
-            .get(&chain_id)
-            .ok_or_else(|| err_custom_create!("No chain setup for chain id: {}", chain_id))
-    }
 
     pub fn get_provider(&self, chain_id: i64) -> Result<&Web3<Http>, PaymentError> {
         let chain_setup = self

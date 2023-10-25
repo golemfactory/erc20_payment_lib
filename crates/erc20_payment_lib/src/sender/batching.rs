@@ -110,7 +110,13 @@ pub async fn gather_transactions_batch_multi(
     multi_order_vector: &mut [TokenTransferMultiOrder],
     token_transfer: &TokenTransferMultiKey,
 ) -> Result<u32, PaymentError> {
-    let chain_setup = payment_setup.get_chain_setup(token_transfer.chain_id)?;
+    let chain_setup = payment_setup
+        .chain_setup
+        .get(&token_transfer.chain_id)
+        .ok_or(err_custom_create!(
+            "No setup found for chain id: {}",
+            token_transfer.chain_id
+        ))?;
 
     let use_direct_method = payment_setup.contract_use_direct_method;
     let use_unpacked_method = payment_setup.contract_use_unpacked_method;
@@ -269,7 +275,11 @@ pub async fn gather_transactions_batch(
         sum += U256::from_dec_str(&token_transfer.token_amount).map_err(err_from!())?;
     }
 
-    let Ok(_chain_setup) = payment_setup.get_chain_setup(token_transfer.chain_id) else {
+    if payment_setup
+        .chain_setup
+        .get(&token_transfer.chain_id)
+        .is_none()
+    {
         send_driver_event(
             &event_sender,
             DriverEventContent::TransactionFailed(TransactionFailedReason::InvalidChainId(
