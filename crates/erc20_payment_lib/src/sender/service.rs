@@ -343,7 +343,10 @@ pub async fn process_transactions(
             }
         }
 
-        tokio::time::sleep(std::time::Duration::from_secs(payment_setup.process_interval)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(
+            payment_setup.process_interval,
+        ))
+        .await;
     }
     Ok(())
 }
@@ -407,8 +410,10 @@ pub async fn service_loop(
                 Ok(token_transfer_map) => token_transfer_map,
                 Err(e) => {
                     log::error!("Error in gather transactions, driver will be stuck, Fix DB to continue {:?}", e);
-                    tokio::time::sleep(std::time::Duration::from_secs(payment_setup.process_interval))
-                        .await;
+                    tokio::time::sleep(std::time::Duration::from_secs(
+                        payment_setup.process_interval,
+                    ))
+                    .await;
                     continue;
                 }
             };
