@@ -1,10 +1,10 @@
 [engine]
 # proces interval (in seconds) is to set how often we want to check for transaction
-process-interval = 5
+process-interval = 25
 # proces interval after error (in seconds) is to set how long to wait after encountering error before trying again
-process-interval-after-error = 15
+process-interval-after-error = 25
 # gather interval (in seconds) is to set how often payments are gathered
-gather-interval = 600
+gather-interval = 60
 # gather payments on payment driver start (otherwise wait for first gather-sleep)
 gather-at-start = true
 automatic-recover = false
@@ -49,7 +49,7 @@ currency-symbol = "tMATIC"
 priority-fee = 1.0
 max-fee-per-gas = 14.0
 gas-left-warning-limit = 1000000
-transaction-timeout = 10
+transaction-timeout = 60
 token = { address = "0x2036807B0B3aaf5b1858EE822D0e111fDdac7018", symbol = "tGLM" }
 multi-contract = { address = "0x800010D7d0d315DCA795110ecCf0127cBd76b89f", max-at-once = 10 }
 confirmation-blocks = 1

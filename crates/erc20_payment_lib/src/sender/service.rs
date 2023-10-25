@@ -337,13 +337,16 @@ pub async fn process_transactions(
                     DriverEventContent::TransactionConfirmed(tx.clone()),
                 )
                 .await;
+                //proces next transaction without waiting
+                continue;
             }
             _ => {
                 shared_state.lock().await.current_tx_info.remove(&tx.id);
             }
         }
 
-        tokio::time::sleep(std::time::Duration::from_secs(
+        log::debug!("Sleeping for {} seconds (process interval)", payment_setup.process_interval);
+        tokio::time::sleep(Duration::from_secs(
             payment_setup.process_interval,
         ))
         .await;
@@ -382,10 +385,7 @@ pub async fn service_loop(
         .await
         {
             log::error!("Error in process transactions: {}", e);
-            tokio::time::sleep(std::time::Duration::from_secs(
-                payment_setup.process_interval,
-            ))
-            .await;
+            tokio::time::sleep(Duration::from_secs(payment_setup.process_interval)).await;
             continue;
         }
 
@@ -397,7 +397,7 @@ pub async fn service_loop(
             last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
         if current_time < next_gather_time {
             log::info!(
-                "Transaction will be gathered in {} seconds",
+                "Payments will be gathered in {} seconds",
                 humantime::format_duration(Duration::from_secs(
                     (next_gather_time - current_time).num_seconds() as u64
                 ))
@@ -408,13 +408,13 @@ pub async fn service_loop(
             )))
             .await;
         } else {
-            log::info!("Gathering transfers...");
+            log::info!("Gathering payments...");
             let mut token_transfer_map = match gather_transactions_pre(conn, payment_setup).await {
                 Ok(token_transfer_map) => token_transfer_map,
                 Err(e) => {
                     log::error!("Error in gather transactions, driver will be stuck, Fix DB to continue {:?}", e);
                     tokio::time::sleep(std::time::Duration::from_secs(
-                        payment_setup.process_interval,
+                        payment_setup.process_interval_after_error,
                     ))
                     .await;
                     continue;
@@ -432,8 +432,6 @@ pub async fn service_loop(
                 Ok(count) => {
                     if count > 0 {
                         process_tx_needed = true;
-                    } else {
-                        log::info!("No new transfers to process");
                     }
                 }
                 Err(e) => {

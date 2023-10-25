@@ -403,7 +403,7 @@ pub async fn check_transaction(
             gas_est + gas_safety_margin
         };
 
-        log::info!("Set gas limit basing on gas estimation: {gas_limit}");
+        log::debug!("Set gas limit basing on gas estimation: {gas_limit}");
         web3_tx_dao.gas_limit = Some(gas_limit.as_u64() as i64);
 
         let max_fee_per_gas = U256::from_dec_str(
