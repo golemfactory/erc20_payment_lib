@@ -144,12 +144,12 @@ pub async fn process_transaction(
             }
         }
         let mut max_fee_per_gas = if let Some(max_fee_per_gas) = &web3_tx_dao.max_fee_per_gas {
-            U256::from_dec_str(max_fee_per_gas).map_err(err_from!())?
+            max_fee_per_gas.to_u256().map_err(err_from!())?
         } else {
             chain_setup.max_fee_per_gas
         };
         let max_priority_fee = if let Some(priority_fee) = &web3_tx_dao.priority_fee {
-            U256::from_dec_str(priority_fee).map_err(err_from!())?
+            priority_fee.to_u256().map_err(err_from!())?
         } else {
             chain_setup.priority_fee
         };
