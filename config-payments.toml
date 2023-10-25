@@ -1,8 +1,8 @@
 [engine]
-# service sleep is for internal runtime checks
-service-sleep = 5
-# process sleep is to set how often payments are gathered
-gather-sleep = 600
+# proces interval (in seconds) is to set how often we want to check for transaction
+process-interval = 5
+# gather interval (in seconds) is to set how often payments are gathered
+gather-interval = 600
 # gather payments on payment driver start (otherwise wait for first gather-sleep)
 gather-at-start = true
 automatic-recover = false

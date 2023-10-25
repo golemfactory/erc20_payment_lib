@@ -59,7 +59,7 @@ pub async fn process_transaction(
 ) -> Result<(TxDao, ProcessTransactionResult), PaymentError> {
     const CHECKS_UNTIL_NOT_FOUND: u64 = 5;
 
-    let gather_sleep = Duration::from_secs(payment_setup.gather_sleep);
+    let gather_interval = Duration::from_secs(payment_setup.gather_interval);
 
     let chain_id = web3_tx_dao.chain_id;
     let Some(chain_setup) = payment_setup.chain_setup.get(&chain_id) else {
@@ -766,9 +766,9 @@ pub async fn process_transaction(
             update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
             log::warn!(
                 "Sleeping for {} seconds (process sleep after transaction send)",
-                gather_sleep.as_secs()
+                gather_interval.as_secs()
             );
-            tokio::time::sleep(gather_sleep).await;
+            tokio::time::sleep(gather_interval).await;
             continue;
         } else {
             //timeout transaction when it is not confirmed after transaction_timeout seconds
@@ -848,8 +848,8 @@ pub async fn process_transaction(
         }
         log::warn!(
             "Sleeping for {} seconds (process sleep at the end of the loop)",
-            gather_sleep.as_secs()
+            gather_interval.as_secs()
         );
-        tokio::time::sleep(gather_sleep).await;
+        tokio::time::sleep(gather_interval).await;
     }
 }

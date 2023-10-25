@@ -36,14 +36,14 @@ pub struct RunOptions {
         help = "Sleep time between service loops in seconds",
         default_value = "10"
     )]
-    pub service_sleep: u64,
+    pub process_interval: u64,
 
     #[structopt(
         long = "process-sleep",
         help = "Sleep time between process loops in seconds",
         default_value = "10"
     )]
-    pub gather_sleep: u64,
+    pub gather_interval: u64,
 
     #[structopt(long = "http", help = "Enable http server")]
     pub http: bool,

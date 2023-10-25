@@ -39,8 +39,8 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
     Config {
         chain: chain_map,
         engine: Engine {
-            service_sleep: 1,
-            gather_sleep: 1,
+            process_interval: 1,
+            gather_interval: 1,
             automatic_recover: false,
             gather_at_start: false,
         },

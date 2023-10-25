@@ -229,6 +229,9 @@ pub async fn confirm_loop(
     payment_setup: &PaymentSetup,
 ) {
     loop {
-        tokio::time::sleep(std::time::Duration::from_secs(payment_setup.service_sleep)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(
+            payment_setup.process_interval,
+        ))
+        .await;
     }
 }
