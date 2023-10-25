@@ -355,7 +355,10 @@ pub async fn process_transaction(
             web3_tx_dao.id,
             web3_tx_dao.tx_hash.clone().unwrap_or_default()
         );
-        tokio::time::sleep(Duration::from_secs(payment_setup.process_interval)).await;
+        tokio::time::sleep(Duration::from_secs(
+            payment_setup.process_interval_after_send,
+        ))
+        .await;
     }
 
     if web3_tx_dao.confirm_date.is_some() {

@@ -1,6 +1,8 @@
 [engine]
-# proces interval (in seconds) is to set how often we want to check for transaction
-process-interval = 25
+# proces interval (in seconds) is to set how often we want to recheck transaction status
+process-interval = 15
+# proces interval after send (in seconds) is to set how long to wait after sending transaction before checking for confirmation
+process-interval-after-send = 30
 # proces interval after error (in seconds) is to set how long to wait after encountering error before trying again
 process-interval-after-error = 25
 # gather interval (in seconds) is to set how often payments are gathered

@@ -291,8 +291,19 @@ async fn main_internal() -> Result<(), PaymentError> {
         } => {
             log::info!("Scanning blockchain {}", scan_blockchain_options.chain_name);
 
-            let payment_setup =
-                PaymentSetup::new(&config, vec![], true, false, false, 1, 1, 1, false, false)?;
+            let payment_setup = PaymentSetup::new(
+                &config,
+                vec![],
+                true,
+                false,
+                false,
+                1,
+                1,
+                1,
+                1,
+                false,
+                false,
+            )?;
             let chain_cfg = config
                 .chain
                 .get(&scan_blockchain_options.chain_name)
