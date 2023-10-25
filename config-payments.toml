@@ -1,6 +1,8 @@
 [engine]
 # proces interval (in seconds) is to set how often we want to check for transaction
 process-interval = 5
+# proces interval after error (in seconds) is to set how long to wait after encountering error before trying again
+process-interval-after-error = 15
 # gather interval (in seconds) is to set how often payments are gathered
 gather-interval = 600
 # gather payments on payment driver start (otherwise wait for first gather-sleep)

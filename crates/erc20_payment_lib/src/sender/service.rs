@@ -382,7 +382,10 @@ pub async fn service_loop(
         .await
         {
             log::error!("Error in process transactions: {}", e);
-            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(
+                payment_setup.process_interval,
+            ))
+            .await;
             continue;
         }
 
