@@ -343,7 +343,7 @@ pub async fn process_transactions(
             }
         }
 
-        tokio::time::sleep(std::time::Duration::from_secs(payment_setup.service_sleep)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(payment_setup.process_interval)).await;
     }
     Ok(())
 }
@@ -355,7 +355,7 @@ pub async fn service_loop(
     signer: impl Signer + Send + Sync + 'static,
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
 ) {
-    let gather_transactions_interval = payment_setup.gather_sleep as i64;
+    let gather_transactions_interval = payment_setup.gather_interval as i64;
     let mut last_gather_time = if payment_setup.gather_at_start {
         chrono::Utc::now() - chrono::Duration::seconds(gather_transactions_interval)
     } else {
@@ -407,7 +407,7 @@ pub async fn service_loop(
                 Ok(token_transfer_map) => token_transfer_map,
                 Err(e) => {
                     log::error!("Error in gather transactions, driver will be stuck, Fix DB to continue {:?}", e);
-                    tokio::time::sleep(std::time::Duration::from_secs(payment_setup.service_sleep))
+                    tokio::time::sleep(std::time::Duration::from_secs(payment_setup.process_interval))
                         .await;
                     continue;
                 }

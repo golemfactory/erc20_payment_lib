@@ -24,7 +24,7 @@ pub fn get_env_bool_value(env_name: &str) -> bool {
         })
         .unwrap_or(false)
 }
- 
+
 #[derive(Debug, Clone)]
 pub struct ConversionError {
     pub msg: String,
