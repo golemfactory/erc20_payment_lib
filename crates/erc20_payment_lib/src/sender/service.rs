@@ -402,10 +402,10 @@ pub async fn service_loop(
                     (next_gather_time - current_time).num_seconds() as u64
                 ))
             );
-            tokio::time::sleep(Duration::from_secs(std::cmp::min(
-                payment_setup.report_alive_interval,
-                (next_gather_time - current_time).num_seconds() as u64,
-            )))
+            tokio::time::sleep(Duration::from_secs_f64(
+                (payment_setup.report_alive_interval as f64)
+                    .min((next_gather_time - current_time).num_milliseconds() as f64 / 1000.0),
+            ))
             .await;
             continue;
         }
