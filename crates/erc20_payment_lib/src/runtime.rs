@@ -168,43 +168,6 @@ impl SharedState {
     }
 }
 
-#[derive(Clone)]
-pub struct ValidatedOptions {
-    pub receivers: Vec<Address>,
-    pub amounts: Vec<U256>,
-    pub chain_id: i64,
-    pub token_addr: Option<Address>,
-    pub keep_running: bool,
-    pub generate_tx_only: bool,
-    pub skip_multi_contract_check: bool,
-    pub service_sleep: u64,
-    pub gather_sleep: u64,
-    pub gather_at_start: bool,
-    pub http_threads: u64,
-    pub http_port: u16,
-    pub http_addr: String,
-}
-
-impl Default for ValidatedOptions {
-    fn default() -> Self {
-        ValidatedOptions {
-            receivers: vec![],
-            amounts: vec![],
-            chain_id: 80001,
-            token_addr: None,
-            keep_running: true,
-            generate_tx_only: false,
-            skip_multi_contract_check: false,
-            service_sleep: 10,
-            gather_sleep: 10,
-            gather_at_start: false,
-            http_threads: 2,
-            http_port: 8080,
-            http_addr: "127.0.0.1".to_string(),
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub enum StatusProperty {
     InvalidChainId {
