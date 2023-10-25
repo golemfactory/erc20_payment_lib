@@ -47,7 +47,8 @@ impl AdditionalOptions {
 #[serde(rename_all = "kebab-case")]
 pub struct Engine {
     pub service_sleep: u64,
-    pub process_sleep: u64,
+    pub gather_sleep: u64,
+    pub gather_at_start: bool,
     pub automatic_recover: bool,
 }
 

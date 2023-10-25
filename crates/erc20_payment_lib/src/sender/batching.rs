@@ -110,13 +110,16 @@ pub async fn gather_transactions_batch_multi(
     multi_order_vector: &mut [TokenTransferMultiOrder],
     token_transfer: &TokenTransferMultiKey,
 ) -> Result<u32, PaymentError> {
-    let chain_setup = payment_setup.get_chain_setup(token_transfer.chain_id)?;
+    let chain_setup = payment_setup
+        .chain_setup
+        .get(&token_transfer.chain_id)
+        .ok_or(err_custom_create!(
+            "No setup found for chain id: {}",
+            token_transfer.chain_id
+        ))?;
 
     let use_direct_method = payment_setup.contract_use_direct_method;
     let use_unpacked_method = payment_setup.contract_use_unpacked_method;
-
-    let max_fee_per_gas = chain_setup.max_fee_per_gas;
-    let priority_fee = chain_setup.priority_fee;
 
     let max_per_batch = chain_setup.multi_contract_max_at_once;
     log::debug!("Processing token transfer {:?}", token_transfer);
@@ -212,11 +215,13 @@ pub async fn gather_transactions_batch_multi(
                     erc20_amounts[0],
                     token_transfer.chain_id as u64,
                     None,
-                    max_fee_per_gas,
-                    priority_fee,
                 )?
             } else if let Some(multi_contract_address) = chain_setup.multi_contract_address {
-                log::info!("Inserting transaction stub for ERC20 multi transfer contract: {:?} for {} distinct transfers", multi_contract_address, erc20_to.len());
+                log::info!(
+                    "Inserting transaction stub for ERC20 multi transfer contract: {:?} for {} distinct transfers",
+                    multi_contract_address,
+                    erc20_to.len()
+                );
 
                 create_erc20_transfer_multi(
                     Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
@@ -225,8 +230,6 @@ pub async fn gather_transactions_batch_multi(
                     erc20_amounts,
                     token_transfer.chain_id as u64,
                     None,
-                    max_fee_per_gas,
-                    priority_fee,
                     use_direct_method,
                     use_unpacked_method,
                 )?
@@ -272,7 +275,11 @@ pub async fn gather_transactions_batch(
         sum += U256::from_dec_str(&token_transfer.token_amount).map_err(err_from!())?;
     }
 
-    let Ok(chain_setup) = payment_setup.get_chain_setup(token_transfer.chain_id) else {
+    if payment_setup
+        .chain_setup
+        .get(&token_transfer.chain_id)
+        .is_none()
+    {
         send_driver_event(
             &event_sender,
             DriverEventContent::TransactionFailed(TransactionFailedReason::InvalidChainId(
@@ -286,9 +293,6 @@ pub async fn gather_transactions_batch(
         ));
     };
 
-    let max_fee_per_gas = chain_setup.max_fee_per_gas;
-    let priority_fee = chain_setup.priority_fee;
-
     log::debug!("Processing token transfer {:?}", token_transfer);
     let web3tx = if let Some(token_addr) = token_transfer.token_addr.as_ref() {
         create_erc20_transfer(
@@ -298,8 +302,6 @@ pub async fn gather_transactions_batch(
             sum,
             token_transfer.chain_id as u64,
             None,
-            max_fee_per_gas,
-            priority_fee,
         )?
     } else {
         create_eth_transfer(
@@ -307,8 +309,6 @@ pub async fn gather_transactions_batch(
             Address::from_str(&token_transfer.receiver_addr).map_err(err_from!())?,
             token_transfer.chain_id as u64,
             None,
-            max_fee_per_gas,
-            priority_fee,
             sum,
         )
     };

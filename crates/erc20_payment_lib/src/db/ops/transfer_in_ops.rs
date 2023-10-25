@@ -11,17 +11,17 @@ pub async fn insert_transfer_in(
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
 ",
     )
-        .bind(&token_transfer.payment_id)
-        .bind(&token_transfer.from_addr)
-        .bind(&token_transfer.receiver_addr)
-        .bind(token_transfer.chain_id)
-        .bind(&token_transfer.token_addr)
-        .bind(&token_transfer.token_amount)
-        .bind(&token_transfer.tx_hash)
-        .bind(token_transfer.requested_date)
-        .bind(token_transfer.received_date)
-        .fetch_one(conn)
-        .await?;
+    .bind(&token_transfer.payment_id)
+    .bind(&token_transfer.from_addr)
+    .bind(&token_transfer.receiver_addr)
+    .bind(token_transfer.chain_id)
+    .bind(&token_transfer.token_addr)
+    .bind(&token_transfer.token_amount)
+    .bind(&token_transfer.tx_hash)
+    .bind(token_transfer.requested_date)
+    .bind(token_transfer.received_date)
+    .fetch_one(conn)
+    .await?;
     Ok(res)
 }
 

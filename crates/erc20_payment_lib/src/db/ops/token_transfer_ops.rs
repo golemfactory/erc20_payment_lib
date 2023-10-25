@@ -376,15 +376,10 @@ pub async fn get_transfer_count(
         .fetch_one(conn)
         .await?
     } else if let Some(receiver) = receiver {
-        sqlx::query_scalar::<_, i64>(
-            format!(
-                r"SELECT COUNT(*) FROM token_transfer WHERE {transfer_filter} AND receiver_addr = $1"
-            )
-            .as_str(),
-        )
-        .bind(receiver)
-        .fetch_one(conn)
-        .await?
+        sqlx::query_scalar::<_, i64>(format!(r"SELECT COUNT(*) FROM token_transfer WHERE {transfer_filter} AND receiver_addr = $1").as_str())
+            .bind(receiver)
+            .fetch_one(conn)
+            .await?
     } else {
         sqlx::query_scalar::<_, i64>(
             format!(r"SELECT COUNT(*) FROM token_transfer WHERE {transfer_filter}").as_str(),

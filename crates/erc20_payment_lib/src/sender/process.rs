@@ -59,10 +59,10 @@ pub async fn process_transaction(
 ) -> Result<(TxDao, ProcessTransactionResult), PaymentError> {
     const CHECKS_UNTIL_NOT_FOUND: u64 = 5;
 
-    let wait_duration = Duration::from_secs(payment_setup.process_sleep);
+    let gather_sleep = Duration::from_secs(payment_setup.gather_sleep);
 
     let chain_id = web3_tx_dao.chain_id;
-    let Ok(chain_setup) = payment_setup.get_chain_setup(chain_id) else {
+    let Some(chain_setup) = payment_setup.chain_setup.get(&chain_id) else {
         send_driver_event(
             &event_sender,
             DriverEventContent::TransactionFailed(TransactionFailedReason::InvalidChainId(
@@ -143,8 +143,16 @@ pub async fn process_transaction(
                 }
             }
         }
-        let max_fee_per_gas =
-            U256::from_dec_str(&web3_tx_dao.max_fee_per_gas).map_err(err_from!())?;
+        let mut max_fee_per_gas = if let Some(max_fee_per_gas) = &web3_tx_dao.max_fee_per_gas {
+            max_fee_per_gas.to_u256().map_err(err_from!())?
+        } else {
+            chain_setup.max_fee_per_gas
+        };
+        let max_priority_fee = if let Some(priority_fee) = &web3_tx_dao.priority_fee {
+            priority_fee.to_u256().map_err(err_from!())?
+        } else {
+            chain_setup.priority_fee
+        };
 
         if is_polygon_eco_mode {
             let blockchain_gas_price = web3
@@ -191,24 +199,24 @@ pub async fn process_transaction(
                 }
                 new_target_gas_u256
             };
-            let tx_priority_fee_u256 =
-                U256::from_dec_str(&web3_tx_dao.priority_fee).map_err(err_from!())?;
 
             //max_fee_per_gas cannot be lower than priority fee
-            if new_target_gas_u256 < tx_priority_fee_u256 {
-                new_target_gas_u256 = tx_priority_fee_u256;
+            if new_target_gas_u256 < max_priority_fee {
+                new_target_gas_u256 = max_priority_fee;
             }
 
             if new_target_gas_u256 * 11 < max_fee_per_gas * 10 {
-                log::warn!("Eco mode activated. Sending transaction with lower base fee. Blockchain base fee: {} Gwei, Tx base fee: {} Gwei",
+                log::warn!(
+                    "Eco mode activated. Sending transaction with lower base fee. Blockchain base fee: {} Gwei, Tx base fee: {} Gwei",
                     blockchain_gas_price.to_gwei().map_err(err_from!())?,
                     new_target_gas_u256.to_gwei().map_err(err_from!())?,
-                    );
+                );
 
-                web3_tx_dao.max_fee_per_gas = new_target_gas_u256.to_string();
+                max_fee_per_gas = new_target_gas_u256;
             }
         }
-
+        web3_tx_dao.max_fee_per_gas = Some(max_fee_per_gas.to_string());
+        web3_tx_dao.priority_fee = Some(max_priority_fee.to_string());
         web3_tx_dao.nonce = Some(nonce);
         nonce
     };
@@ -515,13 +523,20 @@ pub async fn process_transaction(
                         }
                     }
                     current_tx.orig_tx_id = None;
+                    //signed raw data is no longer needed
+                    current_tx.signed_raw_data = None;
                     update_tx(&mut *db_transaction, &current_tx)
                         .await
                         .map_err(err_from!())?;
                     db_transaction.commit().await.map_err(err_from!())?;
                     return Ok((current_tx.clone(), ProcessTransactionResult::Confirmed));
                 } else {
-                    log::info!("Waiting for confirmations: tx: {}. Current block {}, expected at least: {}", web3_tx_dao.id, current_block_number, block_number + chain_setup.confirmation_blocks);
+                    log::info!(
+                        "Waiting for confirmations: tx: {}. Current block {}, expected at least: {}",
+                        web3_tx_dao.id,
+                        current_block_number,
+                        block_number + chain_setup.confirmation_blocks
+                    );
                 }
             } else {
                 tx_not_found_count += 1;
@@ -557,9 +572,23 @@ pub async fn process_transaction(
             .await
             .map_err(err_from!())?;
 
-        let tx_fee_per_gas = web3_tx_dao.max_fee_per_gas.to_gwei().map_err(err_from!())?;
+        let max_tx_fee_per_gas_str =
+            web3_tx_dao
+                .max_fee_per_gas
+                .clone()
+                .ok_or(err_create!(TransactionFailedError::new(
+                    "Max fee per gas not found"
+                )))?;
+        let max_tx_priority_fee_str =
+            web3_tx_dao
+                .priority_fee
+                .clone()
+                .ok_or(err_create!(TransactionFailedError::new(
+                    "Priority fee not found"
+                )))?;
+        let tx_fee_per_gas = max_tx_fee_per_gas_str.to_gwei().map_err(err_from!())?;
         let max_fee_per_gas = chain_setup.max_fee_per_gas.to_gwei().map_err(err_from!())?;
-        let tx_pr_fee_u256 = web3_tx_dao.priority_fee.to_u256().map_err(err_from!())?;
+        let tx_pr_fee_u256 = max_tx_priority_fee_str.to_u256().map_err(err_from!())?;
         let tx_pr_fee = tx_pr_fee_u256.to_gwei().map_err(err_from!())?;
         let config_priority_fee = chain_setup.priority_fee.to_gwei().map_err(err_from!())?;
 
@@ -594,14 +623,14 @@ pub async fn process_transaction(
                     fee_per_gas_bumped_10 = true;
                     log::warn!(
                         "Transaction max fee bumped more than 10% from {} to {} for tx: {}",
-                        web3_tx_dao.max_fee_per_gas,
+                        max_tx_fee_per_gas_str,
                         chain_setup.max_fee_per_gas,
                         web3_tx_dao.id
                     );
                 } else {
                     log::warn!(
                         "Transaction max fee changed less than 10% more from {} to {} for tx: {}",
-                        web3_tx_dao.max_fee_per_gas,
+                        max_tx_fee_per_gas_str,
                         chain_setup.max_fee_per_gas,
                         web3_tx_dao.id
                     );
@@ -616,12 +645,17 @@ pub async fn process_transaction(
                     priority_fee_changed_10 = true;
                     log::warn!(
                         "Transaction priority fee bumped more than 10% from {} to {} for tx: {}",
-                        web3_tx_dao.priority_fee,
+                        max_tx_priority_fee_str,
                         chain_setup.priority_fee,
                         web3_tx_dao.id
                     );
                 } else {
-                    log::warn!("Transaction priority fee changed less than 10% more from {} to {} for tx: {}", web3_tx_dao.priority_fee, chain_setup.priority_fee, web3_tx_dao.id);
+                    log::warn!(
+                        "Transaction priority fee changed less than 10% more from {} to {} for tx: {}",
+                        max_tx_priority_fee_str,
+                        chain_setup.priority_fee,
+                        web3_tx_dao.id
+                    );
                 }
             }
 
@@ -659,8 +693,8 @@ pub async fn process_transaction(
                         to_addr: tx.to_addr.clone(),
                         chain_id: tx.chain_id,
                         gas_limit: tx.gas_limit,
-                        max_fee_per_gas: replacement_max_fee_per_gas.to_string(),
-                        priority_fee: replacement_priority_fee.to_string(),
+                        max_fee_per_gas: Some(replacement_max_fee_per_gas.to_string()),
+                        priority_fee: Some(replacement_priority_fee.to_string()),
                         val: tx.val.clone(),
                         nonce: tx.nonce,
                         processing: tx.processing,
@@ -730,7 +764,11 @@ pub async fn process_transaction(
             send_transaction(event_sender.clone(), web3, web3_tx_dao).await?;
             web3_tx_dao.broadcast_count += 1;
             update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
-            tokio::time::sleep(wait_duration).await;
+            log::warn!(
+                "Sleeping for {} seconds (process sleep after transaction send)",
+                gather_sleep.as_secs()
+            );
+            tokio::time::sleep(gather_sleep).await;
             continue;
         } else {
             //timeout transaction when it is not confirmed after transaction_timeout seconds
@@ -754,8 +792,13 @@ pub async fn process_transaction(
                                 .to_gwei()
                                 .map_err(err_from!())?;
 
+                            let max_tx_fee_per_gas_str =
+                                web3_tx_dao.max_fee_per_gas.clone().ok_or(err_create!(
+                                    TransactionFailedError::new("Max fee per gas not found")
+                                ))?;
+
                             let tx_max_fee_per_gas_gwei =
-                                web3_tx_dao.max_fee_per_gas.to_gwei().map_err(err_from!())?;
+                                max_tx_fee_per_gas_str.to_gwei().map_err(err_from!())?;
                             let assumed_min_priority_fee_gwei = if web3_tx_dao.chain_id == 137 {
                                 const POLYGON_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK: u32 = 30;
                                 Decimal::from(POLYGON_MIN_PRIORITY_FEE_FOR_GAS_PRICE_CHECK)
@@ -773,22 +816,23 @@ pub async fn process_transaction(
                                     > tx_max_fee_per_gas_gwei
                                 {
                                     send_driver_event(
-                                    &event_sender,
-                                    DriverEventContent::TransactionStuck(
-                                        TransactionStuckReason::GasPriceLow(
-                                            GasLowInfo {
-                                                tx: web3_tx_dao.clone(),
-                                                tx_max_fee_per_gas_gwei,
-                                                block_date,
-                                                block_number: block.number.unwrap().as_u64(),
-                                                block_base_fee_per_gas_gwei,
-                                                assumed_min_priority_fee_gwei,
-                                                user_friendly_message:
-                                                format!("Transaction not processed after {} seconds, block base fee per gas + priority fee: {} Gwei is greater than transaction max fee per gas: {} Gwei", chain_setup.transaction_timeout, block_base_fee_per_gas_gwei + assumed_min_priority_fee_gwei, tx_max_fee_per_gas_gwei),
-                                            }
+                                        &event_sender,
+                                        DriverEventContent::TransactionStuck(TransactionStuckReason::GasPriceLow(GasLowInfo {
+                                            tx: web3_tx_dao.clone(),
+                                            tx_max_fee_per_gas_gwei,
+                                            block_date,
+                                            block_number: block.number.unwrap().as_u64(),
+                                            block_base_fee_per_gas_gwei,
+                                            assumed_min_priority_fee_gwei,
+                                            user_friendly_message: format!(
+                                                "Transaction not processed after {} seconds, block base fee per gas + priority fee: {} Gwei is greater than transaction max fee per gas: {} Gwei",
+                                                chain_setup.transaction_timeout,
+                                                block_base_fee_per_gas_gwei + assumed_min_priority_fee_gwei,
+                                                tx_max_fee_per_gas_gwei
                                             ),
-                                ))
-                                .await;
+                                        })),
+                                    )
+                                    .await;
                                 }
                             }
                         }
@@ -802,6 +846,10 @@ pub async fn process_transaction(
         if !wait_for_confirmation {
             return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Unknown));
         }
-        tokio::time::sleep(wait_duration).await;
+        log::warn!(
+            "Sleeping for {} seconds (process sleep at the end of the loop)",
+            gather_sleep.as_secs()
+        );
+        tokio::time::sleep(gather_sleep).await;
     }
 }

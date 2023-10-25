@@ -1,6 +1,10 @@
 [engine]
-service-sleep = 10
-process-sleep = 10
+# service sleep is for internal runtime checks
+service-sleep = 5
+# process sleep is to set how often payments are gathered
+gather-sleep = 600
+# gather payments on payment driver start (otherwise wait for first gather-sleep)
+gather-at-start = true
 automatic-recover = false
 
 [chain.rinkeby]

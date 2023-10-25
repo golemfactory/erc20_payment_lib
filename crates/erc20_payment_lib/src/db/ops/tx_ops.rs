@@ -253,7 +253,9 @@ async fn tx_test() -> sqlx::Result<()> {
 
     let mut tx_to_insert = TxDao {
         id: -1,
-        tx_hash: Some("0x13d8a54dec1c0a30f1cd5129f690c3e27b9aadd59504957bad4d247966dadae7".to_string()),
+        tx_hash: Some(
+            "0x13d8a54dec1c0a30f1cd5129f690c3e27b9aadd59504957bad4d247966dadae7".to_string(),
+        ),
         signed_raw_data: None,
         signed_date: Some(chrono::Utc::now()),
         broadcast_date: Some(chrono::Utc::now()),
@@ -263,8 +265,8 @@ async fn tx_test() -> sqlx::Result<()> {
         to_addr: "0xbcfe9736a4f5bf2e43620061ff3001ea0d003c0f".to_string(),
         chain_id: 987789,
         gas_limit: Some(100000),
-        max_fee_per_gas: "110000000000".to_string(),
-        priority_fee: "5110000000000".to_string(),
+        max_fee_per_gas: Some("110000000000".to_string()),
+        priority_fee: Some("5110000000000".to_string()),
         val: "0".to_string(),
         nonce: Some(1),
         processing: 0,
@@ -278,7 +280,7 @@ async fn tx_test() -> sqlx::Result<()> {
         engine_message: None,
         engine_error: None,
         first_processed: None,
-        confirm_date: None
+        confirm_date: None,
     };
 
     let tx_from_insert = insert_tx(&conn, &tx_to_insert).await?;

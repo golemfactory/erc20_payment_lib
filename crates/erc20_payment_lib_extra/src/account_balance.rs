@@ -62,7 +62,7 @@ pub async fn account_balance(
             account_balance_options.chain_name
         ))?;
 
-    let payment_setup = PaymentSetup::new(config, vec![], true, false, false, 1, 1, false)?;
+    let payment_setup = PaymentSetup::new(config, vec![], true, false, false, 1, 1, false, false)?;
 
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
 
