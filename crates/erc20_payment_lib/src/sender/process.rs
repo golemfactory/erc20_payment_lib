@@ -199,11 +199,10 @@ pub async fn process_transaction(
                 }
                 new_target_gas_u256
             };
-            let tx_priority_fee_u256 = max_priority_fee;
 
             //max_fee_per_gas cannot be lower than priority fee
-            if new_target_gas_u256 < tx_priority_fee_u256 {
-                new_target_gas_u256 = tx_priority_fee_u256;
+            if new_target_gas_u256 < max_priority_fee {
+                new_target_gas_u256 = max_priority_fee;
             }
 
             if new_target_gas_u256 * 11 < max_fee_per_gas * 10 {
