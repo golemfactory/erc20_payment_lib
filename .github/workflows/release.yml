@@ -132,9 +132,14 @@ jobs:
           cp target/${{ matrix.target }}/release-lto/erc20_processor build/docker/erc20_processor
           cd build/docker
           docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
-          docker build --label "org.opencontainers.image.source=https://github.com/golemfactory/erc20_payment_lib" --label "org.opencontainers.image.description=Erc20 payment tool" --label "org.opencontainers.image.licenses=MIT" -t ghcr.io/golemfactory/erc20_processor:latest .
-          docker push ghcr.io/golemfactory/erc20_processor:latest
-          docker push ghcr.io/golemfactory/erc20_processor:${{ steps.version.outputs.version }}
+          docker build \
+            --label "org.opencontainers.image.source=https://github.com/golemfactory/erc20_payment_lib" \
+            --label "org.opencontainers.image.description=Erc20 payment processor binary in docker alpine" \
+            --label "org.opencontainers.image.licenses=MIT" \
+            -t ghcr.io/golemfactory/erc20_processor:latest \
+            ./Dockerfile
+          docker tag ghcr.io/golemfactory/erc20_processor:latest ghcr.io/golemfactory/erc20_processor:${{ steps.version.outputs.version }}
+          docker push --all-tags ghcr.io/golemfactory/erc20_processor
 
       - name: Compress binaries
         run: |
