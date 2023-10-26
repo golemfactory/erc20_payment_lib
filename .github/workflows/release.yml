@@ -125,10 +125,13 @@ jobs:
       - name: Create and push docker image
         if: matrix.os == 'linux'
         run: |
-          docker create --name build_container -t alpine
-          docker cp README.md build_container:/usr/bin
-          docker commit build_container golemfactory/erc20_processor:latest
-          docker build -t golemfactory/erc20_processor:latest
+          cp README.md /build/docker/erc20_processor
+          docker build \
+            --label "org.opencontainers.image.source=https://github.com/golemfactory/erc20_payment_lib" \
+            --label "org.opencontainers.image.description=Erc20 payment tool" \
+            --label "org.opencontainers.image.licenses=MIT" \ 
+            -t golemfactory/erc20_processor:latest \
+            /build/docker
           docker push ghcr.io/golemfactory/erc20_processor:latest
           docker push ghcr.io/golemfactory/erc20_processor:${{ steps.version.outputs.version }}
 
