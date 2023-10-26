@@ -59,8 +59,6 @@ pub async fn process_transaction(
 ) -> Result<(TxDao, ProcessTransactionResult), PaymentError> {
     const CHECKS_UNTIL_NOT_FOUND: u64 = 5;
 
-    let gather_interval = Duration::from_secs(payment_setup.gather_interval);
-
     let chain_id = web3_tx_dao.chain_id;
     let Some(chain_setup) = payment_setup.chain_setup.get(&chain_id) else {
         send_driver_event(
@@ -355,6 +353,10 @@ pub async fn process_transaction(
             web3_tx_dao.id,
             web3_tx_dao.tx_hash.clone().unwrap_or_default()
         );
+        tokio::time::sleep(Duration::from_secs(
+            payment_setup.process_interval_after_send,
+        ))
+        .await;
     }
 
     if web3_tx_dao.confirm_date.is_some() {
@@ -764,11 +766,10 @@ pub async fn process_transaction(
             send_transaction(event_sender.clone(), web3, web3_tx_dao).await?;
             web3_tx_dao.broadcast_count += 1;
             update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
-            log::warn!(
-                "Sleeping for {} seconds (process sleep after transaction send)",
-                gather_interval.as_secs()
-            );
-            tokio::time::sleep(gather_interval).await;
+            tokio::time::sleep(Duration::from_secs(
+                payment_setup.process_interval_after_send,
+            ))
+            .await;
             continue;
         } else {
             //timeout transaction when it is not confirmed after transaction_timeout seconds
@@ -846,10 +847,6 @@ pub async fn process_transaction(
         if !wait_for_confirmation {
             return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Unknown));
         }
-        log::warn!(
-            "Sleeping for {} seconds (process sleep at the end of the loop)",
-            gather_interval.as_secs()
-        );
-        tokio::time::sleep(gather_interval).await;
+        tokio::time::sleep(Duration::from_secs(payment_setup.process_interval)).await;
     }
 }

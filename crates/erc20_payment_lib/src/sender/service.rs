@@ -337,16 +337,19 @@ pub async fn process_transactions(
                     DriverEventContent::TransactionConfirmed(tx.clone()),
                 )
                 .await;
+                //proces next transaction without waiting
+                continue;
             }
             _ => {
                 shared_state.lock().await.current_tx_info.remove(&tx.id);
             }
         }
 
-        tokio::time::sleep(std::time::Duration::from_secs(
-            payment_setup.process_interval,
-        ))
-        .await;
+        log::debug!(
+            "Sleeping for {} seconds (process interval)",
+            payment_setup.process_interval
+        );
+        tokio::time::sleep(Duration::from_secs(payment_setup.process_interval)).await;
     }
     Ok(())
 }
@@ -382,7 +385,7 @@ pub async fn service_loop(
         .await
         {
             log::error!("Error in process transactions: {}", e);
-            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            tokio::time::sleep(Duration::from_secs(payment_setup.process_interval)).await;
             continue;
         }
 
@@ -394,88 +397,89 @@ pub async fn service_loop(
             last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
         if current_time < next_gather_time {
             log::info!(
-                "Transaction will be gathered in {} seconds",
+                "Payments will be gathered in {} seconds",
                 humantime::format_duration(Duration::from_secs(
                     (next_gather_time - current_time).num_seconds() as u64
                 ))
             );
-            tokio::time::sleep(Duration::from_secs(std::cmp::min(
-                60,
-                (next_gather_time - current_time).num_seconds() as u64,
-            )))
+            tokio::time::sleep(Duration::from_secs_f64(
+                (payment_setup.report_alive_interval as f64)
+                    .min((next_gather_time - current_time).num_milliseconds() as f64 / 1000.0),
+            ))
             .await;
-        } else {
-            log::info!("Gathering transfers...");
-            let mut token_transfer_map = match gather_transactions_pre(conn, payment_setup).await {
-                Ok(token_transfer_map) => token_transfer_map,
-                Err(e) => {
-                    log::error!("Error in gather transactions, driver will be stuck, Fix DB to continue {:?}", e);
-                    tokio::time::sleep(std::time::Duration::from_secs(
-                        payment_setup.process_interval,
-                    ))
-                    .await;
-                    continue;
-                }
-            };
+            continue;
+        }
 
-            match gather_transactions_post(
-                event_sender.clone(),
-                conn,
-                payment_setup,
-                &mut token_transfer_map,
-            )
-            .await
-            {
-                Ok(count) => {
-                    if count > 0 {
-                        process_tx_needed = true;
-                    } else {
-                        log::info!("No new transfers to process");
-                    }
+        log::info!("Gathering payments...");
+        let mut token_transfer_map = match gather_transactions_pre(conn, payment_setup).await {
+            Ok(token_transfer_map) => token_transfer_map,
+            Err(e) => {
+                log::error!(
+                    "Error in gather transactions, driver will be stuck, Fix DB to continue {:?}",
+                    e
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(
+                    payment_setup.process_interval_after_error,
+                ))
+                .await;
+                continue;
+            }
+        };
+
+        match gather_transactions_post(
+            event_sender.clone(),
+            conn,
+            payment_setup,
+            &mut token_transfer_map,
+        )
+        .await
+        {
+            Ok(count) => {
+                if count > 0 {
+                    process_tx_needed = true;
                 }
-                Err(e) => {
-                    match &e.inner {
-                        ErrorBag::NoAllowanceFound(allowance_request) => {
-                            log::info!(
-                                "No allowance found for contract {} to spend token {} for owner: {}",
-                                allowance_request.spender_addr,
-                                allowance_request.token_addr,
-                                allowance_request.owner
-                            );
-                            match process_allowance(conn, payment_setup, allowance_request, &signer)
-                                .await
-                            {
-                                Ok(_) => {
-                                    //process transaction instantly
-                                    shared_state.lock().await.idling = false;
-                                    continue;
-                                }
-                                Err(e) => {
-                                    log::error!("Error in process allowance: {}", e);
-                                }
+            }
+            Err(e) => {
+                match &e.inner {
+                    ErrorBag::NoAllowanceFound(allowance_request) => {
+                        log::info!(
+                            "No allowance found for contract {} to spend token {} for owner: {}",
+                            allowance_request.spender_addr,
+                            allowance_request.token_addr,
+                            allowance_request.owner
+                        );
+                        match process_allowance(conn, payment_setup, allowance_request, &signer)
+                            .await
+                        {
+                            Ok(_) => {
+                                //process transaction instantly
+                                shared_state.lock().await.idling = false;
+                                continue;
+                            }
+                            Err(e) => {
+                                log::error!("Error in process allowance: {}", e);
                             }
                         }
-                        _ => {
-                            log::error!("Error in gather transactions: {}", e);
-                        }
                     }
-                    //if error happened, we should check if partial transfers were inserted
-                    process_tx_needed = true;
-                    log::error!("Error in gather transactions: {}", e);
+                    _ => {
+                        log::error!("Error in gather transactions: {}", e);
+                    }
                 }
-            };
-            last_gather_time = current_time;
-            if payment_setup.finish_when_done && !process_tx_needed {
-                log::info!("No more work to do, exiting...");
-                break;
+                //if error happened, we should check if partial transfers were inserted
+                process_tx_needed = true;
+                log::error!("Error in gather transactions: {}", e);
             }
-            if !process_tx_needed {
-                log::info!("No work found for now...");
-                shared_state.lock().await.idling = true;
-            } else {
-                shared_state.lock().await.idling = false;
-            }
+        };
+        last_gather_time = current_time;
+        if payment_setup.finish_when_done && !process_tx_needed {
+            log::info!("No more work to do, exiting...");
+            break;
         }
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        if !process_tx_needed {
+            log::info!("No work found for now...");
+            shared_state.lock().await.idling = true;
+        } else {
+            shared_state.lock().await.idling = false;
+        }
     }
 }

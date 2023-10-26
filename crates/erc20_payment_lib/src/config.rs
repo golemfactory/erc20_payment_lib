@@ -47,6 +47,9 @@ impl AdditionalOptions {
 #[serde(rename_all = "kebab-case")]
 pub struct Engine {
     pub process_interval: u64,
+    pub process_interval_after_error: u64,
+    pub process_interval_after_send: u64,
+    pub report_alive_interval: u64,
     pub gather_interval: u64,
     pub gather_at_start: bool,
     pub automatic_recover: bool,
