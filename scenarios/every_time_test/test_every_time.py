@@ -2,18 +2,21 @@ import os
 import datetime
 import time
 
-last_run = datetime.datetime.now() - datetime.timedelta(minutes=10)
+delay_seconds = 600
+delay_delta = datetime.timedelta(seconds=delay_seconds)
+
+last_run = datetime.datetime.now() - delay_delta
+# last_run = datetime.datetime.now()
 
 command = "erc20_processor --version"
 print(command)
 os.system(command)
 
 while True:
-    time.sleep(1)
     now = datetime.datetime.now()
-    if now - last_run > datetime.timedelta(minutes=10):
+    if now - last_run > delay_delta:
         last_run = now
-        command = f"erc20_processor generate --random-receivers -n 1 -a"
+        command = f"erc20_processor generate --random-receivers -n 30 -a"
         print(command)
         os.system(command)
 
@@ -21,4 +24,5 @@ while True:
         print(command)
         os.system(command)
     else:
-        print(f"Waiting for {now - last_run}")
+        print(f"Waiting for {delay_delta - (now - last_run)}")
+    time.sleep(5)

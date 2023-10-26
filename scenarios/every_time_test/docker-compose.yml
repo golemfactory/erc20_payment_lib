@@ -6,8 +6,9 @@ services:
       dockerfile: ./Dockerfile
       args:
         - ERC20_PAYMENT_TAG=${ERC20_PAYMENT_TAG}
-    command: python test_every_time.py
+    command: python -u test_every_time.py
     environment:
       - RUST_BACKTRACE=1
       - PUBLIC_ADDRESS=${PUBLIC_ADDRESS}
       - ETH_PRIVATE_KEYS=${ETH_PRIVATE_KEYS}
+      - POLYGON_ECO_MODE=${POLYGON_ECO_MODE}
