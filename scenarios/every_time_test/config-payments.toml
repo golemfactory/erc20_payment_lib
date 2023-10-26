@@ -1,0 +1,95 @@
+[engine]
+# proces interval (in seconds) is to set how often we want to recheck transaction status
+# minimum 1 second, sensible maximum around 60 seconds
+process-interval = 15
+# proces interval after send (in seconds) is to set how long to wait after sending transaction before checking for confirmation
+# sensible minimum 20 seconds, sensible maximum around 60 seconds
+process-interval-after-send = 30
+# proces interval after error (in seconds) is to set how long to wait after encountering error before trying again
+# minimum 1 second, sensible maximum around 60 seconds
+process-interval-after-error = 25
+# report alive interval (in seconds) is to set how often we want to report that we are alive
+# minimum 1 second, maximum is capped by gather-interval
+report-alive-interval = 10
+# gather interval (in seconds) is to set how often payments are gathered
+# minimum 1 second, no maximum limit
+gather-interval = 60
+# gather payments on payment driver start (otherwise wait for first gather-interval)
+gather-at-start = true
+automatic-recover = false
+
+[chain.rinkeby]
+chain-name = "Rinkeby"
+chain-id = 4
+rpc-endpoints = ["http://geth.testnet.golem.network:55555"]
+currency-symbol = "tETH"
+priority-fee = 1.5111
+max-fee-per-gas = 500.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 100
+token = { address = "0xd94e3DC39d4Cad1DAd634e7eb585A57A19dC7EFE", symbol = "tGLM", max-at-once = 10 }
+confirmation-blocks = 1
+block-explorer-url = "https://rinkeby.etherscan.io"
+
+[chain.goerli]
+chain-name = "Goerli"
+chain-id = 5
+rpc-endpoints = ["https://ethereum-goerli-rpc.allthatnode.com",
+    "https://rpc.goerli.mudit.blog",
+    "https://rpc.slock.it/goerli",
+    "https://www.ethercluster.com/goerli",
+    "https://rpc.ankr.com/eth_goerli"]
+currency-symbol = "tETH"
+priority-fee = 1.5111
+max-fee-per-gas = 500.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 100
+token = { address = "0x33af15c79d64b85ba14aaffaa4577949104b22e8", symbol = "tGLM" }
+multi-contract = { address = "0x7777784f803a7bf1d7f115f849d29ce5706da64a", max-at-once = 10 }
+confirmation-blocks = 1
+block-explorer-url = "https://goerli.etherscan.io"
+
+[chain.mumbai]
+chain-name = "Mumbai testnet"
+chain-id = 80001
+rpc-endpoints = ["https://rpc-mumbai.maticvigil.com/v1/fd04db1066cae0f44d3461ae6d6a7cbbdd46e4a5"]
+# rpc-endpoints = ["http://127.0.0.1:8545"]
+currency-symbol = "tMATIC"
+priority-fee = 1.0
+max-fee-per-gas = 14.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 60
+token = { address = "0x2036807B0B3aaf5b1858EE822D0e111fDdac7018", symbol = "tGLM" }
+multi-contract = { address = "0x800010D7d0d315DCA795110ecCf0127cBd76b89f", max-at-once = 10 }
+confirmation-blocks = 1
+block-explorer-url = "https://mumbai.polygonscan.com"
+
+[chain.polygon]
+chain-name = "Polygon mainnet"
+chain-id = 137
+rpc-endpoints = ["https://polygon-rpc.com"]
+currency-symbol = "MATIC"
+priority-fee = 30.111
+max-fee-per-gas = 500.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 100
+token = { address = "0x0B220b82F3eA3B7F6d9A1D8ab58930C064A2b5Bf", symbol = "GLM" }
+# multi-contract = { address = "0x50100d4faf5f3b09987dea36dc2eddd57a3e561b", max-at-once = 10 }
+confirmation-blocks = 1
+block-explorer-url = "https://polygonscan.com"
+
+[chain.dev]
+chain-name = "Golem testnet"
+chain-id = 987789
+rpc-endpoints = ["http://145.239.69.80:8546/web3/erc20"]
+currency-symbol = "tETH"
+priority-fee = 1.1
+max-fee-per-gas = 500.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 100
+token = { address = "0xEC9F23c207018A444f9351dF3D7937f609870667", symbol = "tGLM" }
+multi-contract = { address = "0xBCfe9736A4f5bF2E43620061fF3001eA0D003c0F", max-at-once = 10 }
+confirmation-blocks = 1
+faucet-eth-amount = 10.0
+faucet-glm-amount = 20.0
+block-explorer-url = "http://145.239.69.80:4000"
