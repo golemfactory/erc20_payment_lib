@@ -125,7 +125,7 @@ jobs:
       - name: Create and push docker image
         if: matrix.os == 'linux'
         run: |
-          cp README.md /build/docker/erc20_processor
+          cp README.md build/docker/erc20_processor
           docker build \
             --label "org.opencontainers.image.source=https://github.com/golemfactory/erc20_payment_lib" \
             --label "org.opencontainers.image.description=Erc20 payment tool" \
