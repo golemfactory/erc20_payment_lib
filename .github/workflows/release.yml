@@ -94,7 +94,7 @@ jobs:
       - name: Extract version
         id: extract_version
         run: |
-          echo ::set-output name=version::${GITHUB_REF#refs/*/}
+          echo version::${GITHUB_REF#refs/*/} >> $GITHUB_OUTPUT
 
       - name: Print version
         run: |
