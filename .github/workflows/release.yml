@@ -4,6 +4,10 @@ on:
     tags:
       - "v*.*.*"
 
+permissions:
+  packages: write
+  contents: read
+
 jobs:
   create-release:
     name: Create Release
@@ -124,9 +128,9 @@ jobs:
           docker create --name build_container -t alpine
           docker cp README.md build_container:/usr/bin
           docker commit build_container golemfactory/erc20_processor:latest
-          docker tag golemfactory/erc20_processor:latest golemfactory/erc20_processor:${{ steps.version.outputs.version }}
-          docker push golemfactory/erc20_processor:latest
-          docker push golemfactory/erc20_processor:${{ steps.version.outputs.version }}
+          docker build -t golemfactory/erc20_processor:latest
+          docker push ghcr.io/golemfactory/erc20_processor:latest
+          docker push ghcr.io/golemfactory/erc20_processor:${{ steps.version.outputs.version }}
 
       - name: Build binary target/${{ matrix.target }}/release/erc20_processor
         run: |
