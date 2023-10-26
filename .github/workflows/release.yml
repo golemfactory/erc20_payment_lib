@@ -127,7 +127,7 @@ jobs:
           ${{ matrix.build-with }} build --profile release-lto --target ${{ matrix.target }}
 
       - name: Create and push docker image
-        if: matrix.os == 'linux'
+        if: matrix.os == 'linux' && matrix.cpu == 'x86_64'
         run: |
           cp target/${{ matrix.target }}/release-lto/erc20_processor build/docker/erc20_processor
           
@@ -136,7 +136,7 @@ jobs:
           
           # build with full metadata
           docker build \
-            --label "org.opencontainers.image.source=https://github.com/golemfactory/erc20_payment_lib" \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.description=Erc20 payment processor binary in docker alpine" \
             --label "org.opencontainers.image.licenses=MIT" \
             -t ghcr.io/golemfactory/erc20_processor:latest \

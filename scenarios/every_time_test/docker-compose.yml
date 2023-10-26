@@ -1,0 +1,8 @@
+
+services:
+  test:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+
+    command: python test_every_time.py
