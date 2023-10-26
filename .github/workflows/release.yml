@@ -92,13 +92,9 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Extract version
-        id: extract_version
+        id: version
         run: |
           echo version=${GITHUB_REF#refs/*/} >> $GITHUB_OUTPUT
-
-      - name: Print version
-        run: |
-          echo ${{ steps.extract_version.outputs.version }}
 
       - name: Update musl tools
         if: matrix.build-with == 'cargo' && matrix.os == 'linux'
@@ -126,10 +122,11 @@ jobs:
         if: matrix.os == 'linux'
         run: |
           docker create --name build_container -t alpine
-          docker cp README.md erc20_processor:/usr/bin
-          docker tag erc20_processor:latest erc20_processor:${{ github.sha }}
-          docker commit erc20_processor golemfactory/erc20_processor:${{ steps.extract_version.outputs.version }}
-          docker push erc20_processor:latest
+          docker cp README.md build_container:/usr/bin
+          docker commit build_container golemfactory/erc20_processor:latest
+          docker tag golemfactory/erc20_processor:latest golemfactory/erc20_processor:${{ steps.version.outputs.version }}
+          docker push golemfactory/erc20_processor:latest
+          docker push golemfactory/erc20_processor:${{ steps.version.outputs.version }}
 
       - name: Build binary target/${{ matrix.target }}/release/erc20_processor
         run: |
@@ -149,4 +146,4 @@ jobs:
           asset_name: erc20_processor-${{ matrix.os }}-${{ matrix.cpu }}.tar.xz
           tag: ${{ github.ref }}
           overwrite: true
-          body: "Release ${{ steps.extract_version.outputs.version }}"
+          body: "Release ${{ steps.version.outputs.version }}"
