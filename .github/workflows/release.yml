@@ -91,6 +91,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Extract version
+        id: extract_version
+        run: |
+          echo ::set-output name=version::${GITHUB_REF#refs/*/}
+
+      - name: Print version
+        run: |
+          echo ${{ steps.extract_version.outputs.version }}
+
       - name: Update musl tools
         if: matrix.build-with == 'cargo' && matrix.os == 'linux'
         run: |
