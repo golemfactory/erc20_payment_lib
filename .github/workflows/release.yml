@@ -4,6 +4,10 @@ on:
     tags:
       - "v*.*.*"
 
+permissions:
+  packages: write
+  contents: write
+
 jobs:
   create-release:
     name: Create Release
@@ -91,6 +95,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Extract version
+        id: version
+        run: |
+          echo version=${GITHUB_REF#refs/*/} >> $GITHUB_OUTPUT
+
       - name: Update musl tools
         if: matrix.build-with == 'cargo' && matrix.os == 'linux'
         run: |
@@ -117,6 +126,30 @@ jobs:
         run: |
           ${{ matrix.build-with }} build --profile release-lto --target ${{ matrix.target }}
 
+      - name: Create and push docker image
+        if: matrix.os == 'linux' && matrix.cpu == 'x86_64'
+        run: |
+          cp target/${{ matrix.target }}/release-lto/erc20_processor build/docker/erc20_processor
+          
+          # login to ghcr.io
+          docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          
+          # build with full metadata
+          docker build \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.description=Erc20 payment processor binary in docker alpine" \
+            --label "org.opencontainers.image.licenses=MIT" \
+            -t ghcr.io/golemfactory/erc20_processor:latest \
+            build/docker
+          
+          # tag image with the same tag as the release 
+          docker tag \
+            ghcr.io/golemfactory/erc20_processor:latest \
+            ghcr.io/golemfactory/erc20_processor:${{ steps.version.outputs.version }}
+
+          # push one image with two tags into repository
+          docker push --all-tags ghcr.io/golemfactory/erc20_processor
+
       - name: Compress binaries
         run: |
           # mv target/${{ matrix.target }}/release-lto/erc20_processor${{ matrix.exe }} target/${{ matrix.target }}/release-lto/erc20_processor${{ matrix.exe }}
@@ -130,4 +163,4 @@ jobs:
           asset_name: erc20_processor-${{ matrix.os }}-${{ matrix.cpu }}.tar.xz
           tag: ${{ github.ref }}
           overwrite: true
-          body: "Release ${{ github.ref }}"
+          body: "Release ${{ steps.version.outputs.version }}"
