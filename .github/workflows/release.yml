@@ -127,7 +127,7 @@ jobs:
         run: |
           cp README.md build/docker/erc20_processor
           cd build/docker
-
+          docker build --label "org.opencontainers.image.source=https://github.com/golemfactory/erc20_payment_lib" --label "org.opencontainers.image.description=Erc20 payment tool" --label "org.opencontainers.image.licenses=MIT" -t golemfactory/erc20_processor:latest .
           docker push ghcr.io/golemfactory/erc20_processor:latest
           docker push ghcr.io/golemfactory/erc20_processor:${{ steps.version.outputs.version }}
 
