@@ -130,7 +130,6 @@ jobs:
         if: matrix.os == 'linux'
         run: |
           cp target/${{ matrix.target }}/release-lto/erc20_processor build/docker/erc20_processor
-          cd build/docker
           
           # login to ghcr.io
           docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
@@ -141,7 +140,7 @@ jobs:
             --label "org.opencontainers.image.description=Erc20 payment processor binary in docker alpine" \
             --label "org.opencontainers.image.licenses=MIT" \
             -t ghcr.io/golemfactory/erc20_processor:latest \
-            ./Dockerfile
+            build/docker
           
           # tag image with the same tag as the release 
           docker tag \
