@@ -113,9 +113,21 @@ jobs:
         run: |
           cargo binstall cross -y
 
+      - name: Create and push docker image
+        if: matrix.os == 'linux'
+        run: |
+          tag = echo ${{ github.ref }} | sed 's/refs\/tags\///g'
+          echo $tag
+          docker create --name build_container -t alpine
+          docker cp README.md erc20_processor:/usr/bin
+          docker tag erc20_processor:latest erc20_processor:${{ github.sha }}
+          docker commit erc20_processor golemfactory/erc20_processor:${{tag}}
+          docker push erc20_processor:latest
+
       - name: Build binary target/${{ matrix.target }}/release/erc20_processor
         run: |
           ${{ matrix.build-with }} build --profile release-lto --target ${{ matrix.target }}
+
 
       - name: Compress binaries
         run: |
