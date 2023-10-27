@@ -393,20 +393,39 @@ pub async fn service_loop(
 
         //we should be here only when all pending transactions are processed
 
-        let next_gather_time =
-            last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
+        let next_gather_time = {
+            let mut shared_state = shared_state.lock().await;
+            let external_gather_time = shared_state.external_gather_time;
+
+            let mut next_gather_time =
+                last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
+
+            if let Some(external_gather_time) = external_gather_time {
+                if external_gather_time < next_gather_time {
+                    next_gather_time = external_gather_time;
+                }
+            }
+            if current_time >= next_gather_time {
+                shared_state.external_gather_time = None;
+            }
+            next_gather_time
+        };
+
         if current_time < next_gather_time {
             log::info!(
-                "Payments will be gathered in {} seconds",
+                "Payments will be gathered in {}",
                 humantime::format_duration(Duration::from_secs(
-                    (next_gather_time - current_time).num_seconds() as u64
+                    (next_gather_time - current_time)
+                        .num_seconds()
+                        .try_into()
+                        .unwrap_or(0)
                 ))
             );
-            tokio::time::sleep(Duration::from_secs_f64(
+            let sleep_time = Duration::from_secs_f64(
                 (payment_setup.report_alive_interval as f64)
                     .min((next_gather_time - current_time).num_milliseconds() as f64 / 1000.0),
-            ))
-            .await;
+            );
+            tokio::time::sleep(sleep_time).await;
             continue;
         }
 

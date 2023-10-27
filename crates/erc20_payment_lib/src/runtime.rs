@@ -116,6 +116,7 @@ pub struct SharedState {
     pub faucet: Option<FaucetData>,
     pub inserted: usize,
     pub idling: bool,
+    pub external_gather_time: Option<DateTime<Utc>>,
 }
 
 impl SharedState {
@@ -392,6 +393,7 @@ impl PaymentRuntime {
             idling: false,
             current_tx_info: BTreeMap::new(),
             faucet: None,
+            external_gather_time: None,
         }));
         let shared_state_clone = shared_state.clone();
         let conn_ = conn.clone();
