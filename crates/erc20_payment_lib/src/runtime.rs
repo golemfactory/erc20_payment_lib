@@ -370,6 +370,7 @@ impl PaymentRuntime {
             config.engine.report_alive_interval,
             config.engine.gather_interval,
             config.engine.gather_at_start,
+            config.engine.ignore_deadlines,
             config.engine.automatic_recover,
         )?;
         payment_setup.use_transfer_for_single_payment = options.use_transfer_for_single_payment;
