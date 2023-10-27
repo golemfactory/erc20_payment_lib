@@ -419,6 +419,16 @@ impl PaymentRuntime {
             }
         });
 
+        /* - use this to test notifies
+        let notify_ = notify.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(fastrand::u64(1..20))).await;
+                notify_.notify_one();
+            }
+        });
+         */
+
         Ok(PaymentRuntime {
             runtime_handle: jh,
             setup: payment_setup,

@@ -469,7 +469,7 @@ pub async fn service_loop(
                 }
                 let max_sleep_time = payment_setup.report_alive_interval as f64
                     - already_slept.num_milliseconds() as f64 / 1000.0;
-                if max_sleep_time < 0.0 {
+                if max_sleep_time <= 0.0 {
                     break;
                 }
                 let sleep_time = Duration::from_secs_f64(
@@ -478,11 +478,11 @@ pub async fn service_loop(
                 );
                 select! {
                     _ = tokio::time::sleep(sleep_time) => {
-                            break;
+                        log::debug!("Finished sleeping");
+                        break;
                     }
                     _ = wake.notified() => {
                         log::debug!("Woken up by external event");
-                            break;
                     }
                 }
             }
