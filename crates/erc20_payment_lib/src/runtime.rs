@@ -490,6 +490,7 @@ impl PaymentRuntime {
         tx_type: TransferType,
         amount: U256,
         payment_id: &str,
+        deadline: Option<DateTime<Utc>>,
     ) -> Result<(), PaymentError> {
         let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
             "Chain {} not found in config file",
@@ -516,6 +517,18 @@ impl PaymentRuntime {
         insert_token_transfer(&self.conn, &token_transfer)
             .await
             .map_err(err_from!())?;
+
+        if let Some(deadline) = deadline {
+            let mut s = self.shared_state.lock().await;
+
+            if let Some(external_gather_time) = s.external_gather_time {
+                if deadline < external_gather_time {
+                    s.external_gather_time = Some(deadline);
+                }
+            } else {
+                s.external_gather_time = Some(deadline);
+            }
+        }
 
         Ok(())
     }
