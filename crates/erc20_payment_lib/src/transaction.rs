@@ -4,7 +4,8 @@ use crate::error::*;
 use crate::eth::get_eth_addr_from_secret;
 use crate::multi::pack_transfers_for_multi_contract;
 use crate::runtime::{
-    send_driver_event, DriverEvent, DriverEventContent, NoGasDetails, TransactionStuckReason,
+    send_driver_event, DriverEvent, DriverEventContent, NoGasDetails, NoTokenDetails,
+    TransactionStuckReason,
 };
 use crate::signer::Signer;
 use crate::utils::{datetime_from_u256_timestamp, ConversionError};
@@ -504,18 +505,28 @@ pub async fn send_transaction(
             match e {
                 web3::Error::Rpc(e) => {
                     log::error!("Error sending transaction: {:#?}", e);
-                    if e.message.contains("insufficient funds") {
-                        send_driver_event(
-                            &event_sender,
-                            DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
-                                NoGasDetails {
-                                    tx: web3_tx_dao.clone(),
-                                    gas_balance: None,
-                                    gas_needed: None,
-                                },
-                            )),
-                        )
-                        .await;
+                    let event = if e.message.contains("insufficient funds") {
+                        Some(DriverEventContent::TransactionStuck(
+                            TransactionStuckReason::NoGas(NoGasDetails {
+                                tx: web3_tx_dao.clone(),
+                                gas_balance: None,
+                                gas_needed: None,
+                            }),
+                        ))
+                    } else if e.message.contains("transfer amount exceeds balance") {
+                        Some(DriverEventContent::TransactionStuck(
+                            TransactionStuckReason::NoToken(NoTokenDetails {
+                                tx: web3_tx_dao.clone(),
+                                token_balance: None,
+                                token_needed: None,
+                            }),
+                        ))
+                    } else {
+                        None
+                    };
+
+                    if let Some(event) = event {
+                        send_driver_event(&event_sender, event).await;
                     }
                 }
                 _ => {

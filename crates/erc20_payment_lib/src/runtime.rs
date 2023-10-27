@@ -64,9 +64,17 @@ pub struct NoGasDetails {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct NoTokenDetails {
+    pub tx: TxDao,
+    pub token_balance: Option<Decimal>,
+    pub token_needed: Option<Decimal>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 #[allow(clippy::large_enum_variant)]
 pub enum TransactionStuckReason {
     NoGas(NoGasDetails),
+    NoToken(NoTokenDetails),
     GasPriceLow(GasLowInfo),
     RPCEndpointProblems(String),
 }
@@ -181,6 +189,10 @@ pub enum StatusProperty {
         chain_id: i64,
         missing_gas: Option<Decimal>,
     },
+    NoToken {
+        chain_id: i64,
+        missing_token: Option<Decimal>,
+    },
 }
 
 struct StatusTracker {
@@ -224,6 +236,23 @@ impl StatusTracker {
                     NoGas {
                         chain_id: id2,
                         missing_gas: new_missing,
+                    },
+                ) if id1 == id2 => {
+                    if let (Some(old_missing), Some(new_missing)) = (old_missing, new_missing) {
+                        *old_missing += new_missing;
+                        return true;
+                    }
+                    return false;
+                }
+                // NoToken statuses add up
+                (
+                    NoToken {
+                        chain_id: id1,
+                        missing_token: old_missing,
+                    },
+                    NoToken {
+                        chain_id: id2,
+                        missing_token: new_missing,
                     },
                 ) if id1 == id2 => {
                     if let (Some(old_missing), Some(new_missing)) = (old_missing, new_missing) {
@@ -295,7 +324,22 @@ impl StatusTracker {
                             },
                         )
                     }
+                    DriverEventContent::TransactionStuck(TransactionStuckReason::NoToken(
+                        details,
+                    )) => {
+                        let missing_token = match (details.token_balance, details.token_needed) {
+                            (Some(balance), Some(needed)) => Some(needed - balance),
+                            _ => None,
+                        };
 
+                        Self::update(
+                            status2.lock().await.deref_mut(),
+                            StatusProperty::NoToken {
+                                chain_id: details.tx.chain_id,
+                                missing_token,
+                            },
+                        )
+                    }
                     DriverEventContent::TransferFinished(transaction_finished_info) => {
                         Self::clear_issues(
                             status2.lock().await.deref_mut(),
