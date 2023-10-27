@@ -542,17 +542,19 @@ impl PaymentRuntime {
             .await
             .map_err(err_from!())?;
 
-        if let Some(deadline) = deadline {
-            let mut s = self.shared_state.lock().await;
+        if !self.setup.ignore_deadlines {
+            if let Some(deadline) = deadline {
+                let mut s = self.shared_state.lock().await;
 
-            let new_time = s
-                .external_gather_time
-                .map(|t| t.min(deadline))
-                .unwrap_or(deadline);
+                let new_time = s
+                    .external_gather_time
+                    .map(|t| t.min(deadline))
+                    .unwrap_or(deadline);
 
-            if Some(new_time) != s.external_gather_time {
-                s.external_gather_time = Some(new_time);
-                self.wake.notify_one();
+                if Some(new_time) != s.external_gather_time {
+                    s.external_gather_time = Some(new_time);
+                    self.wake.notify_one();
+                }
             }
         }
 
