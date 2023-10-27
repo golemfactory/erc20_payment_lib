@@ -26,7 +26,7 @@ use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::Serialize;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
 use web3::transports::Http;
 use web3::types::{Address, H256, U256};
@@ -339,6 +339,7 @@ pub struct PaymentRuntime {
     pub runtime_handle: JoinHandle<()>,
     pub setup: PaymentSetup,
     pub shared_state: Arc<Mutex<SharedState>>,
+    pub wake: Arc<Notify>,
     conn: SqlitePool,
     status_tracker: StatusTracker,
     config: Config,
@@ -397,6 +398,8 @@ impl PaymentRuntime {
         }));
         let shared_state_clone = shared_state.clone();
         let conn_ = conn.clone();
+        let notify = Arc::new(Notify::new());
+        let notify_ = notify.clone();
         let jh = tokio::spawn(async move {
             if options.skip_service_loop && options.keep_running {
                 log::warn!("Started with skip_service_loop and keep_running, no transaction will be sent or processed");
@@ -404,7 +407,15 @@ impl PaymentRuntime {
                     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
                 }
             } else {
-                service_loop(shared_state_clone, &conn_, &ps, signer, Some(event_sender)).await
+                service_loop(
+                    shared_state_clone,
+                    notify_,
+                    &conn_,
+                    &ps,
+                    signer,
+                    Some(event_sender),
+                )
+                .await
             }
         });
 
@@ -412,6 +423,7 @@ impl PaymentRuntime {
             runtime_handle: jh,
             setup: payment_setup,
             shared_state,
+            wake: notify,
             conn,
             status_tracker,
             config,
@@ -482,6 +494,7 @@ impl PaymentRuntime {
         Ok(gas_balance)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn transfer(
         &self,
         chain_name: &str,
@@ -521,12 +534,14 @@ impl PaymentRuntime {
         if let Some(deadline) = deadline {
             let mut s = self.shared_state.lock().await;
 
-            if let Some(external_gather_time) = s.external_gather_time {
-                if deadline < external_gather_time {
-                    s.external_gather_time = Some(deadline);
-                }
-            } else {
-                s.external_gather_time = Some(deadline);
+            let new_time = s
+                .external_gather_time
+                .map(|t| t.min(deadline))
+                .unwrap_or(deadline);
+
+            if Some(new_time) != s.external_gather_time {
+                s.external_gather_time = Some(new_time);
+                self.wake.notify_one();
             }
         }
 
