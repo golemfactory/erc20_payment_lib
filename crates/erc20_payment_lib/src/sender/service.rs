@@ -3,7 +3,7 @@ use crate::db::ops::*;
 use crate::error::{ErrorBag, PaymentError};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Notify};
 
 use crate::sender::process::{process_transaction, ProcessTransactionResult};
 
@@ -397,6 +397,47 @@ async fn get_next_gather_time_and_clear_if_success(
     Some(next_gather_time)
 }
 
+async fn sleep_for_gather_time_or_report_alive(
+    wake: Arc<Notify>,
+    shared_state: Arc<Mutex<SharedState>>,
+    last_gather_time: chrono::DateTime<chrono::Utc>,
+    payment_setup: PaymentSetup,
+) {
+    let gather_transactions_interval = payment_setup.gather_interval as i64;
+    let started_sleep = chrono::Utc::now();
+    loop {
+        let current_time = chrono::Utc::now();
+        let already_slept = current_time - started_sleep;
+        let next_gather_time = get_next_gather_time(
+            shared_state.clone(),
+            last_gather_time,
+            gather_transactions_interval,
+        )
+        .await;
+        if current_time >= next_gather_time {
+            break;
+        }
+        let max_sleep_time = payment_setup.report_alive_interval as f64
+            - already_slept.num_milliseconds() as f64 / 1000.0;
+        if max_sleep_time <= 0.0 {
+            break;
+        }
+        let sleep_time = Duration::from_secs_f64(
+            max_sleep_time
+                .min((next_gather_time - current_time).num_milliseconds() as f64 / 1000.0),
+        );
+        select! {
+            _ = tokio::time::sleep(sleep_time) => {
+                log::debug!("Finished sleeping");
+                break;
+            }
+            _ = wake.notified() => {
+                log::debug!("Woken up by external event");
+            }
+        }
+    }
+}
+
 pub async fn service_loop(
     shared_state: Arc<Mutex<SharedState>>,
     wake: Arc<tokio::sync::Notify>,
@@ -454,39 +495,13 @@ pub async fn service_loop(
                         .unwrap_or(0)
                 ))
             );
-            let started_sleep = chrono::Utc::now();
-            loop {
-                let current_time = chrono::Utc::now();
-                let already_slept = current_time - started_sleep;
-                let next_gather_time = get_next_gather_time(
-                    shared_state.clone(),
-                    last_gather_time,
-                    gather_transactions_interval,
-                )
-                .await;
-                if current_time >= next_gather_time {
-                    break;
-                }
-                let max_sleep_time = payment_setup.report_alive_interval as f64
-                    - already_slept.num_milliseconds() as f64 / 1000.0;
-                if max_sleep_time <= 0.0 {
-                    break;
-                }
-                let sleep_time = Duration::from_secs_f64(
-                    max_sleep_time
-                        .min((next_gather_time - current_time).num_milliseconds() as f64 / 1000.0),
-                );
-                select! {
-                    _ = tokio::time::sleep(sleep_time) => {
-                        log::debug!("Finished sleeping");
-                        break;
-                    }
-                    _ = wake.notified() => {
-                        log::debug!("Woken up by external event");
-                    }
-                }
-            }
-
+            sleep_for_gather_time_or_report_alive(
+                wake.clone(),
+                shared_state.clone(),
+                last_gather_time,
+                payment_setup.clone(),
+            )
+            .await;
             continue;
         }
 
