@@ -46,6 +46,7 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
             gather_interval: 1,
             automatic_recover: false,
             gather_at_start: false,
+            ignore_deadlines: false,
         },
     }
 }

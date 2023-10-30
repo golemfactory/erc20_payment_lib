@@ -17,6 +17,8 @@ gather-interval = 60
 # gather payments on payment driver start (otherwise wait for first gather-interval)
 gather-at-start = true
 automatic-recover = false
+# set to true to not respect deadlines attached to payments
+ignore-deadlines = false
 
 [chain.rinkeby]
 chain-name = "Rinkeby"

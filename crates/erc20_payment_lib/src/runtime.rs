@@ -26,7 +26,7 @@ use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::Serialize;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
 use web3::transports::Http;
 use web3::types::{Address, H256, U256};
@@ -124,6 +124,7 @@ pub struct SharedState {
     pub faucet: Option<FaucetData>,
     pub inserted: usize,
     pub idling: bool,
+    pub external_gather_time: Option<DateTime<Utc>>,
 }
 
 impl SharedState {
@@ -382,6 +383,7 @@ pub struct PaymentRuntime {
     pub runtime_handle: JoinHandle<()>,
     pub setup: PaymentSetup,
     pub shared_state: Arc<Mutex<SharedState>>,
+    pub wake: Arc<Notify>,
     conn: SqlitePool,
     status_tracker: StatusTracker,
     config: Config,
@@ -412,6 +414,7 @@ impl PaymentRuntime {
             config.engine.report_alive_interval,
             config.engine.gather_interval,
             config.engine.gather_at_start,
+            config.engine.ignore_deadlines,
             config.engine.automatic_recover,
         )?;
         payment_setup.use_transfer_for_single_payment = options.use_transfer_for_single_payment;
@@ -436,9 +439,12 @@ impl PaymentRuntime {
             idling: false,
             current_tx_info: BTreeMap::new(),
             faucet: None,
+            external_gather_time: None,
         }));
         let shared_state_clone = shared_state.clone();
         let conn_ = conn.clone();
+        let notify = Arc::new(Notify::new());
+        let notify_ = notify.clone();
         let jh = tokio::spawn(async move {
             if options.skip_service_loop && options.keep_running {
                 log::warn!("Started with skip_service_loop and keep_running, no transaction will be sent or processed");
@@ -446,14 +452,33 @@ impl PaymentRuntime {
                     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
                 }
             } else {
-                service_loop(shared_state_clone, &conn_, &ps, signer, Some(event_sender)).await
+                service_loop(
+                    shared_state_clone,
+                    notify_,
+                    &conn_,
+                    &ps,
+                    signer,
+                    Some(event_sender),
+                )
+                .await
             }
         });
+
+        /* - use this to test notifies
+        let notify_ = notify.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(fastrand::u64(1..20))).await;
+                notify_.notify_one();
+            }
+        });
+         */
 
         Ok(PaymentRuntime {
             runtime_handle: jh,
             setup: payment_setup,
             shared_state,
+            wake: notify,
             conn,
             status_tracker,
             config,
@@ -524,6 +549,7 @@ impl PaymentRuntime {
         Ok(gas_balance)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub async fn transfer(
         &self,
         chain_name: &str,
@@ -532,6 +558,7 @@ impl PaymentRuntime {
         tx_type: TransferType,
         amount: U256,
         payment_id: &str,
+        deadline: Option<DateTime<Utc>>,
     ) -> Result<(), PaymentError> {
         let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
             "Chain {} not found in config file",
@@ -558,6 +585,22 @@ impl PaymentRuntime {
         insert_token_transfer(&self.conn, &token_transfer)
             .await
             .map_err(err_from!())?;
+
+        if !self.setup.ignore_deadlines {
+            if let Some(deadline) = deadline {
+                let mut s = self.shared_state.lock().await;
+
+                let new_time = s
+                    .external_gather_time
+                    .map(|t| t.min(deadline))
+                    .unwrap_or(deadline);
+
+                if Some(new_time) != s.external_gather_time {
+                    s.external_gather_time = Some(new_time);
+                    self.wake.notify_one();
+                }
+            }
+        }
 
         Ok(())
     }

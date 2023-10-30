@@ -304,6 +304,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 1,
                 false,
                 false,
+                false,
             )?;
             let chain_cfg = config
                 .chain

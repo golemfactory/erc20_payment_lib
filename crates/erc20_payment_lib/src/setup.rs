@@ -66,6 +66,7 @@ pub struct PaymentSetup {
     pub report_alive_interval: u64,
     pub gather_interval: u64,
     pub gather_at_start: bool,
+    pub ignore_deadlines: bool,
     pub automatic_recover: bool,
     pub contract_use_direct_method: bool,
     pub contract_use_unpacked_method: bool,
@@ -87,6 +88,7 @@ impl PaymentSetup {
         report_alive_interval: u64,
         gather_interval: u64,
         gather_at_start: bool,
+        ignore_deadlines: bool,
         automatic_recover: bool,
     ) -> Result<Self, PaymentError> {
         let mut ps = PaymentSetup {
@@ -102,6 +104,7 @@ impl PaymentSetup {
             report_alive_interval,
             gather_interval,
             gather_at_start,
+            ignore_deadlines,
             automatic_recover,
             contract_use_direct_method: false,
             contract_use_unpacked_method: false,

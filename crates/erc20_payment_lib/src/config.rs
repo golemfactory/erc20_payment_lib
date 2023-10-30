@@ -53,6 +53,7 @@ pub struct Engine {
     pub gather_interval: u64,
     pub gather_at_start: bool,
     pub automatic_recover: bool,
+    pub ignore_deadlines: bool,
 }
 
 #[derive(Deserialize, Debug, Clone)]

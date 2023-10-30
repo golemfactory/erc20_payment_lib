@@ -127,7 +127,9 @@ pub async fn transaction_from_chain_and_into_db(
 
     loop_no = 0;
     let token_balance = loop {
-        let call_data = encode_erc20_balance_of(glm_address).map_err(err_from!())?;
+        let call_data =
+            encode_erc20_balance_of(Address::from_str(&chain_tx_dao.from_addr).unwrap())
+                .map_err(err_from!())?;
         match web3
             .eth()
             .call(

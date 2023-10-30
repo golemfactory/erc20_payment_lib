@@ -3,7 +3,7 @@ use crate::db::ops::*;
 use crate::error::{ErrorBag, PaymentError};
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, Notify};
 
 use crate::sender::process::{process_transaction, ProcessTransactionResult};
 
@@ -18,6 +18,7 @@ use crate::setup::PaymentSetup;
 use crate::signer::Signer;
 use crate::{err_create, err_custom_create, err_from};
 use sqlx::SqlitePool;
+use tokio::select;
 use web3::types::U256;
 
 pub async fn update_token_transfer_result(
@@ -354,8 +355,92 @@ pub async fn process_transactions(
     Ok(())
 }
 
+async fn get_next_gather_time(
+    shared_state: Arc<Mutex<SharedState>>,
+    last_gather_time: chrono::DateTime<chrono::Utc>,
+    gather_transactions_interval: i64,
+) -> chrono::DateTime<chrono::Utc> {
+    let shared_state = shared_state.lock().await;
+    let external_gather_time = shared_state.external_gather_time;
+
+    let next_gather_time =
+        last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
+
+    if let Some(external_gather_time) = external_gather_time {
+        std::cmp::min(external_gather_time, next_gather_time)
+    } else {
+        next_gather_time
+    }
+}
+
+async fn get_next_gather_time_and_clear_if_success(
+    shared_state: Arc<Mutex<SharedState>>,
+    last_gather_time: chrono::DateTime<chrono::Utc>,
+    gather_transactions_interval: i64,
+) -> Option<chrono::DateTime<chrono::Utc>> {
+    let mut shared_state = shared_state.lock().await;
+    let external_gather_time = shared_state.external_gather_time;
+
+    let next_gather_time =
+        last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
+
+    let next_gather_time = if let Some(external_gather_time) = external_gather_time {
+        std::cmp::min(external_gather_time, next_gather_time)
+    } else {
+        next_gather_time
+    };
+
+    if chrono::Utc::now() >= next_gather_time {
+        shared_state.external_gather_time = None;
+        return None;
+    }
+    Some(next_gather_time)
+}
+
+async fn sleep_for_gather_time_or_report_alive(
+    wake: Arc<Notify>,
+    shared_state: Arc<Mutex<SharedState>>,
+    last_gather_time: chrono::DateTime<chrono::Utc>,
+    payment_setup: PaymentSetup,
+) {
+    let gather_transactions_interval = payment_setup.gather_interval as i64;
+    let started_sleep = chrono::Utc::now();
+    loop {
+        let current_time = chrono::Utc::now();
+        let already_slept = current_time - started_sleep;
+        let next_gather_time = get_next_gather_time(
+            shared_state.clone(),
+            last_gather_time,
+            gather_transactions_interval,
+        )
+        .await;
+        if current_time >= next_gather_time {
+            break;
+        }
+        let max_sleep_time = payment_setup.report_alive_interval as f64
+            - already_slept.num_milliseconds() as f64 / 1000.0;
+        if max_sleep_time <= 0.0 {
+            break;
+        }
+        let sleep_time = Duration::from_secs_f64(
+            max_sleep_time
+                .min((next_gather_time - current_time).num_milliseconds() as f64 / 1000.0),
+        );
+        select! {
+            _ = tokio::time::sleep(sleep_time) => {
+                log::debug!("Finished sleeping");
+                break;
+            }
+            _ = wake.notified() => {
+                log::debug!("Woken up by external event");
+            }
+        }
+    }
+}
+
 pub async fn service_loop(
     shared_state: Arc<Mutex<SharedState>>,
+    wake: Arc<tokio::sync::Notify>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
     signer: impl Signer + Send + Sync + 'static,
@@ -393,19 +478,29 @@ pub async fn service_loop(
 
         //we should be here only when all pending transactions are processed
 
-        let next_gather_time =
-            last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
-        if current_time < next_gather_time {
+        let next_gather_time = get_next_gather_time_and_clear_if_success(
+            shared_state.clone(),
+            last_gather_time,
+            gather_transactions_interval,
+        )
+        .await;
+
+        if let Some(next_gather_time) = next_gather_time {
             log::info!(
-                "Payments will be gathered in {} seconds",
+                "Payments will be gathered in {}",
                 humantime::format_duration(Duration::from_secs(
-                    (next_gather_time - current_time).num_seconds() as u64
+                    (next_gather_time - current_time)
+                        .num_seconds()
+                        .try_into()
+                        .unwrap_or(0)
                 ))
             );
-            tokio::time::sleep(Duration::from_secs_f64(
-                (payment_setup.report_alive_interval as f64)
-                    .min((next_gather_time - current_time).num_milliseconds() as f64 / 1000.0),
-            ))
+            sleep_for_gather_time_or_report_alive(
+                wake.clone(),
+                shared_state.clone(),
+                last_gather_time,
+                payment_setup.clone(),
+            )
             .await;
             continue;
         }

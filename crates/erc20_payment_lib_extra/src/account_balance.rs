@@ -75,6 +75,7 @@ pub async fn account_balance(
         1,
         false,
         false,
+        false,
     )?;
 
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
