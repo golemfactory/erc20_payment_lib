@@ -30,11 +30,22 @@ use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::import_erc20_txs;
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 
+use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::utils::DecimalConvExt;
+use rand::Rng;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::ethabi::ethereum_types::Address;
+
+fn check_address_name(n: &str) -> &str {
+    match n {
+        "funds" => "0x333dFEa0C940Dc9971C32C69837aBE14207F9097",
+        "dead" => "0x000000000000000000000000000000000000dEaD",
+        "null" => "0x0000000000000000000000000000000000000000",
+        _ => n,
+    }
+}
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -188,6 +199,18 @@ async fn main_internal() -> Result<(), PaymentError> {
                 sp.runtime_handle.await.unwrap();
             }
         }
+        PaymentCommands::GenerateKey {
+            generate_key_options,
+        } => {
+            log::info!("Generating private keys...");
+
+            let res = gen_private_keys(generate_key_options.number_of_keys)?;
+
+            for key in res.1.iter().enumerate() {
+                println!("# PUBLIC_ADDRESS_{}: {:#x}", key.0, key.1);
+            }
+            println!("ETH_PRIVATE_KEYS={}", res.0.join(","));
+        }
         PaymentCommands::Transfer {
             single_transfer_options,
         } => {
@@ -215,6 +238,9 @@ async fn main_internal() -> Result<(), PaymentError> {
                 ));
             };
 
+            let recipient =
+                Address::from_str(check_address_name(&single_transfer_options.recipient)).unwrap();
+
             let public_addr = public_addrs.get(0).expect("No public address found");
             let mut db_transaction = conn.begin().await.unwrap();
             let mut tt = insert_token_transfer(
@@ -226,7 +252,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                         "{:#x}",
                         single_transfer_options.from.unwrap_or(*public_addr)
                     ),
-                    receiver_addr: format!("{:#x}", single_transfer_options.recipient),
+                    receiver_addr: format!("{:#x}", recipient),
                     chain_id: chain_cfg.chain_id,
                     token_addr: token,
                     token_amount: single_transfer_options
@@ -243,6 +269,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             )
             .await
             .unwrap();
+
             let payment_id = format!("{}_transfer_{}", single_transfer_options.token, tt.id);
             tt.payment_id = Some(payment_id.clone());
             update_token_transfer(&mut *db_transaction, &tt)

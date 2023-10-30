@@ -80,21 +80,32 @@ pub struct RunOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Generate private key options")]
+pub struct GenerateKeyOptions {
+    #[structopt(short = "n", long = "number-of-keys", default_value = "5")]
+    pub number_of_keys: usize,
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Single transfer options")]
 pub struct TransferOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
     pub chain_name: String,
 
-    #[structopt(long = "recipient", help = "Recipient")]
-    pub recipient: Address,
+    #[structopt(short = "r", long = "recipient", help = "Recipient")]
+    pub recipient: String,
 
-    #[structopt(long = "from", help = "From")]
+    #[structopt(long = "from", help = "From (has to have private key)")]
     pub from: Option<Address>,
 
     #[structopt(long = "token", help = "Token", default_value = "glm", possible_values = &["glm", "eth", "matic"])]
     pub token: String,
 
-    #[structopt(long = "amount", help = "Amount")]
+    #[structopt(
+        short = "a",
+        long = "amount",
+        help = "Amount (decimal, full precision, i.e. 0.01)"
+    )]
     pub amount: rust_decimal::Decimal,
 }
 
@@ -228,6 +239,10 @@ pub enum PaymentCommands {
     Generate {
         #[structopt(flatten)]
         generate_options: GenerateOptions,
+    },
+    GenerateKey {
+        #[structopt(flatten)]
+        generate_key_options: GenerateKeyOptions,
     },
     Transfer {
         #[structopt(flatten)]
