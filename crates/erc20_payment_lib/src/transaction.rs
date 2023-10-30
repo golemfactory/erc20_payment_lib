@@ -3,9 +3,12 @@ use crate::db::model::*;
 use crate::error::*;
 use crate::eth::get_eth_addr_from_secret;
 use crate::multi::pack_transfers_for_multi_contract;
-use crate::runtime::{get_unpaid_token_amount, send_driver_event, DriverEvent, DriverEventContent, NoGasDetails, NoTokenDetails, TransactionStuckReason, get_token_balance};
+use crate::runtime::{
+    get_token_balance, get_unpaid_token_amount, send_driver_event, DriverEvent, DriverEventContent,
+    NoGasDetails, NoTokenDetails, TransactionStuckReason,
+};
 use crate::signer::Signer;
-use crate::utils::{datetime_from_u256_timestamp, ConversionError, U256ConvExt};
+use crate::utils::{datetime_from_u256_timestamp, ConversionError, StringConvExt, U256ConvExt};
 use crate::{err_custom_create, err_from};
 use chrono::Utc;
 use secp256k1::SecretKey;
@@ -510,8 +513,25 @@ pub async fn send_transaction(
                         Some(DriverEventContent::TransactionStuck(
                             TransactionStuckReason::NoGas(NoGasDetails {
                                 tx: web3_tx_dao.clone(),
-                                gas_balance: None,
-                                gas_needed: None,
+                                gas_balance: web3
+                                    .eth()
+                                    .balance(
+                                        Address::from_str(&web3_tx_dao.from_addr)
+                                            .map_err(err_from!())?,
+                                        None,
+                                    )
+                                    .await
+                                    .map_err(err_from!())?
+                                    .to_eth()
+                                    .map_err(err_from!())?,
+                                gas_needed: (web3_tx_dao
+                                    .max_fee_per_gas
+                                    .clone()
+                                    .ok_or(err_custom_create!("Expected max fee per gas here"))?
+                                    .to_u256()
+                                    .map_err(err_from!())?
+                                     * U256::from(web3_tx_dao.gas_limit.ok_or(err_custom_create!("Expected gas limit here"))?)).to_eth()
+                                    .map_err(err_from!())?,
                             }),
                         ))
                     } else if e.message.contains("transfer amount exceeds balance") {
@@ -520,9 +540,15 @@ pub async fn send_transaction(
                                 tx: web3_tx_dao.clone(),
                                 sender: Address::from_str(&web3_tx_dao.from_addr)
                                     .map_err(err_from!())?,
-                                token_balance: get_token_balance(web3, glm_token, Address::from_str(&web3_tx_dao.from_addr)
-                                    .map_err(err_from!())?).await?.to_eth()
-                                    .map_err(err_from!())?,
+                                token_balance: get_token_balance(
+                                    web3,
+                                    glm_token,
+                                    Address::from_str(&web3_tx_dao.from_addr)
+                                        .map_err(err_from!())?,
+                                )
+                                .await?
+                                .to_eth()
+                                .map_err(err_from!())?,
                                 token_needed: get_unpaid_token_amount(
                                     conn,
                                     web3_tx_dao.chain_id,
@@ -530,9 +556,9 @@ pub async fn send_transaction(
                                     Address::from_str(&web3_tx_dao.from_addr)
                                         .map_err(err_from!())?,
                                 )
-                                    .await?
-                                    .to_eth()
-                                    .map_err(err_from!())?,
+                                .await?
+                                .to_eth()
+                                .map_err(err_from!())?,
                             }),
                         ))
                     } else {

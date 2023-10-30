@@ -295,8 +295,8 @@ pub async fn process_transaction(
                             DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
                                 NoGasDetails {
                                     tx: web3_tx_dao.clone(),
-                                    gas_balance: Some(gas_balance.to_eth().map_err(err_from!())?),
-                                    gas_needed: Some(res.to_eth().map_err(err_from!())?),
+                                    gas_balance: gas_balance.to_eth().map_err(err_from!())?,
+                                    gas_needed: res.to_eth().map_err(err_from!())?,
                                 },
                             )),
                         )

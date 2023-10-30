@@ -7,7 +7,7 @@ use crate::signer::Signer;
 use crate::transaction::{create_token_transfer, find_receipt_extended};
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
-use std::ops::{DerefMut};
+use std::ops::DerefMut;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -61,8 +61,8 @@ pub struct GasLowInfo {
 #[derive(Debug, Clone, Serialize)]
 pub struct NoGasDetails {
     pub tx: TxDao,
-    pub gas_balance: Option<Decimal>,
-    pub gas_needed: Option<Decimal>,
+    pub gas_balance: Decimal,
+    pub gas_needed: Decimal,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -191,7 +191,7 @@ pub enum StatusProperty {
     },
     NoGas {
         chain_id: i64,
-        missing_gas: Option<Decimal>,
+        missing_gas: Decimal,
     },
     NoToken {
         chain_id: i64,
@@ -242,11 +242,8 @@ impl StatusTracker {
                         missing_gas: new_missing,
                     },
                 ) if id1 == id2 => {
-                    if let (Some(old_missing), Some(new_missing)) = (old_missing, new_missing) {
-                        *old_missing = *new_missing;
-                        return true;
-                    }
-                    return false;
+                    *old_missing = *new_missing;
+                    return true;
                 }
                 // NoToken statuses add up
                 (
@@ -312,10 +309,7 @@ impl StatusTracker {
                     DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
                         details,
                     )) => {
-                        let missing_gas = match (details.gas_balance, details.gas_needed) {
-                            (Some(balance), Some(needed)) => Some(needed - balance),
-                            _ => None,
-                        };
+                        let missing_gas = details.gas_balance - details.gas_needed;
 
                         Self::update(
                             status2.lock().await.deref_mut(),
@@ -691,8 +685,7 @@ pub async fn get_token_balance(
     token_address: Address,
     address: Address,
 ) -> Result<U256, PaymentError> {
-    let balance_result =
-        crate::eth::get_balance(web3, Some(token_address), address, true).await?;
+    let balance_result = crate::eth::get_balance(web3, Some(token_address), address, true).await?;
 
     let token_balance = balance_result
         .token_balance

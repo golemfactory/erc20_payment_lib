@@ -38,8 +38,8 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
                         TransactionStuckReason::NoGas(no_gas_details) => {
                             log::info!("No gas: {no_gas_details:?}");
                             //assert!(no_gas_details.)
-                            assert_eq!(no_gas_details.gas_needed, Some(Decimal::from_str("0.000128100002345678").unwrap()));
-                            assert_eq!(no_gas_details.gas_balance, Some(Decimal::from_str("0.000128").unwrap()));
+                            assert_eq!(no_gas_details.gas_needed, Decimal::from_str("0.000128100002345678").unwrap());
+                            assert_eq!(no_gas_details.gas_balance, Decimal::from_str("0.000128").unwrap());
                             missing_gas_message_count += 1;
                         },
                         _ => {
