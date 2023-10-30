@@ -509,61 +509,65 @@ pub async fn send_transaction(
             match e {
                 web3::Error::Rpc(e) => {
                     log::error!("Error sending transaction: {:#?}", e);
-                    let event = if e.message.contains("insufficient funds") {
-                        Some(DriverEventContent::TransactionStuck(
-                            TransactionStuckReason::NoGas(NoGasDetails {
-                                tx: web3_tx_dao.clone(),
-                                gas_balance: web3
-                                    .eth()
-                                    .balance(
-                                        Address::from_str(&web3_tx_dao.from_addr)
-                                            .map_err(err_from!())?,
-                                        None,
-                                    )
-                                    .await
-                                    .map_err(err_from!())?
+                    let event =
+                        if e.message.contains("insufficient funds") {
+                            Some(DriverEventContent::TransactionStuck(
+                                TransactionStuckReason::NoGas(NoGasDetails {
+                                    tx: web3_tx_dao.clone(),
+                                    gas_balance: web3
+                                        .eth()
+                                        .balance(
+                                            Address::from_str(&web3_tx_dao.from_addr)
+                                                .map_err(err_from!())?,
+                                            None,
+                                        )
+                                        .await
+                                        .map_err(err_from!())?
+                                        .to_eth()
+                                        .map_err(err_from!())?,
+                                    gas_needed: (web3_tx_dao
+                                        .max_fee_per_gas
+                                        .clone()
+                                        .ok_or(err_custom_create!("Expected max fee per gas here"))?
+                                        .to_u256()
+                                        .map_err(err_from!())?
+                                        * U256::from(web3_tx_dao.gas_limit.ok_or(
+                                            err_custom_create!("Expected gas limit here"),
+                                        )?))
                                     .to_eth()
                                     .map_err(err_from!())?,
-                                gas_needed: (web3_tx_dao
-                                    .max_fee_per_gas
-                                    .clone()
-                                    .ok_or(err_custom_create!("Expected max fee per gas here"))?
-                                    .to_u256()
-                                    .map_err(err_from!())?
-                                     * U256::from(web3_tx_dao.gas_limit.ok_or(err_custom_create!("Expected gas limit here"))?)).to_eth()
-                                    .map_err(err_from!())?,
-                            }),
-                        ))
-                    } else if e.message.contains("transfer amount exceeds balance") {
-                        Some(DriverEventContent::TransactionStuck(
-                            TransactionStuckReason::NoToken(NoTokenDetails {
-                                tx: web3_tx_dao.clone(),
-                                sender: Address::from_str(&web3_tx_dao.from_addr)
-                                    .map_err(err_from!())?,
-                                token_balance: get_token_balance(
-                                    web3,
-                                    glm_token,
-                                    Address::from_str(&web3_tx_dao.from_addr)
+                                }),
+                            ))
+                        } else if e.message.contains("transfer amount exceeds balance") {
+                            Some(DriverEventContent::TransactionStuck(
+                                TransactionStuckReason::NoToken(NoTokenDetails {
+                                    tx: web3_tx_dao.clone(),
+                                    sender: Address::from_str(&web3_tx_dao.from_addr)
                                         .map_err(err_from!())?,
-                                )
-                                .await?
-                                .to_eth()
-                                .map_err(err_from!())?,
-                                token_needed: get_unpaid_token_amount(
-                                    conn,
-                                    web3_tx_dao.chain_id,
-                                    glm_token,
-                                    Address::from_str(&web3_tx_dao.from_addr)
-                                        .map_err(err_from!())?,
-                                )
-                                .await?
-                                .to_eth()
-                                .map_err(err_from!())?,
-                            }),
-                        ))
-                    } else {
-                        None
-                    };
+                                    token_balance: get_token_balance(
+                                        web3,
+                                        glm_token,
+                                        Address::from_str(&web3_tx_dao.from_addr)
+                                            .map_err(err_from!())?,
+                                    )
+                                    .await?
+                                    .to_eth()
+                                    .map_err(err_from!())?,
+                                    token_needed: get_unpaid_token_amount(
+                                        conn,
+                                        web3_tx_dao.chain_id,
+                                        glm_token,
+                                        Address::from_str(&web3_tx_dao.from_addr)
+                                            .map_err(err_from!())?,
+                                    )
+                                    .await?
+                                    .to_eth()
+                                    .map_err(err_from!())?,
+                                }),
+                            ))
+                        } else {
+                            None
+                        };
 
                     if let Some(event) = event {
                         send_driver_event(&event_sender, event).await;

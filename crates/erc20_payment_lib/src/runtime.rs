@@ -499,25 +499,13 @@ impl PaymentRuntime {
                 "Chain {} not found in config file",
                 chain_name
             ))?;
-        let transfers = get_unpaid_token_transfers(&self.conn, chain_cfg.chain_id, sender)
-            .await
-            .map_err(err_from!())?;
-        let mut sum = U256::default();
-        for transfer in transfers {
-            if let Some(token_addr) = transfer.token_addr {
-                let token_addr = Address::from_str(&token_addr).map_err(err_from!())?;
-                if token_addr != chain_cfg.token.address {
-                    return Err(err_custom_create!(
-                        "Token address mismatch table token_transfer: {} != {}, id: {}",
-                        transfer.id,
-                        token_addr,
-                        chain_cfg.token.address
-                    ));
-                }
-                sum += transfer.token_amount.to_u256().map_err(err_from!())?
-            }
-        }
-        Ok(sum)
+        get_unpaid_token_amount(
+            self.conn.clone(),
+            chain_cfg.chain_id,
+            chain_cfg.token.address,
+            sender,
+        )
+        .await
     }
 
     pub async fn get_token_balance(
@@ -538,14 +526,7 @@ impl PaymentRuntime {
 
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
-        let balance_result =
-            crate::eth::get_balance(web3, Some(token_address), address, true).await?;
-
-        let token_balance = balance_result
-            .token_balance
-            .ok_or(err_custom_create!("get_balance didn't yield token_balance"))?;
-
-        Ok(token_balance)
+        get_token_balance(web3, token_address, address).await
     }
 
     pub async fn get_gas_balance(
@@ -681,7 +662,7 @@ pub struct VerifyTransactionResult {
 }
 
 pub async fn get_token_balance(
-    web3: &web3::Web3<web3::transports::Http>,
+    web3: &Web3<Http>,
     token_address: Address,
     address: Address,
 ) -> Result<U256, PaymentError> {
