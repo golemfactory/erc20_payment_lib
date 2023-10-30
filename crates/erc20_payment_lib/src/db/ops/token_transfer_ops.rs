@@ -162,6 +162,24 @@ AND error is null
     Ok(rows)
 }
 
+pub async fn get_unpaid_token_transfers(
+    conn: &SqlitePool,
+    chain_id: i64,
+    sender: Address,
+) -> Result<Vec<TokenTransferDao>, sqlx::Error> {
+    sqlx::query_as::<_, TokenTransferDao>(
+        r"SELECT * FROM token_transfer
+WHERE fee_paid is null
+AND chain_id = $1
+AND from_addr = $2
+",
+    )
+    .bind(chain_id)
+    .bind(format!("{:#x}", sender))
+    .fetch_all(conn)
+    .await
+}
+
 pub async fn get_token_transfers_by_tx<'c, E>(
     executor: E,
     tx_id: i64,

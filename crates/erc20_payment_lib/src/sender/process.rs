@@ -345,7 +345,14 @@ pub async fn process_transaction(
             .lock()
             .await
             .set_tx_message(web3_tx_dao.id, "Sending transaction".to_string());
-        send_transaction(event_sender.clone(), web3, web3_tx_dao).await?;
+        send_transaction(
+            conn.clone(),
+            chain_setup.glm_address,
+            event_sender.clone(),
+            web3,
+            web3_tx_dao,
+        )
+        .await?;
         web3_tx_dao.broadcast_count += 1;
         update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
         log::info!(
@@ -763,7 +770,14 @@ pub async fn process_transaction(
                 .await
                 .set_tx_message(web3_tx_dao.id, "Resending transaction".to_string());
 
-            send_transaction(event_sender.clone(), web3, web3_tx_dao).await?;
+            send_transaction(
+                conn.clone(),
+                chain_setup.glm_address,
+                event_sender.clone(),
+                web3,
+                web3_tx_dao,
+            )
+            .await?;
             web3_tx_dao.broadcast_count += 1;
             update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
             tokio::time::sleep(Duration::from_secs(

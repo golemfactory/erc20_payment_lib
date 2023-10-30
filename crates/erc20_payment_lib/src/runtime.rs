@@ -1,12 +1,13 @@
 use crate::db::create_sqlite_connection;
 use crate::db::ops::{
-    cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx, insert_token_transfer,
+    cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx, get_unpaid_token_transfers,
+    insert_token_transfer,
 };
 use crate::signer::Signer;
 use crate::transaction::{create_token_transfer, find_receipt_extended};
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
-use std::ops::DerefMut;
+use std::ops::{DerefMut};
 use std::path::Path;
 use std::str::FromStr;
 
@@ -22,6 +23,7 @@ use tokio::sync::mpsc::Sender;
 use crate::config::AdditionalOptions;
 use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
 use crate::sender::service_loop;
+use crate::utils::StringConvExt;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::Serialize;
@@ -66,8 +68,9 @@ pub struct NoGasDetails {
 #[derive(Debug, Clone, Serialize)]
 pub struct NoTokenDetails {
     pub tx: TxDao,
-    pub token_balance: Option<Decimal>,
-    pub token_needed: Option<Decimal>,
+    pub sender: Address,
+    pub token_balance: Decimal,
+    pub token_needed: Decimal,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -192,7 +195,7 @@ pub enum StatusProperty {
     },
     NoToken {
         chain_id: i64,
-        missing_token: Option<Decimal>,
+        missing_token: Decimal,
     },
 }
 
@@ -240,7 +243,7 @@ impl StatusTracker {
                     },
                 ) if id1 == id2 => {
                     if let (Some(old_missing), Some(new_missing)) = (old_missing, new_missing) {
-                        *old_missing += new_missing;
+                        *old_missing = *new_missing;
                         return true;
                     }
                     return false;
@@ -256,11 +259,8 @@ impl StatusTracker {
                         missing_token: new_missing,
                     },
                 ) if id1 == id2 => {
-                    if let (Some(old_missing), Some(new_missing)) = (old_missing, new_missing) {
-                        *old_missing += new_missing;
-                        return true;
-                    }
-                    return false;
+                    *old_missing = *new_missing;
+                    return true;
                 }
                 _ => {}
             }
@@ -328,11 +328,7 @@ impl StatusTracker {
                     DriverEventContent::TransactionStuck(TransactionStuckReason::NoToken(
                         details,
                     )) => {
-                        let missing_token = match (details.token_balance, details.token_needed) {
-                            (Some(balance), Some(needed)) => Some(needed - balance),
-                            _ => None,
-                        };
-
+                        let missing_token = details.token_needed - details.token_balance;
                         Self::update(
                             status2.lock().await.deref_mut(),
                             StatusProperty::NoToken {
@@ -496,6 +492,40 @@ impl PaymentRuntime {
         Ok(web3.clone())
     }
 
+    pub async fn get_unpaid_token_amount(
+        &self,
+        chain_name: String,
+        sender: Address,
+    ) -> Result<U256, PaymentError> {
+        let chain_cfg = self
+            .config
+            .chain
+            .get(&chain_name)
+            .ok_or(err_custom_create!(
+                "Chain {} not found in config file",
+                chain_name
+            ))?;
+        let transfers = get_unpaid_token_transfers(&self.conn, chain_cfg.chain_id, sender)
+            .await
+            .map_err(err_from!())?;
+        let mut sum = U256::default();
+        for transfer in transfers {
+            if let Some(token_addr) = transfer.token_addr {
+                let token_addr = Address::from_str(&token_addr).map_err(err_from!())?;
+                if token_addr != chain_cfg.token.address {
+                    return Err(err_custom_create!(
+                        "Token address mismatch table token_transfer: {} != {}, id: {}",
+                        transfer.id,
+                        token_addr,
+                        chain_cfg.token.address
+                    ));
+                }
+                sum += transfer.token_amount.to_u256().map_err(err_from!())?
+            }
+        }
+        Ok(sum)
+    }
+
     pub async fn get_token_balance(
         &self,
         chain_name: String,
@@ -654,6 +684,48 @@ impl PaymentRuntime {
 pub struct VerifyTransactionResult {
     pub verified: bool,
     pub reason: Option<String>,
+}
+
+pub async fn get_token_balance(
+    web3: &web3::Web3<web3::transports::Http>,
+    token_address: Address,
+    address: Address,
+) -> Result<U256, PaymentError> {
+    let balance_result =
+        crate::eth::get_balance(web3, Some(token_address), address, true).await?;
+
+    let token_balance = balance_result
+        .token_balance
+        .ok_or(err_custom_create!("get_balance didn't yield token_balance"))?;
+
+    Ok(token_balance)
+}
+
+pub async fn get_unpaid_token_amount(
+    conn: SqlitePool,
+    chain_id: i64,
+    token_address: Address,
+    sender: Address,
+) -> Result<U256, PaymentError> {
+    let transfers = get_unpaid_token_transfers(&conn, chain_id, sender)
+        .await
+        .map_err(err_from!())?;
+    let mut sum = U256::default();
+    for transfer in transfers {
+        if let Some(token_addr) = transfer.token_addr {
+            let token_addr = Address::from_str(&token_addr).map_err(err_from!())?;
+            if token_addr != token_address {
+                return Err(err_custom_create!(
+                    "Token address mismatch table token_transfer: {} != {}, id: {}",
+                    transfer.id,
+                    token_addr,
+                    token_address
+                ));
+            }
+            sum += transfer.token_amount.to_u256().map_err(err_from!())?
+        }
+    }
+    Ok(sum)
 }
 
 // This is for now very limited check. It needs lot more work to be complete

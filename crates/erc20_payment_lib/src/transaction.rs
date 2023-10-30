@@ -3,15 +3,13 @@ use crate::db::model::*;
 use crate::error::*;
 use crate::eth::get_eth_addr_from_secret;
 use crate::multi::pack_transfers_for_multi_contract;
-use crate::runtime::{
-    send_driver_event, DriverEvent, DriverEventContent, NoGasDetails, NoTokenDetails,
-    TransactionStuckReason,
-};
+use crate::runtime::{get_unpaid_token_amount, send_driver_event, DriverEvent, DriverEventContent, NoGasDetails, NoTokenDetails, TransactionStuckReason, get_token_balance};
 use crate::signer::Signer;
-use crate::utils::{datetime_from_u256_timestamp, ConversionError};
+use crate::utils::{datetime_from_u256_timestamp, ConversionError, U256ConvExt};
 use crate::{err_custom_create, err_from};
 use chrono::Utc;
 use secp256k1::SecretKey;
+use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::str::FromStr;
 use web3::transports::Http;
@@ -486,6 +484,8 @@ pub async fn sign_transaction_with_callback(
 }
 
 pub async fn send_transaction(
+    conn: SqlitePool,
+    glm_token: Address,
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     web3: &Web3<Http>,
     web3_tx_dao: &mut TxDao,
@@ -498,6 +498,7 @@ pub async fn send_transaction(
         );
         let result = web3.eth().send_raw_transaction(bytes).await;
         web3_tx_dao.broadcast_date = Some(chrono::Utc::now());
+
         if let Err(e) = result {
             //if e.message.contains("insufficient funds") {
             //    send_driver_event(&event_sender, DriverEvent::InsufficientFunds).await;
@@ -517,8 +518,21 @@ pub async fn send_transaction(
                         Some(DriverEventContent::TransactionStuck(
                             TransactionStuckReason::NoToken(NoTokenDetails {
                                 tx: web3_tx_dao.clone(),
-                                token_balance: None,
-                                token_needed: None,
+                                sender: Address::from_str(&web3_tx_dao.from_addr)
+                                    .map_err(err_from!())?,
+                                token_balance: get_token_balance(web3, glm_token, Address::from_str(&web3_tx_dao.from_addr)
+                                    .map_err(err_from!())?).await?.to_eth()
+                                    .map_err(err_from!())?,
+                                token_needed: get_unpaid_token_amount(
+                                    conn,
+                                    web3_tx_dao.chain_id,
+                                    glm_token,
+                                    Address::from_str(&web3_tx_dao.from_addr)
+                                        .map_err(err_from!())?,
+                                )
+                                    .await?
+                                    .to_eth()
+                                    .map_err(err_from!())?,
                             }),
                         ))
                     } else {
