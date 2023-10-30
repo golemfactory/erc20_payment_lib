@@ -363,15 +363,14 @@ async fn get_next_gather_time(
     let shared_state = shared_state.lock().await;
     let external_gather_time = shared_state.external_gather_time;
 
-    let mut next_gather_time =
+    let next_gather_time =
         last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
 
     if let Some(external_gather_time) = external_gather_time {
-        if external_gather_time < next_gather_time {
-            next_gather_time = external_gather_time;
-        }
+        std::cmp::min(external_gather_time, next_gather_time)
+    } else {
+        next_gather_time
     }
-    next_gather_time
 }
 
 async fn get_next_gather_time_and_clear_if_success(
@@ -382,14 +381,15 @@ async fn get_next_gather_time_and_clear_if_success(
     let mut shared_state = shared_state.lock().await;
     let external_gather_time = shared_state.external_gather_time;
 
-    let mut next_gather_time =
+    let next_gather_time =
         last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
 
-    if let Some(external_gather_time) = external_gather_time {
-        if external_gather_time < next_gather_time {
-            next_gather_time = external_gather_time;
-        }
-    }
+    let next_gather_time = if let Some(external_gather_time) = external_gather_time {
+        std::cmp::min(external_gather_time, next_gather_time)
+    } else {
+        next_gather_time
+    };
+
     if chrono::Utc::now() >= next_gather_time {
         shared_state.external_gather_time = None;
         return None;
