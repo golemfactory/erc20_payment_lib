@@ -651,9 +651,19 @@ impl PaymentRuntime {
     }
 }
 
-pub struct VerifyTransactionResult {
-    pub verified: bool,
-    pub reason: Option<String>,
+pub enum VerifyTransactionResult {
+    Verified { amount: U256 },
+    Rejected(String),
+}
+
+impl VerifyTransactionResult {
+    pub fn verified(&self) -> bool {
+        matches!(self, Self::Verified { .. })
+    }
+
+    pub fn rejected(&self) -> bool {
+        matches!(self, Self::Rejected { .. })
+    }
 }
 
 // This is for now very limited check. It needs lot more work to be complete
@@ -678,13 +688,10 @@ pub async fn verify_transaction(
             if Address::from_str(&transfer.receiver_addr).map_err(err_from!())? == receiver
                 && Address::from_str(&transfer.from_addr).map_err(err_from!())? == sender
             {
-                return if U256::from_dec_str(&transfer.token_amount).map_err(err_from!())? >= amount
-                {
+                let tx_amount = U256::from_dec_str(&transfer.token_amount).map_err(err_from!())?;
+                return if tx_amount >= amount {
                     log::info!("Transaction found and verified: {}", tx_hash);
-                    Ok(VerifyTransactionResult {
-                        verified: true,
-                        reason: None,
-                    })
+                    Ok(VerifyTransactionResult::Verified { amount: tx_amount })
                 } else {
                     log::warn!(
                         "Transaction found but amount insufficient: {}: {}/{}",
@@ -692,23 +699,20 @@ pub async fn verify_transaction(
                         transfer.token_amount,
                         amount
                     );
-                    Ok(VerifyTransactionResult {
-                        verified: false,
-                        reason: Some("Transaction found but amount insufficient".to_string()),
-                    })
+                    Ok(VerifyTransactionResult::Rejected(
+                        "Transaction found but amount insufficient".to_string(),
+                    ))
                 };
             }
         }
         log::warn!("Transaction found but not matching: {}", tx_hash);
-        Ok(VerifyTransactionResult {
-            verified: false,
-            reason: Some("Transaction found but not matching".to_string()),
-        })
+        Ok(VerifyTransactionResult::Rejected(
+            "Transaction found but not matching".to_string(),
+        ))
     } else {
-        Ok(VerifyTransactionResult {
-            verified: false,
-            reason: Some("Transaction not found".to_string()),
-        })
+        Ok(VerifyTransactionResult::Rejected(
+            "Transaction not found".to_string(),
+        ))
     }
 }
 
