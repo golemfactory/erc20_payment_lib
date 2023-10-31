@@ -32,7 +32,6 @@ use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::utils::DecimalConvExt;
-use rand::Rng;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
