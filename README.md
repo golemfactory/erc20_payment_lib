@@ -13,7 +13,7 @@ https://github.com/scx1332/erc20_driver_frontend
 
 ETH_PRIVATE_KEY=0000000000000000000000000000000000000000000000000000000000000000
 PROVIDER_URL=https://rpc-mumbai.matic.today
-RUST_LOG=debug,sqlx::query=warn,web=warn
+RUST_LOG=debug,sqlx::query=info,web=warn
 
 # Sample runs
 

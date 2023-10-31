@@ -177,6 +177,28 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $
     Ok(res)
 }
 
+pub async fn update_processing_and_first_processed_tx<'c, E>(
+    executor: E,
+    tx: &TxDao,
+) -> Result<TxDao, sqlx::Error>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let _res = sqlx::query(
+        r"UPDATE tx SET
+processing = $2,
+first_processed = $3
+WHERE id = $1
+",
+    )
+        .bind(tx.id)
+        .bind(tx.processing)
+        .bind(tx.first_processed)
+        .execute(executor)
+        .await?;
+    Ok(tx.clone())
+}
+
 pub async fn update_tx<'c, E>(executor: E, tx: &TxDao) -> Result<TxDao, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,

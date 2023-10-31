@@ -50,7 +50,7 @@ async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
     env::set_var(
         "RUST_LOG",
-        env::var("RUST_LOG").unwrap_or("info,sqlx::query=warn,web3=warn".to_string()),
+        env::var("RUST_LOG").unwrap_or("info,sqlx::query=info,web3=warn".to_string()),
     );
 
     env_logger::init();

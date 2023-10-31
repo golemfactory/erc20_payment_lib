@@ -500,7 +500,7 @@ impl PaymentRuntime {
                 chain_name
             ))?;
         get_unpaid_token_amount(
-            self.conn.clone(),
+            &self.conn,
             chain_cfg.chain_id,
             chain_cfg.token.address,
             sender,
@@ -676,12 +676,12 @@ pub async fn get_token_balance(
 }
 
 pub async fn get_unpaid_token_amount(
-    conn: SqlitePool,
+    conn: &SqlitePool,
     chain_id: i64,
     token_address: Address,
     sender: Address,
 ) -> Result<U256, PaymentError> {
-    let transfers = get_unpaid_token_transfers(&conn, chain_id, sender)
+    let transfers = get_unpaid_token_transfers(conn, chain_id, sender)
         .await
         .map_err(err_from!())?;
     let mut sum = U256::default();

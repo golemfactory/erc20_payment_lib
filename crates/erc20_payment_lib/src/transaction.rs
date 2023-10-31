@@ -359,25 +359,41 @@ pub fn create_erc20_approve(
     })
 }
 
+pub async fn get_no_token_details(web3: &Web3<Http>, conn: &SqlitePool, web3_tx_dao: &TxDao, glm_token: Address) -> Result<NoTokenDetails, PaymentError> {
+    Ok(NoTokenDetails {
+        tx: web3_tx_dao.clone(),
+        sender: Address::from_str(&web3_tx_dao.from_addr)
+            .map_err(err_from!())?,
+        token_balance: get_token_balance(
+            web3,
+            glm_token,
+            Address::from_str(&web3_tx_dao.from_addr)
+                .map_err(err_from!())?,
+        )
+            .await?
+            .to_eth()
+            .map_err(err_from!())?,
+        token_needed: get_unpaid_token_amount(
+            conn,
+            web3_tx_dao.chain_id,
+            glm_token,
+            Address::from_str(&web3_tx_dao.from_addr)
+                .map_err(err_from!())?,
+        )
+            .await?
+            .to_eth()
+            .map_err(err_from!())?,
+    })
+}
+
 pub async fn check_transaction(
+    event_sender: &Option<tokio::sync::mpsc::Sender<DriverEvent>>,
+    conn: &SqlitePool,
+    glm_token: Address,
     web3: &Web3<Http>,
     web3_tx_dao: &mut TxDao,
-) -> Result<U256, PaymentError> {
+) -> Result<Option<U256>, PaymentError> {
     let call_request = dao_to_call_request(web3_tx_dao)?;
-    if let Some(gas) = call_request.gas {
-        log::debug!(
-            "Check transaction without gas estimation: {:?}",
-            call_request
-        );
-        let _resp = web3
-            .eth()
-            .call(call_request, None)
-            .await
-            .map_err(err_from!())?;
-
-        log::info!("Using already set gas limit: {gas}");
-        Ok(U256::zero())
-    } else {
         log::debug!("Check transaction with gas estimation: {:?}", call_request);
         let mut loc_call_request = call_request.clone();
         loc_call_request.max_fee_per_gas = None;
@@ -385,16 +401,33 @@ pub async fn check_transaction(
         let gas_est = match web3.eth().estimate_gas(loc_call_request, None).await {
             Ok(gas_est) => gas_est,
             Err(e) => {
-                if e.to_string().contains("gas required exceeds allowance") {
+                let event = if e.to_string().contains("gas required exceeds allowance") {
                     log::error!("Gas estimation failed - probably insufficient funds: {}", e);
                     return Err(err_custom_create!(
                         "Gas estimation failed - probably insufficient funds"
                     ));
-                }
-                return Err(err_custom_create!(
-                    "Gas estimation failed due to unknown error {}",
-                    e
-                ));
+                } else if e.to_string().contains("transfer amount exceeds balance") {
+                    log::warn!("Transfer amount exceed balance. Getting details...");
+                    match get_no_token_details(web3, conn, web3_tx_dao, glm_token).await {
+                        Ok(stuck_reason) => {
+                            log::warn!("Got details. needed: {} balance: {}. needed - balance: {}", stuck_reason.token_needed, stuck_reason.token_balance, stuck_reason.token_needed - stuck_reason.token_balance);
+                            DriverEventContent::TransactionStuck(TransactionStuckReason::NoToken(stuck_reason))
+                        }
+                        Err(e) => {
+                            return Err(err_custom_create!(
+                                "Error during getting details about amount exceeds balance error {}",
+                                e
+                            ));
+                        }
+                    }
+                } else {
+                    return Err(err_custom_create!(
+                        "Gas estimation failed due to unknown error {}",
+                        e
+                    ));
+                };
+                send_driver_event(event_sender, event).await;
+                return Ok(None);
             }
         };
 
@@ -417,8 +450,7 @@ pub async fn check_transaction(
         .map_err(err_from!())?;
         let gas_needed_for_tx = U256::from_dec_str(&web3_tx_dao.val).map_err(err_from!())?;
         let maximum_gas_needed = gas_needed_for_tx + gas_limit * max_fee_per_gas;
-        Ok(maximum_gas_needed)
-    }
+        Ok(Some(maximum_gas_needed))
 }
 
 pub async fn sign_transaction_deprecated(
@@ -487,12 +519,13 @@ pub async fn sign_transaction_with_callback(
 }
 
 pub async fn send_transaction(
-    conn: SqlitePool,
+    conn: &SqlitePool,
     glm_token: Address,
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     web3: &Web3<Http>,
     web3_tx_dao: &mut TxDao,
 ) -> Result<(), PaymentError> {
+    return Err(err_custom_create!("No signed raw datadd"));
     if let Some(signed_raw_data) = web3_tx_dao.signed_raw_data.as_ref() {
         let bytes = Bytes(
             hex::decode(signed_raw_data)

@@ -34,7 +34,7 @@ pub async fn common_geth_init() -> TestHelper {
 async fn init_once() -> Arc<Mutex<GethContainer>> {
     env::set_var(
         "RUST_LOG",
-        env::var("RUST_LOG").unwrap_or("info,sqlx::query=warn,web3=warn".to_string()),
+        env::var("RUST_LOG").unwrap_or("info,sqlx::query=info,web3=warn".to_string()),
     );
     env_logger::init();
     Arc::new(Mutex::new(

@@ -1,7 +1,4 @@
-use crate::db::ops::{
-    delete_tx, get_transaction, get_transaction_highest_nonce, insert_tx, remap_token_transfer_tx,
-    update_tx,
-};
+use crate::db::ops::{delete_tx, get_transaction, get_transaction_highest_nonce, insert_tx, remap_token_transfer_tx, update_processing_and_first_processed_tx, update_tx};
 use crate::error::PaymentError;
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
@@ -38,6 +35,7 @@ pub enum ProcessTransactionResult {
     Replaced,
     NeedRetry(String),
     InternalError(String),
+    DoNotSave,
     Unknown,
 }
 
@@ -68,7 +66,7 @@ pub async fn process_transaction(
             )),
         )
         .await;
-        return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Unknown));
+        return Ok((web3_tx_dao.clone(), ProcessTransactionResult::DoNotSave));
     };
 
     let is_polygon_eco_mode = chain_setup.chain_id == 137 && get_env_bool_value("POLYGON_ECO_MODE");
@@ -266,7 +264,8 @@ pub async fn process_transaction(
         }
     } else {
         web3_tx_dao.first_processed = Some(chrono::Utc::now());
-        update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
+        web3_tx_dao.processing = 1;
+        update_processing_and_first_processed_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
     }
 
     if web3_tx_dao.signed_raw_data.is_none() {
@@ -276,9 +275,13 @@ pub async fn process_transaction(
                 .lock()
                 .await
                 .set_tx_message(web3_tx_dao.id, "Checking transaction".to_string());
-            log::info!("Checking transaction {}", web3_tx_dao.id);
-            match check_transaction(web3, web3_tx_dao).await {
+            log::info!("Check and estimate gas for tx id: {}", web3_tx_dao.id);
+            match check_transaction(&event_sender, conn, chain_setup.glm_address, web3, web3_tx_dao).await {
                 Ok(res) => {
+                    let Some(res) = res else {
+                        //check cannot be done right now
+                        return Ok((web3_tx_dao.clone(), ProcessTransactionResult::DoNotSave));
+                    };
                     let gas_balance = web3
                         .eth()
                         .balance(from_addr, None)
@@ -301,11 +304,7 @@ pub async fn process_transaction(
                             )),
                         )
                         .await;
-                        return Err(err_custom_create!(
-                            "Gas balance too low for gas {} - vs needed: {}",
-                            gas_balance.to_eth().map_err(err_from!())?,
-                            res.to_eth().map_err(err_from!())?
-                        ));
+                        return Ok((web3_tx_dao.clone(), ProcessTransactionResult::DoNotSave));
                     }
                 }
                 Err(err) => {
@@ -346,7 +345,7 @@ pub async fn process_transaction(
             .await
             .set_tx_message(web3_tx_dao.id, "Sending transaction".to_string());
         send_transaction(
-            conn.clone(),
+            conn,
             chain_setup.glm_address,
             event_sender.clone(),
             web3,
@@ -771,7 +770,7 @@ pub async fn process_transaction(
                 .set_tx_message(web3_tx_dao.id, "Resending transaction".to_string());
 
             send_transaction(
-                conn.clone(),
+                conn,
                 chain_setup.glm_address,
                 event_sender.clone(),
                 web3,

@@ -72,7 +72,7 @@ chain-id = 137
 rpc-endpoints = ["https://polygon-rpc.com"]
 currency-symbol = "MATIC"
 priority-fee = 30.111
-max-fee-per-gas = 500.0
+max-fee-per-gas = 150.0
 gas-left-warning-limit = 1000000
 transaction-timeout = 100
 token = { address = "0x0B220b82F3eA3B7F6d9A1D8ab58930C064A2b5Bf", symbol = "GLM" }
