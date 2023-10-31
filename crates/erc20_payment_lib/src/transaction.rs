@@ -525,7 +525,6 @@ pub async fn send_transaction(
     web3: &Web3<Http>,
     web3_tx_dao: &mut TxDao,
 ) -> Result<(), PaymentError> {
-    return Err(err_custom_create!("No signed raw datadd"));
     if let Some(signed_raw_data) = web3_tx_dao.signed_raw_data.as_ref() {
         let bytes = Bytes(
             hex::decode(signed_raw_data)
@@ -599,6 +598,9 @@ pub async fn send_transaction(
                                 .map_err(err_from!())?,
                             }),
                         ))
+                    } else if e.message.contains("already known") {
+                        //transaction is already in mempool, success!
+                        return Ok(())
                     } else {
                         None
                     };
@@ -615,6 +617,7 @@ pub async fn send_transaction(
     } else {
         return Err(err_custom_create!("No signed raw data"));
     }
+
     Ok(())
 }
 

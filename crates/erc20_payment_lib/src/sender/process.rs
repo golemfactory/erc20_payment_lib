@@ -344,6 +344,8 @@ pub async fn process_transaction(
             .lock()
             .await
             .set_tx_message(web3_tx_dao.id, "Sending transaction".to_string());
+        web3_tx_dao.broadcast_count += 1;
+        update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
         send_transaction(
             conn,
             chain_setup.glm_address,
@@ -352,7 +354,6 @@ pub async fn process_transaction(
             web3_tx_dao,
         )
         .await?;
-        web3_tx_dao.broadcast_count += 1;
         update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
         log::info!(
             "Transaction {} sent, tx hash: {}",
