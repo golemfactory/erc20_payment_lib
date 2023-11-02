@@ -8,9 +8,7 @@ use csv::ReaderBuilder;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::{ScanDao, TokenTransferDao};
-use erc20_payment_lib::db::ops::{
-    delete_scan_info, get_scan_info, insert_token_transfer, update_token_transfer, upsert_scan_info,
-};
+use erc20_payment_lib::db::ops::{delete_scan_info, get_next_transactions_to_process, get_scan_info, insert_token_transfer, update_token_transfer, upsert_scan_info};
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::signer::PrivateKeySigner;
 
@@ -24,7 +22,7 @@ use std::env;
 use std::str::FromStr;
 
 use crate::stats::{export_stats, run_stats};
-use erc20_payment_lib::runtime::remove_last_unsent_transactions;
+use erc20_payment_lib::runtime::{remove_last_unsent_transactions, remove_transaction_force};
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::import_erc20_txs;
@@ -550,20 +548,76 @@ async fn main_internal() -> Result<(), PaymentError> {
             println!("Private key: {}", hex::encode(pkey));
         }
         PaymentCommands::Cleanup { cleanup_options } => {
-            println!("Cleaning up (doing nothing right now)");
             if cleanup_options.remove_unsent_tx {
+                let mut number_of_unsent_removed = 0;
                 loop {
                     match remove_last_unsent_transactions(conn.clone()).await {
                         Ok(Some(id)) => {
                             println!("Removed unsent transaction with id {}", id);
+                            number_of_unsent_removed += 1;
                         }
                         Ok(None) => {
-                            println!("No unsent transactions found");
                             break;
                         }
                         Err(e) => {
-                            println!("Error when removing unsent transaction: {}", e);
+                            return Err(err_custom_create!(
+                                "Error when removing unsent transaction: {}",
+                                e
+                            ));
                         }
+                    }
+                }
+                if number_of_unsent_removed == 0 {
+                    println!("No unsent transactions found to remove");
+                } else {
+                    println!(
+                        "Removed {} unsent transactions",
+                        number_of_unsent_removed
+                    );
+                }
+            }
+            if cleanup_options.remove_tx_stuck {
+                let mut transactions = get_next_transactions_to_process(&conn, 1).await.map_err(err_from!())?;
+
+                let Some(tx) = transactions.get_mut(0) else {
+                    println!("No transactions found to remove");
+                    return Ok(());
+                };
+                if tx.first_stuck_date.is_some() {
+                    match remove_transaction_force(&conn, tx.id).await {
+                        Ok(_) => {
+                            println!("Removed stuck transaction with id {} (nonce: {})", tx.id, tx.nonce.unwrap_or(-1));
+                        }
+                        Err(e) => {
+                            return Err(err_custom_create!(
+                            "Error when removing transaction {}: {}",
+                            tx.id,
+                            e
+                        ));
+                        }
+                    }
+                } else {
+                    println!("Transaction with id {} is not stuck, skipping", tx.id)
+                }
+
+            }
+            if cleanup_options.remove_tx_unsafe {
+                let mut transactions = get_next_transactions_to_process(&conn, 1).await.map_err(err_from!())?;
+
+                let Some(tx) = transactions.get_mut(0) else {
+                    println!("No transactions found to remove");
+                    return Ok(());
+                };
+                match remove_transaction_force(&conn, tx.id).await {
+                    Ok(_) => {
+                        println!("Removed transaction with id {}", tx.id);
+                    }
+                    Err(e) => {
+                        return Err(err_custom_create!(
+                            "Error when removing transaction {}: {}",
+                            tx.id,
+                            e
+                        ));
                     }
                 }
             }

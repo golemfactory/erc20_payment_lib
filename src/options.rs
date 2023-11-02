@@ -223,9 +223,25 @@ pub struct DecryptKeyStoreOptions {
 pub struct CleanupOptions {
     #[structopt(
         long = "remove-unsent-tx",
-        help = "Remove transactions that are not sent to the network"
+        help = "Remove transactions that are not sent to the network This operation is safe"
     )]
     pub remove_unsent_tx: bool,
+
+    #[structopt(
+    long = "remove-stuck-tx",
+    help = "Remove transaction that is stuck due to wrong nonce. \
+    Call it if you are sure that processed transaction is not in the blockchain. \
+    This operation is unsafe and may lead to double spending"
+    )]
+    pub remove_tx_stuck: bool,
+
+    #[structopt(
+    long = "remove-tx-unsafe",
+    help = "Remove transaction that is processed as it never happened. \
+    Call it if you are sure that processed transaction is not in the blockchain. \
+    This operation is unsafe and may lead to double spending"
+    )]
+    pub remove_tx_unsafe: bool,
 }
 
 #[derive(StructOpt)]
