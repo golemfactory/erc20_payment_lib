@@ -1,5 +1,8 @@
 use crate::db::create_sqlite_connection;
-use crate::db::ops::{cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx, get_transaction, get_unpaid_token_transfers, insert_token_transfer};
+use crate::db::ops::{
+    cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx,
+    get_transaction_chain, get_unpaid_token_transfers, insert_token_transfer,
+};
 use crate::signer::Signer;
 use crate::transaction::{create_token_transfer, find_receipt_extended};
 use crate::{err_custom_create, err_from};
@@ -756,37 +759,36 @@ pub async fn verify_transaction(
     }
 }
 
-
 pub async fn remove_transaction_force(
     conn: &SqlitePool,
-    tx_id: i64
-) -> Result<Option<i64>, PaymentError> {
+    tx_id: i64,
+) -> Result<Option<Vec<i64>>, PaymentError> {
     let mut db_transaction = conn
         .begin()
         .await
         .map_err(|err| err_custom_create!("Error beginning transaction {err}"))?;
-    match get_transaction(&mut *db_transaction, tx_id).await {
-        Ok(tx) => {
-            //if tx is allowance then remove all references to it
-            cleanup_allowance_tx(&mut *db_transaction, tx.id)
-                .await
-                .map_err(err_from!())?;
-            //if tx is token_transfer then remove all references to it
-            cleanup_token_transfer_tx(&mut *db_transaction, tx.id)
-                .await
-                .map_err(err_from!())?;
-            delete_tx(&mut *db_transaction, tx.id)
-                .await
-                .map_err(err_from!())?;
+
+    match get_transaction_chain(&mut db_transaction, tx_id).await {
+        Ok(txs) => {
+            for tx in &txs {
+                //if tx is allowance then remove all references to it
+                cleanup_allowance_tx(&mut *db_transaction, tx.id)
+                    .await
+                    .map_err(err_from!())?;
+                //if tx is token_transfer then remove all references to it
+                cleanup_token_transfer_tx(&mut *db_transaction, tx.id)
+                    .await
+                    .map_err(err_from!())?;
+                delete_tx(&mut *db_transaction, tx.id)
+                    .await
+                    .map_err(err_from!())?;
+            }
             db_transaction.commit().await.map_err(err_from!())?;
-            Ok(Some(tx.id))
+            Ok(Some(txs.iter().map(|tx| tx.id).collect()))
         }
         Err(e) => {
             log::error!("Error getting transaction: {}", e);
-            Err(err_custom_create!(
-                "Error getting transaction: {}",
-                e
-            ))
+            Err(err_custom_create!("Error getting transaction: {}", e))
         }
     }
 }

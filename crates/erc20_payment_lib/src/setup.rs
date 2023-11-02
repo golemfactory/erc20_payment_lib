@@ -108,7 +108,8 @@ impl PaymentSetup {
             report_alive_interval,
             gather_interval,
             gather_at_start,
-            mark_as_unrecoverable_after_seconds: mark_as_unrecoverable_after_seconds.unwrap_or(MARK_AS_UNRECOVERABLE_AFTER_SECONDS),
+            mark_as_unrecoverable_after_seconds: mark_as_unrecoverable_after_seconds
+                .unwrap_or(MARK_AS_UNRECOVERABLE_AFTER_SECONDS),
             ignore_deadlines,
             automatic_recover,
             contract_use_direct_method: false,

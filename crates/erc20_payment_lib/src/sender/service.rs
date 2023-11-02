@@ -314,6 +314,7 @@ pub async fn process_transactions(
             }
         };
         if let ProcessTransactionResult::Replaced = process_t_res {
+            shared_state.lock().await.current_tx_info.remove(&tx.id);
             continue;
         };
         if tx.method.starts_with("MULTI.golemTransfer")

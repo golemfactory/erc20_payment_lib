@@ -1,11 +1,11 @@
 use crate::db::ops::{
-    delete_tx, get_transaction, get_transaction_highest_nonce, insert_tx, remap_token_transfer_tx,
-    update_processing_and_first_processed_tx, update_tx,
+    delete_tx, get_transaction, get_transaction_highest_nonce, insert_tx, remap_allowance_tx,
+    remap_token_transfer_tx, update_processing_and_first_processed_tx, update_tx,
+    update_tx_stuck_date,
 };
 use crate::error::PaymentError;
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
-use chrono::{DateTime, Utc};
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
 use sqlx::SqlitePool;
@@ -19,7 +19,10 @@ use web3::Web3;
 
 use crate::db::model::TxDao;
 use crate::eth::get_transaction_count;
-use crate::runtime::{send_driver_event, DriverEvent, DriverEventContent, GasLowInfo, NoGasDetails, SharedState, TransactionFailedReason, TransactionStuckReason, remove_transaction_force};
+use crate::runtime::{
+    remove_transaction_force, send_driver_event, DriverEvent, DriverEventContent, GasLowInfo,
+    NoGasDetails, SharedState, TransactionFailedReason, TransactionStuckReason,
+};
 use crate::setup::PaymentSetup;
 use crate::signer::Signer;
 use crate::transaction::check_transaction;
@@ -380,7 +383,6 @@ pub async fn process_transaction(
         return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Confirmed));
     }
 
-    let mut tx_first_not_found: Option<DateTime<Utc>> = None;
     loop {
         shared_state
             .lock()
@@ -519,6 +521,12 @@ pub async fn process_transaction(
                             orig_tx.id,
                             current_tx.id
                         );
+                        //handle case when transaction is allowance
+                        remap_allowance_tx(&mut *db_transaction, orig_tx.id, current_tx.id)
+                            .await
+                            .map_err(err_from!())?;
+
+                        //handle case when transaction is token transfer
                         remap_token_transfer_tx(&mut *db_transaction, orig_tx.id, current_tx.id)
                             .await
                             .map_err(err_from!())?;
@@ -560,7 +568,6 @@ pub async fn process_transaction(
                 //add is timed out
                 //log::debug!("Receipt not found: {:?}", web3_tx_dao.tx_hash);
 
-                log::warn!("Receipt not found despite proper nonce. Probably external payment done or web3 provider not yet synchronized");
                 shared_state.lock().await.set_tx_error(
                     web3_tx_dao.id,
                     Some(
@@ -569,29 +576,39 @@ pub async fn process_transaction(
                     ),
                 );
 
-                if let Some(tx_first_not_found) = tx_first_not_found {
+                //if transaction is stuck for more than 5 minutes then remove it from queue
+                if let Some(first_stuck_date) = web3_tx_dao.first_stuck_date {
                     let curr_time = chrono::Utc::now();
-                    let seconds_elapsed = (curr_time - tx_first_not_found).num_seconds();
-                    if seconds_elapsed > 300 {
+                    let seconds_elapsed = (curr_time - first_stuck_date).num_seconds();
+                    if seconds_elapsed > payment_setup.mark_as_unrecoverable_after_seconds as i64 {
                         if payment_setup.automatic_recover {
                             log::warn!("Recovering from stuck transaction with wrong nonce. In extreme conditions it can lead to double spending, use with caution.");
-                            remove_transaction_force(conn,web3_tx_dao.id).await?;
+                            remove_transaction_force(conn, web3_tx_dao.id).await?;
+                            return Ok((web3_tx_dao.clone(), ProcessTransactionResult::DoNotSave));
                         }
-                        log::error!("Receipt not found despite proper nonce after {} seconds. Probably external payment done. Transactions are stuck until you remove transaction from queue.",
-                        humantime::format_duration(Duration::from_secs(seconds_elapsed as u64)));
+                        log::error!("Receipt not found despite proper nonce after {} (limit {}). Probably external payment done. Transactions are stuck until you remove transaction from queue.",
+                        humantime::format_duration(Duration::from_secs(seconds_elapsed as u64)),
+                        humantime::format_duration(Duration::from_secs(payment_setup.mark_as_unrecoverable_after_seconds)));
                         return Ok((
                             web3_tx_dao.clone(),
                             ProcessTransactionResult::NeedRetry("Receipt not found".to_string()),
                         ));
+                    } else {
+                        log::warn!(
+                            "Receipt not found despite proper nonce for {} (limit {})",
+                            humantime::format_duration(Duration::from_secs(seconds_elapsed as u64)),
+                            humantime::format_duration(Duration::from_secs(
+                                payment_setup.mark_as_unrecoverable_after_seconds
+                            ))
+                        );
                     }
                 } else {
-                    tx_first_not_found = Some(chrono::Utc::now());
+                    log::warn!("Receipt not found despite proper nonce. Probably external payment done or web3 provider not yet synchronized");
+                    web3_tx_dao.first_stuck_date = Some(chrono::Utc::now());
+                    update_tx_stuck_date(conn, web3_tx_dao)
+                        .await
+                        .map_err(err_from!())?;
                 }
-
-                /*
-                if payment_setup.automatic_recover && tx_not_found_count >= CHECKS_UNTIL_NOT_FOUND {
-
-                }*/
             }
         } else {
             log::info!(

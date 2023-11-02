@@ -1,7 +1,7 @@
 use crate::db::model::*;
-use sqlx::Executor;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
+use sqlx::{Executor, Transaction};
 
 pub const TRANSACTION_FILTER_QUEUED: &str = "processing > 0 AND first_processed IS NULL";
 pub const TRANSACTION_FILTER_PROCESSING: &str = "processing > 0 AND first_processed IS NOT NULL";
@@ -55,6 +55,24 @@ where
         .fetch_optional(executor)
         .await?;
     Ok(row)
+}
+
+//call in transaction
+pub async fn get_transaction_chain(
+    executor: &mut Transaction<'_, Sqlite>,
+    tx_id: i64,
+) -> Result<Vec<TxDao>, sqlx::Error> {
+    let mut current_id = Some(tx_id);
+    let mut res = vec![];
+    while let Some(id) = current_id {
+        let row = sqlx::query_as::<_, TxDao>(r"SELECT * FROM tx WHERE id = $1")
+            .bind(id)
+            .fetch_one(&mut **executor)
+            .await?;
+        current_id = row.orig_tx_id;
+        res.push(row);
+    }
+    Ok(res)
 }
 
 pub async fn delete_tx<'c, E>(executor: E, tx_id: i64) -> Result<(), sqlx::Error>
@@ -266,22 +284,21 @@ WHERE id = $1
 }
 
 pub async fn update_tx_stuck_date<'c, E>(executor: E, tx: &TxDao) -> Result<TxDao, sqlx::Error>
-    where
-        E: Executor<'c, Database = Sqlite>,
+where
+    E: Executor<'c, Database = Sqlite>,
 {
     let _res = sqlx::query(
         r"UPDATE tx SET
-first_stuck_date = $2,
+first_stuck_date = $2
 WHERE id = $1
 ",
     )
-        .bind(tx.id)
-        .bind(tx.first_stuck_date)
-        .execute(executor)
-        .await?;
+    .bind(tx.id)
+    .bind(tx.first_stuck_date)
+    .execute(executor)
+    .await?;
     Ok(tx.clone())
 }
-
 
 #[tokio::test]
 async fn tx_test() -> sqlx::Result<()> {
