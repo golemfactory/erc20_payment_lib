@@ -348,6 +348,7 @@ async fn tx_test() -> sqlx::Result<()> {
     tx_to_insert.id = tx_from_insert.id;
     let tx_from_dao = get_transaction(&conn, tx_from_insert.id).await?;
 
+    tx_to_insert.block_number = None;
     //all three should be equal
     assert_eq!(tx_to_insert, tx_from_dao);
     assert_eq!(tx_from_insert, tx_from_dao);

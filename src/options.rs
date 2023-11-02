@@ -228,16 +228,16 @@ pub struct CleanupOptions {
     pub remove_unsent_tx: bool,
 
     #[structopt(
-    long = "remove-stuck-tx",
-    help = "Remove transaction that is stuck due to wrong nonce. \
+        long = "remove-stuck-tx",
+        help = "Remove transaction that is stuck due to wrong nonce. \
     Call it if you are sure that processed transaction is not in the blockchain. \
     This operation is unsafe and may lead to double spending"
     )]
     pub remove_tx_stuck: bool,
 
     #[structopt(
-    long = "remove-tx-unsafe",
-    help = "Remove transaction that is processed as it never happened. \
+        long = "remove-tx-unsafe",
+        help = "Remove transaction that is processed as it never happened. \
     Call it if you are sure that processed transaction is not in the blockchain. \
     This operation is unsafe and may lead to double spending"
     )]
