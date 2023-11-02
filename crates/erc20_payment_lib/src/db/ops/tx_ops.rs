@@ -144,8 +144,8 @@ where
 {
     let res = sqlx::query_as::<_, TxDao>(
         r"INSERT INTO tx
-(method, from_addr, to_addr, chain_id, gas_limit, max_fee_per_gas, priority_fee, val, nonce, processing, call_data, created_date, first_processed, tx_hash, signed_raw_data, signed_date, broadcast_date, broadcast_count, confirm_date, block_number, chain_status, fee_paid, error, orig_tx_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24) RETURNING *;
+(method, from_addr, to_addr, chain_id, gas_limit, max_fee_per_gas, priority_fee, val, nonce, processing, call_data, created_date, first_processed, tx_hash, signed_raw_data, signed_date, broadcast_date, broadcast_count, first_stuck_date, confirm_date, block_number, chain_status, fee_paid, error, orig_tx_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25) RETURNING *;
 ",
     )
         .bind(&tx.method)
@@ -166,6 +166,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $
         .bind( tx.signed_date)
         .bind( tx.broadcast_date)
         .bind( tx.broadcast_count)
+        .bind( tx.first_stuck_date)
         .bind( tx.confirm_date)
         .bind( tx.block_number)
         .bind( tx.chain_status)
@@ -191,11 +192,11 @@ first_processed = $3
 WHERE id = $1
 ",
     )
-        .bind(tx.id)
-        .bind(tx.processing)
-        .bind(tx.first_processed)
-        .execute(executor)
-        .await?;
+    .bind(tx.id)
+    .bind(tx.processing)
+    .bind(tx.first_processed)
+    .execute(executor)
+    .await?;
     Ok(tx.clone())
 }
 
@@ -223,12 +224,13 @@ signed_raw_data = $16,
 signed_date = $17,
 broadcast_date = $18,
 broadcast_count = $19,
-confirm_date = $20,
-block_number = $21,
-chain_status = $22,
-fee_paid = $23,
-error = $24,
-orig_tx_id = $25
+first_stuck_date = $20,
+confirm_date = $21,
+block_number = $22,
+chain_status = $23,
+fee_paid = $24,
+error = $25,
+orig_tx_id = $26
 WHERE id = $1
 ",
     )
@@ -251,6 +253,7 @@ WHERE id = $1
     .bind(tx.signed_date)
     .bind(tx.broadcast_date)
     .bind(tx.broadcast_count)
+    .bind(tx.first_stuck_date)
     .bind(tx.confirm_date)
     .bind(tx.block_number)
     .bind(tx.chain_status)
@@ -261,6 +264,24 @@ WHERE id = $1
     .await?;
     Ok(tx.clone())
 }
+
+pub async fn update_tx_stuck_date<'c, E>(executor: E, tx: &TxDao) -> Result<TxDao, sqlx::Error>
+    where
+        E: Executor<'c, Database = Sqlite>,
+{
+    let _res = sqlx::query(
+        r"UPDATE tx SET
+first_stuck_date = $2,
+WHERE id = $1
+",
+    )
+        .bind(tx.id)
+        .bind(tx.first_stuck_date)
+        .execute(executor)
+        .await?;
+    Ok(tx.clone())
+}
+
 
 #[tokio::test]
 async fn tx_test() -> sqlx::Result<()> {
@@ -281,7 +302,8 @@ async fn tx_test() -> sqlx::Result<()> {
         signed_raw_data: None,
         signed_date: Some(chrono::Utc::now()),
         broadcast_date: Some(chrono::Utc::now()),
-        broadcast_count: 0,
+        broadcast_count: 45,
+        first_stuck_date: Some(chrono::Utc::now()),
         method: "".to_string(),
         from_addr: "0x001066290077e38f222cc6009c0c7a91d5192303".to_string(),
         to_addr: "0xbcfe9736a4f5bf2e43620061ff3001ea0d003c0f".to_string(),

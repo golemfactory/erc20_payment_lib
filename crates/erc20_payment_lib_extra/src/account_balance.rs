@@ -73,6 +73,7 @@ pub async fn account_balance(
         1,
         1,
         1,
+        None,
         false,
         false,
         false,

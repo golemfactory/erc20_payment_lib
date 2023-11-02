@@ -1,8 +1,5 @@
 use crate::db::create_sqlite_connection;
-use crate::db::ops::{
-    cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx, get_unpaid_token_transfers,
-    insert_token_transfer,
-};
+use crate::db::ops::{cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx, get_transaction, get_unpaid_token_transfers, insert_token_transfer};
 use crate::signer::Signer;
 use crate::transaction::{create_token_transfer, find_receipt_extended};
 use crate::{err_custom_create, err_from};
@@ -403,6 +400,7 @@ impl PaymentRuntime {
             config.engine.process_interval_after_send,
             config.engine.report_alive_interval,
             config.engine.gather_interval,
+            config.engine.mark_as_unrecoverable_after_seconds,
             config.engine.gather_at_start,
             config.engine.ignore_deadlines,
             config.engine.automatic_recover,
@@ -755,6 +753,41 @@ pub async fn verify_transaction(
             verified: false,
             reason: Some("Transaction not found".to_string()),
         })
+    }
+}
+
+
+pub async fn remove_transaction_force(
+    conn: &SqlitePool,
+    tx_id: i64
+) -> Result<Option<i64>, PaymentError> {
+    let mut db_transaction = conn
+        .begin()
+        .await
+        .map_err(|err| err_custom_create!("Error beginning transaction {err}"))?;
+    match get_transaction(&mut *db_transaction, tx_id).await {
+        Ok(tx) => {
+            //if tx is allowance then remove all references to it
+            cleanup_allowance_tx(&mut *db_transaction, tx.id)
+                .await
+                .map_err(err_from!())?;
+            //if tx is token_transfer then remove all references to it
+            cleanup_token_transfer_tx(&mut *db_transaction, tx.id)
+                .await
+                .map_err(err_from!())?;
+            delete_tx(&mut *db_transaction, tx.id)
+                .await
+                .map_err(err_from!())?;
+            db_transaction.commit().await.map_err(err_from!())?;
+            Ok(Some(tx.id))
+        }
+        Err(e) => {
+            log::error!("Error getting transaction: {}", e);
+            Err(err_custom_create!(
+                "Error getting transaction: {}",
+                e
+            ))
+        }
     }
 }
 

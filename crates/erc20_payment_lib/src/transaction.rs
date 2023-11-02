@@ -155,6 +155,7 @@ pub fn create_eth_transfer(
         signed_date: None,
         broadcast_date: None,
         broadcast_count: 0,
+        first_stuck_date: None,
         tx_hash: None,
         confirm_date: None,
         block_number: None,
@@ -194,6 +195,7 @@ pub fn create_eth_transfer_str(
         signed_date: None,
         broadcast_date: None,
         broadcast_count: 0,
+        first_stuck_date: None,
         tx_hash: None,
         confirm_date: None,
         block_number: None,
@@ -236,6 +238,7 @@ pub fn create_erc20_transfer(
         signed_date: None,
         broadcast_date: None,
         broadcast_count: 0,
+        first_stuck_date: None,
         tx_hash: None,
         confirm_date: None,
         block_number: None,
@@ -307,6 +310,7 @@ pub fn create_erc20_transfer_multi(
         signed_date: None,
         broadcast_date: None,
         broadcast_count: 0,
+        first_stuck_date: None,
         tx_hash: None,
         confirm_date: None,
         block_number: None,
@@ -347,6 +351,7 @@ pub fn create_erc20_approve(
         signed_date: None,
         broadcast_date: None,
         broadcast_count: 0,
+        first_stuck_date: None,
         tx_hash: None,
         confirm_date: None,
         block_number: None,
@@ -359,30 +364,32 @@ pub fn create_erc20_approve(
     })
 }
 
-pub async fn get_no_token_details(web3: &Web3<Http>, conn: &SqlitePool, web3_tx_dao: &TxDao, glm_token: Address) -> Result<NoTokenDetails, PaymentError> {
+pub async fn get_no_token_details(
+    web3: &Web3<Http>,
+    conn: &SqlitePool,
+    web3_tx_dao: &TxDao,
+    glm_token: Address,
+) -> Result<NoTokenDetails, PaymentError> {
     Ok(NoTokenDetails {
         tx: web3_tx_dao.clone(),
-        sender: Address::from_str(&web3_tx_dao.from_addr)
-            .map_err(err_from!())?,
+        sender: Address::from_str(&web3_tx_dao.from_addr).map_err(err_from!())?,
         token_balance: get_token_balance(
             web3,
             glm_token,
-            Address::from_str(&web3_tx_dao.from_addr)
-                .map_err(err_from!())?,
+            Address::from_str(&web3_tx_dao.from_addr).map_err(err_from!())?,
         )
-            .await?
-            .to_eth()
-            .map_err(err_from!())?,
+        .await?
+        .to_eth()
+        .map_err(err_from!())?,
         token_needed: get_unpaid_token_amount(
             conn,
             web3_tx_dao.chain_id,
             glm_token,
-            Address::from_str(&web3_tx_dao.from_addr)
-                .map_err(err_from!())?,
+            Address::from_str(&web3_tx_dao.from_addr).map_err(err_from!())?,
         )
-            .await?
-            .to_eth()
-            .map_err(err_from!())?,
+        .await?
+        .to_eth()
+        .map_err(err_from!())?,
     })
 }
 
@@ -394,63 +401,70 @@ pub async fn check_transaction(
     web3_tx_dao: &mut TxDao,
 ) -> Result<Option<U256>, PaymentError> {
     let call_request = dao_to_call_request(web3_tx_dao)?;
-        log::debug!("Check transaction with gas estimation: {:?}", call_request);
-        let mut loc_call_request = call_request.clone();
-        loc_call_request.max_fee_per_gas = None;
-        loc_call_request.max_priority_fee_per_gas = None;
-        let gas_est = match web3.eth().estimate_gas(loc_call_request, None).await {
-            Ok(gas_est) => gas_est,
-            Err(e) => {
-                let event = if e.to_string().contains("gas required exceeds allowance") {
-                    log::error!("Gas estimation failed - probably insufficient funds: {}", e);
-                    return Err(err_custom_create!(
-                        "Gas estimation failed - probably insufficient funds"
-                    ));
-                } else if e.to_string().contains("transfer amount exceeds balance") {
-                    log::warn!("Transfer amount exceed balance. Getting details...");
-                    match get_no_token_details(web3, conn, web3_tx_dao, glm_token).await {
-                        Ok(stuck_reason) => {
-                            log::warn!("Got details. needed: {} balance: {}. needed - balance: {}", stuck_reason.token_needed, stuck_reason.token_balance, stuck_reason.token_needed - stuck_reason.token_balance);
-                            DriverEventContent::TransactionStuck(TransactionStuckReason::NoToken(stuck_reason))
-                        }
-                        Err(e) => {
-                            return Err(err_custom_create!(
-                                "Error during getting details about amount exceeds balance error {}",
-                                e
-                            ));
-                        }
+    log::debug!("Check transaction with gas estimation: {:?}", call_request);
+    let mut loc_call_request = call_request.clone();
+    loc_call_request.max_fee_per_gas = None;
+    loc_call_request.max_priority_fee_per_gas = None;
+    let gas_est = match web3.eth().estimate_gas(loc_call_request, None).await {
+        Ok(gas_est) => gas_est,
+        Err(e) => {
+            let event = if e.to_string().contains("gas required exceeds allowance") {
+                log::error!("Gas estimation failed - probably insufficient funds: {}", e);
+                return Err(err_custom_create!(
+                    "Gas estimation failed - probably insufficient funds"
+                ));
+            } else if e.to_string().contains("transfer amount exceeds balance") {
+                log::warn!("Transfer amount exceed balance. Getting details...");
+                match get_no_token_details(web3, conn, web3_tx_dao, glm_token).await {
+                    Ok(stuck_reason) => {
+                        log::warn!(
+                            "Got details. needed: {} balance: {}. needed - balance: {}",
+                            stuck_reason.token_needed,
+                            stuck_reason.token_balance,
+                            stuck_reason.token_needed - stuck_reason.token_balance
+                        );
+                        DriverEventContent::TransactionStuck(TransactionStuckReason::NoToken(
+                            stuck_reason,
+                        ))
                     }
-                } else {
-                    return Err(err_custom_create!(
-                        "Gas estimation failed due to unknown error {}",
-                        e
-                    ));
-                };
-                send_driver_event(event_sender, event).await;
-                return Ok(None);
-            }
-        };
+                    Err(e) => {
+                        return Err(err_custom_create!(
+                            "Error during getting details about amount exceeds balance error {}",
+                            e
+                        ));
+                    }
+                }
+            } else {
+                return Err(err_custom_create!(
+                    "Gas estimation failed due to unknown error {}",
+                    e
+                ));
+            };
+            send_driver_event(event_sender, event).await;
+            return Ok(None);
+        }
+    };
 
-        let gas_limit = if gas_est.as_u64() == 21000 {
-            gas_est
-        } else {
-            let gas_safety_margin: U256 = U256::from(20000);
-            gas_est + gas_safety_margin
-        };
+    let gas_limit = if gas_est.as_u64() == 21000 {
+        gas_est
+    } else {
+        let gas_safety_margin: U256 = U256::from(20000);
+        gas_est + gas_safety_margin
+    };
 
-        log::debug!("Set gas limit basing on gas estimation: {gas_limit}");
-        web3_tx_dao.gas_limit = Some(gas_limit.as_u64() as i64);
+    log::debug!("Set gas limit basing on gas estimation: {gas_limit}");
+    web3_tx_dao.gas_limit = Some(gas_limit.as_u64() as i64);
 
-        let max_fee_per_gas = U256::from_dec_str(
-            &web3_tx_dao
-                .max_fee_per_gas
-                .clone()
-                .ok_or(err_custom_create!("max_fee_per_gas has to be set here"))?,
-        )
-        .map_err(err_from!())?;
-        let gas_needed_for_tx = U256::from_dec_str(&web3_tx_dao.val).map_err(err_from!())?;
-        let maximum_gas_needed = gas_needed_for_tx + gas_limit * max_fee_per_gas;
-        Ok(Some(maximum_gas_needed))
+    let max_fee_per_gas = U256::from_dec_str(
+        &web3_tx_dao
+            .max_fee_per_gas
+            .clone()
+            .ok_or(err_custom_create!("max_fee_per_gas has to be set here"))?,
+    )
+    .map_err(err_from!())?;
+    let gas_needed_for_tx = U256::from_dec_str(&web3_tx_dao.val).map_err(err_from!())?;
+    let maximum_gas_needed = gas_needed_for_tx + gas_limit * max_fee_per_gas;
+    Ok(Some(maximum_gas_needed))
 }
 
 pub async fn sign_transaction_deprecated(
@@ -600,7 +614,7 @@ pub async fn send_transaction(
                         ))
                     } else if e.message.contains("already known") {
                         //transaction is already in mempool, success!
-                        return Ok(())
+                        return Ok(());
                     } else {
                         None
                     };

@@ -51,6 +51,7 @@ pub struct Engine {
     pub process_interval_after_send: u64,
     pub report_alive_interval: u64,
     pub gather_interval: u64,
+    pub mark_as_unrecoverable_after_seconds: Option<u64>,
     pub gather_at_start: bool,
     pub automatic_recover: bool,
     pub ignore_deadlines: bool,
