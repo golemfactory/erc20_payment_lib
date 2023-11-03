@@ -1,8 +1,8 @@
 use crate::db::create_sqlite_connection;
 use crate::db::ops::{
     cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx,
-    get_transaction_chain, get_transactions, get_unpaid_token_transfers, insert_allowance,
-    insert_token_transfer, insert_tx,
+    get_transaction_chain, get_transactions, get_unpaid_token_transfers, insert_token_transfer,
+    insert_tx,
 };
 use crate::signer::Signer;
 use crate::transaction::{create_faucet_mint, create_token_transfer, find_receipt_extended};
@@ -16,7 +16,7 @@ use crate::error::{ErrorBag, PaymentError};
 
 use crate::setup::{ChainSetup, ExtraOptionsForTesting, PaymentSetup};
 
-use crate::config::{self, Chain, Config};
+use crate::config::{self, Config};
 use secp256k1::SecretKey;
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::Sender;
@@ -684,12 +684,12 @@ pub async fn mint_golem_token(
     let faucet_contract_address = if chain_id == 5 {
         faucet_contract_address
             .unwrap_or(Address::from_str("0xCCA41b09C1F50320bFB41BD6822BD0cdBDC7d85C").unwrap())
+    } else if let Some(faucet_contract_address) = faucet_contract_address {
+        faucet_contract_address
     } else {
-        if let Some(faucet_contract_address) = faucet_contract_address {
-            faucet_contract_address
-        } else {
-            return Err(err_custom_create!("Faucet contract address unknown."));
-        }
+        return Err(err_custom_create!(
+            "Faucet contract address unknown. If not sure try on goerli network"
+        ));
     };
 
     let balance = web3
