@@ -42,8 +42,8 @@ rpc-endpoints = ["https://ethereum-goerli-rpc.allthatnode.com",
     "https://www.ethercluster.com/goerli",
     "https://rpc.ankr.com/eth_goerli"]
 currency-symbol = "tETH"
-priority-fee = 1.5111
-max-fee-per-gas = 500.0
+priority-fee = 0.00000001
+max-fee-per-gas = 10.0
 gas-left-warning-limit = 1000000
 transaction-timeout = 100
 token = { address = "0x33af15c79d64b85ba14aaffaa4577949104b22e8", symbol = "tGLM" }
