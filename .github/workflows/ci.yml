@@ -166,7 +166,8 @@ jobs:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
 
       - name: Run balance
-        run: cargo run -- balance -c goerli
+        run: |
+          [ $(cargo run -- balance -c goerli | jq -r '.[] | .gasDecimal') == "0.01" ]
         env:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
 
