@@ -92,9 +92,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>();
             log::info!(
-                "Overriding default rpc endpoints for {} with {:?}",
+                "Overriding default rpc endpoints for {}",
                 f.0,
-                strs
             );
             config.change_rpc_endpoints(f.1, strs).await?;
         }
