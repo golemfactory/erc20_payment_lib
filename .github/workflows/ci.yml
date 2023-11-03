@@ -155,8 +155,44 @@ jobs:
       - name: Run tests (faucet)
         run: cargo run -- generate-key -n 1 > .env
 
-      - name: Run tests (faucet)
+      - name: Run balance
         run: cargo run -- balance -c goerli
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Get ETH from faucet
+        run: cargo run -- get-dev-eth -c goerli
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Run balance
+        run: cargo run -- balance -c goerli
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Mint tokens
+        run: |
+          cargo run -- mint-test-tokens -c goerli
+          cargo run -- run
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Run balance
+        run: cargo run -- balance -c goerli
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Transfer all GLM tokens
+        run: |
+          cargo run -- transfer -c goerli --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --amount 0 --all
+          cargo run -- run
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Transfer all left ETH tokens
+        run: |
+          cargo run -- transfer -c goerli --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --amount 0 --all
+          cargo run -- run
         env:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
 
