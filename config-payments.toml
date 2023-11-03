@@ -42,13 +42,13 @@ rpc-endpoints = ["https://ethereum-goerli-rpc.allthatnode.com",
     "https://www.ethercluster.com/goerli",
     "https://rpc.ankr.com/eth_goerli"]
 currency-symbol = "tETH"
-priority-fee = 0.00000001
+priority-fee = 0.000001
 max-fee-per-gas = 10.0
 gas-left-warning-limit = 1000000
 transaction-timeout = 100
 token = { address = "0x33af15c79d64b85ba14aaffaa4577949104b22e8", symbol = "tGLM" }
 multi-contract = { address = "0x7777784f803a7bf1d7f115f849d29ce5706da64a", max-at-once = 10 }
-confirmation-blocks = 1
+confirmation-blocks = 0
 block-explorer-url = "https://goerli.etherscan.io"
 
 [chain.mumbai]

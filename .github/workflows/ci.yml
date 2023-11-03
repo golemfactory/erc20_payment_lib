@@ -155,9 +155,10 @@ jobs:
       - name: Run tests (faucet)
         run: cargo run -- generate-key -n 1 > .env
 
-      - name: Run balance
+      - name: Check if balance is 0
         run: |
-          [ $(cargo run -- balance -c goerli | jq -r '.[] | .gasDecimal') == "0.01" ]
+          [ $(cargo run -- balance -c goerli | jq -r '.[] | .gasDecimal') == "0" ]
+          [ $(cargo run -- balance -c goerli | jq -r '.[] | .tokenDecimal') == "0" ]
         env:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
 
@@ -166,7 +167,7 @@ jobs:
         env:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
 
-      - name: Run balance
+      - name: Check ETH balance after getting funds from faucet (should be 0.01)
         run: |
           [ $(cargo run -- balance -c goerli | jq -r '.[] | .gasDecimal') == "0.01" ]
         env:
@@ -179,8 +180,9 @@ jobs:
         env:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
 
-      - name: Run balance
-        run: cargo run -- balance -c goerli
+      - name: Check token balance
+        run: |
+          [ $(cargo run -- balance -c goerli | jq -r '.[] | .tokenDecimal') == "1000" ]
         env:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
 
@@ -188,6 +190,12 @@ jobs:
         run: |
           cargo run -- transfer -c goerli --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --amount 0 --all
           cargo run -- run
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Check token balance zero
+        run: |
+          [ $(cargo run -- balance -c goerli | jq -r '.[] | .tokenDecimal') == "0" ]
         env:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
 
