@@ -64,24 +64,6 @@ jobs:
       - name: Build tests
         run: cargo test --profile=${{ matrix.profile }} --test custom_long --no-run
 
-  library_tests_build:
-    name: Payment lib unit test build
-    timeout-minutes: 20
-
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "test-erc20lib-cache-release-fast"
-
-      - name: Build tests
-        run: cargo test -p erc20_payment_lib --profile=release-fast --no-run
-
   library_tests:
     name: Payment lib unit test run
     timeout-minutes: 20
@@ -95,9 +77,10 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "test-erc20lib-cache-release-fast"
+          shared-key: "test-cache-release-fast"
+          save-if: false
 
-      - name: Build tests
+      - name: Run tests
         run: cargo test -p erc20_payment_lib --profile=release-fast
 
   payment_tests:
