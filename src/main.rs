@@ -42,12 +42,16 @@ use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::ethabi::ethereum_types::Address;
 
-fn check_address_name(n: &str) -> &str {
+fn check_address_name(n: &str) -> String {
     match n {
-        "funds" => "0x333dFEa0C940Dc9971C32C69837aBE14207F9097",
-        "dead" => "0x000000000000000000000000000000000000dEaD",
-        "null" => "0x0000000000000000000000000000000000000000",
-        _ => n,
+        "funds" => "0x333dFEa0C940Dc9971C32C69837aBE14207F9097".to_string(),
+        "dead" => "0x000000000000000000000000000000000000dEaD".to_string(),
+        "null" => "0x0000000000000000000000000000000000000000".to_string(),
+        "random" => format!(
+            "{:#x}",
+            Address::from(rand::Rng::gen::<[u8; 20]>(&mut rand::thread_rng()))
+        ),
+        _ => n.to_string(),
     }
 }
 
@@ -304,7 +308,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             };
 
             let recipient =
-                Address::from_str(check_address_name(&single_transfer_options.recipient)).unwrap();
+                Address::from_str(&check_address_name(&single_transfer_options.recipient)).unwrap();
 
             let public_addr = public_addrs.get(0).expect("No public address found");
             let mut db_transaction = conn.begin().await.unwrap();
