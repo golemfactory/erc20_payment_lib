@@ -158,7 +158,7 @@ jobs:
       - name: Run tests (faucet)
         run: cargo run -- balance -c goerli
         env:
-          GOERLI_GETH_ADDR: ${{ secrets.GITHUB_TOKEN }}
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
 
   payment_tests_custom:
     name: Payment tests (custom)
