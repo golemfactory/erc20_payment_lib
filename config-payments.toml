@@ -69,7 +69,8 @@ block-explorer-url = "https://mumbai.polygonscan.com"
 [chain.polygon]
 chain-name = "Polygon mainnet"
 chain-id = 137
-rpc-endpoints = ["https://polygon-rpc.com"]
+#rpc-endpoints = ["https://archive.golem.network/polygon"]
+rpc-endpoints = ["http://archive.golem.network:9999"]
 currency-symbol = "MATIC"
 priority-fee = 30.111
 max-fee-per-gas = 150.0

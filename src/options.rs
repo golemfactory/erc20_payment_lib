@@ -31,20 +31,6 @@ pub struct RunOptions {
     )]
     pub skip_multi_contract_check: bool,
 
-    #[structopt(
-        long = "service-sleep",
-        help = "Sleep time between service loops in seconds",
-        default_value = "10"
-    )]
-    pub process_interval: u64,
-
-    #[structopt(
-        long = "process-sleep",
-        help = "Sleep time between process loops in seconds",
-        default_value = "10"
-    )]
-    pub gather_interval: u64,
-
     #[structopt(long = "http", help = "Enable http server")]
     pub http: bool,
 
