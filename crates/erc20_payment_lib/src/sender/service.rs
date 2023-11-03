@@ -486,24 +486,26 @@ pub async fn service_loop(
         )
         .await;
 
-        if let Some(next_gather_time) = next_gather_time {
-            log::info!(
-                "Payments will be gathered in {}",
-                humantime::format_duration(Duration::from_secs(
-                    (next_gather_time - current_time)
-                        .num_seconds()
-                        .try_into()
-                        .unwrap_or(0)
-                ))
-            );
-            sleep_for_gather_time_or_report_alive(
-                wake.clone(),
-                shared_state.clone(),
-                last_gather_time,
-                payment_setup.clone(),
-            )
-            .await;
-            continue;
+        if !payment_setup.finish_when_done {
+            if let Some(next_gather_time) = next_gather_time {
+                log::info!(
+                    "Payments will be gathered in {}",
+                    humantime::format_duration(Duration::from_secs(
+                        (next_gather_time - current_time)
+                            .num_seconds()
+                            .try_into()
+                            .unwrap_or(0)
+                    ))
+                );
+                sleep_for_gather_time_or_report_alive(
+                    wake.clone(),
+                    shared_state.clone(),
+                    last_gather_time,
+                    payment_setup.clone(),
+                )
+                .await;
+                continue;
+            }
         }
 
         log::info!("Gathering payments...");

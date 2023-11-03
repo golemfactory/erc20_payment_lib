@@ -1,3 +1,4 @@
+mod faucet_client;
 mod options;
 mod stats;
 
@@ -33,6 +34,7 @@ use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::import_erc20_txs;
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 
+use crate::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::utils::DecimalConvExt;
 use std::sync::Arc;
@@ -64,7 +66,13 @@ async fn main_internal() -> Result<(), PaymentError> {
     display_private_keys(&private_keys);
     let signer = PrivateKeySigner::new(private_keys.clone());
 
-    let mut config = config::Config::load("config-payments.toml").await?;
+    let mut config = match config::Config::load("config-payments-local.toml").await {
+        Ok(c) => c,
+        Err(_) => {
+            log::info!("No local config found, using default config");
+            config::Config::load("config-payments.toml").await?
+        }
+    };
 
     let rpc_endpoints_from_env = [
         ("POLYGON_GETH_ADDR", "polygon"),
@@ -200,6 +208,21 @@ async fn main_internal() -> Result<(), PaymentError> {
             } else {
                 sp.runtime_handle.await.unwrap();
             }
+        }
+        PaymentCommands::GetDevEth {
+            get_dev_eth_options,
+        } => {
+            log::info!("Getting funds from faucet...");
+            let public_addr = public_addrs.get(0).expect("No public address found");
+            let chain_cfg =
+                config
+                    .chain
+                    .get(&get_dev_eth_options.chain_name)
+                    .ok_or(err_custom_create!(
+                        "Chain {} not found in config file",
+                        get_dev_eth_options.chain_name
+                    ))?;
+            faucet_donate(chain_cfg.chain_id as u64, *public_addr).await?;
         }
         PaymentCommands::MintTestTokens {
             mint_test_tokens_options,
