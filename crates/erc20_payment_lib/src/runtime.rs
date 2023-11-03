@@ -1,8 +1,8 @@
 use crate::db::create_sqlite_connection;
 use crate::db::ops::{
     cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx,
-    get_transaction_chain, get_unpaid_token_transfers, insert_allowance, insert_token_transfer,
-    insert_tx,
+    get_transaction_chain, get_transactions, get_unpaid_token_transfers, insert_allowance,
+    insert_token_transfer, insert_tx,
 };
 use crate::signer::Signer;
 use crate::transaction::{create_faucet_mint, create_token_transfer, find_receipt_extended};
@@ -699,9 +699,7 @@ pub async fn mint_golem_token(
         .map_err(err_from!())?
         .to_eth()
         .map_err(err_from!())?;
-    if balance
-        < Decimal::from_f64_retain(0.005).unwrap()
-    {
+    if balance < Decimal::from_f64_retain(0.005).unwrap() {
         return Err(err_custom_create!(
             "You need at least 0.005 ETH to continue. You have {} ETH on network with chain id: {} and account {:#x} ",
             balance,
@@ -710,9 +708,12 @@ pub async fn mint_golem_token(
         ));
     };
 
-    let token_balance = get_token_balance(web3, glm_address, from).await?.to_eth().map_err(err_from!())?;
+    let token_balance = get_token_balance(web3, glm_address, from)
+        .await?
+        .to_eth()
+        .map_err(err_from!())?;
 
-    if token_balance > Decimal::from_f64_retain(1000.0).unwrap() {
+    if token_balance > Decimal::from_f64_retain(500.0).unwrap() {
         return Err(err_custom_create!(
             "You already have {} tGLM on network with chain id: {} and account {:#x} ",
             token_balance,
@@ -721,10 +722,27 @@ pub async fn mint_golem_token(
         ));
     };
 
-    let faucet_mint_tx = create_faucet_mint(from, faucet_contract_address, chain_id, None)?;
-    let mint_tx = insert_tx(conn, &faucet_mint_tx)
+    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
+    let filter = format!(
+        "from_addr=\"{:#x}\" AND method=\"FAUCET.create\" AND fee_paid is NULL",
+        from
+    );
+    let tx_existing = get_transactions(&mut *db_transaction, Some(&filter), None, None)
         .await
         .map_err(err_from!())?;
+
+    if let Some(tx) = tx_existing.first() {
+        return Err(err_custom_create!(
+            "You already have a pending mint (create) transaction with id: {}",
+            tx.id
+        ));
+    }
+
+    let faucet_mint_tx = create_faucet_mint(from, faucet_contract_address, chain_id, None)?;
+    let mint_tx = insert_tx(&mut *db_transaction, &faucet_mint_tx)
+        .await
+        .map_err(err_from!())?;
+    db_transaction.commit().await.map_err(err_from!())?;
 
     log::info!("Mint transaction added to queue: {}", mint_tx.id);
     Ok(())
