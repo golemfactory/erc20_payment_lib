@@ -16,7 +16,7 @@ report-alive-interval = 10
 gather-interval = 60
 # gather payments on payment driver start (otherwise wait for first gather-interval)
 gather-at-start = true
-automatic-recover = true
+automatic-recover = false
 # set to true to not respect deadlines attached to payments
 ignore-deadlines = false
 
@@ -62,18 +62,17 @@ max-fee-per-gas = 14.0
 gas-left-warning-limit = 1000000
 transaction-timeout = 60
 token = { address = "0x2036807B0B3aaf5b1858EE822D0e111fDdac7018", symbol = "tGLM" }
-# multi-contract = { address = "0x800010D7d0d315DCA795110ecCf0127cBd76b89f", max-at-once = 10 }
+multi-contract = { address = "0x800010D7d0d315DCA795110ecCf0127cBd76b89f", max-at-once = 10 }
 confirmation-blocks = 1
 block-explorer-url = "https://mumbai.polygonscan.com"
 
 [chain.polygon]
 chain-name = "Polygon mainnet"
 chain-id = 137
-#rpc-endpoints = ["https://archive.golem.network/polygon"]
-rpc-endpoints = ["http://archive.golem.network:9999"]
+rpc-endpoints = ["https://polygon-rpc.com"]
 currency-symbol = "MATIC"
 priority-fee = 30.111
-max-fee-per-gas = 150.0
+max-fee-per-gas = 500.0
 gas-left-warning-limit = 1000000
 transaction-timeout = 100
 token = { address = "0x0B220b82F3eA3B7F6d9A1D8ab58930C064A2b5Bf", symbol = "GLM" }
