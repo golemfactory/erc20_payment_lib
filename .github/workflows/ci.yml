@@ -147,8 +147,7 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "test-cache-release-fast"
-          save-if: false
+          shared-key: "dev-build-cache"
 
       - name: Build
         run: cargo build
