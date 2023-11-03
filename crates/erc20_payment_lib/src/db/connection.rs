@@ -7,9 +7,12 @@ use sqlx::SqlitePool;
 use std::env;
 use std::path::Path;
 use std::str::FromStr;
+use std::sync::atomic;
 use std::time::Duration;
 
 static MIGRATOR: Migrator = sqlx::migrate!();
+
+static MEMORY_DATABASE_NUMBER: atomic::AtomicUsize = atomic::AtomicUsize::new(0);
 
 pub async fn create_sqlite_connection(
     path: Option<&Path>,
@@ -23,8 +26,13 @@ pub async fn create_sqlite_connection(
             path.to_str()
                 .ok_or_else(|| err_custom_create!("path not convertible to string: {path:?}"))?
         )
+    } else if let Some(memory_name) = memory_name {
+        format!("file:{}?mode=memory", memory_name)
     } else {
-        format!("file:{}?mode=memory", memory_name.unwrap_or("mem"))
+        format!(
+            "file:mem_{}?mode=memory",
+            MEMORY_DATABASE_NUMBER.fetch_add(1, atomic::Ordering::Relaxed)
+        )
     };
 
     let journal_mode = match env::var("ERC20_LIB_SQLITE_JOURNAL_MODE") {
