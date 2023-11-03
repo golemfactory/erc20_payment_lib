@@ -134,6 +134,32 @@ jobs:
       - name: Run tests (docker_03_problems)
         run: cargo test --test docker_03_problems --profile=release-fast -- --test-threads=10
 
+  test_faucet:
+    name: Test faucet
+    timeout-minutes: 20
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "test-cache-release-fast"
+          save-if: false
+
+      - name: Build
+        run: cargo build
+
+      - name: Run tests (faucet)
+        run: cargo run -- generate-key -n 1 > .env
+
+      - name: Run tests (faucet)
+        run: cargo run -- balance -c goerli
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GITHUB_TOKEN }}
 
   payment_tests_custom:
     name: Payment tests (custom)
