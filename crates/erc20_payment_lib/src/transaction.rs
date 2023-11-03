@@ -787,12 +787,11 @@ pub async fn find_receipt_extended(
 
     chain_tx_dao.to_addr = format!("{receipt_to:#x}");
 
-    let status = receipt.status.ok_or(err_custom_create!("Receipt status is None"))?;
+    let status = receipt
+        .status
+        .ok_or(err_custom_create!("Receipt status is None"))?;
     if status.as_u64() > 1 {
-        return Err(err_custom_create!(
-            "Receipt status unknown {:#x}",
-            status
-        ));
+        return Err(err_custom_create!("Receipt status unknown {:#x}", status));
     }
     chain_tx_dao.chain_status = status.as_u64() as i64;
     if tx.nonce > U256::from(i64::MAX) {
@@ -821,7 +820,12 @@ pub async fn find_receipt_extended(
         .effective_gas_price
         .ok_or_else(|| err_custom_create!("Effective gas price expected"))?;
 
-    chain_tx_dao.block_gas_price = Some(block_info.base_fee_per_gas.unwrap_or(U256::zero()).to_string());
+    chain_tx_dao.block_gas_price = Some(
+        block_info
+            .base_fee_per_gas
+            .unwrap_or(U256::zero())
+            .to_string(),
+    );
     chain_tx_dao.effective_gas_price = Some(effective_gas_price.to_string());
     chain_tx_dao.max_fee_per_gas = tx.max_fee_per_gas.map(|x| x.to_string());
     chain_tx_dao.priority_fee = tx.max_priority_fee_per_gas.map(|x| x.to_string());
