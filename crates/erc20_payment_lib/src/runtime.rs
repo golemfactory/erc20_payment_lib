@@ -713,47 +713,6 @@ pub async fn get_unpaid_token_amount(
     Ok(sum)
 }
 
-pub async fn get_token_balance(
-    web3: &Web3<Http>,
-    token_address: Address,
-    address: Address,
-) -> Result<U256, PaymentError> {
-    let balance_result = crate::eth::get_balance(web3, Some(token_address), address, true).await?;
-
-    let token_balance = balance_result
-        .token_balance
-        .ok_or(err_custom_create!("get_balance didn't yield token_balance"))?;
-
-    Ok(token_balance)
-}
-
-pub async fn get_unpaid_token_amount(
-    conn: &SqlitePool,
-    chain_id: i64,
-    token_address: Address,
-    sender: Address,
-) -> Result<U256, PaymentError> {
-    let transfers = get_unpaid_token_transfers(conn, chain_id, sender)
-        .await
-        .map_err(err_from!())?;
-    let mut sum = U256::default();
-    for transfer in transfers {
-        if let Some(token_addr) = transfer.token_addr {
-            let token_addr = Address::from_str(&token_addr).map_err(err_from!())?;
-            if token_addr != token_address {
-                return Err(err_custom_create!(
-                    "Token address mismatch table token_transfer: {} != {}, id: {}",
-                    transfer.id,
-                    token_addr,
-                    token_address
-                ));
-            }
-            sum += transfer.token_amount.to_u256().map_err(err_from!())?
-        }
-    }
-    Ok(sum)
-}
-
 // This is for now very limited check. It needs lot more work to be complete
 pub async fn verify_transaction(
     web3: &web3::Web3<web3::transports::Http>,
@@ -801,40 +760,6 @@ pub async fn verify_transaction(
         Ok(VerifyTransactionResult::Rejected(
             "Transaction not found".to_string(),
         ))
-    }
-}
-
-pub async fn remove_transaction_force(
-    conn: &SqlitePool,
-    tx_id: i64,
-) -> Result<Option<Vec<i64>>, PaymentError> {
-    let mut db_transaction = conn
-        .begin()
-        .await
-        .map_err(|err| err_custom_create!("Error beginning transaction {err}"))?;
-
-    match get_transaction_chain(&mut db_transaction, tx_id).await {
-        Ok(txs) => {
-            for tx in &txs {
-                //if tx is allowance then remove all references to it
-                cleanup_allowance_tx(&mut *db_transaction, tx.id)
-                    .await
-                    .map_err(err_from!())?;
-                //if tx is token_transfer then remove all references to it
-                cleanup_token_transfer_tx(&mut *db_transaction, tx.id)
-                    .await
-                    .map_err(err_from!())?;
-                delete_tx(&mut *db_transaction, tx.id)
-                    .await
-                    .map_err(err_from!())?;
-            }
-            db_transaction.commit().await.map_err(err_from!())?;
-            Ok(Some(txs.iter().map(|tx| tx.id).collect()))
-        }
-        Err(e) => {
-            log::error!("Error getting transaction: {}", e);
-            Err(err_custom_create!("Error getting transaction: {}", e))
-        }
     }
 }
 
