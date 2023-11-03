@@ -113,6 +113,9 @@ pub struct TransferOptions {
     #[structopt(long = "token", help = "Token", default_value = "glm", possible_values = &["glm", "eth", "matic"])]
     pub token: String,
 
+    #[structopt(long = "all", help = "Transfer all available tokens")]
+    pub all: bool,
+
     #[structopt(
         short = "a",
         long = "amount",

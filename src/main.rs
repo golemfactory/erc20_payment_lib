@@ -27,7 +27,7 @@ use std::str::FromStr;
 
 use crate::stats::{export_stats, run_stats};
 use erc20_payment_lib::runtime::{
-    mint_golem_token, remove_last_unsent_transactions, remove_transaction_force,
+    get_token_balance, mint_golem_token, remove_last_unsent_transactions, remove_transaction_force,
 };
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
@@ -37,6 +37,7 @@ use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use crate::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::utils::DecimalConvExt;
+use rust_decimal::Decimal;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
@@ -91,10 +92,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .split(',')
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>();
-            log::info!(
-                "Overriding default rpc endpoints for {}",
-                f.0,
-            );
+            log::info!("Overriding default rpc endpoints for {}", f.0,);
             config.change_rpc_endpoints(f.1, strs).await?;
         }
     }
@@ -311,6 +309,67 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let public_addr = public_addrs.get(0).expect("No public address found");
             let mut db_transaction = conn.begin().await.unwrap();
+
+            let mut amount_tt = single_transfer_options
+                .amount
+                .to_u256_from_eth()
+                .unwrap()
+                .to_string();
+            let payment_setup = PaymentSetup::new(
+                &config,
+                vec![],
+                true,
+                false,
+                false,
+                1,
+                1,
+                1,
+                1,
+                1,
+                None,
+                false,
+                false,
+                false,
+            )?;
+            if single_transfer_options.all {
+                #[allow(clippy::if_same_then_else)]
+                if single_transfer_options.token == "glm" {
+                    amount_tt = get_token_balance(
+                        payment_setup.get_provider(chain_cfg.chain_id)?,
+                        chain_cfg.token.address,
+                        *public_addr,
+                    )
+                    .await?
+                    .to_string()
+                } else if single_transfer_options.token == "eth"
+                    || single_transfer_options.token == "matic"
+                {
+                    let val = payment_setup
+                        .get_provider(chain_cfg.chain_id)?
+                        .eth()
+                        .balance(*public_addr, None)
+                        .await
+                        .map_err(err_from!())?;
+                    let gas_val = Decimal::from_str(&chain_cfg.max_fee_per_gas.to_string())
+                        .map_err(|e| err_custom_create!("Failed to convert {e}"))?
+                        * Decimal::from(21500); //leave some room for rounding error
+                    let gas_val = gas_val.to_u256_from_gwei().map_err(err_from!())?;
+                    if gas_val > val {
+                        return Err(err_custom_create!(
+                            "Not enough eth to pay for gas, required: {}, available: {}",
+                            gas_val,
+                            val
+                        ));
+                    }
+                    amount_tt = (val - gas_val).to_string();
+                } else {
+                    return Err(err_custom_create!(
+                        "Unknown token: {}",
+                        single_transfer_options.token
+                    ));
+                };
+            }
+
             let mut tt = insert_token_transfer(
                 &mut *db_transaction,
                 &TokenTransferDao {
@@ -323,11 +382,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     receiver_addr: format!("{:#x}", recipient),
                     chain_id: chain_cfg.chain_id,
                     token_addr: token,
-                    token_amount: single_transfer_options
-                        .amount
-                        .to_u256_from_eth()
-                        .unwrap()
-                        .to_string(),
+                    token_amount: amount_tt,
                     create_date: Default::default(),
                     tx_id: None,
                     paid_date: None,
