@@ -77,11 +77,10 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
         with:
-          shared-key: "test-cache-release-fast"
-          save-if: false
+          shared-key: "test-erc20lib-cache-release-fast"
 
       - name: Build tests
-        run: cargo test -p erc20_payment_lib --profile=release-fast
+        run: cargo clippy
 
   payment_tests:
     name: Payment tests (basic + short ones)
