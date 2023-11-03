@@ -5,6 +5,7 @@ use crate::eth::get_eth_addr_from_secret;
 use crate::transaction::create_token_transfer;
 use crate::{err_custom_create, err_from};
 use futures::{stream, Stream, StreamExt};
+use rand::Rng;
 use secp256k1::SecretKey;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -105,6 +106,37 @@ pub fn load_private_keys(str: &str) -> Result<(Vec<SecretKey>, Vec<Address>), Pa
         let public_addr = get_eth_addr_from_secret(&secret);
         keys.push(secret);
         addrs.push(public_addr);
+    }
+    Ok((keys, addrs))
+}
+
+pub fn gen_private_keys(n: usize) -> Result<(Vec<String>, Vec<Address>), PaymentError> {
+    let mut keys = Vec::new();
+    let mut addrs = Vec::new();
+
+    let mut rng = rand::thread_rng();
+    let mut i = 0;
+    if n > 100 {
+        return Err(err_custom_create!(
+            "Number of keys cannot be greater than 100"
+        ));
+    }
+    loop {
+        if i >= n {
+            break;
+        }
+        let key = rng.gen::<[u8; 32]>(); // 32 random bytes, suitable for Ed25519
+
+        //do not disclose the private key in error message
+        let secret = SecretKey::from_slice(&key)
+            .map_err(|_| err_custom_create!("Failed to parse private key"))?;
+        let public_addr = get_eth_addr_from_secret(&secret);
+        if !format!("{:#x}", public_addr).starts_with(&format!("0x{:02}", i)) {
+            continue;
+        }
+        keys.push(hex::encode(key));
+        addrs.push(public_addr);
+        i += 1;
     }
     Ok((keys, addrs))
 }

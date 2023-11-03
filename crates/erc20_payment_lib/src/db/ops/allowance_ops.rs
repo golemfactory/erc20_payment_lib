@@ -137,3 +137,43 @@ owner = $1
     .await?;
     Ok(row)
 }
+
+pub async fn remap_allowance_tx<'c, E>(
+    executor: E,
+    old_tx_id: i64,
+    new_tx_id: i64,
+) -> Result<(), sqlx::Error>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let _res = sqlx::query(
+        r"UPDATE allowance SET
+            tx_id = $2
+            WHERE tx_id = $1
+        ",
+    )
+    .bind(old_tx_id)
+    .bind(new_tx_id)
+    .execute(executor)
+    .await?;
+    Ok(())
+}
+
+pub async fn cleanup_allowance_tx<'c, E>(executor: E, tx_id: i64) -> Result<(), sqlx::Error>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let _res = sqlx::query(
+        r"UPDATE allowance SET
+            tx_id = NULL,
+            fee_paid = NULL,
+            error = NULL,
+            confirm_date = NULL
+            WHERE tx_id = $1
+        ",
+    )
+    .bind(tx_id)
+    .execute(executor)
+    .await?;
+    Ok(())
+}

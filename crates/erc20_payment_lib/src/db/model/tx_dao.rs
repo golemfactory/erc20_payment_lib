@@ -25,6 +25,7 @@ pub struct TxDao {
     pub signed_date: Option<DateTime<Utc>>,
     pub broadcast_date: Option<DateTime<Utc>>,
     pub broadcast_count: i64,
+    pub first_stuck_date: Option<DateTime<Utc>>,
     pub confirm_date: Option<DateTime<Utc>>,
     pub block_number: Option<i64>,
     pub chain_status: Option<i64>,

@@ -1,6 +1,7 @@
 use crate::db::create_sqlite_connection;
 use crate::db::ops::{
-    cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx, insert_token_transfer,
+    cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx,
+    get_transaction_chain, get_unpaid_token_transfers, insert_token_transfer,
 };
 use crate::signer::Signer;
 use crate::transaction::{create_token_transfer, find_receipt_extended};
@@ -22,6 +23,7 @@ use tokio::sync::mpsc::Sender;
 use crate::config::AdditionalOptions;
 use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
 use crate::sender::service_loop;
+use crate::utils::StringConvExt;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::Serialize;
@@ -59,15 +61,16 @@ pub struct GasLowInfo {
 #[derive(Debug, Clone, Serialize)]
 pub struct NoGasDetails {
     pub tx: TxDao,
-    pub gas_balance: Option<Decimal>,
-    pub gas_needed: Option<Decimal>,
+    pub gas_balance: Decimal,
+    pub gas_needed: Decimal,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct NoTokenDetails {
     pub tx: TxDao,
-    pub token_balance: Option<Decimal>,
-    pub token_needed: Option<Decimal>,
+    pub sender: Address,
+    pub token_balance: Decimal,
+    pub token_needed: Decimal,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -188,11 +191,11 @@ pub enum StatusProperty {
     },
     NoGas {
         chain_id: i64,
-        missing_gas: Option<Decimal>,
+        missing_gas: Decimal,
     },
     NoToken {
         chain_id: i64,
-        missing_token: Option<Decimal>,
+        missing_token: Decimal,
     },
 }
 
@@ -239,11 +242,8 @@ impl StatusTracker {
                         missing_gas: new_missing,
                     },
                 ) if id1 == id2 => {
-                    if let (Some(old_missing), Some(new_missing)) = (old_missing, new_missing) {
-                        *old_missing += new_missing;
-                        return true;
-                    }
-                    return false;
+                    *old_missing = *new_missing;
+                    return true;
                 }
                 // NoToken statuses add up
                 (
@@ -256,11 +256,8 @@ impl StatusTracker {
                         missing_token: new_missing,
                     },
                 ) if id1 == id2 => {
-                    if let (Some(old_missing), Some(new_missing)) = (old_missing, new_missing) {
-                        *old_missing += new_missing;
-                        return true;
-                    }
-                    return false;
+                    *old_missing = *new_missing;
+                    return true;
                 }
                 _ => {}
             }
@@ -312,10 +309,7 @@ impl StatusTracker {
                     DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
                         details,
                     )) => {
-                        let missing_gas = match (details.gas_balance, details.gas_needed) {
-                            (Some(balance), Some(needed)) => Some(needed - balance),
-                            _ => None,
-                        };
+                        let missing_gas = details.gas_balance - details.gas_needed;
 
                         Self::update(
                             status2.lock().await.deref_mut(),
@@ -328,11 +322,7 @@ impl StatusTracker {
                     DriverEventContent::TransactionStuck(TransactionStuckReason::NoToken(
                         details,
                     )) => {
-                        let missing_token = match (details.token_balance, details.token_needed) {
-                            (Some(balance), Some(needed)) => Some(needed - balance),
-                            _ => None,
-                        };
-
+                        let missing_token = details.token_needed - details.token_balance;
                         Self::update(
                             status2.lock().await.deref_mut(),
                             StatusProperty::NoToken {
@@ -413,6 +403,7 @@ impl PaymentRuntime {
             config.engine.process_interval_after_send,
             config.engine.report_alive_interval,
             config.engine.gather_interval,
+            config.engine.mark_as_unrecoverable_after_seconds,
             config.engine.gather_at_start,
             config.engine.ignore_deadlines,
             config.engine.automatic_recover,
@@ -496,6 +487,28 @@ impl PaymentRuntime {
         Ok(web3.clone())
     }
 
+    pub async fn get_unpaid_token_amount(
+        &self,
+        chain_name: String,
+        sender: Address,
+    ) -> Result<U256, PaymentError> {
+        let chain_cfg = self
+            .config
+            .chain
+            .get(&chain_name)
+            .ok_or(err_custom_create!(
+                "Chain {} not found in config file",
+                chain_name
+            ))?;
+        get_unpaid_token_amount(
+            &self.conn,
+            chain_cfg.chain_id,
+            chain_cfg.token.address,
+            sender,
+        )
+        .await
+    }
+
     pub async fn get_token_balance(
         &self,
         chain_name: String,
@@ -514,14 +527,7 @@ impl PaymentRuntime {
 
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
-        let balance_result =
-            crate::eth::get_balance(web3, Some(token_address), address, true).await?;
-
-        let token_balance = balance_result
-            .token_balance
-            .ok_or(err_custom_create!("get_balance didn't yield token_balance"))?;
-
-        Ok(token_balance)
+        get_token_balance(web3, token_address, address).await
     }
 
     pub async fn get_gas_balance(
@@ -666,6 +672,47 @@ impl VerifyTransactionResult {
     }
 }
 
+pub async fn get_token_balance(
+    web3: &Web3<Http>,
+    token_address: Address,
+    address: Address,
+) -> Result<U256, PaymentError> {
+    let balance_result = crate::eth::get_balance(web3, Some(token_address), address, true).await?;
+
+    let token_balance = balance_result
+        .token_balance
+        .ok_or(err_custom_create!("get_balance didn't yield token_balance"))?;
+
+    Ok(token_balance)
+}
+
+pub async fn get_unpaid_token_amount(
+    conn: &SqlitePool,
+    chain_id: i64,
+    token_address: Address,
+    sender: Address,
+) -> Result<U256, PaymentError> {
+    let transfers = get_unpaid_token_transfers(conn, chain_id, sender)
+        .await
+        .map_err(err_from!())?;
+    let mut sum = U256::default();
+    for transfer in transfers {
+        if let Some(token_addr) = transfer.token_addr {
+            let token_addr = Address::from_str(&token_addr).map_err(err_from!())?;
+            if token_addr != token_address {
+                return Err(err_custom_create!(
+                    "Token address mismatch table token_transfer: {} != {}, id: {}",
+                    transfer.id,
+                    token_addr,
+                    token_address
+                ));
+            }
+            sum += transfer.token_amount.to_u256().map_err(err_from!())?
+        }
+    }
+    Ok(sum)
+}
+
 // This is for now very limited check. It needs lot more work to be complete
 pub async fn verify_transaction(
     web3: &web3::Web3<web3::transports::Http>,
@@ -713,6 +760,40 @@ pub async fn verify_transaction(
         Ok(VerifyTransactionResult::Rejected(
             "Transaction not found".to_string(),
         ))
+    }
+}
+
+pub async fn remove_transaction_force(
+    conn: &SqlitePool,
+    tx_id: i64,
+) -> Result<Option<Vec<i64>>, PaymentError> {
+    let mut db_transaction = conn
+        .begin()
+        .await
+        .map_err(|err| err_custom_create!("Error beginning transaction {err}"))?;
+
+    match get_transaction_chain(&mut db_transaction, tx_id).await {
+        Ok(txs) => {
+            for tx in &txs {
+                //if tx is allowance then remove all references to it
+                cleanup_allowance_tx(&mut *db_transaction, tx.id)
+                    .await
+                    .map_err(err_from!())?;
+                //if tx is token_transfer then remove all references to it
+                cleanup_token_transfer_tx(&mut *db_transaction, tx.id)
+                    .await
+                    .map_err(err_from!())?;
+                delete_tx(&mut *db_transaction, tx.id)
+                    .await
+                    .map_err(err_from!())?;
+            }
+            db_transaction.commit().await.map_err(err_from!())?;
+            Ok(Some(txs.iter().map(|tx| tx.id).collect()))
+        }
+        Err(e) => {
+            log::error!("Error getting transaction: {}", e);
+            Err(err_custom_create!("Error getting transaction: {}", e))
+        }
     }
 }
 

@@ -1,6 +1,7 @@
 use crate::db::ops::{
-    delete_tx, get_transaction, get_transaction_highest_nonce, insert_tx, remap_token_transfer_tx,
-    update_tx,
+    delete_tx, get_transaction, get_transaction_highest_nonce, insert_tx, remap_allowance_tx,
+    remap_token_transfer_tx, update_processing_and_first_processed_tx, update_tx,
+    update_tx_stuck_date,
 };
 use crate::error::PaymentError;
 use crate::error::*;
@@ -19,8 +20,8 @@ use web3::Web3;
 use crate::db::model::TxDao;
 use crate::eth::get_transaction_count;
 use crate::runtime::{
-    send_driver_event, DriverEvent, DriverEventContent, GasLowInfo, NoGasDetails, SharedState,
-    TransactionFailedReason, TransactionStuckReason,
+    remove_transaction_force, send_driver_event, DriverEvent, DriverEventContent, GasLowInfo,
+    NoGasDetails, SharedState, TransactionFailedReason, TransactionStuckReason,
 };
 use crate::setup::PaymentSetup;
 use crate::signer::Signer;
@@ -38,6 +39,7 @@ pub enum ProcessTransactionResult {
     Replaced,
     NeedRetry(String),
     InternalError(String),
+    DoNotSave,
     Unknown,
 }
 
@@ -57,8 +59,6 @@ pub async fn process_transaction(
     signer: &impl Signer,
     wait_for_confirmation: bool,
 ) -> Result<(TxDao, ProcessTransactionResult), PaymentError> {
-    const CHECKS_UNTIL_NOT_FOUND: u64 = 5;
-
     let chain_id = web3_tx_dao.chain_id;
     let Some(chain_setup) = payment_setup.chain_setup.get(&chain_id) else {
         send_driver_event(
@@ -68,7 +68,7 @@ pub async fn process_transaction(
             )),
         )
         .await;
-        return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Unknown));
+        return Ok((web3_tx_dao.clone(), ProcessTransactionResult::DoNotSave));
     };
 
     let is_polygon_eco_mode = chain_setup.chain_id == 137 && get_env_bool_value("POLYGON_ECO_MODE");
@@ -266,7 +266,10 @@ pub async fn process_transaction(
         }
     } else {
         web3_tx_dao.first_processed = Some(chrono::Utc::now());
-        update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
+        web3_tx_dao.processing = 1;
+        update_processing_and_first_processed_tx(conn, web3_tx_dao)
+            .await
+            .map_err(err_from!())?;
     }
 
     if web3_tx_dao.signed_raw_data.is_none() {
@@ -276,9 +279,21 @@ pub async fn process_transaction(
                 .lock()
                 .await
                 .set_tx_message(web3_tx_dao.id, "Checking transaction".to_string());
-            log::info!("Checking transaction {}", web3_tx_dao.id);
-            match check_transaction(web3, web3_tx_dao).await {
+            log::info!("Check and estimate gas for tx id: {}", web3_tx_dao.id);
+            match check_transaction(
+                &event_sender,
+                conn,
+                chain_setup.glm_address,
+                web3,
+                web3_tx_dao,
+            )
+            .await
+            {
                 Ok(res) => {
+                    let Some(res) = res else {
+                        //check cannot be done right now
+                        return Ok((web3_tx_dao.clone(), ProcessTransactionResult::DoNotSave));
+                    };
                     let gas_balance = web3
                         .eth()
                         .balance(from_addr, None)
@@ -295,17 +310,13 @@ pub async fn process_transaction(
                             DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
                                 NoGasDetails {
                                     tx: web3_tx_dao.clone(),
-                                    gas_balance: Some(gas_balance.to_eth().map_err(err_from!())?),
-                                    gas_needed: Some(res.to_eth().map_err(err_from!())?),
+                                    gas_balance: gas_balance.to_eth().map_err(err_from!())?,
+                                    gas_needed: res.to_eth().map_err(err_from!())?,
                                 },
                             )),
                         )
                         .await;
-                        return Err(err_custom_create!(
-                            "Gas balance too low for gas {} - vs needed: {}",
-                            gas_balance.to_eth().map_err(err_from!())?,
-                            res.to_eth().map_err(err_from!())?
-                        ));
+                        return Ok((web3_tx_dao.clone(), ProcessTransactionResult::DoNotSave));
                     }
                 }
                 Err(err) => {
@@ -345,8 +356,16 @@ pub async fn process_transaction(
             .lock()
             .await
             .set_tx_message(web3_tx_dao.id, "Sending transaction".to_string());
-        send_transaction(event_sender.clone(), web3, web3_tx_dao).await?;
         web3_tx_dao.broadcast_count += 1;
+        update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
+        send_transaction(
+            conn,
+            chain_setup.glm_address,
+            event_sender.clone(),
+            web3,
+            web3_tx_dao,
+        )
+        .await?;
         update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
         log::info!(
             "Transaction {} sent, tx hash: {}",
@@ -364,7 +383,6 @@ pub async fn process_transaction(
         return Ok((web3_tx_dao.clone(), ProcessTransactionResult::Confirmed));
     }
 
-    let mut tx_not_found_count = 0;
     loop {
         shared_state
             .lock()
@@ -503,6 +521,12 @@ pub async fn process_transaction(
                             orig_tx.id,
                             current_tx.id
                         );
+                        //handle case when transaction is allowance
+                        remap_allowance_tx(&mut *db_transaction, orig_tx.id, current_tx.id)
+                            .await
+                            .map_err(err_from!())?;
+
+                        //handle case when transaction is token transfer
                         remap_token_transfer_tx(&mut *db_transaction, orig_tx.id, current_tx.id)
                             .await
                             .map_err(err_from!())?;
@@ -541,8 +565,9 @@ pub async fn process_transaction(
                     );
                 }
             } else {
-                tx_not_found_count += 1;
-                log::debug!("Receipt not found: {:?}", web3_tx_dao.tx_hash);
+                //add is timed out
+                //log::debug!("Receipt not found: {:?}", web3_tx_dao.tx_hash);
+
                 shared_state.lock().await.set_tx_error(
                     web3_tx_dao.id,
                     Some(
@@ -551,11 +576,38 @@ pub async fn process_transaction(
                     ),
                 );
 
-                if payment_setup.automatic_recover && tx_not_found_count >= CHECKS_UNTIL_NOT_FOUND {
-                    return Ok((
-                        web3_tx_dao.clone(),
-                        ProcessTransactionResult::NeedRetry("No receipt".to_string()),
-                    ));
+                //if transaction is stuck for more than 5 minutes then remove it from queue
+                if let Some(first_stuck_date) = web3_tx_dao.first_stuck_date {
+                    let curr_time = chrono::Utc::now();
+                    let seconds_elapsed = (curr_time - first_stuck_date).num_seconds();
+                    if seconds_elapsed > payment_setup.mark_as_unrecoverable_after_seconds as i64 {
+                        if payment_setup.automatic_recover {
+                            log::warn!("Recovering from stuck transaction with wrong nonce. In extreme conditions it can lead to double spending, use with caution.");
+                            remove_transaction_force(conn, web3_tx_dao.id).await?;
+                            return Ok((web3_tx_dao.clone(), ProcessTransactionResult::DoNotSave));
+                        }
+                        log::error!("Receipt not found despite proper nonce after {} (limit {}). Probably external payment done. Transactions are stuck until you remove transaction from queue.",
+                        humantime::format_duration(Duration::from_secs(seconds_elapsed as u64)),
+                        humantime::format_duration(Duration::from_secs(payment_setup.mark_as_unrecoverable_after_seconds)));
+                        return Ok((
+                            web3_tx_dao.clone(),
+                            ProcessTransactionResult::NeedRetry("Receipt not found".to_string()),
+                        ));
+                    } else {
+                        log::warn!(
+                            "Receipt not found despite proper nonce for {} (limit {})",
+                            humantime::format_duration(Duration::from_secs(seconds_elapsed as u64)),
+                            humantime::format_duration(Duration::from_secs(
+                                payment_setup.mark_as_unrecoverable_after_seconds
+                            ))
+                        );
+                    }
+                } else {
+                    log::warn!("Receipt not found despite proper nonce. Probably external payment done or web3 provider not yet synchronized");
+                    web3_tx_dao.first_stuck_date = Some(chrono::Utc::now());
+                    update_tx_stuck_date(conn, web3_tx_dao)
+                        .await
+                        .map_err(err_from!())?;
                 }
             }
         } else {
@@ -708,6 +760,7 @@ pub async fn process_transaction(
                         signed_date: None,
                         broadcast_date: None,
                         broadcast_count: 0,
+                        first_stuck_date: None,
                         confirm_date: None,
                         block_number: None,
                         chain_status: None,
@@ -763,7 +816,14 @@ pub async fn process_transaction(
                 .await
                 .set_tx_message(web3_tx_dao.id, "Resending transaction".to_string());
 
-            send_transaction(event_sender.clone(), web3, web3_tx_dao).await?;
+            send_transaction(
+                conn,
+                chain_setup.glm_address,
+                event_sender.clone(),
+                web3,
+                web3_tx_dao,
+            )
+            .await?;
             web3_tx_dao.broadcast_count += 1;
             update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
             tokio::time::sleep(Duration::from_secs(

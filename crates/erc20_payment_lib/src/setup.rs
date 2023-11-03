@@ -66,6 +66,7 @@ pub struct PaymentSetup {
     pub report_alive_interval: u64,
     pub gather_interval: u64,
     pub gather_at_start: bool,
+    pub mark_as_unrecoverable_after_seconds: u64,
     pub ignore_deadlines: bool,
     pub automatic_recover: bool,
     pub contract_use_direct_method: bool,
@@ -73,6 +74,8 @@ pub struct PaymentSetup {
     pub use_transfer_for_single_payment: bool,
     pub extra_options_for_testing: Option<ExtraOptionsForTesting>,
 }
+
+const MARK_AS_UNRECOVERABLE_AFTER_SECONDS: u64 = 300;
 
 impl PaymentSetup {
     #[allow(clippy::too_many_arguments)]
@@ -87,6 +90,7 @@ impl PaymentSetup {
         process_interval_after_send: u64,
         report_alive_interval: u64,
         gather_interval: u64,
+        mark_as_unrecoverable_after_seconds: Option<u64>,
         gather_at_start: bool,
         ignore_deadlines: bool,
         automatic_recover: bool,
@@ -104,6 +108,8 @@ impl PaymentSetup {
             report_alive_interval,
             gather_interval,
             gather_at_start,
+            mark_as_unrecoverable_after_seconds: mark_as_unrecoverable_after_seconds
+                .unwrap_or(MARK_AS_UNRECOVERABLE_AFTER_SECONDS),
             ignore_deadlines,
             automatic_recover,
             contract_use_direct_method: false,

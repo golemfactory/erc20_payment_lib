@@ -20,7 +20,7 @@ async fn init_once() {
     env::set_var(
         "RUST_LOG",
         env::var("RUST_LOG")
-            .unwrap_or("info,sqlx::query=warn,web3=warn,erc20_payment_lib=info".to_string()),
+            .unwrap_or("info,sqlx::query=info,web3=warn,erc20_payment_lib=info".to_string()),
     );
     env_logger::init();
 }

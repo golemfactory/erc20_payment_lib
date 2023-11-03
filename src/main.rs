@@ -9,7 +9,8 @@ use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::{ScanDao, TokenTransferDao};
 use erc20_payment_lib::db::ops::{
-    delete_scan_info, get_scan_info, insert_token_transfer, update_token_transfer, upsert_scan_info,
+    delete_scan_info, get_next_transactions_to_process, get_scan_info, insert_token_transfer,
+    update_token_transfer, upsert_scan_info,
 };
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::signer::PrivateKeySigner;
@@ -24,23 +25,33 @@ use std::env;
 use std::str::FromStr;
 
 use crate::stats::{export_stats, run_stats};
-use erc20_payment_lib::runtime::remove_last_unsent_transactions;
+use erc20_payment_lib::runtime::{remove_last_unsent_transactions, remove_transaction_force};
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::import_erc20_txs;
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 
+use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::utils::DecimalConvExt;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::ethabi::ethereum_types::Address;
 
+fn check_address_name(n: &str) -> &str {
+    match n {
+        "funds" => "0x333dFEa0C940Dc9971C32C69837aBE14207F9097",
+        "dead" => "0x000000000000000000000000000000000000dEaD",
+        "null" => "0x0000000000000000000000000000000000000000",
+        _ => n,
+    }
+}
+
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
     env::set_var(
         "RUST_LOG",
-        env::var("RUST_LOG").unwrap_or("info,sqlx::query=warn,web3=warn".to_string()),
+        env::var("RUST_LOG").unwrap_or("info,sqlx::query=info,web3=warn".to_string()),
     );
 
     env_logger::init();
@@ -188,6 +199,18 @@ async fn main_internal() -> Result<(), PaymentError> {
                 sp.runtime_handle.await.unwrap();
             }
         }
+        PaymentCommands::GenerateKey {
+            generate_key_options,
+        } => {
+            log::info!("Generating private keys...");
+
+            let res = gen_private_keys(generate_key_options.number_of_keys)?;
+
+            for key in res.1.iter().enumerate() {
+                println!("# PUBLIC_ADDRESS_{}: {:#x}", key.0, key.1);
+            }
+            println!("ETH_PRIVATE_KEYS={}", res.0.join(","));
+        }
         PaymentCommands::Transfer {
             single_transfer_options,
         } => {
@@ -215,6 +238,9 @@ async fn main_internal() -> Result<(), PaymentError> {
                 ));
             };
 
+            let recipient =
+                Address::from_str(check_address_name(&single_transfer_options.recipient)).unwrap();
+
             let public_addr = public_addrs.get(0).expect("No public address found");
             let mut db_transaction = conn.begin().await.unwrap();
             let mut tt = insert_token_transfer(
@@ -226,7 +252,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                         "{:#x}",
                         single_transfer_options.from.unwrap_or(*public_addr)
                     ),
-                    receiver_addr: format!("{:#x}", single_transfer_options.recipient),
+                    receiver_addr: format!("{:#x}", recipient),
                     chain_id: chain_cfg.chain_id,
                     token_addr: token,
                     token_amount: single_transfer_options
@@ -243,6 +269,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             )
             .await
             .unwrap();
+
             let payment_id = format!("{}_transfer_{}", single_transfer_options.token, tt.id);
             tt.payment_id = Some(payment_id.clone());
             update_token_transfer(&mut *db_transaction, &tt)
@@ -302,6 +329,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 1,
                 1,
                 1,
+                None,
                 false,
                 false,
                 false,
@@ -523,20 +551,80 @@ async fn main_internal() -> Result<(), PaymentError> {
             println!("Private key: {}", hex::encode(pkey));
         }
         PaymentCommands::Cleanup { cleanup_options } => {
-            println!("Cleaning up (doing nothing right now)");
             if cleanup_options.remove_unsent_tx {
+                let mut number_of_unsent_removed = 0;
                 loop {
                     match remove_last_unsent_transactions(conn.clone()).await {
                         Ok(Some(id)) => {
                             println!("Removed unsent transaction with id {}", id);
+                            number_of_unsent_removed += 1;
                         }
                         Ok(None) => {
-                            println!("No unsent transactions found");
                             break;
                         }
                         Err(e) => {
-                            println!("Error when removing unsent transaction: {}", e);
+                            return Err(err_custom_create!(
+                                "Error when removing unsent transaction: {}",
+                                e
+                            ));
                         }
+                    }
+                }
+                if number_of_unsent_removed == 0 {
+                    println!("No unsent transactions found to remove");
+                } else {
+                    println!("Removed {} unsent transactions", number_of_unsent_removed);
+                }
+            }
+            if cleanup_options.remove_tx_stuck {
+                let mut transactions = get_next_transactions_to_process(&conn, 1)
+                    .await
+                    .map_err(err_from!())?;
+
+                let Some(tx) = transactions.get_mut(0) else {
+                    println!("No transactions found to remove");
+                    return Ok(());
+                };
+                if tx.first_stuck_date.is_some() {
+                    match remove_transaction_force(&conn, tx.id).await {
+                        Ok(_) => {
+                            println!(
+                                "Removed stuck transaction with id {} (nonce: {})",
+                                tx.id,
+                                tx.nonce.unwrap_or(-1)
+                            );
+                        }
+                        Err(e) => {
+                            return Err(err_custom_create!(
+                                "Error when removing transaction {}: {}",
+                                tx.id,
+                                e
+                            ));
+                        }
+                    }
+                } else {
+                    println!("Transaction with id {} is not stuck, skipping", tx.id)
+                }
+            }
+            if cleanup_options.remove_tx_unsafe {
+                let mut transactions = get_next_transactions_to_process(&conn, 1)
+                    .await
+                    .map_err(err_from!())?;
+
+                let Some(tx) = transactions.get_mut(0) else {
+                    println!("No transactions found to remove");
+                    return Ok(());
+                };
+                match remove_transaction_force(&conn, tx.id).await {
+                    Ok(_) => {
+                        println!("Removed transaction with id {}", tx.id);
+                    }
+                    Err(e) => {
+                        return Err(err_custom_create!(
+                            "Error when removing transaction {}: {}",
+                            tx.id,
+                            e
+                        ));
                     }
                 }
             }

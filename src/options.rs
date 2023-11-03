@@ -31,20 +31,6 @@ pub struct RunOptions {
     )]
     pub skip_multi_contract_check: bool,
 
-    #[structopt(
-        long = "service-sleep",
-        help = "Sleep time between service loops in seconds",
-        default_value = "10"
-    )]
-    pub process_interval: u64,
-
-    #[structopt(
-        long = "process-sleep",
-        help = "Sleep time between process loops in seconds",
-        default_value = "10"
-    )]
-    pub gather_interval: u64,
-
     #[structopt(long = "http", help = "Enable http server")]
     pub http: bool,
 
@@ -80,21 +66,32 @@ pub struct RunOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Generate private key options")]
+pub struct GenerateKeyOptions {
+    #[structopt(short = "n", long = "number-of-keys", default_value = "5")]
+    pub number_of_keys: usize,
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Single transfer options")]
 pub struct TransferOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
     pub chain_name: String,
 
-    #[structopt(long = "recipient", help = "Recipient")]
-    pub recipient: Address,
+    #[structopt(short = "r", long = "recipient", help = "Recipient")]
+    pub recipient: String,
 
-    #[structopt(long = "from", help = "From")]
+    #[structopt(long = "from", help = "From (has to have private key)")]
     pub from: Option<Address>,
 
     #[structopt(long = "token", help = "Token", default_value = "glm", possible_values = &["glm", "eth", "matic"])]
     pub token: String,
 
-    #[structopt(long = "amount", help = "Amount")]
+    #[structopt(
+        short = "a",
+        long = "amount",
+        help = "Amount (decimal, full precision, i.e. 0.01)"
+    )]
     pub amount: rust_decimal::Decimal,
 }
 
@@ -212,9 +209,25 @@ pub struct DecryptKeyStoreOptions {
 pub struct CleanupOptions {
     #[structopt(
         long = "remove-unsent-tx",
-        help = "Remove transactions that are not sent to the network"
+        help = "Remove transactions that are not sent to the network This operation is safe"
     )]
     pub remove_unsent_tx: bool,
+
+    #[structopt(
+        long = "remove-stuck-tx",
+        help = "Remove transaction that is stuck due to wrong nonce. \
+    Call it if you are sure that processed transaction is not in the blockchain. \
+    This operation is unsafe and may lead to double spending"
+    )]
+    pub remove_tx_stuck: bool,
+
+    #[structopt(
+        long = "remove-tx-unsafe",
+        help = "Remove transaction that is processed as it never happened. \
+    Call it if you are sure that processed transaction is not in the blockchain. \
+    This operation is unsafe and may lead to double spending"
+    )]
+    pub remove_tx_unsafe: bool,
 }
 
 #[derive(StructOpt)]
@@ -228,6 +241,10 @@ pub enum PaymentCommands {
     Generate {
         #[structopt(flatten)]
         generate_options: GenerateOptions,
+    },
+    GenerateKey {
+        #[structopt(flatten)]
+        generate_key_options: GenerateKeyOptions,
     },
     Transfer {
         #[structopt(flatten)]
