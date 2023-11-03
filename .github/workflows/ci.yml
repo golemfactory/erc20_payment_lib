@@ -156,7 +156,8 @@ jobs:
         run: cargo run -- generate-key -n 1 > .env
 
       - name: Run balance
-        run: cargo run -- balance -c goerli
+        run: |
+          [ $(cargo run -- balance -c goerli | jq -r '.[] | .gasDecimal') == "0.01" ]
         env:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
 
