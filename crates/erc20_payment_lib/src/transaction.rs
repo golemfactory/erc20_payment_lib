@@ -709,6 +709,8 @@ pub async fn find_receipt_extended(
         to_addr: "".to_string(),
         chain_id,
         gas_limit: None,
+        gas_used: None,
+        block_gas_price: None,
         effective_gas_price: None,
         max_fee_per_gas: None,
         priority_fee: None,
@@ -753,6 +755,7 @@ pub async fn find_receipt_extended(
         .ok_or(err_custom_create!("Block not found"))?;
 
     //println!("Receipt: {:#?}", receipt);
+    chain_tx_dao.checked_date = chrono::Utc::now();
     chain_tx_dao.blockchain_date = datetime_from_u256_timestamp(block_info.timestamp)
         .ok_or_else(|| err_custom_create!("Cannot convert timestamp to NaiveDateTime"))?;
 
@@ -784,18 +787,44 @@ pub async fn find_receipt_extended(
 
     chain_tx_dao.to_addr = format!("{receipt_to:#x}");
 
-    chain_tx_dao.chain_status = receipt
-        .status
-        .map(|x| x.as_u64() as i64)
-        .ok_or(err_custom_create!("Chain status is None"))?;
+    let status = receipt.status.ok_or(err_custom_create!("Receipt status is None"))?;
+    if status.as_u64() > 1 {
+        return Err(err_custom_create!(
+            "Receipt status unknown {:#x}",
+            status
+        ));
+    }
+    chain_tx_dao.chain_status = status.as_u64() as i64;
+    if tx.nonce > U256::from(i64::MAX) {
+        return Err(err_custom_create!("Nonce too big"));
+    }
+    chain_tx_dao.nonce = tx.nonce.as_u64() as i64;
+
+    if tx.gas > U256::from(i64::MAX) {
+        return Err(err_custom_create!("Gas limit too big"));
+    }
+
+    chain_tx_dao.gas_limit = Some(tx.gas.as_u64() as i64);
+    chain_tx_dao.val = tx.value.to_string();
 
     let gas_used = receipt
         .gas_used
         .ok_or_else(|| err_custom_create!("Gas used expected"))?;
+
+    if gas_used > U256::from(i64::MAX) {
+        return Err(err_custom_create!("Gas used too big"));
+    }
+
+    chain_tx_dao.gas_used = Some(gas_used.as_u64() as i64);
+
     let effective_gas_price = receipt
         .effective_gas_price
         .ok_or_else(|| err_custom_create!("Effective gas price expected"))?;
 
+    chain_tx_dao.block_gas_price = Some(block_info.base_fee_per_gas.unwrap_or(U256::zero()).to_string());
+    chain_tx_dao.effective_gas_price = Some(effective_gas_price.to_string());
+    chain_tx_dao.max_fee_per_gas = tx.max_fee_per_gas.map(|x| x.to_string());
+    chain_tx_dao.priority_fee = tx.max_priority_fee_per_gas.map(|x| x.to_string());
     chain_tx_dao.fee_paid = (gas_used * effective_gas_price).to_string();
 
     //todo: move to lazy static

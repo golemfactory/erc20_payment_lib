@@ -9,15 +9,17 @@ where
 {
     let res = sqlx::query_as::<_, ChainTxDao>(
         r"INSERT INTO chain_tx
-(tx_hash, method, from_addr, to_addr, chain_id, gas_limit, effective_gas_price, max_fee_per_gas, priority_fee, val, nonce, checked_date, blockchain_date, block_number, chain_status, fee_paid, error, balance_eth, balance_glm)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) RETURNING *",
+(tx_hash, method, from_addr, to_addr, chain_id, gas_used, gas_limit, block_gas_price, effective_gas_price, max_fee_per_gas, priority_fee, val, nonce, checked_date, blockchain_date, block_number, chain_status, fee_paid, error, balance_eth, balance_glm)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING *",
     )
     .bind(&tx.tx_hash)
     .bind(&tx.method)
     .bind(&tx.from_addr)
     .bind(&tx.to_addr)
     .bind(tx.chain_id)
+    .bind(tx.gas_used)
     .bind(tx.gas_limit)
+    .bind(&tx.block_gas_price)
     .bind(&tx.effective_gas_price)
     .bind(&tx.max_fee_per_gas)
     .bind(&tx.priority_fee)
@@ -104,8 +106,10 @@ async fn tx_chain_test() -> sqlx::Result<()> {
         method: "".to_string(),
         from_addr: "0x001066290077e38f222cc6009c0c7a91d5192303".to_string(),
         to_addr: "0xbcfe9736a4f5bf2e43620061ff3001ea0d003c0f".to_string(),
+        block_gas_price: Some("6103434000044".to_string()),
         effective_gas_price: Some("103434000000000".to_string()),
         chain_id: 987789,
+        gas_used: Some(40000),
         gas_limit: Some(100000),
         max_fee_per_gas: Some("110000000000".to_string()),
         priority_fee: Some("5110000000000".to_string()),

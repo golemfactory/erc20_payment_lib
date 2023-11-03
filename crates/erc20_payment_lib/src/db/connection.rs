@@ -57,5 +57,5 @@ pub async fn create_sqlite_connection(
         MIGRATOR.run(&pool).await.map_err(err_from!())?;
     }
 
-    Ok(pool)
+    Ok(pool)  
 }
