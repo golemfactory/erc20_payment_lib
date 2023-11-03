@@ -25,7 +25,9 @@ use std::env;
 use std::str::FromStr;
 
 use crate::stats::{export_stats, run_stats};
-use erc20_payment_lib::runtime::{remove_last_unsent_transactions, remove_transaction_force};
+use erc20_payment_lib::runtime::{
+    mint_golem_token, remove_last_unsent_transactions, remove_transaction_force,
+};
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::import_erc20_txs;
@@ -198,6 +200,46 @@ async fn main_internal() -> Result<(), PaymentError> {
             } else {
                 sp.runtime_handle.await.unwrap();
             }
+        }
+        PaymentCommands::MintTestTokens {
+            mint_test_tokens_options,
+        } => {
+            log::info!("Generating test tokens...");
+            let public_addr = public_addrs.get(0).expect("No public address found");
+            let chain_cfg = config
+                .chain
+                .get(&mint_test_tokens_options.chain_name)
+                .ok_or(err_custom_create!(
+                    "Chain {} not found in config file",
+                    mint_test_tokens_options.chain_name
+                ))?;
+
+            let payment_setup = PaymentSetup::new(
+                &config,
+                vec![],
+                true,
+                false,
+                false,
+                1,
+                1,
+                1,
+                1,
+                1,
+                None,
+                false,
+                false,
+                false,
+            )?;
+            let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
+            mint_golem_token(
+                web3,
+                &conn,
+                chain_cfg.chain_id as u64,
+                mint_test_tokens_options.from.unwrap_or(*public_addr),
+                chain_cfg.token.address,
+                mint_test_tokens_options.faucet_contract_address,
+            )
+            .await?;
         }
         PaymentCommands::GenerateKey {
             generate_key_options,

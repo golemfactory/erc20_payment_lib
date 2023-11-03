@@ -1,10 +1,11 @@
 use crate::db::create_sqlite_connection;
 use crate::db::ops::{
     cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx,
-    get_transaction_chain, get_unpaid_token_transfers, insert_token_transfer,
+    get_transaction_chain, get_unpaid_token_transfers, insert_allowance, insert_token_transfer,
+    insert_tx,
 };
 use crate::signer::Signer;
-use crate::transaction::{create_token_transfer, find_receipt_extended};
+use crate::transaction::{create_faucet_mint, create_token_transfer, find_receipt_extended};
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
 use std::ops::DerefMut;
@@ -15,7 +16,7 @@ use crate::error::{ErrorBag, PaymentError};
 
 use crate::setup::{ChainSetup, ExtraOptionsForTesting, PaymentSetup};
 
-use crate::config::{self, Config};
+use crate::config::{self, Chain, Config};
 use secp256k1::SecretKey;
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::Sender;
@@ -23,7 +24,7 @@ use tokio::sync::mpsc::Sender;
 use crate::config::AdditionalOptions;
 use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
 use crate::sender::service_loop;
-use crate::utils::StringConvExt;
+use crate::utils::{StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::Serialize;
@@ -611,17 +612,6 @@ impl PaymentRuntime {
         Ok(())
     }
 
-    pub async fn mint_golem_token(
-        &self,
-        chain_name: &str,
-        from: Address,
-    ) -> Result<(), PaymentError> {
-        let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
-            "Chain {} not found in config file",
-            chain_name
-        ))?;
-    }
-
     pub async fn get_status(&self) -> Vec<StatusProperty> {
         self.status_tracker.get_status().await
     }
@@ -681,6 +671,63 @@ impl VerifyTransactionResult {
     pub fn rejected(&self) -> bool {
         matches!(self, Self::Rejected { .. })
     }
+}
+
+pub async fn mint_golem_token(
+    web3: &Web3<Http>,
+    conn: &SqlitePool,
+    chain_id: u64,
+    from: Address,
+    glm_address: Address,
+    faucet_contract_address: Option<Address>,
+) -> Result<(), PaymentError> {
+    let faucet_contract_address = if chain_id == 5 {
+        faucet_contract_address
+            .unwrap_or(Address::from_str("0xCCA41b09C1F50320bFB41BD6822BD0cdBDC7d85C").unwrap())
+    } else {
+        if let Some(faucet_contract_address) = faucet_contract_address {
+            faucet_contract_address
+        } else {
+            return Err(err_custom_create!("Faucet contract address unknown."));
+        }
+    };
+
+    let balance = web3
+        .eth()
+        .balance(from, None)
+        .await
+        .map_err(err_from!())?
+        .to_eth()
+        .map_err(err_from!())?;
+    if balance
+        < Decimal::from_f64_retain(0.005).unwrap()
+    {
+        return Err(err_custom_create!(
+            "You need at least 0.005 ETH to continue. You have {} ETH on network with chain id: {} and account {:#x} ",
+            balance,
+            chain_id,
+            from
+        ));
+    };
+
+    let token_balance = get_token_balance(web3, glm_address, from).await?.to_eth().map_err(err_from!())?;
+
+    if token_balance > Decimal::from_f64_retain(1000.0).unwrap() {
+        return Err(err_custom_create!(
+            "You already have {} tGLM on network with chain id: {} and account {:#x} ",
+            token_balance,
+            chain_id,
+            from
+        ));
+    };
+
+    let faucet_mint_tx = create_faucet_mint(from, faucet_contract_address, chain_id, None)?;
+    let mint_tx = insert_tx(conn, &faucet_mint_tx)
+        .await
+        .map_err(err_from!())?;
+
+    log::info!("Mint transaction added to queue: {}", mint_tx.id);
+    Ok(())
 }
 
 pub async fn get_token_balance(

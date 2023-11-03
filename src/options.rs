@@ -73,6 +73,22 @@ pub struct GenerateKeyOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Mint test token options")]
+pub struct MintTestTokensOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
+    pub chain_name: String,
+
+    #[structopt(long = "from", help = "From (has to have private key)")]
+    pub from: Option<Address>,
+
+    #[structopt(
+        long = "faucet-address",
+        help = "Faucet address contract (leave empty)"
+    )]
+    pub faucet_contract_address: Option<Address>,
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Single transfer options")]
 pub struct TransferOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
@@ -245,6 +261,10 @@ pub enum PaymentCommands {
     GenerateKey {
         #[structopt(flatten)]
         generate_key_options: GenerateKeyOptions,
+    },
+    MintTestTokens {
+        #[structopt(flatten)]
+        mint_test_tokens_options: MintTestTokensOptions,
     },
     Transfer {
         #[structopt(flatten)]

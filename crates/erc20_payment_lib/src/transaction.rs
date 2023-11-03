@@ -3,10 +3,7 @@ use crate::db::model::*;
 use crate::error::*;
 use crate::eth::get_eth_addr_from_secret;
 use crate::multi::pack_transfers_for_multi_contract;
-use crate::runtime::{
-    get_token_balance, get_unpaid_token_amount, send_driver_event, DriverEvent, DriverEventContent,
-    NoGasDetails, NoTokenDetails, TransactionStuckReason,
-};
+use crate::runtime::{get_token_balance, get_unpaid_token_amount, send_driver_event, DriverEvent, DriverEventContent, NoGasDetails, NoTokenDetails, TransactionStuckReason, remove_transaction_force};
 use crate::signer::Signer;
 use crate::utils::{datetime_from_u256_timestamp, ConversionError, StringConvExt, U256ConvExt};
 use crate::{err_custom_create, err_from};
@@ -323,6 +320,44 @@ pub fn create_erc20_transfer_multi(
     })
 }
 
+pub fn create_faucet_mint(
+    from: Address,
+    faucet_address: Address,
+    chain_id: u64,
+    gas_limit: Option<u64>,
+) -> Result<TxDao, PaymentError> {
+    Ok(TxDao {
+        id: 0,
+        method: "FAUCET.create".to_string(),
+        from_addr: format!("{from:#x}"),
+        to_addr: format!("{faucet_address:#x}"),
+        chain_id: chain_id as i64,
+        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
+        max_fee_per_gas: None,
+        priority_fee: None,
+        val: "0".to_string(),
+        nonce: None,
+        processing: 1,
+        call_data: Some(hex::encode(encode_faucet_create().map_err(err_from!())?)),
+        signed_raw_data: None,
+        created_date: chrono::Utc::now(),
+        first_processed: None,
+        signed_date: None,
+        broadcast_date: None,
+        broadcast_count: 0,
+        first_stuck_date: None,
+        tx_hash: None,
+        confirm_date: None,
+        block_number: None,
+        chain_status: None,
+        fee_paid: None,
+        error: None,
+        engine_message: None,
+        engine_error: None,
+        orig_tx_id: None,
+    })
+}
+
 pub fn create_erc20_approve(
     from: Address,
     token: Address,
@@ -413,6 +448,10 @@ pub async fn check_transaction(
                 return Err(err_custom_create!(
                     "Gas estimation failed - probably insufficient funds"
                 ));
+            } else if web3_tx_dao.method == "FAUCET.create" && e.to_string().contains("Cannot acquire more funds") {
+                log::warn!("Faucet create call failed - probably too much token already minted: {}", e);
+                remove_transaction_force(conn, web3_tx_dao.id).await?;
+                return Ok(None);
             } else if e.to_string().contains("transfer amount exceeds balance") {
                 log::warn!("Transfer amount exceed balance. Getting details...");
                 match get_no_token_details(web3, conn, web3_tx_dao, glm_token).await {

@@ -17,6 +17,8 @@ lazy_static! {
         let transport = web3::transports::Http::new("http://noconn").unwrap();
         Web3::new(transport)
     };
+    pub static ref FAUCET_CONTRACT_TEMPLATE: Contract<Http> =
+        prepare_contract_template(include_bytes!("../contracts/faucet.json")).unwrap();
     pub static ref ERC20_CONTRACT_TEMPLATE: Contract<Http> =
         prepare_contract_template(include_bytes!("../contracts/ierc20.json")).unwrap();
     pub static ref ERC20_MULTI_CONTRACT_TEMPLATE: Contract<Http> = {
@@ -67,6 +69,10 @@ pub fn encode_erc20_allowance(
     spender: Address,
 ) -> Result<Vec<u8>, web3::ethabi::Error> {
     contract_encode(&ERC20_CONTRACT_TEMPLATE, "allowance", (owner, spender))
+}
+
+pub fn encode_faucet_create() -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(&FAUCET_CONTRACT_TEMPLATE, "create", ())
 }
 
 pub fn encode_erc20_approve(
