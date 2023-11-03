@@ -709,6 +709,7 @@ pub async fn find_receipt_extended(
         to_addr: "".to_string(),
         chain_id,
         gas_limit: None,
+        effective_gas_price: None,
         max_fee_per_gas: None,
         priority_fee: None,
         val: "".to_string(),

@@ -11,6 +11,7 @@ pub struct ChainTxDao {
     pub to_addr: String,
     pub chain_id: i64,
     pub gas_limit: Option<i64>,
+    pub effective_gas_price: Option<String>,
     pub max_fee_per_gas: Option<String>,
     pub priority_fee: Option<String>,
     pub val: String,
