@@ -29,6 +29,16 @@ jobs:
       - name: Clippy all
         run: cargo clippy --all-targets --all-features --all -- -D warnings
 
+      - name: Fmt proxy
+        run: |
+          cd crates/web3_test_proxu
+          cargo fmt -- --check
+
+      - name: Clippy proxy
+        run: |
+          cd crates/web3_test_proxy
+          cargo clippy --all-targets --all-features --all -- -D warnings
+
   erc20_processor:
     name: ERC20 processor build only
     timeout-minutes: 20
