@@ -31,7 +31,7 @@ jobs:
 
       - name: Fmt proxy
         run: |
-          cd crates/web3_test_proxu
+          cd crates/web3_test_proxy
           cargo fmt -- --check
 
       - name: Clippy proxy
