@@ -29,15 +29,33 @@ jobs:
       - name: Clippy all
         run: cargo clippy --all-targets --all-features --all -- -D warnings
 
-      - name: Fmt proxy
-        run: |
-          cd crates/web3_test_proxy
-          cargo fmt -- --check
+  fmt_and_clippy_proxy:
+    name: Fmt and clippy
+    timeout-minutes: 5
 
-      - name: Clippy proxy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        path: 'ext'
+
+      - name: Copy proxy into workspace
         run: |
-          cd crates/web3_test_proxy
-          cargo clippy --all-targets --all-features --all -- -D warnings
+          cp -r ext/crates/web3_test_proxy/* .
+          rm -rf ext
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Fmt
+        run: cargo fmt -- --check
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Clippy all
+        run: cargo clippy --all-targets --all-features --all -- -D warnings
 
   erc20_processor:
     name: ERC20 processor build only
