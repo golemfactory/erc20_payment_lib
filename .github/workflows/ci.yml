@@ -4,7 +4,7 @@ on:
   push:
   workflow_dispatch:
   schedule:
-    - cron: "30 19 * * *"
+    - cron: "42 3 * * *"
 
 jobs:
   fmt_and_clippy:
