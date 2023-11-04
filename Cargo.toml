@@ -49,8 +49,8 @@ rust-embed = "6.8.1"
 rust_decimal = "1.26.1"
 rustc-hex = "2.1.0"
 secp256k1 = "0.27.0" # version has to match web3
-serde = "^1.0.147"
-serde_json = { version = "^1.0.85" }
+serde = { version = "1.0.147", features = ["derive"] }
+serde_json = { version = "1.0.85" }
 sha3 = "0.10.6"
 sqlx = { version = "0.7", features = ["sqlite", "chrono", "runtime-tokio"] }
 stream-rate-limiter = "0.3"
@@ -88,7 +88,7 @@ thiserror = { workspace = true }
 rustc-hex = { workspace = true }
 structopt = { workspace = true }
 dotenv = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
+serde = { workspace = true }
 serde_json = { workspace = true }
 rust_decimal = { workspace = true }
 toml = { workspace = true }
