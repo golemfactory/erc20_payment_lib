@@ -1,5 +1,5 @@
-use erc20_payment_lib::err_custom_create;
-use erc20_payment_lib::error::PaymentError;
+use crate::err_custom_create;
+use crate::error::PaymentError;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
@@ -57,24 +57,29 @@ pub async fn resolve_srv_record(record: &str) -> std::io::Result<String> {
 /// Replace domain name in URL with resolved IP address
 /// Hack required on windows to bypass failing resolution on Windows 10
 /// Not needed when https://github.com/actix/actix-web/issues/1047 is resolved
-pub async fn resolve_dns_record(request_url: &str) -> anyhow::Result<String> {
-    let request_host = Url::parse(request_url)?
+pub async fn resolve_dns_record(request_url: &str) -> Result<String, PaymentError> {
+    let request_host = Url::parse(request_url)
+        .map_err(|err| err_custom_create!("Error when parsing host {}", err))?
         .host()
-        .ok_or_else(|| anyhow::anyhow!("Invalid url: {}", request_url))?
+        .ok_or(err_custom_create!("Invalid url: {}", request_url))?
         .to_string();
 
     let address = resolve_dns_record_host(&request_host).await?;
     Ok(request_url.replace(&request_host, &address))
 }
 
-pub async fn resolve_dns_record_host(host: &str) -> anyhow::Result<String> {
-    let resolver = TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default())?;
+pub async fn resolve_dns_record_host(host: &str) -> Result<String, PaymentError> {
+    let resolver = TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default())
+        .map_err(|err| err_custom_create!("Error when creating resolver {}", err))?;
 
-    let response = resolver.lookup_ip(host).await?;
+    let response = resolver
+        .lookup_ip(host)
+        .await
+        .map_err(|err| err_custom_create!("error when lookup ip {err}"))?;
     let address = response
         .iter()
         .next()
-        .ok_or_else(|| anyhow::anyhow!("DNS resolution failed for host: {}", host))?
+        .ok_or_else(|| err_custom_create!("DNS resolution failed for host: {}", host))?
         .to_string();
     Ok(address)
 }

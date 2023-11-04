@@ -1,4 +1,3 @@
-mod faucet_client;
 mod options;
 mod stats;
 
@@ -34,7 +33,7 @@ use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::import_erc20_txs;
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 
-use crate::faucet_client::faucet_donate;
+use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::utils::DecimalConvExt;
 use rust_decimal::Decimal;
