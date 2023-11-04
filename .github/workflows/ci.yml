@@ -30,7 +30,7 @@ jobs:
         run: cargo clippy --all-targets --all-features --all -- -D warnings
 
   fmt_and_clippy_proxy:
-    name: Fmt and clippy
+    name: Fmt and clippy proxy
     timeout-minutes: 5
 
     runs-on: ubuntu-latest
