@@ -121,7 +121,7 @@ pub struct TransferOptions {
         long = "amount",
         help = "Amount (decimal, full precision, i.e. 0.01)"
     )]
-    pub amount: rust_decimal::Decimal,
+    pub amount: Option<rust_decimal::Decimal>,
 }
 
 #[derive(StructOpt)]

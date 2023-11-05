@@ -35,7 +35,7 @@ use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
-use erc20_payment_lib::utils::DecimalConvExt;
+use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt};
 use rust_decimal::Decimal;
 use std::sync::Arc;
 use structopt::StructOpt;
@@ -309,65 +309,67 @@ async fn main_internal() -> Result<(), PaymentError> {
             let public_addr = public_addrs.get(0).expect("No public address found");
             let mut db_transaction = conn.begin().await.unwrap();
 
-            let mut amount_tt = single_transfer_options
-                .amount
-                .to_u256_from_eth()
-                .unwrap()
-                .to_string();
-            let payment_setup = PaymentSetup::new(
-                &config,
-                vec![],
-                true,
-                false,
-                false,
-                1,
-                1,
-                1,
-                1,
-                1,
-                None,
-                false,
-                false,
-                false,
-            )?;
-            if single_transfer_options.all {
-                #[allow(clippy::if_same_then_else)]
-                if single_transfer_options.token == "glm" {
-                    amount_tt = get_token_balance(
-                        payment_setup.get_provider(chain_cfg.chain_id)?,
-                        chain_cfg.token.address,
-                        *public_addr,
-                    )
-                    .await?
-                    .to_string()
-                } else if single_transfer_options.token == "eth"
-                    || single_transfer_options.token == "matic"
+            let amount_str = if let Some(amount) = single_transfer_options.amount {
+                amount.to_u256_from_eth().unwrap().to_string()
+            } else if single_transfer_options.all {
+                let payment_setup = PaymentSetup::new(
+                    &config,
+                    vec![],
+                    true,
+                    false,
+                    false,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    None,
+                    false,
+                    false,
+                    false,
+                )?;
                 {
-                    let val = payment_setup
-                        .get_provider(chain_cfg.chain_id)?
-                        .eth()
-                        .balance(*public_addr, None)
-                        .await
-                        .map_err(err_from!())?;
-                    let gas_val = Decimal::from_str(&chain_cfg.max_fee_per_gas.to_string())
-                        .map_err(|e| err_custom_create!("Failed to convert {e}"))?
-                        * Decimal::from(21500); //leave some room for rounding error
-                    let gas_val = gas_val.to_u256_from_gwei().map_err(err_from!())?;
-                    if gas_val > val {
+                    #[allow(clippy::if_same_then_else)]
+                    if single_transfer_options.token == "glm" {
+                        get_token_balance(
+                            payment_setup.get_provider(chain_cfg.chain_id)?,
+                            chain_cfg.token.address,
+                            *public_addr,
+                        )
+                        .await?
+                        .to_string()
+                    } else if single_transfer_options.token == "eth"
+                        || single_transfer_options.token == "matic"
+                    {
+                        let val = payment_setup
+                            .get_provider(chain_cfg.chain_id)?
+                            .eth()
+                            .balance(*public_addr, None)
+                            .await
+                            .map_err(err_from!())?;
+                        let gas_val = Decimal::from_str(&chain_cfg.max_fee_per_gas.to_string())
+                            .map_err(|e| err_custom_create!("Failed to convert {e}"))?
+                            * Decimal::from(21500); //leave some room for rounding error
+                        let gas_val = gas_val.to_u256_from_gwei().map_err(err_from!())?;
+                        if gas_val > val {
+                            return Err(err_custom_create!(
+                                "Not enough eth to pay for gas, required: {}, available: {}",
+                                gas_val,
+                                val
+                            ));
+                        }
+                        (val - gas_val).to_string()
+                    } else {
                         return Err(err_custom_create!(
-                            "Not enough eth to pay for gas, required: {}, available: {}",
-                            gas_val,
-                            val
+                            "Unknown token: {}",
+                            single_transfer_options.token
                         ));
                     }
-                    amount_tt = (val - gas_val).to_string();
-                } else {
-                    return Err(err_custom_create!(
-                        "Unknown token: {}",
-                        single_transfer_options.token
-                    ));
-                };
-            }
+                }
+            } else {
+                return Err(err_custom_create!("No amount specified"));
+            };
+            let amount_decimal = amount_str.to_eth().unwrap();
 
             let mut tt = insert_token_transfer(
                 &mut *db_transaction,
@@ -381,7 +383,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     receiver_addr: format!("{:#x}", recipient),
                     chain_id: chain_cfg.chain_id,
                     token_addr: token,
-                    token_amount: amount_tt,
+                    token_amount: amount_str,
                     create_date: Default::default(),
                     tx_id: None,
                     paid_date: None,
@@ -399,7 +401,11 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .unwrap();
 
             db_transaction.commit().await.unwrap();
-            log::info!("Transfer added to db, payment id: {}", payment_id);
+            log::info!(
+                "Transfer added to db amount: {}, payment id: {}",
+                amount_decimal,
+                payment_id
+            );
         }
         PaymentCommands::Balance {
             account_balance_options,

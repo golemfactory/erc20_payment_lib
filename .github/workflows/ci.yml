@@ -219,9 +219,16 @@ jobs:
         env:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
 
+      - name: Transfer 166.6 GLM tokens
+        run: |
+          cargo run -- transfer -c goerli --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --amount 166.6
+          cargo run -- run
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
       - name: Transfer all GLM tokens
         run: |
-          cargo run -- transfer -c goerli --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --amount 0 --all
+          cargo run -- transfer -c goerli --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --all
           cargo run -- run
         env:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
@@ -234,7 +241,7 @@ jobs:
 
       - name: Transfer all left ETH tokens
         run: |
-          cargo run -- transfer -c goerli --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --amount 0 --all
+          cargo run -- transfer -c goerli --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
           cargo run -- run
         env:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
