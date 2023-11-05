@@ -237,22 +237,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     mint_test_tokens_options.chain_name
                 ))?;
 
-            let payment_setup = PaymentSetup::new(
-                &config,
-                vec![],
-                true,
-                false,
-                false,
-                1,
-                1,
-                1,
-                1,
-                1,
-                None,
-                false,
-                false,
-                false,
-            )?;
+            let payment_setup = PaymentSetup::new_empty(&config)?;
             let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
             mint_golem_token(
                 web3,
@@ -312,22 +297,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             let amount_str = if let Some(amount) = single_transfer_options.amount {
                 amount.to_u256_from_eth().unwrap().to_string()
             } else if single_transfer_options.all {
-                let payment_setup = PaymentSetup::new(
-                    &config,
-                    vec![],
-                    true,
-                    false,
-                    false,
-                    1,
-                    1,
-                    1,
-                    1,
-                    1,
-                    None,
-                    false,
-                    false,
-                    false,
-                )?;
+                let payment_setup = PaymentSetup::new_empty(&config)?;
                 {
                     #[allow(clippy::if_same_then_else)]
                     if single_transfer_options.token == "glm" {
@@ -446,22 +416,7 @@ async fn main_internal() -> Result<(), PaymentError> {
         } => {
             log::info!("Scanning blockchain {}", scan_blockchain_options.chain_name);
 
-            let payment_setup = PaymentSetup::new(
-                &config,
-                vec![],
-                true,
-                false,
-                false,
-                1,
-                1,
-                1,
-                1,
-                1,
-                None,
-                false,
-                false,
-                false,
-            )?;
+            let payment_setup = PaymentSetup::new_empty(&config)?;
             let chain_cfg = config
                 .chain
                 .get(&scan_blockchain_options.chain_name)

@@ -181,6 +181,25 @@ impl PaymentSetup {
         Ok(ps)
     }
 
+    pub fn new_empty(config: &Config) -> Result<Self, PaymentError> {
+        PaymentSetup::new(
+            config,
+            vec![],
+            true,
+            false,
+            false,
+            1,
+            1,
+            1,
+            1,
+            1,
+            None,
+            false,
+            false,
+            false,
+        )
+    }
+
     pub fn get_provider(&self, chain_id: i64) -> Result<&Web3<Http>, PaymentError> {
         let chain_setup = self
             .chain_setup
