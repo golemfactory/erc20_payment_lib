@@ -612,6 +612,29 @@ impl PaymentRuntime {
         Ok(())
     }
 
+    pub async fn mint_golem_token(
+        &self,
+        chain_name: &str,
+        from: Address,
+        faucet_contract_address: Option<Address>,
+    ) -> Result<(), PaymentError> {
+        let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
+            "Chain {} not found in config file",
+            chain_name
+        ))?;
+        let golem_address = chain_cfg.token.address;
+        let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
+        mint_golem_token(
+            web3,
+            &self.conn,
+            chain_cfg.chain_id as u64,
+            from,
+            golem_address,
+            faucet_contract_address,
+        )
+        .await
+    }
+
     pub async fn get_status(&self) -> Vec<StatusProperty> {
         self.status_tracker.get_status().await
     }
