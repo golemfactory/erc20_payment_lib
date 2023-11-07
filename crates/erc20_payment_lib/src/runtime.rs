@@ -26,6 +26,7 @@ use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
 use crate::sender::service_loop;
 use crate::utils::{StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
+use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
 use std::sync::Arc;
@@ -624,7 +625,8 @@ impl PaymentRuntime {
         ))?;
         let golem_address = chain_cfg.token.address;
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
-        mint_golem_token(
+
+        let res = mint_golem_token(
             web3,
             &self.conn,
             chain_cfg.chain_id as u64,
@@ -632,7 +634,9 @@ impl PaymentRuntime {
             golem_address,
             faucet_contract_address,
         )
-        .await
+        .await;
+        self.wake.notify_one();
+        res
     }
 
     pub async fn get_status(&self) -> Vec<StatusProperty> {
@@ -722,7 +726,7 @@ pub async fn mint_golem_token(
         .map_err(err_from!())?
         .to_eth()
         .map_err(err_from!())?;
-    if balance < Decimal::from_f64_retain(0.005).unwrap() {
+    if balance < Decimal::from_f64(0.005).unwrap() {
         return Err(err_custom_create!(
             "You need at least 0.005 ETH to continue. You have {} ETH on network with chain id: {} and account {:#x} ",
             balance,
@@ -736,7 +740,7 @@ pub async fn mint_golem_token(
         .to_eth()
         .map_err(err_from!())?;
 
-    if token_balance > Decimal::from_f64_retain(500.0).unwrap() {
+    if token_balance > Decimal::from_f64(500.0).unwrap() {
         return Err(err_custom_create!(
             "You already have {} tGLM on network with chain id: {} and account {:#x} ",
             token_balance,

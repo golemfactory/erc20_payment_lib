@@ -48,6 +48,8 @@ gas-left-warning-limit = 1000000
 transaction-timeout = 100
 token = { address = "0x33af15c79d64b85ba14aaffaa4577949104b22e8", symbol = "tGLM" }
 multi-contract = { address = "0x7777784f803a7bf1d7f115f849d29ce5706da64a", max-at-once = 10 }
+faucet-client = { max-eth-allowed = 0.009 }
+mint-contract = { address = "0xCCA41b09C1F50320bFB41BD6822BD0cdBDC7d85C", max_glm_allowed = 400 }
 confirmation-blocks = 0
 block-explorer-url = "https://goerli.etherscan.io"
 

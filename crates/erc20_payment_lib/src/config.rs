@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use std::collections::btree_map::BTreeMap as Map;
 
+use rust_decimal::Decimal;
 use std::path::Path;
 
 use crate::error::*;
@@ -72,20 +73,35 @@ pub struct MultiContractSettings {
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
+pub struct MintContractSettings {
+    pub address: Address,
+    pub max_glm_allowed: Decimal,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct FaucetClientSettings {
+    pub max_eth_allowed: Decimal,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct Chain {
     pub chain_name: String,
     pub chain_id: i64,
     pub rpc_endpoints: Vec<String>,
     pub currency_symbol: String,
-    pub priority_fee: f64,
-    pub max_fee_per_gas: f64,
+    pub priority_fee: Decimal,
+    pub max_fee_per_gas: Decimal,
     pub gas_left_warning_limit: u64,
     pub token: Token,
     pub multi_contract: Option<MultiContractSettings>,
+    pub mint_contract: Option<MintContractSettings>,
+    pub faucet_client: Option<FaucetClientSettings>,
     pub transaction_timeout: u64,
     pub confirmation_blocks: u64,
-    pub faucet_eth_amount: Option<f64>,
-    pub faucet_glm_amount: Option<f64>,
+    pub faucet_eth_amount: Option<Decimal>,
+    pub faucet_glm_amount: Option<Decimal>,
     pub block_explorer_url: Option<String>,
     pub replacement_timeout: Option<f64>,
 }
@@ -131,7 +147,7 @@ impl Config {
     pub async fn change_max_fee(
         &mut self,
         chain: &str,
-        max_fee_per_gas: f64,
+        max_fee_per_gas: Decimal,
     ) -> Result<(), PaymentError> {
         self.chain
             .get_mut(chain)

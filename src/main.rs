@@ -105,8 +105,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
     for f in max_fee_from_env {
         if let Ok(base_fee_from_env) = env::var(f.0) {
-            let fee_per_gas = base_fee_from_env
-                .parse::<f64>()
+            let fee_per_gas = Decimal::from_str(&base_fee_from_env)
                 .map_err(|_| err_custom_create!("Failed to parse max base fee"))?;
             log::info!(
                 "Overriding default max base fee for {} with {}",

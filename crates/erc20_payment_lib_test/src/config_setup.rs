@@ -2,6 +2,8 @@ use erc20_payment_lib::config;
 use erc20_payment_lib::config::{Chain, Config, Engine, MultiContractSettings, Token};
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::utils::get_env_bool_value;
+use rust_decimal::prelude::FromPrimitive;
+use rust_decimal::Decimal;
 use sqlx::SqlitePool;
 use std::collections::BTreeMap;
 use std::env;
@@ -15,8 +17,8 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
         chain_id: 987789,
         rpc_endpoints: vec![format!("{}/web3/{}", proxy_url_base, proxy_key)],
         currency_symbol: "tETH".to_string(),
-        priority_fee: 1.1,
-        max_fee_per_gas: 500.0,
+        priority_fee: Decimal::from_f64(1.1).unwrap(),
+        max_fee_per_gas: Decimal::from_f64(500.0).unwrap(),
         gas_left_warning_limit: 1000000,
         token: Token {
             symbol: "tGLM".to_string(),
@@ -27,10 +29,12 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
             address: Address::from_str("0xF9861F83766CD507E0d2749B60d4fD6C68E5B96C").unwrap(),
             max_at_once: 10,
         }),
+        mint_contract: None,
+        faucet_client: None,
         transaction_timeout: 25,
         confirmation_blocks: 1,
-        faucet_eth_amount: Some(10.0),
-        faucet_glm_amount: Some(20.0),
+        faucet_eth_amount: Some(Decimal::from_f64(10.0).unwrap()),
+        faucet_glm_amount: Some(Decimal::from_f64(20.0).unwrap()),
         block_explorer_url: Some("http://127.0.0.1:4000".to_string()),
         replacement_timeout: Some(1.0),
     };

@@ -2,9 +2,10 @@ use crate::config::Config;
 use crate::error::ErrorBag;
 use crate::error::PaymentError;
 
-use crate::utils::gwei_to_u256;
+use crate::utils::DecimalConvExt;
 use crate::{err_custom_create, err_from};
 use rand::Rng;
+use rust_decimal::Decimal;
 use secp256k1::SecretKey;
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -34,6 +35,9 @@ pub struct ChainSetup {
     pub priority_fee: U256,
     pub glm_address: Address,
     pub multi_contract_address: Option<Address>,
+    pub mint_glm_address: Option<Address>,
+    pub mint_max_glm_allowed: Option<Decimal>,
+    pub faucet_client_max_eth_allowed: Option<Decimal>,
     pub multi_contract_max_at_once: usize,
     pub transaction_timeout: u64,
     pub skip_multi_contract_check: bool,
@@ -135,11 +139,11 @@ impl PaymentSetup {
                 });
             }
             let faucet_eth_amount = match &chain_config.1.faucet_eth_amount {
-                Some(f) => Some(gwei_to_u256(*f).map_err(err_from!())?),
+                Some(f) => Some((*f).to_u256_from_eth().map_err(err_from!())?),
                 None => None,
             };
             let faucet_glm_amount = match &chain_config.1.faucet_glm_amount {
-                Some(f) => Some(gwei_to_u256(*f).map_err(err_from!())?),
+                Some(f) => Some((*f).to_u256_from_eth().map_err(err_from!())?),
                 None => None,
             };
 
@@ -149,9 +153,16 @@ impl PaymentSetup {
                     network: chain_config.0.clone(),
                     providers,
                     chain_name: chain_config.1.chain_name.clone(),
-                    max_fee_per_gas: gwei_to_u256(chain_config.1.max_fee_per_gas)
+                    max_fee_per_gas: chain_config
+                        .1
+                        .max_fee_per_gas
+                        .to_u256_from_gwei()
                         .map_err(err_from!())?,
-                    priority_fee: gwei_to_u256(chain_config.1.priority_fee).map_err(err_from!())?,
+                    priority_fee: chain_config
+                        .1
+                        .priority_fee
+                        .to_u256_from_gwei()
+                        .map_err(err_from!())?,
                     glm_address: chain_config.1.token.address,
                     currency_glm_symbol: chain_config.1.token.symbol.clone(),
                     multi_contract_address: chain_config
@@ -165,6 +176,17 @@ impl PaymentSetup {
                         .clone()
                         .map(|m| m.max_at_once)
                         .unwrap_or(1),
+                    faucet_client_max_eth_allowed: chain_config
+                        .1
+                        .faucet_client
+                        .clone()
+                        .map(|fc| fc.max_eth_allowed),
+                    mint_max_glm_allowed: chain_config
+                        .1
+                        .mint_contract
+                        .clone()
+                        .map(|mc| mc.max_glm_allowed),
+                    mint_glm_address: chain_config.1.mint_contract.clone().map(|mc| mc.address),
                     transaction_timeout: chain_config.1.transaction_timeout,
                     skip_multi_contract_check,
                     confirmation_blocks: chain_config.1.confirmation_blocks,
