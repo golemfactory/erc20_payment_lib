@@ -225,10 +225,12 @@ async fn main_internal() -> Result<(), PaymentError> {
             let faucet_srv_prefix = cfg.faucet_srv;
             let faucet_lookup_domain = cfg.faucet_lookup_domain;
             let faucet_srv_port = cfg.faucet_srv_port;
+            let faucet_host = cfg.faucet_host;
 
             faucet_donate(
                 &faucet_srv_prefix,
                 &faucet_lookup_domain,
+                &faucet_host,
                 faucet_srv_port,
                 *public_addr,
             )

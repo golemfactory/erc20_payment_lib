@@ -28,11 +28,12 @@ pub async fn resolve_yagna_srv_record(
 async fn resolve_faucet_url(
     faucet_srv_prefix: &str,
     default_lookup_domain: &str,
+    default_faucet_host: &str,
     port: u16,
 ) -> Result<String, PaymentError> {
     let faucet_host = resolve_yagna_srv_record(default_lookup_domain, faucet_srv_prefix)
         .await
-        .unwrap_or_else(|_| default_lookup_domain.to_string());
+        .unwrap_or_else(|_| default_faucet_host.to_string());
 
     Ok(format!("http://{faucet_host}:{port}/donate"))
 }
@@ -113,6 +114,7 @@ pub async fn try_resolve_dns_record(request_url_or_host: &str) -> String {
 pub async fn faucet_donate(
     faucet_srv_prefix: &str,
     default_lookup_domain: &str,
+    default_faucet_host: &str,
     port: u16,
     address: H160,
 ) -> Result<(), PaymentError> {
@@ -121,7 +123,13 @@ pub async fn faucet_donate(
         .timeout(std::time::Duration::from_secs(120))
         .finish();
 
-    let faucet_url = resolve_faucet_url(faucet_srv_prefix, default_lookup_domain, port).await?;
+    let faucet_url = resolve_faucet_url(
+        faucet_srv_prefix,
+        default_lookup_domain,
+        default_faucet_host,
+        port,
+    )
+    .await?;
     let request_url = format!("{}/0x{:x}", faucet_url, address);
     let request_url = try_resolve_dns_record(&request_url).await;
     log::debug!("Faucet request url: {}", request_url);
