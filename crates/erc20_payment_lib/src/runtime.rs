@@ -193,10 +193,12 @@ pub enum StatusProperty {
     },
     NoGas {
         chain_id: i64,
+        address: String,
         missing_gas: Decimal,
     },
     NoToken {
         chain_id: i64,
+        address: String,
         missing_token: Decimal,
     },
 }
@@ -237,13 +239,15 @@ impl StatusTracker {
                 (
                     NoGas {
                         chain_id: id1,
+                        address: addr1,
                         missing_gas: old_missing,
                     },
                     NoGas {
                         chain_id: id2,
+                        address: addr2,
                         missing_gas: new_missing,
                     },
-                ) if id1 == id2 => {
+                ) if id1 == id2 && addr1 == addr2 => {
                     *old_missing = *new_missing;
                     return true;
                 }
@@ -251,13 +255,15 @@ impl StatusTracker {
                 (
                     NoToken {
                         chain_id: id1,
+                        address: addr1,
                         missing_token: old_missing,
                     },
                     NoToken {
                         chain_id: id2,
+                        address: addr2,
                         missing_token: new_missing,
                     },
-                ) if id1 == id2 => {
+                ) if id1 == id2 && addr1 == addr2 => {
                     *old_missing = *new_missing;
                     return true;
                 }
@@ -317,6 +323,7 @@ impl StatusTracker {
                             status2.lock().await.deref_mut(),
                             StatusProperty::NoGas {
                                 chain_id: details.tx.chain_id,
+                                address: details.tx.from_addr.clone(),
                                 missing_gas,
                             },
                         )
@@ -329,6 +336,7 @@ impl StatusTracker {
                             status2.lock().await.deref_mut(),
                             StatusProperty::NoToken {
                                 chain_id: details.tx.chain_id,
+                                address: details.tx.from_addr.clone(),
                                 missing_token,
                             },
                         )
