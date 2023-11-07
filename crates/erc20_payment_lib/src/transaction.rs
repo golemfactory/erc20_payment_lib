@@ -4,8 +4,8 @@ use crate::error::*;
 use crate::eth::get_eth_addr_from_secret;
 use crate::multi::pack_transfers_for_multi_contract;
 use crate::runtime::{
-    get_token_balance, get_unpaid_token_amount, send_driver_event, DriverEvent, DriverEventContent,
-    NoGasDetails, NoTokenDetails, TransactionStuckReason,
+    get_token_balance, get_unpaid_token_amount, remove_transaction_force, send_driver_event,
+    DriverEvent, DriverEventContent, NoGasDetails, NoTokenDetails, TransactionStuckReason,
 };
 use crate::signer::Signer;
 use crate::utils::{datetime_from_u256_timestamp, ConversionError, StringConvExt, U256ConvExt};
@@ -323,6 +323,44 @@ pub fn create_erc20_transfer_multi(
     })
 }
 
+pub fn create_faucet_mint(
+    from: Address,
+    faucet_address: Address,
+    chain_id: u64,
+    gas_limit: Option<u64>,
+) -> Result<TxDao, PaymentError> {
+    Ok(TxDao {
+        id: 0,
+        method: "FAUCET.create".to_string(),
+        from_addr: format!("{from:#x}"),
+        to_addr: format!("{faucet_address:#x}"),
+        chain_id: chain_id as i64,
+        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
+        max_fee_per_gas: None,
+        priority_fee: None,
+        val: "0".to_string(),
+        nonce: None,
+        processing: 1,
+        call_data: Some(hex::encode(encode_faucet_create().map_err(err_from!())?)),
+        signed_raw_data: None,
+        created_date: chrono::Utc::now(),
+        first_processed: None,
+        signed_date: None,
+        broadcast_date: None,
+        broadcast_count: 0,
+        first_stuck_date: None,
+        tx_hash: None,
+        confirm_date: None,
+        block_number: None,
+        chain_status: None,
+        fee_paid: None,
+        error: None,
+        engine_message: None,
+        engine_error: None,
+        orig_tx_id: None,
+    })
+}
+
 pub fn create_erc20_approve(
     from: Address,
     token: Address,
@@ -405,43 +443,56 @@ pub async fn check_transaction(
     let mut loc_call_request = call_request.clone();
     loc_call_request.max_fee_per_gas = None;
     loc_call_request.max_priority_fee_per_gas = None;
-    let gas_est = match web3.eth().estimate_gas(loc_call_request, None).await {
-        Ok(gas_est) => gas_est,
-        Err(e) => {
-            let event = if e.to_string().contains("gas required exceeds allowance") {
-                log::error!("Gas estimation failed - probably insufficient funds: {}", e);
-                return Err(err_custom_create!(
-                    "Gas estimation failed - probably insufficient funds"
-                ));
-            } else if e.to_string().contains("transfer amount exceeds balance") {
-                log::warn!("Transfer amount exceed balance. Getting details...");
-                match get_no_token_details(web3, conn, web3_tx_dao, glm_token).await {
-                    Ok(stuck_reason) => {
-                        log::warn!(
-                            "Got details. needed: {} balance: {}. needed - balance: {}",
-                            stuck_reason.token_needed,
-                            stuck_reason.token_balance,
-                            stuck_reason.token_needed - stuck_reason.token_balance
-                        );
-                        DriverEventContent::TransactionStuck(TransactionStuckReason::NoToken(
-                            stuck_reason,
-                        ))
-                    }
-                    Err(e) => {
-                        return Err(err_custom_create!(
+    let gas_est = if web3_tx_dao.call_data.is_none() {
+        U256::from(21000)
+    } else {
+        match web3.eth().estimate_gas(loc_call_request, None).await {
+            Ok(gas_est) => gas_est,
+            Err(e) => {
+                let event = if e.to_string().contains("gas required exceeds allowance") {
+                    log::error!("Gas estimation failed - probably insufficient funds: {}", e);
+                    return Err(err_custom_create!(
+                        "Gas estimation failed - probably insufficient funds"
+                    ));
+                } else if web3_tx_dao.method == "FAUCET.create"
+                    && e.to_string().contains("Cannot acquire more funds")
+                {
+                    log::warn!(
+                        "Faucet create call failed - probably too much token already minted: {}",
+                        e
+                    );
+                    remove_transaction_force(conn, web3_tx_dao.id).await?;
+                    return Ok(None);
+                } else if e.to_string().contains("transfer amount exceeds balance") {
+                    log::warn!("Transfer amount exceed balance. Getting details...");
+                    match get_no_token_details(web3, conn, web3_tx_dao, glm_token).await {
+                        Ok(stuck_reason) => {
+                            log::warn!(
+                                "Got details. needed: {} balance: {}. needed - balance: {}",
+                                stuck_reason.token_needed,
+                                stuck_reason.token_balance,
+                                stuck_reason.token_needed - stuck_reason.token_balance
+                            );
+                            DriverEventContent::TransactionStuck(TransactionStuckReason::NoToken(
+                                stuck_reason,
+                            ))
+                        }
+                        Err(e) => {
+                            return Err(err_custom_create!(
                             "Error during getting details about amount exceeds balance error {}",
                             e
                         ));
+                        }
                     }
-                }
-            } else {
-                return Err(err_custom_create!(
-                    "Gas estimation failed due to unknown error {}",
-                    e
-                ));
-            };
-            send_driver_event(event_sender, event).await;
-            return Ok(None);
+                } else {
+                    return Err(err_custom_create!(
+                        "Gas estimation failed due to unknown error {}",
+                        e
+                    ));
+                };
+                send_driver_event(event_sender, event).await;
+                return Ok(None);
+            }
         }
     };
 

@@ -73,6 +73,32 @@ pub struct GenerateKeyOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Get dev eth options if faucet is accessible")]
+pub struct GetDevEthOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
+    pub chain_name: String,
+
+    #[structopt(long = "from", help = "From (has to have private key)")]
+    pub from: Option<Address>,
+}
+
+#[derive(StructOpt)]
+#[structopt(about = "Mint test token options")]
+pub struct MintTestTokensOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
+    pub chain_name: String,
+
+    #[structopt(long = "from", help = "From (has to have private key)")]
+    pub from: Option<Address>,
+
+    #[structopt(
+        long = "faucet-address",
+        help = "Faucet address contract (leave empty)"
+    )]
+    pub faucet_contract_address: Option<Address>,
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Single transfer options")]
 pub struct TransferOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
@@ -87,12 +113,15 @@ pub struct TransferOptions {
     #[structopt(long = "token", help = "Token", default_value = "glm", possible_values = &["glm", "eth", "matic"])]
     pub token: String,
 
+    #[structopt(long = "all", help = "Transfer all available tokens")]
+    pub all: bool,
+
     #[structopt(
         short = "a",
         long = "amount",
         help = "Amount (decimal, full precision, i.e. 0.01)"
     )]
-    pub amount: rust_decimal::Decimal,
+    pub amount: Option<rust_decimal::Decimal>,
 }
 
 #[derive(StructOpt)]
@@ -245,6 +274,14 @@ pub enum PaymentCommands {
     GenerateKey {
         #[structopt(flatten)]
         generate_key_options: GenerateKeyOptions,
+    },
+    GetDevEth {
+        #[structopt(flatten)]
+        get_dev_eth_options: GetDevEthOptions,
+    },
+    MintTestTokens {
+        #[structopt(flatten)]
+        mint_test_tokens_options: MintTestTokensOptions,
     },
     Transfer {
         #[structopt(flatten)]

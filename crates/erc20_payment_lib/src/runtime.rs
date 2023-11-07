@@ -1,10 +1,11 @@
 use crate::db::create_sqlite_connection;
 use crate::db::ops::{
     cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx,
-    get_transaction_chain, get_unpaid_token_transfers, insert_token_transfer,
+    get_transaction_chain, get_transactions, get_unpaid_token_transfers, insert_token_transfer,
+    insert_tx,
 };
 use crate::signer::Signer;
-use crate::transaction::{create_token_transfer, find_receipt_extended};
+use crate::transaction::{create_faucet_mint, create_token_transfer, find_receipt_extended};
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
 use std::ops::DerefMut;
@@ -23,8 +24,9 @@ use tokio::sync::mpsc::Sender;
 use crate::config::AdditionalOptions;
 use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
 use crate::sender::service_loop;
-use crate::utils::StringConvExt;
+use crate::utils::{StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
+use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
 use std::sync::Arc;
@@ -191,10 +193,12 @@ pub enum StatusProperty {
     },
     NoGas {
         chain_id: i64,
+        address: String,
         missing_gas: Decimal,
     },
     NoToken {
         chain_id: i64,
+        address: String,
         missing_token: Decimal,
     },
 }
@@ -235,13 +239,15 @@ impl StatusTracker {
                 (
                     NoGas {
                         chain_id: id1,
+                        address: addr1,
                         missing_gas: old_missing,
                     },
                     NoGas {
                         chain_id: id2,
+                        address: addr2,
                         missing_gas: new_missing,
                     },
-                ) if id1 == id2 => {
+                ) if id1 == id2 && addr1 == addr2 => {
                     *old_missing = *new_missing;
                     return true;
                 }
@@ -249,13 +255,15 @@ impl StatusTracker {
                 (
                     NoToken {
                         chain_id: id1,
+                        address: addr1,
                         missing_token: old_missing,
                     },
                     NoToken {
                         chain_id: id2,
+                        address: addr2,
                         missing_token: new_missing,
                     },
-                ) if id1 == id2 => {
+                ) if id1 == id2 && addr1 == addr2 => {
                     *old_missing = *new_missing;
                     return true;
                 }
@@ -315,6 +323,7 @@ impl StatusTracker {
                             status2.lock().await.deref_mut(),
                             StatusProperty::NoGas {
                                 chain_id: details.tx.chain_id,
+                                address: details.tx.from_addr.clone(),
                                 missing_gas,
                             },
                         )
@@ -327,6 +336,7 @@ impl StatusTracker {
                             status2.lock().await.deref_mut(),
                             StatusProperty::NoToken {
                                 chain_id: details.tx.chain_id,
+                                address: details.tx.from_addr.clone(),
                                 missing_token,
                             },
                         )
@@ -611,6 +621,32 @@ impl PaymentRuntime {
         Ok(())
     }
 
+    pub async fn mint_golem_token(
+        &self,
+        chain_name: &str,
+        from: Address,
+        faucet_contract_address: Option<Address>,
+    ) -> Result<(), PaymentError> {
+        let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
+            "Chain {} not found in config file",
+            chain_name
+        ))?;
+        let golem_address = chain_cfg.token.address;
+        let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
+
+        let res = mint_golem_token(
+            web3,
+            &self.conn,
+            chain_cfg.chain_id as u64,
+            from,
+            golem_address,
+            faucet_contract_address,
+        )
+        .await;
+        self.wake.notify_one();
+        res
+    }
+
     pub async fn get_status(&self) -> Vec<StatusProperty> {
         self.status_tracker.get_status().await
     }
@@ -670,6 +706,81 @@ impl VerifyTransactionResult {
     pub fn rejected(&self) -> bool {
         matches!(self, Self::Rejected { .. })
     }
+}
+
+pub async fn mint_golem_token(
+    web3: &Web3<Http>,
+    conn: &SqlitePool,
+    chain_id: u64,
+    from: Address,
+    glm_address: Address,
+    faucet_contract_address: Option<Address>,
+) -> Result<(), PaymentError> {
+    let faucet_contract_address = if chain_id == 5 {
+        faucet_contract_address
+            .unwrap_or(Address::from_str("0xCCA41b09C1F50320bFB41BD6822BD0cdBDC7d85C").unwrap())
+    } else if let Some(faucet_contract_address) = faucet_contract_address {
+        faucet_contract_address
+    } else {
+        return Err(err_custom_create!(
+            "Faucet contract address unknown. If not sure try on goerli network"
+        ));
+    };
+
+    let balance = web3
+        .eth()
+        .balance(from, None)
+        .await
+        .map_err(err_from!())?
+        .to_eth()
+        .map_err(err_from!())?;
+    if balance < Decimal::from_f64(0.005).unwrap() {
+        return Err(err_custom_create!(
+            "You need at least 0.005 ETH to continue. You have {} ETH on network with chain id: {} and account {:#x} ",
+            balance,
+            chain_id,
+            from
+        ));
+    };
+
+    let token_balance = get_token_balance(web3, glm_address, from)
+        .await?
+        .to_eth()
+        .map_err(err_from!())?;
+
+    if token_balance > Decimal::from_f64(500.0).unwrap() {
+        return Err(err_custom_create!(
+            "You already have {} tGLM on network with chain id: {} and account {:#x} ",
+            token_balance,
+            chain_id,
+            from
+        ));
+    };
+
+    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
+    let filter = format!(
+        "from_addr=\"{:#x}\" AND method=\"FAUCET.create\" AND fee_paid is NULL",
+        from
+    );
+    let tx_existing = get_transactions(&mut *db_transaction, Some(&filter), None, None)
+        .await
+        .map_err(err_from!())?;
+
+    if let Some(tx) = tx_existing.first() {
+        return Err(err_custom_create!(
+            "You already have a pending mint (create) transaction with id: {}",
+            tx.id
+        ));
+    }
+
+    let faucet_mint_tx = create_faucet_mint(from, faucet_contract_address, chain_id, None)?;
+    let mint_tx = insert_tx(&mut *db_transaction, &faucet_mint_tx)
+        .await
+        .map_err(err_from!())?;
+    db_transaction.commit().await.map_err(err_from!())?;
+
+    log::info!("Mint transaction added to queue: {}", mint_tx.id);
+    Ok(())
 }
 
 pub async fn get_token_balance(

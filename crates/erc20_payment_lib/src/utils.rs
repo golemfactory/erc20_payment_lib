@@ -48,27 +48,6 @@ impl Error for ConversionError {
     }
 }
 
-pub fn gwei_to_u256(gas: f64) -> Result<U256, ConversionError> {
-    pub const GWEI: f64 = 1.0E9;
-    if gas < 0.0 {
-        //return Err(ConversionError"Gas price cannot be negative");
-        return Err(ConversionError {
-            msg: "Gas price cannot be negative".to_string(),
-        });
-    }
-    if gas > 1.0E9 {
-        return Err(ConversionError {
-            msg: "Gas price cannot be greater than 1E9".to_string(),
-        });
-    }
-    if gas.is_nan() {
-        return Err(ConversionError {
-            msg: "Gas price cannot be NaN".to_string(),
-        });
-    }
-    Ok(U256::from((gas * GWEI) as u64))
-}
-
 fn compute_base(num_decimals: u32) -> rust_decimal::Decimal {
     if num_decimals == 18 {
         Decimal::new(1000000000000000000, 0)

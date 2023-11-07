@@ -1,6 +1,10 @@
 name: CI
 
-on: push
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: "42 3 * * *"
 
 jobs:
   fmt_and_clippy:
@@ -12,6 +16,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Fmt
+        run: cargo fmt -- --check
+
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Clippy all
+        run: cargo clippy --all-targets --all-features --all -- -D warnings
+
+  fmt_and_clippy_proxy:
+    name: Fmt and clippy proxy
+    timeout-minutes: 5
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          path: 'ext'
+
+      - name: Copy proxy into workspace
+        run: |
+          cp -r ext/crates/web3_test_proxy/* .
+          rm -rf ext
 
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
@@ -134,6 +167,84 @@ jobs:
       - name: Run tests (docker_03_problems)
         run: cargo test --test docker_03_problems --profile=release-fast -- --test-threads=10
 
+  test_faucet:
+    name: Test faucet
+    timeout-minutes: 20
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "dev-build-cache"
+
+      - name: Build
+        run: cargo build
+
+      - name: Run tests (faucet)
+        run: cargo run -- generate-key -n 1 > .env
+
+      - name: Check if balance is 0
+        run: |
+          [ $(cargo run -- balance -c goerli | jq -r '.[] | .gasDecimal') == "0" ]
+          [ $(cargo run -- balance -c goerli | jq -r '.[] | .tokenDecimal') == "0" ]
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Get ETH from faucet
+        run: cargo run -- get-dev-eth -c goerli
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Check ETH balance after getting funds from faucet (should be 0.01)
+        run: |
+          [ $(cargo run -- balance -c goerli | jq -r '.[] | .gasDecimal') == "0.01" ]
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Mint tokens
+        run: |
+          cargo run -- mint-test-tokens -c goerli
+          cargo run -- run
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Check token balance
+        run: |
+          [ $(cargo run -- balance -c goerli | jq -r '.[] | .tokenDecimal') == "1000" ]
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Transfer 166.6 GLM tokens
+        run: |
+          cargo run -- transfer -c goerli --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --amount 166.6
+          cargo run -- run
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Transfer all GLM tokens
+        run: |
+          cargo run -- transfer -c goerli --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --all
+          cargo run -- run
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Check token balance zero
+        run: |
+          [ $(cargo run -- balance -c goerli | jq -r '.[] | .tokenDecimal') == "0" ]
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+      - name: Transfer all left ETH tokens
+        run: |
+          cargo run -- transfer -c goerli --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
+          cargo run -- run
+        env:
+          GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
 
   payment_tests_custom:
     name: Payment tests (custom)

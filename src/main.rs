@@ -25,25 +25,33 @@ use std::env;
 use std::str::FromStr;
 
 use crate::stats::{export_stats, run_stats};
-use erc20_payment_lib::runtime::{remove_last_unsent_transactions, remove_transaction_force};
+use erc20_payment_lib::runtime::{
+    get_token_balance, mint_golem_token, remove_last_unsent_transactions, remove_transaction_force,
+};
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::import_erc20_txs;
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 
+use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
-use erc20_payment_lib::utils::DecimalConvExt;
+use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt};
+use rust_decimal::Decimal;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::ethabi::ethereum_types::Address;
 
-fn check_address_name(n: &str) -> &str {
+fn check_address_name(n: &str) -> String {
     match n {
-        "funds" => "0x333dFEa0C940Dc9971C32C69837aBE14207F9097",
-        "dead" => "0x000000000000000000000000000000000000dEaD",
-        "null" => "0x0000000000000000000000000000000000000000",
-        _ => n,
+        "funds" => "0x333dFEa0C940Dc9971C32C69837aBE14207F9097".to_string(),
+        "dead" => "0x000000000000000000000000000000000000dEaD".to_string(),
+        "null" => "0x0000000000000000000000000000000000000000".to_string(),
+        "random" => format!(
+            "{:#x}",
+            Address::from(rand::Rng::gen::<[u8; 20]>(&mut rand::thread_rng()))
+        ),
+        _ => n.to_string(),
     }
 }
 
@@ -62,7 +70,13 @@ async fn main_internal() -> Result<(), PaymentError> {
     display_private_keys(&private_keys);
     let signer = PrivateKeySigner::new(private_keys.clone());
 
-    let mut config = config::Config::load("config-payments.toml").await?;
+    let mut config = match config::Config::load("config-payments-local.toml").await {
+        Ok(c) => c,
+        Err(_) => {
+            log::info!("No local config found, using default config");
+            config::Config::load("config-payments.toml").await?
+        }
+    };
 
     let rpc_endpoints_from_env = [
         ("POLYGON_GETH_ADDR", "polygon"),
@@ -77,11 +91,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .split(',')
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>();
-            log::info!(
-                "Overriding default rpc endpoints for {} with {:?}",
-                f.0,
-                strs
-            );
+            log::info!("Overriding default rpc endpoints for {}", f.0,);
             config.change_rpc_endpoints(f.1, strs).await?;
         }
     }
@@ -95,8 +105,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
     for f in max_fee_from_env {
         if let Ok(base_fee_from_env) = env::var(f.0) {
-            let fee_per_gas = base_fee_from_env
-                .parse::<f64>()
+            let fee_per_gas = Decimal::from_str(&base_fee_from_env)
                 .map_err(|_| err_custom_create!("Failed to parse max base fee"))?;
             log::info!(
                 "Overriding default max base fee for {} with {}",
@@ -199,6 +208,46 @@ async fn main_internal() -> Result<(), PaymentError> {
                 sp.runtime_handle.await.unwrap();
             }
         }
+        PaymentCommands::GetDevEth {
+            get_dev_eth_options,
+        } => {
+            log::info!("Getting funds from faucet...");
+            let public_addr = public_addrs.get(0).expect("No public address found");
+            let chain_cfg =
+                config
+                    .chain
+                    .get(&get_dev_eth_options.chain_name)
+                    .ok_or(err_custom_create!(
+                        "Chain {} not found in config file",
+                        get_dev_eth_options.chain_name
+                    ))?;
+            faucet_donate(chain_cfg.chain_id as u64, *public_addr).await?;
+        }
+        PaymentCommands::MintTestTokens {
+            mint_test_tokens_options,
+        } => {
+            log::info!("Generating test tokens...");
+            let public_addr = public_addrs.get(0).expect("No public address found");
+            let chain_cfg = config
+                .chain
+                .get(&mint_test_tokens_options.chain_name)
+                .ok_or(err_custom_create!(
+                    "Chain {} not found in config file",
+                    mint_test_tokens_options.chain_name
+                ))?;
+
+            let payment_setup = PaymentSetup::new_empty(&config)?;
+            let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
+            mint_golem_token(
+                web3,
+                &conn,
+                chain_cfg.chain_id as u64,
+                mint_test_tokens_options.from.unwrap_or(*public_addr),
+                chain_cfg.token.address,
+                mint_test_tokens_options.faucet_contract_address,
+            )
+            .await?;
+        }
         PaymentCommands::GenerateKey {
             generate_key_options,
         } => {
@@ -239,10 +288,58 @@ async fn main_internal() -> Result<(), PaymentError> {
             };
 
             let recipient =
-                Address::from_str(check_address_name(&single_transfer_options.recipient)).unwrap();
+                Address::from_str(&check_address_name(&single_transfer_options.recipient)).unwrap();
 
             let public_addr = public_addrs.get(0).expect("No public address found");
             let mut db_transaction = conn.begin().await.unwrap();
+
+            let amount_str = if let Some(amount) = single_transfer_options.amount {
+                amount.to_u256_from_eth().unwrap().to_string()
+            } else if single_transfer_options.all {
+                let payment_setup = PaymentSetup::new_empty(&config)?;
+                {
+                    #[allow(clippy::if_same_then_else)]
+                    if single_transfer_options.token == "glm" {
+                        get_token_balance(
+                            payment_setup.get_provider(chain_cfg.chain_id)?,
+                            chain_cfg.token.address,
+                            *public_addr,
+                        )
+                        .await?
+                        .to_string()
+                    } else if single_transfer_options.token == "eth"
+                        || single_transfer_options.token == "matic"
+                    {
+                        let val = payment_setup
+                            .get_provider(chain_cfg.chain_id)?
+                            .eth()
+                            .balance(*public_addr, None)
+                            .await
+                            .map_err(err_from!())?;
+                        let gas_val = Decimal::from_str(&chain_cfg.max_fee_per_gas.to_string())
+                            .map_err(|e| err_custom_create!("Failed to convert {e}"))?
+                            * Decimal::from(21500); //leave some room for rounding error
+                        let gas_val = gas_val.to_u256_from_gwei().map_err(err_from!())?;
+                        if gas_val > val {
+                            return Err(err_custom_create!(
+                                "Not enough eth to pay for gas, required: {}, available: {}",
+                                gas_val,
+                                val
+                            ));
+                        }
+                        (val - gas_val).to_string()
+                    } else {
+                        return Err(err_custom_create!(
+                            "Unknown token: {}",
+                            single_transfer_options.token
+                        ));
+                    }
+                }
+            } else {
+                return Err(err_custom_create!("No amount specified"));
+            };
+            let amount_decimal = amount_str.to_eth().unwrap();
+
             let mut tt = insert_token_transfer(
                 &mut *db_transaction,
                 &TokenTransferDao {
@@ -255,11 +352,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     receiver_addr: format!("{:#x}", recipient),
                     chain_id: chain_cfg.chain_id,
                     token_addr: token,
-                    token_amount: single_transfer_options
-                        .amount
-                        .to_u256_from_eth()
-                        .unwrap()
-                        .to_string(),
+                    token_amount: amount_str,
                     create_date: Default::default(),
                     tx_id: None,
                     paid_date: None,
@@ -277,7 +370,11 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .unwrap();
 
             db_transaction.commit().await.unwrap();
-            log::info!("Transfer added to db, payment id: {}", payment_id);
+            log::info!(
+                "Transfer added to db amount: {}, payment id: {}",
+                amount_decimal,
+                payment_id
+            );
         }
         PaymentCommands::Balance {
             account_balance_options,
@@ -318,22 +415,7 @@ async fn main_internal() -> Result<(), PaymentError> {
         } => {
             log::info!("Scanning blockchain {}", scan_blockchain_options.chain_name);
 
-            let payment_setup = PaymentSetup::new(
-                &config,
-                vec![],
-                true,
-                false,
-                false,
-                1,
-                1,
-                1,
-                1,
-                1,
-                None,
-                false,
-                false,
-                false,
-            )?;
+            let payment_setup = PaymentSetup::new_empty(&config)?;
             let chain_cfg = config
                 .chain
                 .get(&scan_blockchain_options.chain_name)
