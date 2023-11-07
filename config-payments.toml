@@ -37,7 +37,6 @@ block-explorer-url = "https://rinkeby.etherscan.io"
 chain-name = "Goerli"
 chain-id = 5
 rpc-endpoints = ["https://ethereum-goerli-rpc.allthatnode.com",
-    "https://rpc.goerli.mudit.blog",
     "https://rpc.slock.it/goerli",
     "https://www.ethercluster.com/goerli",
     "https://rpc.ankr.com/eth_goerli"]
