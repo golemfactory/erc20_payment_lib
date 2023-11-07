@@ -82,6 +82,10 @@ pub struct MintContractSettings {
 #[serde(rename_all = "kebab-case")]
 pub struct FaucetClientSettings {
     pub max_eth_allowed: Decimal,
+    pub faucet_srv: String,
+    pub faucet_host: String,
+    pub faucet_srv_port: u16,
+    pub faucet_lookup_domain: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]

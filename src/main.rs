@@ -221,7 +221,18 @@ async fn main_internal() -> Result<(), PaymentError> {
                         "Chain {} not found in config file",
                         get_dev_eth_options.chain_name
                     ))?;
-            faucet_donate(chain_cfg.chain_id as u64, *public_addr).await?;
+            let cfg = chain_cfg.faucet_client.clone().unwrap();
+            let faucet_srv_prefix = cfg.faucet_srv;
+            let faucet_lookup_domain = cfg.faucet_lookup_domain;
+            let faucet_srv_port = cfg.faucet_srv_port;
+
+            faucet_donate(
+                &faucet_srv_prefix,
+                &faucet_lookup_domain,
+                faucet_srv_port,
+                *public_addr,
+            )
+            .await?;
         }
         PaymentCommands::MintTestTokens {
             mint_test_tokens_options,

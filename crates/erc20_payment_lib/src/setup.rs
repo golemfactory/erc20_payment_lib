@@ -38,6 +38,10 @@ pub struct ChainSetup {
     pub mint_glm_address: Option<Address>,
     pub mint_max_glm_allowed: Option<Decimal>,
     pub faucet_client_max_eth_allowed: Option<Decimal>,
+    pub faucet_client_srv: Option<String>,
+    pub faucet_client_host: Option<String>,
+    pub faucet_srv_port: Option<u16>,
+    pub faucet_lookup_domain: Option<String>,
     pub multi_contract_max_at_once: usize,
     pub transaction_timeout: u64,
     pub skip_multi_contract_check: bool,
@@ -181,6 +185,22 @@ impl PaymentSetup {
                         .faucet_client
                         .clone()
                         .map(|fc| fc.max_eth_allowed),
+                    faucet_client_srv: chain_config.1.faucet_client.clone().map(|fc| fc.faucet_srv),
+                    faucet_client_host: chain_config
+                        .1
+                        .faucet_client
+                        .clone()
+                        .map(|fc| fc.faucet_host),
+                    faucet_srv_port: chain_config
+                        .1
+                        .faucet_client
+                        .clone()
+                        .map(|fc| fc.faucet_srv_port),
+                    faucet_lookup_domain: chain_config
+                        .1
+                        .faucet_client
+                        .clone()
+                        .map(|fc| fc.faucet_lookup_domain),
                     mint_max_glm_allowed: chain_config
                         .1
                         .mint_contract
