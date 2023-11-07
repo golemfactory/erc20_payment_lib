@@ -2,7 +2,7 @@
 name = "erc20_payment_lib_test"
 description = "Payment processor for ERC20 tokens"
 authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
-version = "0.3.3"
+version = "0.3.4"
 edition = "2021"
 license = "MIT"
 
@@ -36,5 +36,5 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 env_logger = { workspace = true }
 erc20_payment_lib = { path = "../erc20_payment_lib", version = "0.3.2" }
-erc20_payment_lib_extra = { path = "../erc20_payment_lib_extra" }
-web3_test_proxy_client = { path = "../web3_test_proxy_client" }
+erc20_payment_lib_extra = { path = "../erc20_payment_lib_extra", version = "0.3.2" }
+web3_test_proxy_client = { path = "../web3_test_proxy_client", version = "0.3.2" }
