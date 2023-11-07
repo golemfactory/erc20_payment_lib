@@ -1,10 +1,10 @@
-DROP TABLE allowance;
-DROP TABLE chain_transfer;
-DROP TABLE chain_tx;
-DROP TABLE scan_info;
-DROP TABLE token_transfer;
-DROP TABLE transfer_in;
-DROP TABLE tx;
+DROP TABLE IF EXISTS allowance;
+DROP TABLE IF EXISTS chain_transfer;
+DROP TABLE IF EXISTS chain_tx;
+DROP TABLE IF EXISTS scan_info;
+DROP TABLE IF EXISTS token_transfer;
+DROP TABLE IF EXISTS transfer_in;
+DROP TABLE IF EXISTS tx;
 
 CREATE TABLE "tx"
 (
