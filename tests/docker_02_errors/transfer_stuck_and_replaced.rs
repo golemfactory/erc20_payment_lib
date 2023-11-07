@@ -6,6 +6,8 @@ use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime, TransactionStuckRe
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_test::*;
+use rust_decimal::prelude::FromPrimitive;
+use rust_decimal::Decimal;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
@@ -84,8 +86,8 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
     });
     {
         let mut config = create_default_config_setup(&proxy_url_base, proxy_key).await;
-        config.chain.get_mut("dev").unwrap().priority_fee = 0.01;
-        config.chain.get_mut("dev").unwrap().max_fee_per_gas = 0.01;
+        config.chain.get_mut("dev").unwrap().priority_fee = Decimal::from_f64(0.01).unwrap();
+        config.chain.get_mut("dev").unwrap().max_fee_per_gas = Decimal::from_f64(0.01).unwrap();
 
         //load private key for account 0x653b48E1348F480149047AA3a58536eb0dbBB2E2
         let private_keys = load_private_keys("c2b876dd5ef1bcab6864249c58dfea6018538d67d0237f105ff8b54d32fb98e1")?;
@@ -125,8 +127,8 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
         tokio::time::sleep(Duration::from_secs(5)).await;
         sp.runtime_handle.abort();
 
-        config.chain.get_mut("dev").unwrap().priority_fee = 0.01;
-        config.chain.get_mut("dev").unwrap().max_fee_per_gas = 0.011;
+        config.chain.get_mut("dev").unwrap().priority_fee = Decimal::from_f64(0.01).unwrap();
+        config.chain.get_mut("dev").unwrap().max_fee_per_gas = Decimal::from_f64(0.011).unwrap();
 
         let extra_time = match scenario {
             Scenarios::LastTransactionDone => Duration::from_secs(0),
@@ -160,8 +162,8 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
             }
         }
 
-        config.chain.get_mut("dev").unwrap().priority_fee = 0.01;
-        config.chain.get_mut("dev").unwrap().max_fee_per_gas = 0.5;
+        config.chain.get_mut("dev").unwrap().priority_fee = Decimal::from_f64(0.01).unwrap();
+        config.chain.get_mut("dev").unwrap().max_fee_per_gas = Decimal::from_f64(0.5).unwrap();
 
         let extra_time = match scenario {
             Scenarios::LastTransactionDone => Duration::from_secs(0),

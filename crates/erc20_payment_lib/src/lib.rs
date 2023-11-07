@@ -11,6 +11,7 @@ pub mod setup;
 pub mod transaction;
 pub mod utils;
 //@todo - add feature
+pub mod faucet_client;
 mod sender;
 pub mod server;
 pub mod signer;

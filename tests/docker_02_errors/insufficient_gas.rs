@@ -8,6 +8,7 @@ use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime, TransactionStuckRe
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib_test::*;
+use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use std::str::FromStr;
 use std::time::Duration;
@@ -61,8 +62,8 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
     });
     {
         let mut config = create_default_config_setup(&proxy_url_base, proxy_key).await;
-        config.chain.get_mut("dev").unwrap().priority_fee = 1.0;
-        config.chain.get_mut("dev").unwrap().max_fee_per_gas = 6.1;
+        config.chain.get_mut("dev").unwrap().priority_fee = Decimal::from_f64(1.0).unwrap();
+        config.chain.get_mut("dev").unwrap().max_fee_per_gas = Decimal::from_f64(6.1).unwrap();
 
         //load private key for account 0x653b48E1348F480149047AA3a58536eb0dbBB2E2
         let private_keys = load_private_keys("4046a9cb8db98423d6d6248081bf4f85a0070b34b462d54b368002b9a25d5c74")?;
