@@ -1035,7 +1035,7 @@ dependencies = [
 
 [[package]]
 name = "erc20_payment_lib_test"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "actix-files",
  "actix-web",
@@ -1072,7 +1072,7 @@ dependencies = [
 
 [[package]]
 name = "erc20_processor"
-version = "0.3.3"
+version = "0.3.5"
 dependencies = [
  "actix-cors",
  "actix-files",
@@ -3760,7 +3760,7 @@ dependencies = [
 
 [[package]]
 name = "web3_test_proxy_client"
-version = "0.3.1"
+version = "0.3.5"
 dependencies = [
  "anyhow",
  "awc",
