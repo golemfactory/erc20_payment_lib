@@ -108,7 +108,9 @@ fn u256_to_rust_dec(
     //max value supported by rust_decimal
     if amount >= U256::from(79228162514264337593543950336_u128) {
         return Err(ConversionError {
-            msg: "Amount greater than max rust_decimal".to_string(),
+            msg: format!(
+                "Amount greater than max rust_decimal: {amount}>=79228162514264337593543950336"
+            ),
         });
     }
 
