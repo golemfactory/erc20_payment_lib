@@ -49,6 +49,9 @@ impl AdditionalOptions {
 pub struct Engine {
     pub process_interval: u64,
     pub process_interval_after_error: u64,
+    pub process_interval_after_no_gas_or_token_start: u64,
+    pub process_interval_after_no_gas_or_token_max: u64,
+    pub process_interval_after_no_gas_or_token_increase: f64,
     pub process_interval_after_send: u64,
     pub report_alive_interval: u64,
     pub gather_interval: u64,

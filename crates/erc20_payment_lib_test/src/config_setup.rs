@@ -45,6 +45,9 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
         engine: Engine {
             process_interval: 1,
             process_interval_after_error: 1,
+            process_interval_after_no_gas_or_token_start: 1,
+            process_interval_after_no_gas_or_token_max: 1,
+            process_interval_after_no_gas_or_token_increase: 1.0,
             process_interval_after_send: 1,
             report_alive_interval: 1,
             gather_interval: 1,

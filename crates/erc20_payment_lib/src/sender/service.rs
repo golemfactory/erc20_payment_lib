@@ -262,6 +262,7 @@ pub async fn process_transactions(
 ) -> Result<(), PaymentError> {
     //remove tx from current processing infos
 
+    let mut current_wait_time_no_gas_token: f64 = 0.0;
     loop {
         let mut transactions = get_next_transactions_to_process(conn, 1)
             .await
@@ -313,6 +314,12 @@ pub async fn process_transactions(
                 },
             }
         };
+        if let ProcessTransactionResult::DoNotSaveWaitForGasOrToken = process_t_res {
+            //pass
+        } else {
+            //clear wait flag if other result encountered
+            current_wait_time_no_gas_token = 0.0;
+        }
         if let ProcessTransactionResult::Replaced = process_t_res {
             shared_state.lock().await.current_tx_info.remove(&tx.id);
             continue;
@@ -346,12 +353,36 @@ pub async fn process_transactions(
                 shared_state.lock().await.current_tx_info.remove(&tx.id);
             }
         }
+        if let ProcessTransactionResult::DoNotSaveWaitForGasOrToken = process_t_res {
+            //we need to wait for gas or token
+            if current_wait_time_no_gas_token
+                < payment_setup.process_interval_after_no_gas_or_token_start as f64
+            {
+                current_wait_time_no_gas_token =
+                    payment_setup.process_interval_after_no_gas_or_token_start as f64;
+            } else {
+                current_wait_time_no_gas_token *=
+                    payment_setup.process_interval_after_no_gas_or_token_increase;
+            }
+            if current_wait_time_no_gas_token
+                >= payment_setup.process_interval_after_no_gas_or_token_max as f64
+            {
+                current_wait_time_no_gas_token =
+                    payment_setup.process_interval_after_no_gas_or_token_max as f64;
+            }
+            log::warn!(
+                "Sleeping for {:.2} seconds (sleep after no gas or token)",
+                current_wait_time_no_gas_token
+            );
 
-        log::debug!(
-            "Sleeping for {} seconds (process interval)",
-            payment_setup.process_interval
-        );
-        tokio::time::sleep(Duration::from_secs(payment_setup.process_interval)).await;
+            tokio::time::sleep(Duration::from_secs_f64(current_wait_time_no_gas_token)).await;
+        } else {
+            log::debug!(
+                "Sleeping for {} seconds (process interval)",
+                payment_setup.process_interval
+            );
+            tokio::time::sleep(Duration::from_secs(payment_setup.process_interval)).await;
+        }
     }
     Ok(())
 }
