@@ -100,6 +100,7 @@ pub enum Decimals {
     Eighteen = 18,
 }
 
+#[allow(dead_code)]
 fn rust_dec_to_u256(dec_amount: rust_decimal::Decimal, decimals: Decimals) -> U256 {
     if dec_amount < Decimal::from(0) {
         return U256::zero();
@@ -271,6 +272,7 @@ pub fn u256_to_decimal_string(
     let mut str_rev: Vec<char> = str.chars().rev().collect();
     let precision = precision.map(|p| std::cmp::min(p, decimals as usize));
 
+    #[allow(clippy::same_item_push)]
     for _ in 0..(decimals as usize) {
         str_rev.push('0');
     }

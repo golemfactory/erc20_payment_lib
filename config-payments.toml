@@ -13,9 +13,9 @@ process-interval-after-error = 25
 # it is starting with checking every process-interval-after-no-gas-or-token-start
 # and then increasing by multiplying by process-interval-after-no-gas-or-token-increase
 # up to process-interval-after-no-gas-or-token-max
-process-interval-after-no-gas-or-token-start = 5
-process-interval-after-no-gas-or-token-max = 20
-process-interval-after-no-gas-or-token-increase = 1.1
+process-interval-after-no-gas-or-token-start = 20
+process-interval-after-no-gas-or-token-max = 40
+process-interval-after-no-gas-or-token-increase = 1.5
 
 # report alive interval (in seconds) is to set how often we want to report that we are alive
 # minimum 1 second, maximum is capped by gather-interval

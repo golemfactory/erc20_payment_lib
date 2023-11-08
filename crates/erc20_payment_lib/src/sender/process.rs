@@ -40,6 +40,7 @@ pub enum ProcessTransactionResult {
     NeedRetry(String),
     InternalError(String),
     DoNotSave,
+    DoNotSaveWaitForGasOrToken,
     Unknown,
 }
 
@@ -292,7 +293,10 @@ pub async fn process_transaction(
                 Ok(res) => {
                     let Some(res) = res else {
                         //check cannot be done right now
-                        return Ok((web3_tx_dao.clone(), ProcessTransactionResult::DoNotSave));
+                        return Ok((
+                            web3_tx_dao.clone(),
+                            ProcessTransactionResult::DoNotSaveWaitForGasOrToken,
+                        ));
                     };
                     let gas_balance = web3
                         .eth()
@@ -316,7 +320,10 @@ pub async fn process_transaction(
                             )),
                         )
                         .await;
-                        return Ok((web3_tx_dao.clone(), ProcessTransactionResult::DoNotSave));
+                        return Ok((
+                            web3_tx_dao.clone(),
+                            ProcessTransactionResult::DoNotSaveWaitForGasOrToken,
+                        ));
                     }
                 }
                 Err(err) => {

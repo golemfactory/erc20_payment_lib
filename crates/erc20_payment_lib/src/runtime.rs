@@ -412,7 +412,9 @@ impl PaymentRuntime {
             config.engine.process_interval_after_error,
             config.engine.process_interval_after_no_gas_or_token_start,
             config.engine.process_interval_after_no_gas_or_token_max,
-            config.engine.process_interval_after_no_gas_or_token_increase,
+            config
+                .engine
+                .process_interval_after_no_gas_or_token_increase,
             config.engine.process_interval_after_send,
             config.engine.report_alive_interval,
             config.engine.gather_interval,
