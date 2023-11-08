@@ -173,7 +173,9 @@ fn u256_to_gwei(amount: U256) -> Result<Decimal, ConversionError> {
 
 pub trait U256ConvExt {
     fn to_gwei(&self) -> Result<Decimal, ConversionError>;
+    fn to_gwei_saturate(&self) -> Decimal;
     fn to_eth(&self) -> Result<Decimal, ConversionError>;
+    fn to_eth_saturate(&self) -> Decimal;
     fn to_gwei_str(&self) -> String;
     fn to_eth_str(&self) -> String;
     fn to_gwei_str_with_precision(&self, precision: u8) -> String;
@@ -184,8 +186,14 @@ impl U256ConvExt for U256 {
     fn to_gwei(&self) -> Result<Decimal, ConversionError> {
         u256_to_gwei(*self)
     }
+    fn to_gwei_saturate(&self) -> Decimal {
+        u256_to_gwei(*self).unwrap_or(Decimal::from(10000000000000_u64))
+    }
     fn to_eth(&self) -> Result<Decimal, ConversionError> {
         u256_to_eth(*self)
+    }
+    fn to_eth_saturate(&self) -> Decimal {
+        u256_to_eth(*self).unwrap_or(Decimal::from(10000000000_u64))
     }
     fn to_gwei_str(&self) -> String {
         u256_to_decimal_string(*self, Decimals::Nine, None)

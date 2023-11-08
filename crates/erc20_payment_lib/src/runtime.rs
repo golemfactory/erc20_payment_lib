@@ -732,8 +732,7 @@ pub async fn mint_golem_token(
         .balance(from, None)
         .await
         .map_err(err_from!())?
-        .to_eth()
-        .map_err(err_from!())?;
+        .to_eth_saturate();
     if balance < Decimal::from_f64(0.005).unwrap() {
         return Err(err_custom_create!(
             "You need at least 0.005 ETH to continue. You have {} ETH on network with chain id: {} and account {:#x} ",
@@ -745,8 +744,7 @@ pub async fn mint_golem_token(
 
     let token_balance = get_token_balance(web3, glm_address, from)
         .await?
-        .to_eth()
-        .map_err(err_from!())?;
+        .to_eth_saturate();
 
     if token_balance > Decimal::from_f64(500.0).unwrap() {
         return Err(err_custom_create!(
