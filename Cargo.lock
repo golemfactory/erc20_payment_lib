@@ -1072,7 +1072,7 @@ dependencies = [
 
 [[package]]
 name = "erc20_processor"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "actix-cors",
  "actix-files",
@@ -3813,7 +3813,7 @@ dependencies = [
 
 [[package]]
 name = "web3_test_proxy"
-version = "0.2.2"
+version = "0.3.8"
 dependencies = [
  "actix-cors",
  "actix-files",
@@ -3842,7 +3842,7 @@ dependencies = [
 
 [[package]]
 name = "web3_test_proxy_client"
-version = "0.3.5"
+version = "0.3.8"
 dependencies = [
  "anyhow",
  "awc",
