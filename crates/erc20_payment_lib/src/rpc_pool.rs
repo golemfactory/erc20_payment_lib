@@ -1,3 +1,4 @@
+use std::env;
 use crate::utils::datetime_from_u256_timestamp;
 use chrono::{DateTime, Duration, Utc};
 use futures::future::join_all;
@@ -94,7 +95,10 @@ pub async fn verify_endpoint(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
 
     select! {
         res = tsk => res,
-        _ = tokio::time::sleep(std::time::Duration::from_millis(vep.allow_max_response_time_ms)) => VerifyEndpointResult::Unreachable,
+        _ = tokio::time::sleep(std::time::Duration::from_millis(vep.allow_max_response_time_ms)) => {
+            log::warn!("Verify endpoint error - Unreachable");
+            VerifyEndpointResult::Unreachable
+        },
     }
 }
 
@@ -216,10 +220,12 @@ impl Web3RpcPool {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_web3_rpc_pool() {
+    env::set_var("RUST_LOG", "info");
+    env_logger::init();
     let mut pool = Web3RpcPool::new(
         80001,
         vec![
-            "http://127.0.0.1:8080/web3/endp1".to_string(),
+            "http://127.0.0.1:8080/web3/endp13".to_string(),
             "http://127.0.0.1:8080/web3/endp2".to_string(),
         ],
     );

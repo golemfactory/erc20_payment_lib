@@ -35,3 +35,6 @@ regex = { workspace = true }
 awc = { workspace = true }
 trust-dns-resolver = { workspace = true }
 url = { workspace = true }
+
+[dev-dependencies]
+env_logger = { workspace = true }
