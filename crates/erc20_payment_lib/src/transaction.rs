@@ -11,7 +11,6 @@ use crate::signer::Signer;
 use crate::utils::{datetime_from_u256_timestamp, ConversionError, StringConvExt, U256ConvExt};
 use crate::{err_custom_create, err_from};
 use chrono::Utc;
-use log::Level::Error;
 use secp256k1::SecretKey;
 use sqlx::SqlitePool;
 use std::collections::HashMap;
