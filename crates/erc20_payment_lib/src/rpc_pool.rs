@@ -1,4 +1,3 @@
-use std::env;
 use crate::utils::datetime_from_u256_timestamp;
 use chrono::{DateTime, Duration, Utc};
 use futures::future::join_all;
@@ -27,7 +26,7 @@ pub struct Web3RpcPool {
     chain_id: u64,
     //last_verified: Option<DateTime<Utc>>,
     endpoints: Vec<Web3RpcEndpoint>,
-   // priority: i64,
+    // priority: i64,
 }
 
 pub struct VerifyEndpointParams {
@@ -63,7 +62,11 @@ pub async fn verify_endpoint(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
             }
         };
         if U256::from(vep.chain_id) != chain_id {
-            log::warn!("Verify endpoint error - Chain id mismatch {} vs {}", vep.chain_id, chain_id);
+            log::warn!(
+                "Verify endpoint error - Chain id mismatch {} vs {}",
+                vep.chain_id,
+                chain_id
+            );
             return VerifyEndpointResult::WrongChainId;
         }
         let block_info = match web3.eth().block(BlockId::Number(BlockNumber::Latest)).await {
@@ -85,12 +88,10 @@ pub async fn verify_endpoint(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
         if Utc::now() - date > Duration::seconds(vep.allow_max_head_behind_secs as i64) {
             return VerifyEndpointResult::HeadBehind(date);
         }
-        VerifyEndpointResult::Ok(
-            VerifyEndpointStatus {
-                head_seconds_behind: (Utc::now() - date).num_seconds() as u64,
-                check_time_ms: start_check.elapsed().as_millis() as u64
-            }
-        )
+        VerifyEndpointResult::Ok(VerifyEndpointStatus {
+            head_seconds_behind: (Utc::now() - date).num_seconds() as u64,
+            check_time_ms: start_check.elapsed().as_millis() as u64,
+        })
     };
 
     select! {
@@ -107,8 +108,6 @@ struct EndpointScore {
     score: f64,
 }
 
-
-
 pub async fn verify_endpoint_2(chain_id: u64, m: &mut Web3RpcEndpoint) -> bool {
     let verify_result = verify_endpoint(
         &m.web3,
@@ -118,7 +117,7 @@ pub async fn verify_endpoint_2(chain_id: u64, m: &mut Web3RpcEndpoint) -> bool {
             allow_max_response_time_ms: 2000,
         },
     )
-        .await;
+    .await;
 
     m.last_verified = Some(Utc::now());
     m.verify_result = Some(verify_result.clone());
@@ -142,12 +141,10 @@ impl Web3RpcPool {
             };
             log::debug!("Added endpoint {:?}", endpoint);
             web3_endpoints.push(endpoint);
-
         }
         Self {
             chain_id,
             endpoints: web3_endpoints,
-
         }
     }
 
@@ -155,21 +152,22 @@ impl Web3RpcPool {
         self.chain_id
     }
 
-
     pub async fn choose_best_endpoint(&mut self) -> Option<usize> {
-        join_all(self.endpoints.iter_mut().filter(
-            |endpoint| {
-                if endpoint.last_verified.is_none() {
-                    return true;
-                }
-                if endpoint.last_verified.unwrap() + Duration::seconds(10) < Utc::now() {
-                    return true;
-                }
-                false
-            }
-        ).map(|endpoint| {
-            verify_endpoint_2(self.chain_id, endpoint)
-        })).await;
+        join_all(
+            self.endpoints
+                .iter_mut()
+                .filter(|endpoint| {
+                    if endpoint.last_verified.is_none() {
+                        return true;
+                    }
+                    if endpoint.last_verified.unwrap() + Duration::seconds(10) < Utc::now() {
+                        return true;
+                    }
+                    false
+                })
+                .map(|endpoint| verify_endpoint_2(self.chain_id, endpoint)),
+        )
+        .await;
 
         let mut verified_endpoints: Vec<EndpointScore> = vec![];
 
@@ -178,17 +176,20 @@ impl Web3RpcPool {
                 Some(VerifyEndpointResult::Ok(status)) => {
                     let endpoint_score = 1000.0 / status.check_time_ms as f64;
 
-                    verified_endpoints.push(EndpointScore{
+                    verified_endpoints.push(EndpointScore {
                         endpoint_idx: idx,
                         score: endpoint_score,
                     });
                 }
-                None => {},
+                None => {}
                 _ => {}
             }
         }
 
-        verified_endpoints.iter().max_by_key(|x| (x.score * 1000.0) as i64).map(|x| x.endpoint_idx)
+        verified_endpoints
+            .iter()
+            .max_by_key(|x| (x.score * 1000.0) as i64)
+            .map(|x| x.endpoint_idx)
     }
 
     pub async fn get_eth_balance(
@@ -220,12 +221,12 @@ impl Web3RpcPool {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_web3_rpc_pool() {
-    env::set_var("RUST_LOG", "info");
+    std::env::set_var("RUST_LOG", "info");
     env_logger::init();
     let mut pool = Web3RpcPool::new(
         80001,
         vec![
-            "http://127.0.0.1:8080/web3/endp13".to_string(),
+            "http://127.0.0.1:8080/web3/endp1".to_string(),
             "http://127.0.0.1:8080/web3/endp2".to_string(),
         ],
     );

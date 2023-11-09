@@ -137,11 +137,13 @@ impl PaymentSetup {
         for chain_config in &config.chain {
             let mut providers = Vec::new();
             for endp in &chain_config.1.rpc_endpoints {
-                let transport = match Http::new(endp) {
+                let transport = match Http::new(&endp.endpoint) {
                     Ok(t) => t,
                     Err(err) => {
                         return Err(err_custom_create!(
-                            "Failed to create transport for endpoint: {endp} - {err:?}"
+                            "Failed to create transport for endpoint: {} - {}",
+                            endp.name,
+                            err
                         ));
                     }
                 };

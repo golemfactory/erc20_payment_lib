@@ -5,7 +5,7 @@ use crate::options::{PaymentCommands, PaymentOptions};
 use actix_web::Scope;
 use actix_web::{web, App, HttpServer};
 use csv::ReaderBuilder;
-use erc20_payment_lib::config::AdditionalOptions;
+use erc20_payment_lib::config::{AdditionalOptions, RpcSettings};
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::{ScanDao, TokenTransferDao};
 use erc20_payment_lib::db::ops::{
@@ -92,7 +92,18 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>();
             log::info!("Overriding default rpc endpoints for {}", f.0,);
-            config.change_rpc_endpoints(f.1, strs).await?;
+
+            let rpcs = strs
+                .iter()
+                .map(|s| RpcSettings {
+                    name: "ENV_RPC".to_string(),
+                    endpoint: s.clone(),
+                    priority: 0,
+                    max_timeout_ms: 0,
+                    allowed_head_behind_secs: 0,
+                })
+                .collect();
+            config.change_rpc_endpoints(f.1, rpcs).await?;
         }
     }
 

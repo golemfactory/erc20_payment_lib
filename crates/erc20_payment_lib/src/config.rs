@@ -93,10 +93,20 @@ pub struct FaucetClientSettings {
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
+pub struct RpcSettings {
+    pub name: String,
+    pub endpoint: String,
+    pub priority: i64,
+    pub max_timeout_ms: u64,
+    pub allowed_head_behind_secs: u64,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct Chain {
     pub chain_name: String,
     pub chain_id: i64,
-    pub rpc_endpoints: Vec<String>,
+    pub rpc_endpoints: Vec<RpcSettings>,
     pub currency_symbol: String,
     pub priority_fee: Decimal,
     pub max_fee_per_gas: Decimal,
@@ -142,7 +152,7 @@ impl Config {
     pub async fn change_rpc_endpoints(
         &mut self,
         chain: &str,
-        rpc_endpoints: Vec<String>,
+        rpc_endpoints: Vec<RpcSettings>,
     ) -> Result<(), PaymentError> {
         self.chain
             .get_mut(chain)
