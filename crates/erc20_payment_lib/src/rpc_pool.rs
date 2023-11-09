@@ -8,6 +8,7 @@ use web3::types::{Address, BlockId, BlockNumber, U256};
 use web3::Web3;
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct Web3RpcEndpoint {
     chain_id: u64,
     endpoint: String,
@@ -21,7 +22,7 @@ pub struct Web3RpcEndpoint {
 }
 
 #[derive(Debug)]
-struct Web3RpcPool {
+pub struct Web3RpcPool {
     chain_id: u64,
     //last_verified: Option<DateTime<Utc>>,
     endpoints: Vec<Web3RpcEndpoint>,
@@ -126,7 +127,7 @@ impl Web3RpcPool {
         for endpoint in endpoints {
             let http = Http::new(&endpoint).unwrap();
             let web3 = Web3::new(http);
-            web3_endpoints.push(Web3RpcEndpoint {
+            let endpoint = Web3RpcEndpoint {
                 chain_id,
                 endpoint,
                 web3,
@@ -134,7 +135,10 @@ impl Web3RpcPool {
                 verify_result: None,
                 request_count: 0,
                 last_chosen: None,
-            });
+            };
+            log::debug!("Added endpoint {:?}", endpoint);
+            web3_endpoints.push(endpoint);
+
         }
         Self {
             chain_id,
@@ -143,7 +147,7 @@ impl Web3RpcPool {
         }
     }
 
-    pub fn get_chain_id(self: &Self) -> u64 {
+    pub fn get_chain_id(self) -> u64 {
         self.chain_id
     }
 
@@ -175,6 +179,7 @@ impl Web3RpcPool {
                         score: endpoint_score,
                     });
                 }
+                None => {},
                 _ => {}
             }
         }
