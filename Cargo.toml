@@ -27,7 +27,7 @@ actix-web = { version = "^4.2.1", default-features = false, features = [
 ] }
 anyhow = "1.0.71"
 async-trait = "0.1.68"
-awc = "3.1.1"
+awc = { version = "3.1.1", features = ["rustls"] }
 base64 = "0.21.2"
 bollard = "0.14.0"
 chrono = { version = "0.4.22", features = ["serde"] }
