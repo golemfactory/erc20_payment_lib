@@ -11,6 +11,7 @@ use crate::signer::Signer;
 use crate::utils::{datetime_from_u256_timestamp, ConversionError, StringConvExt, U256ConvExt};
 use crate::{err_custom_create, err_from};
 use chrono::Utc;
+use log::Level::Error;
 use secp256k1::SecretKey;
 use sqlx::SqlitePool;
 use std::collections::HashMap;
@@ -464,7 +465,7 @@ pub async fn check_transaction(
                     remove_transaction_force(conn, web3_tx_dao.id).await?;
                     return Ok(None);
                 } else if e.to_string().contains("transfer amount exceeds balance") {
-                    log::warn!("Transfer amount exceed balance. Getting details...");
+                    log::warn!("Transfer amount exceed balance (chain_id: {}, sender: {:#x}). Getting details...", web3_tx_dao.chain_id, Address::from_str(&web3_tx_dao.from_addr).map_err(err_from!())?);
                     match get_no_token_details(web3, conn, web3_tx_dao, glm_token).await {
                         Ok(stuck_reason) => {
                             log::warn!(
@@ -663,6 +664,15 @@ pub async fn send_transaction(
                                 .map_err(err_from!())?,
                             }),
                         ))
+                    } else if e.message.contains("invalid sender") {
+                        // transaction sent with wrong chain id
+                        return Err(err_custom_create!(
+                            r#"Invalid sender, seems like transaction is sending to wrong chain. \
+Potentially irrecoverable error that need manual intervention.
+Nonce may be set incorrectly. You can try to fix it by running command (but it may lead to unpredicted side effects):
+erc20processor cleanup --remove-tx-unsafe
+"#
+                        ));
                     } else if e.message.contains("already known") {
                         //transaction is already in mempool, success!
                         return Ok(());
