@@ -97,8 +97,8 @@ pub struct RpcSettings {
     pub name: String,
     pub endpoint: String,
     pub priority: i64,
-    pub max_timeout_ms: u64,
-    pub allowed_head_behind_secs: u64,
+    pub max_timeout_ms: Option<u64>,
+    pub allowed_head_behind_secs: Option<u64>,
 }
 
 #[derive(Deserialize, Debug, Clone)]

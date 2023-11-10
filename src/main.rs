@@ -101,8 +101,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                     name: "ENV_RPC".to_string(),
                     endpoint: s.clone(),
                     priority: 0,
-                    max_timeout_ms: 0,
-                    allowed_head_behind_secs: 0,
+                    max_timeout_ms: None,
+                    allowed_head_behind_secs: None,
                 })
                 .collect();
             config.change_rpc_endpoints(f.1, rpcs).await?;
@@ -243,8 +243,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                         priority: rpc.priority,
                         endpoint: rpc.endpoint.clone(),
                         name: rpc.name.clone(),
-                        max_response_time_ms: rpc.max_timeout_ms,
-                        max_head_behind_secs: rpc.allowed_head_behind_secs,
+                        max_response_time_ms: rpc.max_timeout_ms.unwrap_or(10000),
+                        max_head_behind_secs: rpc.allowed_head_behind_secs.unwrap_or(240),
                     })
                     .collect(),
             ));

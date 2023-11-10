@@ -145,8 +145,8 @@ impl PaymentSetup {
                         priority: rpc.priority,
                         endpoint: rpc.endpoint.clone(),
                         name: rpc.name.clone(),
-                        max_response_time_ms: rpc.max_timeout_ms,
-                        max_head_behind_secs: rpc.allowed_head_behind_secs,
+                        max_response_time_ms: rpc.max_timeout_ms.unwrap_or(10000),
+                        max_head_behind_secs: rpc.allowed_head_behind_secs.unwrap_or(240),
                     })
                     .collect(),
             ));
