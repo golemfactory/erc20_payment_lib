@@ -2,19 +2,16 @@ use crate::config::Config;
 use crate::error::ErrorBag;
 use crate::error::PaymentError;
 
+use crate::rpc_pool::{Web3RpcParams, Web3RpcPool};
 use crate::utils::DecimalConvExt;
 use crate::{err_custom_create, err_from};
-use rand::Rng;
 use rust_decimal::Decimal;
 use secp256k1::SecretKey;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
-use web3::transports::Http;
 use web3::types::{Address, U256};
-use web3::Web3;
-use crate::rpc_pool::{Web3RpcParams, Web3RpcPool};
 
 #[derive(Clone, Debug)]
 pub struct ProviderSetup {
@@ -139,7 +136,8 @@ impl PaymentSetup {
         for chain_config in &config.chain {
             let web3_pool = Arc::new(Web3RpcPool::new(
                 chain_config.1.chain_id as u64,
-                chain_config.1
+                chain_config
+                    .1
                     .rpc_endpoints
                     .iter()
                     .map(|rpc| Web3RpcParams {

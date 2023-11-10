@@ -6,7 +6,10 @@ use std::sync::{Arc, RwLock};
 use tokio::select;
 use tokio::time::Instant;
 use web3::transports::Http;
-use web3::types::{Address, Block, BlockId, BlockNumber, Bytes, CallRequest, Filter, H256, Log, Transaction, TransactionId, TransactionReceipt, U256, U64};
+use web3::types::{
+    Address, Block, BlockId, BlockNumber, Bytes, CallRequest, Filter, Log, Transaction,
+    TransactionId, TransactionReceipt, H256, U256, U64,
+};
 use web3::Web3;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -292,8 +295,7 @@ impl Web3RpcPool {
     }
 
     pub fn get_web3(&self, idx: usize) -> Web3<Http> {
-        self
-            .endpoints
+        self.endpoints
             .get(idx)
             .unwrap()
             .read()
@@ -303,7 +305,15 @@ impl Web3RpcPool {
     }
 
     pub fn get_max_timeout(&self, idx: usize) -> std::time::Duration {
-        std::time::Duration::from_millis(self.endpoints.get(idx).unwrap().read().unwrap().web3_rpc_params.max_response_time_ms)
+        std::time::Duration::from_millis(
+            self.endpoints
+                .get(idx)
+                .unwrap()
+                .read()
+                .unwrap()
+                .web3_rpc_params
+                .max_response_time_ms,
+        )
     }
 
     pub fn mark_rpc_error(&self, idx: usize, verify_result: VerifyEndpointResult) {
@@ -434,7 +444,9 @@ impl Web3RpcPool {
             if let Some(idx) = idx {
                 let res = tokio::time::timeout(
                     self.get_max_timeout(idx),
-                    self.get_web3(idx).eth().estimate_gas(call_data.clone(), block),
+                    self.get_web3(idx)
+                        .eth()
+                        .estimate_gas(call_data.clone(), block),
                 );
 
                 match res.await {
@@ -473,7 +485,7 @@ impl Web3RpcPool {
 
     pub async fn eth_send_raw_transaction(
         self: Arc<Self>,
-        rlp: Bytes
+        rlp: Bytes,
     ) -> Result<H256, web3::Error> {
         let mut loop_no = 0;
         loop {
@@ -522,7 +534,7 @@ impl Web3RpcPool {
 
     pub async fn eth_transaction(
         self: Arc<Self>,
-        id: TransactionId
+        id: TransactionId,
     ) -> Result<Option<Transaction>, web3::Error> {
         let mut loop_no = 0;
         loop {
@@ -571,7 +583,7 @@ impl Web3RpcPool {
 
     pub async fn eth_transaction_receipt(
         self: Arc<Self>,
-        hash: H256
+        hash: H256,
     ) -> Result<Option<TransactionReceipt>, web3::Error> {
         let mut loop_no = 0;
         loop {
@@ -618,8 +630,7 @@ impl Web3RpcPool {
         }
     }
 
-    pub async fn eth_logs(self: Arc<Self>,  filter: Filter) -> Result<Vec<Log>, web3::Error>
-    {
+    pub async fn eth_logs(self: Arc<Self>, filter: Filter) -> Result<Vec<Log>, web3::Error> {
         let mut loop_no = 0;
         loop {
             loop_no += 1;
@@ -665,8 +676,7 @@ impl Web3RpcPool {
         }
     }
 
-    pub async fn eth_block_number(self: Arc<Self>) -> Result<U64, web3::Error>
-    {
+    pub async fn eth_block_number(self: Arc<Self>) -> Result<U64, web3::Error> {
         let mut loop_no = 0;
         loop {
             loop_no += 1;
@@ -712,8 +722,10 @@ impl Web3RpcPool {
         }
     }
 
-    pub async fn eth_block(self: Arc<Self>, block: BlockId) -> Result<Option<Block<H256>>, web3::Error>
-    {
+    pub async fn eth_block(
+        self: Arc<Self>,
+        block: BlockId,
+    ) -> Result<Option<Block<H256>>, web3::Error> {
         let mut loop_no = 0;
         loop {
             loop_no += 1;
@@ -759,8 +771,11 @@ impl Web3RpcPool {
         }
     }
 
-    pub async fn eth_transaction_count(self: Arc<Self>, address: Address, block: Option<BlockNumber>) -> Result<U256, web3::Error>
-    {
+    pub async fn eth_transaction_count(
+        self: Arc<Self>,
+        address: Address,
+        block: Option<BlockNumber>,
+    ) -> Result<U256, web3::Error> {
         let mut loop_no = 0;
         loop {
             loop_no += 1;
@@ -769,7 +784,7 @@ impl Web3RpcPool {
             if let Some(idx) = idx {
                 let res = tokio::time::timeout(
                     self.get_max_timeout(idx),
-                    self.get_web3(idx).eth().transaction_count(address.clone(), block),
+                    self.get_web3(idx).eth().transaction_count(address, block),
                 );
 
                 match res.await {

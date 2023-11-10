@@ -1,15 +1,13 @@
-use std::sync::Arc;
 use crate::contracts::{encode_erc20_allowance, encode_erc20_balance_of};
 use crate::error::*;
+use crate::rpc_pool::Web3RpcPool;
 use crate::{err_create, err_custom_create, err_from};
 use secp256k1::{PublicKey, SecretKey};
 use serde::Serialize;
 use sha3::Digest;
 use sha3::Keccak256;
-use web3::transports::Http;
+use std::sync::Arc;
 use web3::types::{Address, Bytes, CallRequest, U256};
-use web3::Web3;
-use crate::rpc_pool::Web3RpcPool;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -32,7 +30,8 @@ pub async fn get_balance(
     );
     let gas_balance = if check_gas {
         Some(
-            web3.clone().eth_balance(address, None)
+            web3.clone()
+                .eth_balance(address, None)
                 .await
                 .map_err(err_from!())?,
         )
@@ -42,8 +41,9 @@ pub async fn get_balance(
 
     let token_balance = if let Some(token_address) = token_address {
         let call_data = encode_erc20_balance_of(address).map_err(err_from!())?;
-        let res = web3.clone()
-           .eth_call(
+        let res = web3
+            .clone()
+            .eth_call(
                 CallRequest {
                     from: None,
                     to: Some(token_address),

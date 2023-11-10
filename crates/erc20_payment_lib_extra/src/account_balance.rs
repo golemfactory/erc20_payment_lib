@@ -1,6 +1,6 @@
 use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::eth::get_balance;
-use erc20_payment_lib::setup::PaymentSetup;
+use erc20_payment_lib::rpc_pool::{Web3RpcParams, Web3RpcPool};
 use erc20_payment_lib::utils::U256ConvExt;
 use erc20_payment_lib::{config, err_custom_create};
 use futures_util::{stream, StreamExt};
@@ -13,7 +13,6 @@ use std::sync::Arc;
 use stream_rate_limiter::{RateLimitOptions, StreamRateLimitExt};
 use structopt::StructOpt;
 use web3::types::Address;
-use erc20_payment_lib::rpc_pool::{Web3RpcParams, Web3RpcPool};
 
 #[derive(Clone, StructOpt)]
 #[structopt(about = "Payment statistics options")]
@@ -63,8 +62,6 @@ pub async fn account_balance(
             "Chain {} not found in config file",
             account_balance_options.chain_name
         ))?;
-
-    let payment_setup = PaymentSetup::new_empty(config)?;
 
     let web3_pool = Arc::new(Web3RpcPool::new(
         chain_cfg.chain_id as u64,
@@ -125,9 +122,14 @@ pub async fn account_balance(
             let web3_pool = web3_pool.clone();
             async move {
                 log::debug!("Getting balance for account: {:#x}", job);
-                let balance = get_balance(web3_pool.clone(), token, job, !account_balance_options.hide_gas)
-                    .await
-                    .unwrap();
+                let balance = get_balance(
+                    web3_pool.clone(),
+                    token,
+                    job,
+                    !account_balance_options.hide_gas,
+                )
+                .await
+                .unwrap();
 
                 let gas_balance = balance.gas_balance.map(|b| b.to_string());
                 let token_balance = balance.token_balance.map(|b| b.to_string());

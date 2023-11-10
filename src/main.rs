@@ -531,7 +531,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                 scan_info
             };
 
-            let current_block = web3.clone()
+            let current_block = web3
+                .clone()
                 .eth_block_number()
                 .await
                 .map_err(err_from!())?

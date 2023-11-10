@@ -154,7 +154,8 @@ pub async fn process_transaction(
         };
 
         if is_polygon_eco_mode {
-            let blockchain_gas_price = web3.clone()
+            let blockchain_gas_price = web3
+                .clone()
                 .eth_block(BlockId::Number(BlockNumber::Latest))
                 .await
                 .map_err(err_from!())?
@@ -226,7 +227,8 @@ pub async fn process_transaction(
             .lock()
             .await
             .set_tx_message(web3_tx_dao.id, "Checking balance".to_string());
-        let gas_balance = web3.clone()
+        let gas_balance = web3
+            .clone()
             .eth_balance(from_addr, None)
             .await
             .map_err(err_from!())?;
@@ -296,7 +298,8 @@ pub async fn process_transaction(
                             ProcessTransactionResult::DoNotSaveWaitForGasOrToken,
                         ));
                     };
-                    let gas_balance = web3.clone()
+                    let gas_balance = web3
+                        .clone()
                         .eth_balance(from_addr, None)
                         .await
                         .map_err(err_from!())?;
@@ -409,7 +412,8 @@ pub async fn process_transaction(
                 )
             })?;
 
-        let current_block_number = web3.clone()
+        let current_block_number = web3
+            .clone()
             .eth_block_number()
             .await
             .map_err(|err| {
@@ -846,8 +850,10 @@ pub async fn process_transaction(
                         //if transaction was already broad-casted and still not processed then we can assume that gas price is too low
 
                         //Check if really gas price is the reason of problems
-                        if let Ok(Some(block)) =
-                            web3.clone().eth_block(BlockId::Number(BlockNumber::Latest)).await
+                        if let Ok(Some(block)) = web3
+                            .clone()
+                            .eth_block(BlockId::Number(BlockNumber::Latest))
+                            .await
                         {
                             let block_base_fee_per_gas_gwei = block
                                 .base_fee_per_gas

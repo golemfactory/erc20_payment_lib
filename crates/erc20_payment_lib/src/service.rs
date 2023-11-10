@@ -13,12 +13,10 @@ use crate::err_from;
 use crate::setup::{ChainSetup, PaymentSetup};
 
 use crate::contracts::encode_erc20_balance_of;
+use crate::rpc_pool::Web3RpcPool;
 use crate::runtime::SharedState;
 use sqlx::SqlitePool;
-use web3::transports::Http;
 use web3::types::{Address, BlockNumber, CallRequest, U256};
-use web3::Web3;
-use crate::rpc_pool::Web3RpcPool;
 
 pub async fn add_payment_request_2(
     conn: &SqlitePool,
@@ -101,7 +99,8 @@ pub async fn transaction_from_chain_and_into_db(
     let mut loop_no = 0;
     let balance = loop {
         loop_no += 1;
-        match web3.clone()
+        match web3
+            .clone()
             .eth_balance(
                 Address::from_str(&chain_tx_dao.from_addr).unwrap(),
                 Some(BlockNumber::Number(chain_tx_dao.block_number.into())),

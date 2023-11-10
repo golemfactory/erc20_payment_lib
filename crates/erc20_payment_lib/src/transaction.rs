@@ -3,6 +3,7 @@ use crate::db::model::*;
 use crate::error::*;
 use crate::eth::get_eth_addr_from_secret;
 use crate::multi::pack_transfers_for_multi_contract;
+use crate::rpc_pool::Web3RpcPool;
 use crate::runtime::{
     get_token_balance, get_unpaid_token_amount, remove_transaction_force, send_driver_event,
     DriverEvent, DriverEventContent, NoGasDetails, NoTokenDetails, TransactionStuckReason,
@@ -22,7 +23,6 @@ use web3::types::{
     H256, U256, U64,
 };
 use web3::Web3;
-use crate::rpc_pool::Web3RpcPool;
 
 fn decode_data_to_bytes(web3_tx_dao: &TxDao) -> Result<Option<Bytes>, PaymentError> {
     Ok(if let Some(data) = &web3_tx_dao.call_data {
@@ -791,13 +791,14 @@ pub async fn find_receipt_extended(
     };
 
     let receipt = web3
-        .clone().eth_transaction_receipt(tx_hash)
+        .clone()
+        .eth_transaction_receipt(tx_hash)
         .await
         .map_err(err_from!())?
         .ok_or(err_custom_create!("Receipt not found"))?;
     let tx = web3
-
-        .clone().eth_transaction(TransactionId::Hash(tx_hash))
+        .clone()
+        .eth_transaction(TransactionId::Hash(tx_hash))
         .await
         .map_err(err_from!())?
         .ok_or(err_custom_create!("Transaction not found"))?;
@@ -1031,8 +1032,7 @@ pub async fn get_erc20_logs(
         )
         .from_block(BlockNumber::Number(U64::from(from_block as u64)))
         .to_block(BlockNumber::Number(U64::from(to_block as u64)));
-    web3
-        .eth_logs(filter.build())
+    web3.eth_logs(filter.build())
         .await
         .map_err(|e| err_custom_create!("Error while getting logs: {}", e))
 }
@@ -1064,7 +1064,8 @@ pub async fn import_erc20_txs(
     let topic_receivers = option_address_to_option_h256(filter_by_receivers);
     let topic_senders = option_address_to_option_h256(filter_by_senders);
 
-    let current_block = web3.clone()
+    let current_block = web3
+        .clone()
         .eth_block_number()
         .await
         .map_err(err_from!())?

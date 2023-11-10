@@ -23,6 +23,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::config::AdditionalOptions;
 use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
+use crate::rpc_pool::Web3RpcPool;
 use crate::sender::service_loop;
 use crate::utils::{StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
@@ -32,10 +33,7 @@ use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
-use web3::transports::Http;
 use web3::types::{Address, H256, U256};
-use web3::Web3;
-use crate::rpc_pool::Web3RpcPool;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedInfoTx {
@@ -492,7 +490,10 @@ impl PaymentRuntime {
         })
     }
 
-    pub async fn get_web3_provider(&self, chain_name: &str) -> Result<Arc<Web3RpcPool>, PaymentError> {
+    pub async fn get_web3_provider(
+        &self,
+        chain_name: &str,
+    ) -> Result<Arc<Web3RpcPool>, PaymentError> {
         let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
             "Chain {} not found in config file",
             chain_name
@@ -733,7 +734,8 @@ pub async fn mint_golem_token(
         ));
     };
 
-    let balance = web3.clone()
+    let balance = web3
+        .clone()
         .eth_balance(from, None)
         .await
         .map_err(err_from!())?
