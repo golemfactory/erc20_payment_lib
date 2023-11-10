@@ -18,7 +18,7 @@ pub struct Web3RpcParams {
     pub name: String,
     pub endpoint: String,
     pub priority: i64,
-    pub max_head_behind_secs: u64,
+    pub max_head_behind_secs: Option<u64>,
     pub max_response_time_ms: u64,
 }
 
@@ -67,7 +67,7 @@ pub struct Web3RpcPool {
 
 pub struct VerifyEndpointParams {
     chain_id: u64,
-    allow_max_head_behind_secs: u64,
+    allow_max_head_behind_secs: Option<u64>,
     allow_max_response_time_ms: u64,
 }
 
@@ -105,6 +105,7 @@ pub async fn verify_endpoint(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
             );
             return VerifyEndpointResult::WrongChainId;
         }
+
         let block_info = match web3.eth().block(BlockId::Number(BlockNumber::Latest)).await {
             Ok(Some(block_info)) => block_info,
             Ok(None) => {
@@ -116,13 +117,14 @@ pub async fn verify_endpoint(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
                 return VerifyEndpointResult::RpcError(err.to_string());
             }
         };
-
         let Some(date) = datetime_from_u256_timestamp(block_info.timestamp) else {
             log::warn!("Verify endpoint error - No timestamp in block info");
             return VerifyEndpointResult::NoBlockInfo;
         };
-        if Utc::now() - date > Duration::seconds(vep.allow_max_head_behind_secs as i64) {
-            return VerifyEndpointResult::HeadBehind(date);
+        if let Some(max_head_behind_secs) = vep.allow_max_head_behind_secs {
+            if Utc::now() - date > Duration::seconds(max_head_behind_secs as i64) {
+                return VerifyEndpointResult::HeadBehind(date);
+            }
         }
         VerifyEndpointResult::Ok(VerifyEndpointStatus {
             head_seconds_behind: (Utc::now() - date).num_seconds() as u64,
@@ -143,7 +145,7 @@ fn score_endpoint(web3_rpc_info: &mut Web3RpcInfo) {
     if let Some(verify_result) = &web3_rpc_info.verify_result {
         match verify_result {
             VerifyEndpointResult::Ok(status) => {
-                let endpoint_score = 1000000.0 / status.check_time_ms as f64;
+                let endpoint_score = 1000000.0 / (status.check_time_ms + 1) as f64;
                 web3_rpc_info.score = endpoint_score as i64;
             }
             VerifyEndpointResult::NoBlockInfo => {
@@ -167,22 +169,28 @@ fn score_endpoint(web3_rpc_info: &mut Web3RpcInfo) {
     }
 }
 
-async fn verify_endpoint_private(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) -> bool {
-    //todo sprawdzić czy trzeba weryfikować
-
-    let (web3, mut web3_rpc_info) = {
+async fn verify_endpoint_private(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
+    let (web3, mut web3_rpc_info, web3_rpc_params) = {
         (
             m.read().unwrap().web3.clone(),
             m.read().unwrap().web3_rpc_info.clone(),
+            m.read().unwrap().web3_rpc_params.clone(),
         )
     };
+
+    if let Some(last_verified) = web3_rpc_info.last_verified {
+        log::info!("Verification skipped {}", last_verified);
+        if Utc::now() - last_verified < Duration::seconds(60) {
+            return;
+        }
+    }
 
     let verify_result = verify_endpoint(
         &web3,
         VerifyEndpointParams {
             chain_id,
-            allow_max_head_behind_secs: 100,
-            allow_max_response_time_ms: 2000,
+            allow_max_head_behind_secs: web3_rpc_params.max_head_behind_secs,
+            allow_max_response_time_ms: web3_rpc_params.max_response_time_ms,
         },
     )
     .await;
@@ -191,8 +199,8 @@ async fn verify_endpoint_private(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>)
     web3_rpc_info.verify_result = Some(verify_result.clone());
 
     score_endpoint(&mut web3_rpc_info);
+    log::info!("Verification finished score: {}", web3_rpc_info.score);
     m.write().unwrap().web3_rpc_info = web3_rpc_info;
-    true
 }
 
 impl Web3RpcPool {
@@ -232,7 +240,7 @@ impl Web3RpcPool {
                 name: endpoint.clone(),
                 endpoint: endpoint.clone(),
                 priority: 0,
-                max_head_behind_secs: 120,
+                max_head_behind_secs: Some(120),
                 max_response_time_ms: 5000,
             })
             .collect();

@@ -587,6 +587,10 @@ pub async fn service_loop(
                             }
                             Err(e) => {
                                 log::error!("Error in process allowance: {}", e);
+                                tokio::time::sleep(std::time::Duration::from_secs(
+                                    payment_setup.process_interval_after_error,
+                                ))
+                                .await;
                             }
                         }
                     }
