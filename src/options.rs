@@ -173,6 +173,13 @@ pub struct ScanBlockchainOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Check web3 RPC")]
+pub struct CheckWeb3RpcOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "goerli")]
+    pub chain_name: String,
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Export history stats")]
 pub struct ExportHistoryStatsOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
@@ -274,6 +281,10 @@ pub enum PaymentCommands {
     GenerateKey {
         #[structopt(flatten)]
         generate_key_options: GenerateKeyOptions,
+    },
+    CheckRpc {
+        #[structopt(flatten)]
+        check_web3_rpc_options: CheckWeb3RpcOptions,
     },
     GetDevEth {
         #[structopt(flatten)]

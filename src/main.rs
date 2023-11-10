@@ -35,6 +35,7 @@ use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
+use erc20_payment_lib::rpc_pool::{Web3RpcParams, Web3RpcPool};
 use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt};
 use rust_decimal::Decimal;
 use std::sync::Arc;
@@ -219,11 +220,46 @@ async fn main_internal() -> Result<(), PaymentError> {
                 sp.runtime_handle.await.unwrap();
             }
         }
+        PaymentCommands::CheckRpc {
+            check_web3_rpc_options,
+        } => {
+            let chain_cfg =
+                config
+                    .chain
+                    .get(&check_web3_rpc_options.chain_name)
+                    .ok_or(err_custom_create!(
+                        "Chain {} not found in config file",
+                        check_web3_rpc_options.chain_name
+                    ))?;
+
+            let mut web3_pool = Web3RpcPool::new(
+                chain_cfg.chain_id as u64,
+                chain_cfg
+                    .rpc_endpoints
+                    .iter()
+                    .map(|rpc| Web3RpcParams {
+                        chain_id: chain_cfg.chain_id as u64,
+                        priority: rpc.priority,
+                        endpoint: rpc.endpoint.clone(),
+                        name: rpc.name.clone(),
+                    })
+                    .collect(),
+            );
+
+            web3_pool.verify_unverified_endpoints().await;
+            let mut enp_info = web3_pool.get_endpoints_info();
+            enp_info.sort_by_key(|(params, info)|
+                info.score
+            );
+            println!("{}",
+                serde_json::to_string_pretty(&enp_info).unwrap()
+            );
+        }
         PaymentCommands::GetDevEth {
             get_dev_eth_options,
         } => {
             log::info!("Getting funds from faucet...");
-            let public_addr = public_addrs.get(0).expect("No public address found");
+            let public_addr = public_addrs.get(0).expect("No public adss found");
             let chain_cfg =
                 config
                     .chain
