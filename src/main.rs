@@ -243,6 +243,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                         priority: rpc.priority,
                         endpoint: rpc.endpoint.clone(),
                         name: rpc.name.clone(),
+                        max_response_time_ms: rpc.max_timeout_ms,
+                        max_head_behind_secs: rpc.allowed_head_behind_secs,
                     })
                     .collect(),
             ));

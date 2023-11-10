@@ -15,6 +15,8 @@ pub struct Web3RpcParams {
     pub name: String,
     pub endpoint: String,
     pub priority: i64,
+    pub max_head_behind_secs: u64,
+    pub max_response_time_ms: u64,
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
@@ -134,6 +136,34 @@ pub async fn verify_endpoint(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
     }
 }
 
+fn score_endpoint(web3_rpc_info: &mut Web3RpcInfo) {
+    if let Some(verify_result) = &web3_rpc_info.verify_result {
+        match verify_result {
+            VerifyEndpointResult::Ok(status) => {
+                let endpoint_score = 1000000.0 / status.check_time_ms as f64;
+                web3_rpc_info.score = endpoint_score as i64;
+            }
+            VerifyEndpointResult::NoBlockInfo => {
+                web3_rpc_info.score = -20;
+            }
+            VerifyEndpointResult::WrongChainId => {
+                web3_rpc_info.score = -100;
+            }
+            VerifyEndpointResult::RpcError(_) => {
+                web3_rpc_info.score = -1;
+            }
+            VerifyEndpointResult::HeadBehind(_) => {
+                web3_rpc_info.score = -10;
+            }
+            VerifyEndpointResult::Unreachable => {
+                web3_rpc_info.score = -2;
+            }
+        }
+    } else {
+        web3_rpc_info.score = 0;
+    }
+}
+
 async fn verify_endpoint_private(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) -> bool {
     //todo sprawdzić czy trzeba weryfikować
 
@@ -156,27 +186,8 @@ async fn verify_endpoint_private(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>)
 
     web3_rpc_info.last_verified = Some(Utc::now());
     web3_rpc_info.verify_result = Some(verify_result.clone());
-    match verify_result {
-        VerifyEndpointResult::Ok(status) => {
-            let endpoint_score = 1000000.0 / status.check_time_ms as f64;
-            web3_rpc_info.score = endpoint_score as i64;
-        }
-        VerifyEndpointResult::NoBlockInfo => {
-            web3_rpc_info.score = -20;
-        }
-        VerifyEndpointResult::WrongChainId => {
-            web3_rpc_info.score = -100;
-        }
-        VerifyEndpointResult::RpcError(_) => {
-            web3_rpc_info.score = -1;
-        }
-        VerifyEndpointResult::HeadBehind(_) => {
-            web3_rpc_info.score = -10;
-        }
-        VerifyEndpointResult::Unreachable => {
-            web3_rpc_info.score = -2;
-        }
-    }
+
+    score_endpoint(&mut web3_rpc_info);
     m.write().unwrap().web3_rpc_info = web3_rpc_info;
     true
 }
@@ -218,6 +229,8 @@ impl Web3RpcPool {
                 name: endpoint.clone(),
                 endpoint: endpoint.clone(),
                 priority: 0,
+                max_head_behind_secs: 120,
+                max_response_time_ms: 5000,
             })
             .collect();
         Self::new(chain_id, params)
@@ -278,28 +291,83 @@ impl Web3RpcPool {
         }
     }
 
+    pub fn get_web3(&self, idx: usize) -> Web3<Http> {
+        self
+            .endpoints
+            .get(idx)
+            .unwrap()
+            .read()
+            .unwrap()
+            .web3
+            .clone()
+    }
+
+    pub fn get_max_timeout(&self, idx: usize) -> std::time::Duration {
+        std::time::Duration::from_millis(self.endpoints.get(idx).unwrap().read().unwrap().web3_rpc_params.max_response_time_ms)
+    }
+
+    pub fn mark_rpc_error(&self, idx: usize, verify_result: VerifyEndpointResult) {
+        let stats = &mut self
+            .endpoints
+            .get(idx)
+            .unwrap()
+            .write()
+            .unwrap()
+            .web3_rpc_info;
+        stats.web3_rpc_stats.request_error_count += 1;
+        stats.web3_rpc_stats.last_error_request = Some(Utc::now());
+        stats.verify_result = Some(verify_result);
+        stats.last_verified = Some(Utc::now());
+        score_endpoint(stats);
+    }
+
     pub async fn get_eth_balance(
         self: Arc<Self>,
         address: Address,
         block: Option<BlockNumber>,
     ) -> Result<U256, web3::Error> {
-        let idx = self.clone().choose_best_endpoint().await;
+        let mut loop_no = 0;
+        loop {
+            loop_no += 1;
+            let idx = self.clone().choose_best_endpoint().await;
 
-        if let Some(idx) = idx {
-            let web3 = self
-                .endpoints
-                .get(idx)
-                .unwrap()
-                .read()
-                .unwrap()
-                .web3
-                .clone();
-            match web3.eth().balance(address, block).await {
-                Ok(balance) => Ok(balance),
-                Err(e) => Err(e),
+            if let Some(idx) = idx {
+                let res = tokio::time::timeout(
+                    self.get_max_timeout(idx),
+                    self.get_web3(idx).eth().balance(address, block),
+                );
+
+                match res.await {
+                    Ok(Ok(balance)) => {
+                        self.endpoints
+                            .get(idx)
+                            .unwrap()
+                            .write()
+                            .unwrap()
+                            .web3_rpc_info
+                            .web3_rpc_stats
+                            .request_count_total_succeeded += 1;
+                        return Ok(balance);
+                    }
+                    Ok(Err(e)) => {
+                        log::warn!("Error getting balance from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::RpcError(e.to_string()));
+                        if loop_no > 3 {
+                            return Err(e);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Timeout when getting data from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::Unreachable);
+                        if loop_no > 3 {
+                            return Err(web3::Error::Unreachable);
+                        }
+                    }
+                }
+            } else {
+                return Err(web3::Error::Unreachable);
             }
-        } else {
-            Err(web3::Error::Unreachable)
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
     }
 
