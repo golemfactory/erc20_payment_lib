@@ -14,6 +14,7 @@ use erc20_payment_lib::db::ops::{
 };
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::signer::PrivateKeySigner;
+use std::collections::HashSet;
 
 use erc20_payment_lib::{
     config, err_custom_create, err_from,
@@ -232,7 +233,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                         check_web3_rpc_options.chain_name
                     ))?;
 
-            let mut web3_pool = Web3RpcPool::new(
+            let web3_pool = Arc::new(Web3RpcPool::new(
                 chain_cfg.chain_id as u64,
                 chain_cfg
                     .rpc_endpoints
@@ -244,16 +245,34 @@ async fn main_internal() -> Result<(), PaymentError> {
                         name: rpc.name.clone(),
                     })
                     .collect(),
-            );
+            ));
 
-            web3_pool.verify_unverified_endpoints().await;
-            let mut enp_info = web3_pool.get_endpoints_info();
-            enp_info.sort_by_key(|(params, info)|
-                info.score
-            );
-            println!("{}",
-                serde_json::to_string_pretty(&enp_info).unwrap()
-            );
+            let task = tokio::task::spawn_local(web3_pool.clone().verify_unverified_endpoints());
+            let mut idx_set_completed = HashSet::new();
+            let enp_info = loop {
+                let is_finished = task.is_finished();
+                let mut enp_info = web3_pool.get_endpoints_info();
+                for (idx, params, info) in enp_info.iter() {
+                    if idx_set_completed.contains(idx) {
+                        continue;
+                    }
+                    if let Some(verify_result) = &info.verify_result {
+                        idx_set_completed.insert(*idx);
+                        log::info!(
+                            "Endpoint no {}, name: {} verified, result: {:?}",
+                            *idx,
+                            params.name,
+                            verify_result
+                        );
+                    }
+                }
+                if is_finished {
+                    enp_info.sort_by_key(|(_idx, _params, info)| info.score);
+                    break enp_info;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            };
+            println!("{}", serde_json::to_string_pretty(&enp_info).unwrap());
         }
         PaymentCommands::GetDevEth {
             get_dev_eth_options,
