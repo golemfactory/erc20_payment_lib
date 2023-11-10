@@ -249,8 +249,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     .collect(),
             ));
 
-            let local_set = tokio::task::LocalSet::new();
-            let task = local_set.spawn_local(web3_pool.clone().verify_unverified_endpoints());
+            let task = tokio::task::spawn_local(web3_pool.clone().verify_unverified_endpoints());
             let mut idx_set_completed = HashSet::new();
             let enp_info = loop {
                 let is_finished = task.is_finished();
