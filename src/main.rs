@@ -393,8 +393,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     {
                         let val = payment_setup
                             .get_provider(chain_cfg.chain_id)?
-                            .eth()
-                            .balance(*public_addr, None)
+                            .eth_balance(*public_addr, None)
                             .await
                             .map_err(err_from!())?;
                         let gas_val = Decimal::from_str(&chain_cfg.max_fee_per_gas.to_string())
@@ -532,9 +531,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                 scan_info
             };
 
-            let current_block = web3
-                .eth()
-                .block_number()
+            let current_block = web3.clone()
+                .eth_block_number()
                 .await
                 .map_err(err_from!())?
                 .as_u64() as i64;
@@ -596,7 +594,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             }
 
             let txs = import_erc20_txs(
-                web3,
+                web3.clone(),
                 chain_cfg.token.address,
                 chain_cfg.chain_id,
                 Some(&[sender]),
@@ -611,7 +609,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             let mut max_block_from_tx = None;
             for tx in &txs {
                 match transaction_from_chain_and_into_db(
-                    web3,
+                    web3.clone(),
                     &conn,
                     chain_cfg.chain_id,
                     &format!("{tx:#x}"),

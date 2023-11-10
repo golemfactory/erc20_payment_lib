@@ -128,10 +128,10 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
         let fr_str_wrong = Address::from_str("0xcfb29b133aa51c4b45b49468f9a22958eafea6fa").unwrap();
         let to_str = Address::from_str("0xf2f86a61b769c91fc78f15059a5bd2c189b84be2").unwrap();
         let to_str_wrong = Address::from_str("0x02f86a61b769c91fc78f15059a5bd2c189b84be2").unwrap();
-        assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str,to_str,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified(), true);
-        assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str,to_str_wrong,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified(), false);
-        assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str_wrong,to_str,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified(), false);
-        assert_eq!(verify_transaction(&web3, 987789, tx_hash,fr_str,to_str,U256::from(2222000000000000223_u128), token_address).await.unwrap().verified(), false);
+        assert_eq!(verify_transaction(web3.clone(), 987789, tx_hash,fr_str,to_str,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified(), true);
+        assert_eq!(verify_transaction(web3.clone(), 987789, tx_hash,fr_str,to_str_wrong,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified(), false);
+        assert_eq!(verify_transaction(web3.clone(), 987789, tx_hash,fr_str_wrong,to_str,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified(), false);
+        assert_eq!(verify_transaction(web3.clone(), 987789, tx_hash,fr_str,to_str,U256::from(2222000000000000223_u128), token_address).await.unwrap().verified(), false);
 
 
     }

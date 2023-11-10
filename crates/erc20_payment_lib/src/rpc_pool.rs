@@ -6,7 +6,7 @@ use std::sync::{Arc, RwLock};
 use tokio::select;
 use tokio::time::Instant;
 use web3::transports::Http;
-use web3::types::{Address, BlockId, BlockNumber, U256};
+use web3::types::{Address, Block, BlockId, BlockNumber, Bytes, CallRequest, Filter, H256, Log, Transaction, TransactionId, TransactionReceipt, U256, U64};
 use web3::Web3;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -321,7 +321,7 @@ impl Web3RpcPool {
         score_endpoint(stats);
     }
 
-    pub async fn get_eth_balance(
+    pub async fn eth_balance(
         self: Arc<Self>,
         address: Address,
         block: Option<BlockNumber>,
@@ -348,6 +348,441 @@ impl Web3RpcPool {
                             .web3_rpc_stats
                             .request_count_total_succeeded += 1;
                         return Ok(balance);
+                    }
+                    Ok(Err(e)) => {
+                        log::warn!("Error getting balance from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::RpcError(e.to_string()));
+                        if loop_no > 3 {
+                            return Err(e);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Timeout when getting data from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::Unreachable);
+                        if loop_no > 3 {
+                            return Err(web3::Error::Unreachable);
+                        }
+                    }
+                }
+            } else {
+                return Err(web3::Error::Unreachable);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }
+
+    pub async fn eth_call(
+        self: Arc<Self>,
+        call_data: CallRequest,
+        block: Option<BlockId>,
+    ) -> Result<Bytes, web3::Error> {
+        let mut loop_no = 0;
+        loop {
+            loop_no += 1;
+            let idx = self.clone().choose_best_endpoint().await;
+
+            if let Some(idx) = idx {
+                let res = tokio::time::timeout(
+                    self.get_max_timeout(idx),
+                    self.get_web3(idx).eth().call(call_data.clone(), block),
+                );
+
+                match res.await {
+                    Ok(Ok(bytes)) => {
+                        self.endpoints
+                            .get(idx)
+                            .unwrap()
+                            .write()
+                            .unwrap()
+                            .web3_rpc_info
+                            .web3_rpc_stats
+                            .request_count_total_succeeded += 1;
+                        return Ok(bytes);
+                    }
+                    Ok(Err(e)) => {
+                        log::warn!("Error getting balance from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::RpcError(e.to_string()));
+                        if loop_no > 3 {
+                            return Err(e);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Timeout when getting data from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::Unreachable);
+                        if loop_no > 3 {
+                            return Err(web3::Error::Unreachable);
+                        }
+                    }
+                }
+            } else {
+                return Err(web3::Error::Unreachable);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }
+
+    pub async fn eth_estimate_gas(
+        self: Arc<Self>,
+        call_data: CallRequest,
+        block: Option<BlockNumber>,
+    ) -> Result<U256, web3::Error> {
+        let mut loop_no = 0;
+        loop {
+            loop_no += 1;
+            let idx = self.clone().choose_best_endpoint().await;
+
+            if let Some(idx) = idx {
+                let res = tokio::time::timeout(
+                    self.get_max_timeout(idx),
+                    self.get_web3(idx).eth().estimate_gas(call_data.clone(), block),
+                );
+
+                match res.await {
+                    Ok(Ok(gas_needed)) => {
+                        self.endpoints
+                            .get(idx)
+                            .unwrap()
+                            .write()
+                            .unwrap()
+                            .web3_rpc_info
+                            .web3_rpc_stats
+                            .request_count_total_succeeded += 1;
+                        return Ok(gas_needed);
+                    }
+                    Ok(Err(e)) => {
+                        log::warn!("Error getting balance from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::RpcError(e.to_string()));
+                        if loop_no > 3 {
+                            return Err(e);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Timeout when getting data from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::Unreachable);
+                        if loop_no > 3 {
+                            return Err(web3::Error::Unreachable);
+                        }
+                    }
+                }
+            } else {
+                return Err(web3::Error::Unreachable);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }
+
+    pub async fn eth_send_raw_transaction(
+        self: Arc<Self>,
+        rlp: Bytes
+    ) -> Result<H256, web3::Error> {
+        let mut loop_no = 0;
+        loop {
+            loop_no += 1;
+            let idx = self.clone().choose_best_endpoint().await;
+
+            if let Some(idx) = idx {
+                let res = tokio::time::timeout(
+                    self.get_max_timeout(idx),
+                    self.get_web3(idx).eth().send_raw_transaction(rlp.clone()),
+                );
+
+                match res.await {
+                    Ok(Ok(res)) => {
+                        self.endpoints
+                            .get(idx)
+                            .unwrap()
+                            .write()
+                            .unwrap()
+                            .web3_rpc_info
+                            .web3_rpc_stats
+                            .request_count_total_succeeded += 1;
+                        return Ok(res);
+                    }
+                    Ok(Err(e)) => {
+                        log::warn!("Error getting balance from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::RpcError(e.to_string()));
+                        if loop_no > 3 {
+                            return Err(e);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Timeout when getting data from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::Unreachable);
+                        if loop_no > 3 {
+                            return Err(web3::Error::Unreachable);
+                        }
+                    }
+                }
+            } else {
+                return Err(web3::Error::Unreachable);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }
+
+    pub async fn eth_transaction(
+        self: Arc<Self>,
+        id: TransactionId
+    ) -> Result<Option<Transaction>, web3::Error> {
+        let mut loop_no = 0;
+        loop {
+            loop_no += 1;
+            let idx = self.clone().choose_best_endpoint().await;
+
+            if let Some(idx) = idx {
+                let res = tokio::time::timeout(
+                    self.get_max_timeout(idx),
+                    self.get_web3(idx).eth().transaction(id.clone()),
+                );
+
+                match res.await {
+                    Ok(Ok(res)) => {
+                        self.endpoints
+                            .get(idx)
+                            .unwrap()
+                            .write()
+                            .unwrap()
+                            .web3_rpc_info
+                            .web3_rpc_stats
+                            .request_count_total_succeeded += 1;
+                        return Ok(res);
+                    }
+                    Ok(Err(e)) => {
+                        log::warn!("Error getting balance from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::RpcError(e.to_string()));
+                        if loop_no > 3 {
+                            return Err(e);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Timeout when getting data from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::Unreachable);
+                        if loop_no > 3 {
+                            return Err(web3::Error::Unreachable);
+                        }
+                    }
+                }
+            } else {
+                return Err(web3::Error::Unreachable);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }
+
+    pub async fn eth_transaction_receipt(
+        self: Arc<Self>,
+        hash: H256
+    ) -> Result<Option<TransactionReceipt>, web3::Error> {
+        let mut loop_no = 0;
+        loop {
+            loop_no += 1;
+            let idx = self.clone().choose_best_endpoint().await;
+
+            if let Some(idx) = idx {
+                let res = tokio::time::timeout(
+                    self.get_max_timeout(idx),
+                    self.get_web3(idx).eth().transaction_receipt(hash),
+                );
+
+                match res.await {
+                    Ok(Ok(res)) => {
+                        self.endpoints
+                            .get(idx)
+                            .unwrap()
+                            .write()
+                            .unwrap()
+                            .web3_rpc_info
+                            .web3_rpc_stats
+                            .request_count_total_succeeded += 1;
+                        return Ok(res);
+                    }
+                    Ok(Err(e)) => {
+                        log::warn!("Error getting balance from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::RpcError(e.to_string()));
+                        if loop_no > 3 {
+                            return Err(e);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Timeout when getting data from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::Unreachable);
+                        if loop_no > 3 {
+                            return Err(web3::Error::Unreachable);
+                        }
+                    }
+                }
+            } else {
+                return Err(web3::Error::Unreachable);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }
+
+    pub async fn eth_logs(self: Arc<Self>,  filter: Filter) -> Result<Vec<Log>, web3::Error>
+    {
+        let mut loop_no = 0;
+        loop {
+            loop_no += 1;
+            let idx = self.clone().choose_best_endpoint().await;
+
+            if let Some(idx) = idx {
+                let res = tokio::time::timeout(
+                    self.get_max_timeout(idx),
+                    self.get_web3(idx).eth().logs(filter.clone()),
+                );
+
+                match res.await {
+                    Ok(Ok(block_number)) => {
+                        self.endpoints
+                            .get(idx)
+                            .unwrap()
+                            .write()
+                            .unwrap()
+                            .web3_rpc_info
+                            .web3_rpc_stats
+                            .request_count_total_succeeded += 1;
+                        return Ok(block_number);
+                    }
+                    Ok(Err(e)) => {
+                        log::warn!("Error getting balance from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::RpcError(e.to_string()));
+                        if loop_no > 3 {
+                            return Err(e);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Timeout when getting data from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::Unreachable);
+                        if loop_no > 3 {
+                            return Err(web3::Error::Unreachable);
+                        }
+                    }
+                }
+            } else {
+                return Err(web3::Error::Unreachable);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }
+
+    pub async fn eth_block_number(self: Arc<Self>) -> Result<U64, web3::Error>
+    {
+        let mut loop_no = 0;
+        loop {
+            loop_no += 1;
+            let idx = self.clone().choose_best_endpoint().await;
+
+            if let Some(idx) = idx {
+                let res = tokio::time::timeout(
+                    self.get_max_timeout(idx),
+                    self.get_web3(idx).eth().block_number(),
+                );
+
+                match res.await {
+                    Ok(Ok(block_number)) => {
+                        self.endpoints
+                            .get(idx)
+                            .unwrap()
+                            .write()
+                            .unwrap()
+                            .web3_rpc_info
+                            .web3_rpc_stats
+                            .request_count_total_succeeded += 1;
+                        return Ok(block_number);
+                    }
+                    Ok(Err(e)) => {
+                        log::warn!("Error getting balance from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::RpcError(e.to_string()));
+                        if loop_no > 3 {
+                            return Err(e);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Timeout when getting data from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::Unreachable);
+                        if loop_no > 3 {
+                            return Err(web3::Error::Unreachable);
+                        }
+                    }
+                }
+            } else {
+                return Err(web3::Error::Unreachable);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }
+
+    pub async fn eth_block(self: Arc<Self>, block: BlockId) -> Result<Option<Block<H256>>, web3::Error>
+    {
+        let mut loop_no = 0;
+        loop {
+            loop_no += 1;
+            let idx = self.clone().choose_best_endpoint().await;
+
+            if let Some(idx) = idx {
+                let res = tokio::time::timeout(
+                    self.get_max_timeout(idx),
+                    self.get_web3(idx).eth().block(block),
+                );
+
+                match res.await {
+                    Ok(Ok(block_info)) => {
+                        self.endpoints
+                            .get(idx)
+                            .unwrap()
+                            .write()
+                            .unwrap()
+                            .web3_rpc_info
+                            .web3_rpc_stats
+                            .request_count_total_succeeded += 1;
+                        return Ok(block_info);
+                    }
+                    Ok(Err(e)) => {
+                        log::warn!("Error getting balance from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::RpcError(e.to_string()));
+                        if loop_no > 3 {
+                            return Err(e);
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("Timeout when getting data from endpoint {}: {}", idx, e);
+                        self.mark_rpc_error(idx, VerifyEndpointResult::Unreachable);
+                        if loop_no > 3 {
+                            return Err(web3::Error::Unreachable);
+                        }
+                    }
+                }
+            } else {
+                return Err(web3::Error::Unreachable);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }
+
+    pub async fn eth_transaction_count(self: Arc<Self>, address: Address, block: Option<BlockNumber>) -> Result<U256, web3::Error>
+    {
+        let mut loop_no = 0;
+        loop {
+            loop_no += 1;
+            let idx = self.clone().choose_best_endpoint().await;
+
+            if let Some(idx) = idx {
+                let res = tokio::time::timeout(
+                    self.get_max_timeout(idx),
+                    self.get_web3(idx).eth().transaction_count(address.clone(), block),
+                );
+
+                match res.await {
+                    Ok(Ok(nonce)) => {
+                        self.endpoints
+                            .get(idx)
+                            .unwrap()
+                            .write()
+                            .unwrap()
+                            .web3_rpc_info
+                            .web3_rpc_stats
+                            .request_count_total_succeeded += 1;
+                        return Ok(nonce);
                     }
                     Ok(Err(e)) => {
                         log::warn!("Error getting balance from endpoint {}: {}", idx, e);

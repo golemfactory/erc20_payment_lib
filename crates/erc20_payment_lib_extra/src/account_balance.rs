@@ -9,9 +9,11 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashSet};
 use std::rc::Rc;
 use std::str::FromStr;
+use std::sync::Arc;
 use stream_rate_limiter::{RateLimitOptions, StreamRateLimitExt};
 use structopt::StructOpt;
 use web3::types::Address;
+use erc20_payment_lib::rpc_pool::{Web3RpcParams, Web3RpcPool};
 
 #[derive(Clone, StructOpt)]
 #[structopt(about = "Payment statistics options")]
@@ -64,7 +66,21 @@ pub async fn account_balance(
 
     let payment_setup = PaymentSetup::new_empty(config)?;
 
-    let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
+    let web3_pool = Arc::new(Web3RpcPool::new(
+        chain_cfg.chain_id as u64,
+        chain_cfg
+            .rpc_endpoints
+            .iter()
+            .map(|rpc| Web3RpcParams {
+                chain_id: chain_cfg.chain_id as u64,
+                priority: rpc.priority,
+                endpoint: rpc.endpoint.clone(),
+                name: rpc.name.clone(),
+                max_response_time_ms: rpc.max_timeout_ms,
+                max_head_behind_secs: rpc.allowed_head_behind_secs,
+            })
+            .collect(),
+    ));
 
     let token = if !account_balance_options.hide_token {
         Some(chain_cfg.token.address)
@@ -106,9 +122,10 @@ pub async fn account_balance(
         .for_each_concurrent(account_balance_options.tasks, |i| {
             let job = jobs[i];
             let result_map = result_map_.clone();
+            let web3_pool = web3_pool.clone();
             async move {
                 log::debug!("Getting balance for account: {:#x}", job);
-                let balance = get_balance(web3, token, job, !account_balance_options.hide_gas)
+                let balance = get_balance(web3_pool.clone(), token, job, !account_balance_options.hide_gas)
                     .await
                     .unwrap();
 

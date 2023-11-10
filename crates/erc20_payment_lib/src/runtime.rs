@@ -35,6 +35,7 @@ use tokio::task::JoinHandle;
 use web3::transports::Http;
 use web3::types::{Address, H256, U256};
 use web3::Web3;
+use crate::rpc_pool::Web3RpcPool;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedInfoTx {
@@ -491,7 +492,7 @@ impl PaymentRuntime {
         })
     }
 
-    pub async fn get_web3_provider(&self, chain_name: &str) -> Result<Web3<Http>, PaymentError> {
+    pub async fn get_web3_provider(&self, chain_name: &str) -> Result<Arc<Web3RpcPool>, PaymentError> {
         let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
             "Chain {} not found in config file",
             chain_name
@@ -682,7 +683,7 @@ impl PaymentRuntime {
             .glm_address;
         let prov = self.get_web3_provider(network_name).await?;
         verify_transaction(
-            &prov,
+            prov,
             chain_id,
             tx_hash,
             sender,
@@ -714,7 +715,7 @@ impl VerifyTransactionResult {
 }
 
 pub async fn mint_golem_token(
-    web3: &Web3<Http>,
+    web3: Arc<Web3RpcPool>,
     conn: &SqlitePool,
     chain_id: u64,
     from: Address,
@@ -732,9 +733,8 @@ pub async fn mint_golem_token(
         ));
     };
 
-    let balance = web3
-        .eth()
-        .balance(from, None)
+    let balance = web3.clone()
+        .eth_balance(from, None)
         .await
         .map_err(err_from!())?
         .to_eth_saturate();
@@ -747,7 +747,7 @@ pub async fn mint_golem_token(
         ));
     };
 
-    let token_balance = get_token_balance(web3, glm_address, from)
+    let token_balance = get_token_balance(web3.clone(), glm_address, from)
         .await?
         .to_eth_saturate();
 
@@ -787,7 +787,7 @@ pub async fn mint_golem_token(
 }
 
 pub async fn get_token_balance(
-    web3: &Web3<Http>,
+    web3: Arc<Web3RpcPool>,
     token_address: Address,
     address: Address,
 ) -> Result<U256, PaymentError> {
@@ -829,7 +829,7 @@ pub async fn get_unpaid_token_amount(
 
 // This is for now very limited check. It needs lot more work to be complete
 pub async fn verify_transaction(
-    web3: &web3::Web3<web3::transports::Http>,
+    web3: Arc<Web3RpcPool>,
     chain_id: i64,
     tx_hash: H256,
     sender: Address,

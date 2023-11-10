@@ -9,14 +9,16 @@ use rust_decimal::Decimal;
 use secp256k1::SecretKey;
 use serde::Serialize;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use std::time::Duration;
 use web3::transports::Http;
 use web3::types::{Address, U256};
 use web3::Web3;
+use crate::rpc_pool::{Web3RpcParams, Web3RpcPool};
 
 #[derive(Clone, Debug)]
 pub struct ProviderSetup {
-    pub provider: Web3<Http>,
+    pub provider: Arc<Web3RpcPool>,
     pub number_of_calls: u64,
 }
 
@@ -25,7 +27,7 @@ pub struct ProviderSetup {
 pub struct ChainSetup {
     pub network: String,
     #[serde(skip_serializing)]
-    pub providers: Vec<ProviderSetup>,
+    pub provider: Arc<Web3RpcPool>,
     pub chain_name: String,
     pub chain_id: i64,
     pub currency_gas_symbol: String,
@@ -135,24 +137,22 @@ impl PaymentSetup {
             use_transfer_for_single_payment: true,
         };
         for chain_config in &config.chain {
-            let mut providers = Vec::new();
-            for endp in &chain_config.1.rpc_endpoints {
-                let transport = match Http::new(&endp.endpoint) {
-                    Ok(t) => t,
-                    Err(err) => {
-                        return Err(err_custom_create!(
-                            "Failed to create transport for endpoint: {} - {}",
-                            endp.name,
-                            err
-                        ));
-                    }
-                };
-                let provider = Web3::new(transport);
-                providers.push(ProviderSetup {
-                    provider,
-                    number_of_calls: 0,
-                });
-            }
+            let web3_pool = Arc::new(Web3RpcPool::new(
+                chain_config.1.chain_id as u64,
+                chain_config.1
+                    .rpc_endpoints
+                    .iter()
+                    .map(|rpc| Web3RpcParams {
+                        chain_id: chain_config.1.chain_id as u64,
+                        priority: rpc.priority,
+                        endpoint: rpc.endpoint.clone(),
+                        name: rpc.name.clone(),
+                        max_response_time_ms: rpc.max_timeout_ms,
+                        max_head_behind_secs: rpc.allowed_head_behind_secs,
+                    })
+                    .collect(),
+            ));
+
             let faucet_eth_amount = match &chain_config.1.faucet_eth_amount {
                 Some(f) => Some((*f).to_u256_from_eth().map_err(err_from!())?),
                 None => None,
@@ -166,7 +166,7 @@ impl PaymentSetup {
                 chain_config.1.chain_id,
                 ChainSetup {
                     network: chain_config.0.clone(),
-                    providers,
+                    provider: web3_pool.clone(),
                     chain_name: chain_config.1.chain_name.clone(),
                     max_fee_per_gas: chain_config
                         .1
@@ -256,17 +256,12 @@ impl PaymentSetup {
         )
     }
 
-    pub fn get_provider(&self, chain_id: i64) -> Result<&Web3<Http>, PaymentError> {
+    pub fn get_provider(&self, chain_id: i64) -> Result<Arc<Web3RpcPool>, PaymentError> {
         let chain_setup = self
             .chain_setup
             .get(&chain_id)
             .ok_or_else(|| err_custom_create!("No chain setup for chain id: {}", chain_id))?;
 
-        let mut rng = rand::thread_rng();
-        let provider = chain_setup
-            .providers
-            .get(rng.gen_range(0..chain_setup.providers.len()))
-            .ok_or_else(|| err_custom_create!("No providers found for chain id: {}", chain_id))?;
-        Ok(&provider.provider)
+        Ok(chain_setup.provider.clone())
     }
 }
