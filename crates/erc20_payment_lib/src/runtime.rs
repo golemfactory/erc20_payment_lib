@@ -450,7 +450,8 @@ impl PaymentRuntime {
         let conn_ = conn.clone();
         let notify = Arc::new(Notify::new());
         let notify_ = notify.clone();
-        let jh = tokio::spawn(async move {
+        let local_set = tokio::task::LocalSet::new();
+        let jh = local_set.spawn_local(async move {
             if options.skip_service_loop && options.keep_running {
                 log::warn!("Started with skip_service_loop and keep_running, no transaction will be sent or processed");
                 loop {
