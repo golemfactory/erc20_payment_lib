@@ -266,11 +266,11 @@ impl Web3RpcPool {
             //todo change type system to allow that call
 
             let self_cloned = self.clone();
-            tokio::task::spawn_local(self_cloned.verify_unverified_endpoints());
+            tokio::task::spawn(self_cloned.verify_unverified_endpoints());
             Some(end)
         } else {
             let self_cloned = self.clone();
-            let verify_task = tokio::task::spawn_local(self_cloned.verify_unverified_endpoints());
+            let verify_task = tokio::task::spawn(self_cloned.verify_unverified_endpoints());
 
             loop {
                 let is_finished = verify_task.is_finished();
