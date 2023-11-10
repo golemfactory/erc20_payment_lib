@@ -291,14 +291,22 @@ impl Web3RpcPool {
                     .max_by_key(|(_idx, element)| element.read().unwrap().web3_rpc_info.score)
                     .map(|(idx, _element)| idx)
                 {
-                    break Some(el);
+                    return Some(el);
                 }
 
                 if is_finished {
-                    break None;
+                    break;
                 }
                 tokio::time::sleep(std::time::Duration::from_millis(10)).await;
             }
+
+            //if no endpoint is working return just with less severe error
+            return self
+                .endpoints
+                .iter()
+                .enumerate()
+                .max_by_key(|(_idx, element)| element.read().unwrap().web3_rpc_info.score)
+                .map(|(idx, _element)| idx);
         }
     }
 
