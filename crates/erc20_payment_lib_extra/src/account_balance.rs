@@ -1,8 +1,8 @@
 use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::eth::get_balance;
-use erc20_payment_lib::rpc_pool::{Web3RpcParams, Web3RpcPool};
 use erc20_payment_lib::utils::U256ConvExt;
 use erc20_payment_lib::{config, err_custom_create};
+use erc20_rpc_pool::{Web3RpcParams, Web3RpcPool};
 use futures_util::{stream, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;

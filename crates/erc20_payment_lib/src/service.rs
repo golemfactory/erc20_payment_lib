@@ -13,8 +13,8 @@ use crate::err_from;
 use crate::setup::{ChainSetup, PaymentSetup};
 
 use crate::contracts::encode_erc20_balance_of;
-use crate::rpc_pool::Web3RpcPool;
 use crate::runtime::SharedState;
+use erc20_rpc_pool::Web3RpcPool;
 use sqlx::SqlitePool;
 use web3::types::{Address, BlockNumber, CallRequest, U256};
 

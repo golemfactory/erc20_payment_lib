@@ -23,10 +23,10 @@ use tokio::sync::mpsc::Sender;
 
 use crate::config::AdditionalOptions;
 use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
-use crate::rpc_pool::Web3RpcPool;
 use crate::sender::service_loop;
 use crate::utils::{StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
+use erc20_rpc_pool::Web3RpcPool;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;

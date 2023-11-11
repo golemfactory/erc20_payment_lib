@@ -12,7 +12,6 @@ pub mod transaction;
 pub mod utils;
 //@todo - add feature
 pub mod faucet_client;
-pub mod rpc_pool;
 mod sender;
 pub mod server;
 pub mod signer;

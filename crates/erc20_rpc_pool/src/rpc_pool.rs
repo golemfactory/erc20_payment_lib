@@ -1,4 +1,4 @@
-use crate::utils::datetime_from_u256_timestamp;
+use chrono::NaiveDateTime;
 use chrono::{DateTime, Duration, Utc};
 use futures::future;
 use serde::{Deserialize, Serialize};
@@ -11,6 +11,11 @@ use web3::types::{
     TransactionId, TransactionReceipt, H256, U256, U64,
 };
 use web3::Web3;
+
+pub fn datetime_from_u256_timestamp(timestamp: U256) -> Option<DateTime<Utc>> {
+    NaiveDateTime::from_timestamp_opt(timestamp.as_u64() as i64, 0)
+        .map(|naive| DateTime::from_naive_utc_and_offset(naive, Utc))
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Web3RpcParams {

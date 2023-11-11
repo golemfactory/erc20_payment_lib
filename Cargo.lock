@@ -978,7 +978,7 @@ dependencies = [
  "awc",
  "chrono",
  "dotenv",
- "env_logger",
+ "erc20_rpc_pool",
  "fastrand",
  "futures",
  "hex",
@@ -1014,6 +1014,7 @@ dependencies = [
  "csv",
  "dotenv",
  "erc20_payment_lib",
+ "erc20_rpc_pool",
  "fastrand",
  "futures",
  "futures-util",
@@ -1092,6 +1093,7 @@ dependencies = [
  "erc20_payment_lib",
  "erc20_payment_lib_extra",
  "erc20_payment_lib_test",
+ "erc20_rpc_pool",
  "eth-keystore",
  "fastrand",
  "futures",
@@ -1119,6 +1121,40 @@ dependencies = [
  "uuid 1.5.0",
  "web3",
  "web3_test_proxy_client",
+]
+
+[[package]]
+name = "erc20_rpc_pool"
+version = "0.3.7"
+dependencies = [
+ "actix-files",
+ "actix-web",
+ "anyhow",
+ "async-trait",
+ "bollard",
+ "chrono",
+ "dotenv",
+ "env_logger",
+ "fastrand",
+ "futures",
+ "futures-util",
+ "hex",
+ "humantime",
+ "lazy_static",
+ "log",
+ "rand",
+ "rust_decimal",
+ "rustc-hex",
+ "secp256k1",
+ "serde",
+ "serde_json",
+ "sha3",
+ "sqlx",
+ "structopt",
+ "tokio",
+ "toml",
+ "uuid 1.5.0",
+ "web3",
 ]
 
 [[package]]

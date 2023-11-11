@@ -1,7 +1,7 @@
 use crate::contracts::{encode_erc20_allowance, encode_erc20_balance_of};
 use crate::error::*;
-use crate::rpc_pool::Web3RpcPool;
 use crate::{err_create, err_custom_create, err_from};
+use erc20_rpc_pool::Web3RpcPool;
 use secp256k1::{PublicKey, SecretKey};
 use serde::Serialize;
 use sha3::Digest;

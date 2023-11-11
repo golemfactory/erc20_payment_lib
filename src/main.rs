@@ -36,8 +36,8 @@ use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
-use erc20_payment_lib::rpc_pool::{Web3RpcParams, Web3RpcPool};
 use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt};
+use erc20_rpc_pool::{Web3RpcParams, Web3RpcPool};
 use rust_decimal::Decimal;
 use std::sync::Arc;
 use structopt::StructOpt;

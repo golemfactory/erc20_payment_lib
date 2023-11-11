@@ -2,9 +2,9 @@ use crate::config::Config;
 use crate::error::ErrorBag;
 use crate::error::PaymentError;
 
-use crate::rpc_pool::{Web3RpcParams, Web3RpcPool};
 use crate::utils::DecimalConvExt;
 use crate::{err_custom_create, err_from};
+use erc20_rpc_pool::{Web3RpcParams, Web3RpcPool};
 use rust_decimal::Decimal;
 use secp256k1::SecretKey;
 use serde::Serialize;
