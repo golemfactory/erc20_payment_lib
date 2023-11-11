@@ -1,8 +1,12 @@
+//Generated using python gen_methods.py
+//Modifications go in to the script, not this file
+
 use super::VerifyEndpointResult;
 use super::Web3RpcPool;
 use std::sync::Arc;
 use web3::types::*;
 
+#[rustfmt::skip]
 impl Web3RpcPool {
     pub async fn eth_transaction(
         self: Arc<Self>,
