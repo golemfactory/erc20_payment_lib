@@ -20,6 +20,12 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
 
+      - name: Check generation
+        run: |
+          cd crates/erc20_rpc_pool/src/rpc_pool
+          python gen_methods.py
+          git diff --exit-code
+
       - name: Fmt
         run: cargo fmt -- --check
 
