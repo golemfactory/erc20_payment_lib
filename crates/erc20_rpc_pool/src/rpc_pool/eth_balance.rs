@@ -7,7 +7,7 @@ impl Web3RpcPool {
     pub async fn eth_balance(
         self: Arc<Self>,
         address: Address,
-       block: Option<BlockNumber>,
+        block: Option<BlockNumber>,
     ) -> Result<U256, web3::Error> {
         let mut loop_no = 0;
         loop {

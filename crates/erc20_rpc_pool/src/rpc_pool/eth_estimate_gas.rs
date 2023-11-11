@@ -7,7 +7,7 @@ impl Web3RpcPool {
     pub async fn eth_estimate_gas(
         self: Arc<Self>,
         call_data: CallRequest,
-       block: Option<BlockNumber>,
+        block: Option<BlockNumber>,
     ) -> Result<U256, web3::Error> {
         let mut loop_no = 0;
         loop {

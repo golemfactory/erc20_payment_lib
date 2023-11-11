@@ -58,7 +58,7 @@ impl Web3RpcPool {
 methods = [
     {
         "name": "balance",
-        "params_in_full": "address: Address,\n       block: Option<BlockNumber>,",
+        "params_in_full": "address: Address,\n        block: Option<BlockNumber>,",
         "params_in": "address, block",
         "params_out": "U256",
     },
@@ -70,13 +70,13 @@ methods = [
     },
     {
         "name": "call",
-        "params_in_full": "call_data: CallRequest,\n       block: Option<BlockId>,",
+        "params_in_full": "call_data: CallRequest,\n        block: Option<BlockId>,",
         "params_in": "call_data.clone(), block",
         "params_out": "Bytes",
     },
     {
         "name": "estimate_gas",
-        "params_in_full": "call_data: CallRequest,\n       block: Option<BlockNumber>,",
+        "params_in_full": "call_data: CallRequest,\n        block: Option<BlockNumber>,",
         "params_in": "call_data.clone(), block",
         "params_out": "U256",
     },

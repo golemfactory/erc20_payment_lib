@@ -7,7 +7,7 @@ impl Web3RpcPool {
     pub async fn eth_call(
         self: Arc<Self>,
         call_data: CallRequest,
-       block: Option<BlockId>,
+        block: Option<BlockId>,
     ) -> Result<Bytes, web3::Error> {
         let mut loop_no = 0;
         loop {
