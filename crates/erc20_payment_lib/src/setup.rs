@@ -21,6 +21,18 @@ pub struct ProviderSetup {
 
 #[derive(Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
+pub struct FaucetSetup {
+    pub client_max_eth_allowed: Option<Decimal>,
+    pub client_srv: Option<String>,
+    pub client_host: Option<String>,
+    pub srv_port: Option<u16>,
+    pub lookup_domain: Option<String>,
+    pub mint_glm_address: Option<Address>,
+    pub mint_max_glm_allowed: Option<Decimal>,
+}
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct ChainSetup {
     pub network: String,
     #[serde(skip_serializing)]
@@ -34,13 +46,7 @@ pub struct ChainSetup {
     pub priority_fee: U256,
     pub glm_address: Address,
     pub multi_contract_address: Option<Address>,
-    pub mint_glm_address: Option<Address>,
-    pub mint_max_glm_allowed: Option<Decimal>,
-    pub faucet_client_max_eth_allowed: Option<Decimal>,
-    pub faucet_client_srv: Option<String>,
-    pub faucet_client_host: Option<String>,
-    pub faucet_srv_port: Option<u16>,
-    pub faucet_lookup_domain: Option<String>,
+    pub faucet_setup: FaucetSetup,
     pub multi_contract_max_at_once: usize,
     pub transaction_timeout: u64,
     pub skip_multi_contract_check: bool,
@@ -160,6 +166,36 @@ impl PaymentSetup {
                 None => None,
             };
 
+            let faucet_setup = FaucetSetup {
+                client_max_eth_allowed: chain_config
+                    .1
+                    .faucet_client
+                    .clone()
+                    .map(|fc| fc.max_eth_allowed),
+                client_srv: chain_config.1.faucet_client.clone().map(|fc| fc.faucet_srv),
+                client_host: chain_config
+                    .1
+                    .faucet_client
+                    .clone()
+                    .map(|fc| fc.faucet_host),
+                srv_port: chain_config
+                    .1
+                    .faucet_client
+                    .clone()
+                    .map(|fc| fc.faucet_srv_port),
+                lookup_domain: chain_config
+                    .1
+                    .faucet_client
+                    .clone()
+                    .map(|fc| fc.faucet_lookup_domain),
+                mint_max_glm_allowed: chain_config
+                    .1
+                    .mint_contract
+                    .clone()
+                    .map(|mc| mc.max_glm_allowed),
+                mint_glm_address: chain_config.1.mint_contract.clone().map(|mc| mc.address),
+            };
+
             ps.chain_setup.insert(
                 chain_config.1.chain_id,
                 ChainSetup {
@@ -189,33 +225,8 @@ impl PaymentSetup {
                         .clone()
                         .map(|m| m.max_at_once)
                         .unwrap_or(1),
-                    faucet_client_max_eth_allowed: chain_config
-                        .1
-                        .faucet_client
-                        .clone()
-                        .map(|fc| fc.max_eth_allowed),
-                    faucet_client_srv: chain_config.1.faucet_client.clone().map(|fc| fc.faucet_srv),
-                    faucet_client_host: chain_config
-                        .1
-                        .faucet_client
-                        .clone()
-                        .map(|fc| fc.faucet_host),
-                    faucet_srv_port: chain_config
-                        .1
-                        .faucet_client
-                        .clone()
-                        .map(|fc| fc.faucet_srv_port),
-                    faucet_lookup_domain: chain_config
-                        .1
-                        .faucet_client
-                        .clone()
-                        .map(|fc| fc.faucet_lookup_domain),
-                    mint_max_glm_allowed: chain_config
-                        .1
-                        .mint_contract
-                        .clone()
-                        .map(|mc| mc.max_glm_allowed),
-                    mint_glm_address: chain_config.1.mint_contract.clone().map(|mc| mc.address),
+                    faucet_setup,
+
                     transaction_timeout: chain_config.1.transaction_timeout,
                     skip_multi_contract_check,
                     confirmation_blocks: chain_config.1.confirmation_blocks,
