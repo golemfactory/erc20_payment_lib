@@ -125,7 +125,7 @@ methods = [
 
 def create_from_template(method):
     print("eth_" + method["name"] + ".rs")
-    with open("eth_" + method["name"] + ".rs", "w") as f:
+    with open("eth_" + method["name"] + ".rs", "w", newline='\n') as f:
         templ = template
         templ = templ.replace("%%METHOD%%", method["name"])
         templ = templ.replace("%%PARAMS_IN_FULL%%", method["params_in_full"])
