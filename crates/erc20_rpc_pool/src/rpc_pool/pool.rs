@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use crate::rpc_pool::verify::{score_endpoint, verify_endpoint};
 use crate::rpc_pool::VerifyEndpointResult;
 use chrono::{DateTime, Utc};
@@ -18,20 +19,19 @@ pub struct Web3RpcParams {
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
+pub struct ReqStats {
+    pub request_succeeded_count: u64,
+    pub last_success_request: Option<DateTime<Utc>>,
+    pub request_error_count: u64,
+    pub last_error_request: Option<DateTime<Utc>>,
+}
+
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct Web3RpcStats {
     pub request_count_total_succeeded: u64,
+    pub request_count_total_error: u64,
     pub request_count_chain_id: u64,
-    pub request_count_latest_block: u64,
-    pub request_count_block_by_number: u64,
-    pub request_count_send_transaction: u64,
-    pub request_count_estimate_gas: u64,
-    pub request_count_get_balance: u64,
-    pub request_count_get_token_balance: u64,
-    pub request_count_get_latest_nonce: u64,
-    pub request_count_get_pending_nonce: u64,
-    pub request_count_get_transaction_receipt: u64,
-
-    pub request_error_count: u64,
+    pub request_stats: BTreeMap<String, ReqStats>,
     pub last_success_request: Option<DateTime<Utc>>,
     pub last_error_request: Option<DateTime<Utc>>,
 }
@@ -189,7 +189,7 @@ impl Web3RpcPool {
         )
     }
 
-    pub fn mark_rpc_success(&self, idx: usize) {
+    pub fn mark_rpc_success(&self, idx: usize, method: String) {
         let stats = &mut self
             .endpoints
             .get(idx)
@@ -197,10 +197,27 @@ impl Web3RpcPool {
             .write()
             .unwrap()
             .web3_rpc_info;
+        let el = if let Some(entry) = stats.web3_rpc_stats.request_stats.get_mut(&method) {
+            entry
+        } else {
+            stats
+                .web3_rpc_stats
+                .request_stats
+                .insert(method.clone(), ReqStats::default());
+            if let Some(res) = stats.web3_rpc_stats.request_stats.get_mut(&method) {
+                res
+            } else {
+                log::error!("Error inserting method {}", method);
+                return;
+            }
+        };
+        el.request_succeeded_count += 1;
+        el.last_success_request = Some(Utc::now());
+
         stats.web3_rpc_stats.request_count_total_succeeded += 1;
     }
 
-    pub fn mark_rpc_error(&self, idx: usize, verify_result: VerifyEndpointResult) {
+    pub fn mark_rpc_error(&self, idx: usize, method: String, verify_result: VerifyEndpointResult) {
         let stats = &mut self
             .endpoints
             .get(idx)
@@ -208,7 +225,23 @@ impl Web3RpcPool {
             .write()
             .unwrap()
             .web3_rpc_info;
-        stats.web3_rpc_stats.request_error_count += 1;
+        let el = if let Some(entry) = stats.web3_rpc_stats.request_stats.get_mut(&method) {
+            entry
+        } else {
+            stats
+                .web3_rpc_stats
+                .request_stats
+                .insert(method.clone(), ReqStats::default());
+            if let Some(res) = stats.web3_rpc_stats.request_stats.get_mut(&method) {
+                res
+            } else {
+                log::error!("Error inserting method {}", method);
+                return;
+            }
+        };
+        el.request_error_count += 1;
+        el.last_error_request = Some(Utc::now());
+
         stats.web3_rpc_stats.last_error_request = Some(Utc::now());
         stats.verify_result = Some(verify_result);
         stats.last_verified = Some(Utc::now());
