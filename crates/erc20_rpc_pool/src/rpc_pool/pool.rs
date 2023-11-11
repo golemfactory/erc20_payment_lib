@@ -1,9 +1,9 @@
-use std::collections::BTreeMap;
 use crate::rpc_pool::verify::{score_endpoint, verify_endpoint};
 use crate::rpc_pool::VerifyEndpointResult;
 use chrono::{DateTime, Utc};
 use futures::future;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 use web3::transports::Http;
 use web3::Web3;
