@@ -1,3 +1,5 @@
+use crate::rpc_pool::utils::datetime_from_u256_timestamp;
+use crate::rpc_pool::{Web3RpcEndpoint, Web3RpcInfo};
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
@@ -6,8 +8,6 @@ use tokio::time::Instant;
 use web3::transports::Http;
 use web3::types::{BlockId, BlockNumber, U256};
 use web3::Web3;
-use crate::rpc_pool::utils::datetime_from_u256_timestamp;
-use crate::rpc_pool::{Web3RpcEndpoint, Web3RpcInfo};
 
 pub struct VerifyEndpointParams {
     chain_id: u64,
@@ -137,7 +137,7 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
             allow_max_response_time_ms: web3_rpc_params.max_response_time_ms,
         },
     )
-        .await;
+    .await;
 
     web3_rpc_info.last_verified = Some(Utc::now());
     web3_rpc_info.verify_result = Some(verify_result.clone());

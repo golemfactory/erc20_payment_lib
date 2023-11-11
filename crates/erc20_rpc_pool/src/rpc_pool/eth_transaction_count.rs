@@ -1,8 +1,7 @@
-
-use std::sync::Arc;
-use web3::types::*;
 use super::VerifyEndpointResult;
 use super::Web3RpcPool;
+use std::sync::Arc;
+use web3::types::*;
 
 impl Web3RpcPool {
     pub async fn eth_transaction_count(

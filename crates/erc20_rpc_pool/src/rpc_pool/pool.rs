@@ -1,11 +1,11 @@
+use crate::rpc_pool::verify::{score_endpoint, verify_endpoint};
+use crate::rpc_pool::VerifyEndpointResult;
 use chrono::{DateTime, Utc};
 use futures::future;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
 use web3::transports::Http;
 use web3::Web3;
-use crate::rpc_pool::verify::{score_endpoint, verify_endpoint};
-use crate::rpc_pool::VerifyEndpointResult;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Web3RpcParams {
@@ -59,7 +59,6 @@ pub struct Web3RpcPool {
     pub endpoints: Vec<Arc<RwLock<Web3RpcEndpoint>>>,
     pub verify_mutex: tokio::sync::Mutex<()>,
 }
-
 
 impl Web3RpcPool {
     pub fn new(chain_id: u64, endpoints: Vec<Web3RpcParams>) -> Self {
@@ -116,7 +115,7 @@ impl Web3RpcPool {
                 .iter()
                 .map(|s| verify_endpoint(self.chain_id, s.clone())),
         )
-            .await;
+        .await;
     }
 
     pub async fn choose_best_endpoint(self: Arc<Self>) -> Option<usize> {

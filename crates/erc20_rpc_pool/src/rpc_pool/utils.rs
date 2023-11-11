@@ -1,4 +1,4 @@
-use chrono::{Utc, DateTime, NaiveDateTime};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use web3::types::U256;
 
 pub fn datetime_from_u256_timestamp(timestamp: U256) -> Option<DateTime<Utc>> {

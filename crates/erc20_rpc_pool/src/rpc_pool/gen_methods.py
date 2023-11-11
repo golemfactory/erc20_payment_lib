@@ -1,8 +1,7 @@
-template = """
+template = """use super::VerifyEndpointResult;
+use super::Web3RpcPool;
 use std::sync::Arc;
 use web3::types::*;
-use super::VerifyEndpointResult;
-use super::Web3RpcPool;
 
 impl Web3RpcPool {
     pub async fn eth_%%METHOD%%(
