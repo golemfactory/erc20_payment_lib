@@ -139,6 +139,7 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
     )
     .await;
 
+    let mut web3_rpc_info = m.read().unwrap().web3_rpc_info.clone();
     web3_rpc_info.last_verified = Some(Utc::now());
     web3_rpc_info.verify_result = Some(verify_result.clone());
 
