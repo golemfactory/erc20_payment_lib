@@ -123,7 +123,7 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
     };
 
     if let Some(last_verified) = web3_rpc_info.last_verified {
-        log::info!("Verification skipped {}", last_verified);
+        log::debug!("Verification skipped {}", last_verified);
         if Utc::now() - last_verified < Duration::seconds(60) {
             return;
         }

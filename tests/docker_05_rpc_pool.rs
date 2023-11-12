@@ -67,18 +67,21 @@ async fn test_rpc_pool() -> Result<(), anyhow::Error> {
         name: format!("{}/web3/{}", proxy_url_base, "endp1"),
         endpoint: format!("{}/web3/{}", proxy_url_base, "endp1"),
         priority: 0,
+        verify_interval_secs: Some(10),
         max_timeout_ms: None,
         allowed_head_behind_secs: None,
     }, RpcSettings {
         name: format!("{}/web3/{}", proxy_url_base, "endp2"),
         endpoint: format!("{}/web3/{}", proxy_url_base, "endp2"),
         priority: 0,
+        verify_interval_secs: Some(10),
         max_timeout_ms: None,
         allowed_head_behind_secs: None,
     }, RpcSettings {
         name: format!("{}/web3/{}", proxy_url_base, "endp3"),
         endpoint: format!("{}/web3/{}", proxy_url_base, "endp3"),
         priority: 0,
+        verify_interval_secs: Some(10),
         max_timeout_ms: None,
         allowed_head_behind_secs: None,
     }

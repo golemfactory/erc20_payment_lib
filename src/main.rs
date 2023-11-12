@@ -101,6 +101,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     name: "ENV_RPC".to_string(),
                     endpoint: s.clone(),
                     priority: 0,
+                    verify_interval_secs: None,
                     max_timeout_ms: None,
                     allowed_head_behind_secs: None,
                 })
@@ -243,6 +244,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                         priority: rpc.priority,
                         endpoint: rpc.endpoint.clone(),
                         name: rpc.name.clone(),
+                        verify_interval_secs: rpc.verify_interval_secs.unwrap_or(120),
                         max_response_time_ms: rpc.max_timeout_ms.unwrap_or(10000),
                         max_head_behind_secs: rpc.allowed_head_behind_secs,
                     })

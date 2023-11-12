@@ -97,6 +97,7 @@ pub struct RpcSettings {
     pub name: String,
     pub endpoint: String,
     pub priority: i64,
+    pub verify_interval_secs: Option<u64>,
     pub max_timeout_ms: Option<u64>,
     pub allowed_head_behind_secs: Option<u64>,
 }

@@ -14,6 +14,7 @@ pub struct Web3RpcParams {
     pub name: String,
     pub endpoint: String,
     pub priority: i64,
+    pub verify_interval_secs: u64,
     pub max_head_behind_secs: Option<u64>,
     pub max_response_time_ms: u64,
 }
@@ -98,6 +99,7 @@ impl Web3RpcPool {
                 name: endpoint.clone(),
                 endpoint: endpoint.clone(),
                 priority: 0,
+                verify_interval_secs: 120,
                 max_head_behind_secs: Some(120),
                 max_response_time_ms: 5000,
             })

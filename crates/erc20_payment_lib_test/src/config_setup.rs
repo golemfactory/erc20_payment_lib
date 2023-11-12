@@ -19,6 +19,7 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
             name: format!("{}/web3/{}", proxy_url_base, proxy_key),
             endpoint: format!("{}/web3/{}", proxy_url_base, proxy_key),
             priority: 0,
+            verify_interval_secs: None,
             max_timeout_ms: None,
             allowed_head_behind_secs: None,
         }],
