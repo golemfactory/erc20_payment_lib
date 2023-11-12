@@ -114,7 +114,7 @@ pub fn score_endpoint(web3_rpc_info: &mut Web3RpcInfo) {
 }
 
 pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
-    let (web3, mut web3_rpc_info, web3_rpc_params) = {
+    let (web3, web3_rpc_info, web3_rpc_params) = {
         (
             m.read().unwrap().web3.clone(),
             m.read().unwrap().web3_rpc_info.clone(),
