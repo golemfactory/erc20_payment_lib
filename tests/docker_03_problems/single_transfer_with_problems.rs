@@ -10,9 +10,7 @@ use erc20_payment_lib_test::*;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
-use web3_test_proxy_client::{
-    list_transactions_human, set_error_probability,
-};
+use web3_test_proxy_client::{list_transactions_human, set_error_probability};
 #[rustfmt::skip]
 async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
