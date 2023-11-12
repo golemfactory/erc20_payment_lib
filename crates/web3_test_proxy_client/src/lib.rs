@@ -116,6 +116,36 @@ pub async fn get_calls(url_base: &str, proxy_key: &str) -> Result<GetCallsRespon
         .map_err(|_e| anyhow::anyhow!("Error parsing json when getting methods: {}", resp_data))
 }
 
-pub fn set_problem(left: usize, right: usize) -> usize {
-    left + right
+pub async fn set_error_probability(proxy_address: &str, proxy_key: &str, error_probability: f64) {
+    let local = task::LocalSet::new();
+
+    let endp_sim_prob = EndpointSimulateProblems {
+        timeout_chance: 0.0,
+        error_chance: error_probability,
+        malformed_response_chance: 0.0,
+        skip_sending_raw_transaction_chance: 0.0,
+        send_transaction_but_report_failure_chance: 0.0,
+        allow_only_parsed_calls: false,
+        allow_only_single_calls: false,
+    };
+
+    local
+        .run_until(async move {
+            let client = Client::default();
+            let mut res = client
+                .post(format!("{}/api/problems/set/{}", proxy_address, proxy_key))
+                .insert_header(("Content-Type", "application/json"))
+                .send_body(serde_json::to_string(&endp_sim_prob).unwrap())
+                .await
+                .unwrap();
+            println!(
+                "Response: {}: {}",
+                res.status(),
+                res.body()
+                    .await
+                    .map(|b| String::from_utf8_lossy(&b).to_string())
+                    .unwrap_or_default()
+            );
+        })
+        .await;
 }
