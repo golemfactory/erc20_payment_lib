@@ -45,8 +45,9 @@ pub struct Web3RpcInfo {
     pub score: i64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Web3RpcEndpoint {
+    #[serde(skip)]
     pub web3: Web3<Http>,
     pub web3_rpc_params: Web3RpcParams,
     pub web3_rpc_info: Web3RpcInfo,

@@ -26,11 +26,11 @@ use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
 use crate::sender::service_loop;
 use crate::utils::{StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
-use erc20_rpc_pool::Web3RpcPool;
+use erc20_rpc_pool::{Web3RpcEndpoint, Web3RpcPool};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
 use web3::types::{Address, H256, U256};
@@ -125,6 +125,9 @@ impl DriverEvent {
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedState {
     pub current_tx_info: BTreeMap<i64, SharedInfoTx>,
+    //pub web3_rpc_pool: BTreeMap<i64, Vec<(Web3RpcParams, Web3RpcInfo)>>,
+    pub web3_pool_ref: BTreeMap<i64, Vec<Arc<RwLock<Web3RpcEndpoint>>>>,
+
     pub faucet: Option<FaucetData>,
     pub inserted: usize,
     pub idling: bool,
@@ -401,6 +404,8 @@ impl PaymentRuntime {
         extra_testing: Option<ExtraOptionsForTesting>,
     ) -> Result<PaymentRuntime, PaymentError> {
         let options = options.unwrap_or_default();
+        let mut web3_rpc_pool_info = BTreeMap::<i64, Vec<Arc<RwLock<Web3RpcEndpoint>>>>::new();
+
         let mut payment_setup = PaymentSetup::new(
             &config,
             secret_keys.to_vec(),
@@ -421,6 +426,7 @@ impl PaymentRuntime {
             config.engine.gather_at_start,
             config.engine.ignore_deadlines,
             config.engine.automatic_recover,
+            &mut web3_rpc_pool_info,
         )?;
         payment_setup.use_transfer_for_single_payment = options.use_transfer_for_single_payment;
         payment_setup.extra_options_for_testing = extra_testing;
@@ -445,9 +451,12 @@ impl PaymentRuntime {
             current_tx_info: BTreeMap::new(),
             faucet: None,
             external_gather_time: None,
+            web3_pool_ref: web3_rpc_pool_info,
         }));
+
         let shared_state_clone = shared_state.clone();
         let conn_ = conn.clone();
+
         let notify = Arc::new(Notify::new());
         let notify_ = notify.clone();
         let jh = tokio::task::spawn(async move {

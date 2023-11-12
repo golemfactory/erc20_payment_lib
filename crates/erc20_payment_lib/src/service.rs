@@ -1,6 +1,5 @@
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 use crate::db::model::*;
 use crate::db::ops::*;
@@ -10,10 +9,9 @@ use crate::transaction::find_receipt_extended;
 use crate::utils::{ConversionError, U256ConvExt};
 
 use crate::err_from;
-use crate::setup::{ChainSetup, PaymentSetup};
+use crate::setup::ChainSetup;
 
 use crate::contracts::encode_erc20_balance_of;
-use crate::runtime::SharedState;
 use erc20_rpc_pool::Web3RpcPool;
 use sqlx::SqlitePool;
 use web3::types::{Address, BlockNumber, CallRequest, U256};
@@ -224,6 +222,7 @@ pub async fn transaction_from_chain_and_into_db(
     Ok(Some(tx))
 }
 
+/*
 pub async fn confirm_loop(
     _shared_state: Arc<Mutex<SharedState>>,
     _conn: &SqlitePool,
@@ -235,4 +234,4 @@ pub async fn confirm_loop(
         ))
         .await;
     }
-}
+}*/

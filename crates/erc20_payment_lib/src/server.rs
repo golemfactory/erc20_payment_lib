@@ -94,6 +94,27 @@ pub async fn tx_details(data: Data<Box<ServerData>>, req: HttpRequest) -> impl R
     }))
 }
 
+pub async fn rpc_pool(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Responder {
+    let my_data = data.shared_state.lock().await;
+    //synchronize rpc_pool statistics with server
+    /*shared_state.lock().await.web3_rpc_pool.insert(
+        chain_id,
+        web3.endpoints
+            .iter()
+            .map(|e| {
+                (
+                    e.read().unwrap().web3_rpc_params.clone(),
+                    e.read().unwrap().web3_rpc_info.clone(),
+                )
+            })
+            .collect::<Vec<(Web3RpcParams, Web3RpcInfo)>>(),
+    );*/
+
+    web::Json(json!({
+        "rpc_pool": my_data.web3_pool_ref,
+    }))
+}
+
 pub async fn allowances(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Responder {
     let mut my_data = data.shared_state.lock().await;
     my_data.inserted += 1;
@@ -651,6 +672,7 @@ pub fn runtime_web_scope(
     let mut api_scope = api_scope
         .app_data(server_data)
         .route("/allowances", web::get().to(allowances))
+        .route("/rpc_pool", web::get().to(rpc_pool))
         .route("/config", web::get().to(config_endpoint))
         .route("/transactions", web::get().to(transactions))
         .route("/transactions/count", web::get().to(transactions_count))

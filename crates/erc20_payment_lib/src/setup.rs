@@ -4,12 +4,12 @@ use crate::error::PaymentError;
 
 use crate::utils::DecimalConvExt;
 use crate::{err_custom_create, err_from};
-use erc20_rpc_pool::{Web3RpcParams, Web3RpcPool};
+use erc20_rpc_pool::{Web3RpcEndpoint, Web3RpcParams, Web3RpcPool};
 use rust_decimal::Decimal;
 use secp256k1::SecretKey;
 use serde::Serialize;
 use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use web3::types::{Address, U256};
 
@@ -113,6 +113,7 @@ impl PaymentSetup {
         gather_at_start: bool,
         ignore_deadlines: bool,
         automatic_recover: bool,
+        web3_rpc_pool_info: &mut BTreeMap<i64, Vec<Arc<RwLock<Web3RpcEndpoint>>>>,
     ) -> Result<Self, PaymentError> {
         let mut ps = PaymentSetup {
             chain_setup: BTreeMap::new(),
@@ -156,6 +157,7 @@ impl PaymentSetup {
                     })
                     .collect(),
             ));
+            web3_rpc_pool_info.insert(chain_config.1.chain_id, web3_pool.endpoints.to_vec());
 
             let faucet_eth_amount = match &chain_config.1.faucet_eth_amount {
                 Some(f) => Some((*f).to_u256_from_eth().map_err(err_from!())?),
@@ -262,6 +264,7 @@ impl PaymentSetup {
             false,
             false,
             false,
+            &mut BTreeMap::new(),
         )
     }
 
