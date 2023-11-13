@@ -1,11 +1,8 @@
-use std::sync::Arc;
-use serde::de::DeserializeOwned;
-use web3::{
-    api::Eth,
-    helpers::CallFuture,
-};
 use crate::rpc_pool::VerifyEndpointResult;
 use crate::Web3RpcPool;
+use serde::de::DeserializeOwned;
+use std::sync::Arc;
+use web3::{api::Eth, helpers::CallFuture};
 
 pub trait EthMethod<T: web3::Transport> {
     const METHOD: &'static str;
@@ -14,7 +11,6 @@ pub trait EthMethod<T: web3::Transport> {
 
     fn do_call(eth: Eth<T>, args: Self::Args) -> CallFuture<Self::Return, T::Out>;
 }
-
 
 impl Web3RpcPool {
     pub async fn eth_generic_call<CALL: EthMethod<web3::transports::Http>>(

@@ -1,12 +1,12 @@
-//Generated using python gen_methods.py
-//Modifications go in to the script, not this file
+// Wrapper generated using python gen_methods.py
+// Do not modify this file directly
 
+use super::eth_generic_call::EthMethod;
 use super::Web3RpcPool;
 use std::sync::Arc;
 use web3::api::Eth;
 use web3::helpers::CallFuture;
 use web3::types::*;
-use super::eth_generic_call::EthMethod;
 
 pub struct EthTransactionCount;
 
@@ -23,7 +23,6 @@ impl<T: web3::Transport> EthMethod<T> for EthTransactionCount {
     }
 }
 
-#[rustfmt::skip]
 impl Web3RpcPool {
     pub async fn eth_transaction_count(
         self: Arc<Self>,
