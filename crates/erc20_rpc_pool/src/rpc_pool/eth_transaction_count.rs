@@ -10,6 +10,7 @@ use web3::types::*;
 
 pub struct EthTransactionCount;
 
+#[rustfmt::skip]
 impl<T: web3::Transport> EthMethod<T> for EthTransactionCount {
     const METHOD: &'static str = "transaction_count";
     type Args = (Address, Option<BlockNumber>);
@@ -23,6 +24,7 @@ impl<T: web3::Transport> EthMethod<T> for EthTransactionCount {
     }
 }
 
+#[rustfmt::skip]
 impl Web3RpcPool {
     pub async fn eth_transaction_count(
         self: Arc<Self>,

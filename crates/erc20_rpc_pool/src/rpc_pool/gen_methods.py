@@ -1,15 +1,16 @@
-template = """//Generated using python gen_methods.py
-//Modifications go in to the script, not this file
+template = """// Wrapper generated using python gen_methods.py
+// Do not modify this file directly
 
+use super::eth_generic_call::EthMethod;
 use super::Web3RpcPool;
 use std::sync::Arc;
 use web3::api::Eth;
 use web3::helpers::CallFuture;
 use web3::types::*;
-use super::eth_generic_call::EthMethod;
 
 pub struct Eth%%METHOD2%%;
 
+#[rustfmt::skip]
 impl<T: web3::Transport> EthMethod<T> for Eth%%METHOD2%% {
     const METHOD: &'static str = "%%METHOD%%";
     type Args = %%PARAMS_TUPLE%%;
@@ -17,7 +18,7 @@ impl<T: web3::Transport> EthMethod<T> for Eth%%METHOD2%% {
 
     fn do_call(
         eth: Eth<T>,
-        args: Self::Args,
+        %%UNUSED_ARGS%%args: Self::Args,
     ) -> CallFuture<Self::Return, <T as web3::Transport>::Out> {
         eth.%%METHOD%%(%%TUPLE_ARGS%%)
     }
@@ -148,6 +149,10 @@ def create_from_template(method):
         templ = templ.replace("%%PARAMS_IN%%", method["params_in"])
         templ = templ.replace("%%PARAMS_OUT%%", method["params_out"])
         templ = templ.replace("%%TUPLE_ARGS%%", method["tuple_args"])
+        if method["tuple_args"] == "":
+            templ = templ.replace("%%UNUSED_ARGS%%", "_")
+        else:
+            templ = templ.replace("%%UNUSED_ARGS%%", "")
         f.write(templ)
 
 

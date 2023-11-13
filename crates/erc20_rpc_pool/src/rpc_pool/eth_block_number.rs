@@ -10,6 +10,7 @@ use web3::types::*;
 
 pub struct EthBlockNumber;
 
+#[rustfmt::skip]
 impl<T: web3::Transport> EthMethod<T> for EthBlockNumber {
     const METHOD: &'static str = "block_number";
     type Args = ();
@@ -17,12 +18,13 @@ impl<T: web3::Transport> EthMethod<T> for EthBlockNumber {
 
     fn do_call(
         eth: Eth<T>,
-        args: Self::Args,
+        _args: Self::Args,
     ) -> CallFuture<Self::Return, <T as web3::Transport>::Out> {
         eth.block_number()
     }
 }
 
+#[rustfmt::skip]
 impl Web3RpcPool {
     pub async fn eth_block_number(
         self: Arc<Self>,

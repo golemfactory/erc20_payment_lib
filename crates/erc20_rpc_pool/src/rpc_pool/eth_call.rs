@@ -10,6 +10,7 @@ use web3::types::*;
 
 pub struct EthCall;
 
+#[rustfmt::skip]
 impl<T: web3::Transport> EthMethod<T> for EthCall {
     const METHOD: &'static str = "call";
     type Args = (CallRequest, Option<BlockId>);
@@ -23,6 +24,7 @@ impl<T: web3::Transport> EthMethod<T> for EthCall {
     }
 }
 
+#[rustfmt::skip]
 impl Web3RpcPool {
     pub async fn eth_call(
         self: Arc<Self>,

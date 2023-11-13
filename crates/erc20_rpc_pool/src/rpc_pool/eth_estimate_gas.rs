@@ -10,6 +10,7 @@ use web3::types::*;
 
 pub struct EthEstimateGas;
 
+#[rustfmt::skip]
 impl<T: web3::Transport> EthMethod<T> for EthEstimateGas {
     const METHOD: &'static str = "estimate_gas";
     type Args = (CallRequest, Option<BlockNumber>);
@@ -23,6 +24,7 @@ impl<T: web3::Transport> EthMethod<T> for EthEstimateGas {
     }
 }
 
+#[rustfmt::skip]
 impl Web3RpcPool {
     pub async fn eth_estimate_gas(
         self: Arc<Self>,

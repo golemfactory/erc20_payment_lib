@@ -10,6 +10,7 @@ use web3::types::*;
 
 pub struct EthTransactionReceipt;
 
+#[rustfmt::skip]
 impl<T: web3::Transport> EthMethod<T> for EthTransactionReceipt {
     const METHOD: &'static str = "transaction_receipt";
     type Args = (H256,);
@@ -23,6 +24,7 @@ impl<T: web3::Transport> EthMethod<T> for EthTransactionReceipt {
     }
 }
 
+#[rustfmt::skip]
 impl Web3RpcPool {
     pub async fn eth_transaction_receipt(
         self: Arc<Self>,

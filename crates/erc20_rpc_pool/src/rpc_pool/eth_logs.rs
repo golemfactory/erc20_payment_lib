@@ -10,6 +10,7 @@ use web3::types::*;
 
 pub struct EthLogs;
 
+#[rustfmt::skip]
 impl<T: web3::Transport> EthMethod<T> for EthLogs {
     const METHOD: &'static str = "logs";
     type Args = (Filter,);
@@ -23,6 +24,7 @@ impl<T: web3::Transport> EthMethod<T> for EthLogs {
     }
 }
 
+#[rustfmt::skip]
 impl Web3RpcPool {
     pub async fn eth_logs(
         self: Arc<Self>,

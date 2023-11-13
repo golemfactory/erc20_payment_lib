@@ -10,6 +10,7 @@ use web3::types::*;
 
 pub struct EthBalance;
 
+#[rustfmt::skip]
 impl<T: web3::Transport> EthMethod<T> for EthBalance {
     const METHOD: &'static str = "balance";
     type Args = (Address, Option<BlockNumber>);
@@ -23,6 +24,7 @@ impl<T: web3::Transport> EthMethod<T> for EthBalance {
     }
 }
 
+#[rustfmt::skip]
 impl Web3RpcPool {
     pub async fn eth_balance(
         self: Arc<Self>,

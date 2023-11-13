@@ -115,6 +115,105 @@ pub async fn rpc_pool(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Re
     }))
 }
 
+struct MetricGroup {
+    metric_help: String,
+    metric_type: String,
+    metrics: Vec<Metric>,
+}
+struct Metric {
+    name: String,
+    params: Vec<(String, String)>,
+    value: String,
+}
+
+pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Responder {
+    let pool_ref = data.shared_state.lock().await.web3_pool_ref.clone();
+
+    let mut metrics = Vec::with_capacity(100);
+
+    metrics.push(MetricGroup {
+        metric_help: "# HELP rpc_endpoint_score Score of selected rpc endpoint".to_string(),
+        metric_type: "# TYPE gauge".to_string(),
+        metrics: Vec::new(),
+    });
+    metrics.push(MetricGroup {
+        metric_help: "# HELP rpc_endpoint_error_count Number of error requests".to_string(),
+        metric_type: "# TYPE counter".to_string(),
+        metrics: Vec::new(),
+    });
+    metrics.push(MetricGroup {
+        metric_help: "# HELP rpc_endpoint_success_count Number of succeeded requests".to_string(),
+        metric_type: "# TYPE counter".to_string(),
+        metrics: Vec::new(),
+    });
+
+    for (_idx, vec) in pool_ref {
+        for (_idx, endpoint) in vec.iter().enumerate() {
+            let endpoint = endpoint.read().unwrap();
+            let params = vec![
+                (
+                    "chain_id".to_string(),
+                    endpoint.web3_rpc_params.chain_id.to_string(),
+                ),
+                ("name".to_string(), endpoint.web3_rpc_params.name.clone()),
+            ];
+            let new_metric = Metric {
+                name: "rpc_endpoint_score".into(),
+                params: params.clone(),
+                value: endpoint.web3_rpc_info.score.to_string(),
+            };
+            metrics.get_mut(0).unwrap().metrics.push(new_metric);
+
+            let new_metric = Metric {
+                name: "rpc_endpoint_error_count".into(),
+                params: params.clone(),
+                value: endpoint
+                    .web3_rpc_info
+                    .web3_rpc_stats
+                    .request_count_total_error
+                    .to_string(),
+            };
+            metrics.get_mut(1).unwrap().metrics.push(new_metric);
+
+            let new_metric = Metric {
+                name: "rpc_endpoint_success_count".into(),
+                params: params.clone(),
+                value: endpoint
+                    .web3_rpc_info
+                    .web3_rpc_stats
+                    .request_count_total_succeeded
+                    .to_string(),
+            };
+            metrics.get_mut(2).unwrap().metrics.push(new_metric);
+        }
+    }
+
+    let mut resp: String = String::with_capacity(1024 * 1024);
+    for metric_group in metrics {
+        resp += &format!("{}\n", metric_group.metric_help);
+        resp += &format!("{}\n", metric_group.metric_type);
+        for metric in metric_group.metrics {
+            resp += &format!("{}{{", metric.name);
+            for (idx, param) in metric.params.iter().enumerate() {
+                resp += &format!(
+                    "{}=\"{}\"{}",
+                    param.0,
+                    param.1,
+                    if idx < metric.params.len() - 1 {
+                        ","
+                    } else {
+                        ""
+                    }
+                );
+            }
+            resp += &format!("}} {}\n", metric.value);
+        }
+        resp += "\n";
+    }
+
+    resp
+}
+
 pub async fn allowances(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Responder {
     let mut my_data = data.shared_state.lock().await;
     my_data.inserted += 1;
@@ -673,6 +772,7 @@ pub fn runtime_web_scope(
         .app_data(server_data)
         .route("/allowances", web::get().to(allowances))
         .route("/rpc_pool", web::get().to(rpc_pool))
+        .route("/rpc_pool/metrics", web::get().to(rpc_pool_metrics))
         .route("/config", web::get().to(config_endpoint))
         .route("/transactions", web::get().to(transactions))
         .route("/transactions/count", web::get().to(transactions_count))
