@@ -13,10 +13,10 @@ pub trait EthMethod<T: web3::Transport> {
 }
 
 impl Web3RpcPool {
-    pub async fn eth_generic_call<CALL: EthMethod<web3::transports::Http>>(
+    pub async fn eth_generic_call<EthMethodCall: EthMethod<web3::transports::Http>>(
         self: Arc<Self>,
-        args: CALL::Args,
-    ) -> Result<CALL::Return, web3::Error> {
+        args: EthMethodCall::Args,
+    ) -> Result<EthMethodCall::Return, web3::Error> {
         let mut loop_no = 0;
         loop {
             loop_no += 1;
@@ -25,24 +25,24 @@ impl Web3RpcPool {
             if let Some(idx) = idx {
                 let res = tokio::time::timeout(
                     self.get_max_timeout(idx),
-                    CALL::do_call(self.get_web3(idx).eth(), args.clone()),
+                    EthMethodCall::do_call(self.get_web3(idx).eth(), args.clone()),
                 );
 
                 match res.await {
                     Ok(Ok(balance)) => {
-                        self.mark_rpc_success(idx, CALL::METHOD.to_string());
+                        self.mark_rpc_success(idx, EthMethodCall::METHOD.to_string());
                         return Ok(balance);
                     }
                     Ok(Err(e)) => {
                         log::warn!(
                             "Error doing call {} from endpoint {}: {}",
-                            CALL::METHOD,
+                            EthMethodCall::METHOD,
                             idx,
                             e
                         );
                         self.mark_rpc_error(
                             idx,
-                            CALL::METHOD.to_string(),
+                            EthMethodCall::METHOD.to_string(),
                             VerifyEndpointResult::RpcError(e.to_string()),
                         );
                         if loop_no > 3 {
@@ -53,7 +53,7 @@ impl Web3RpcPool {
                         log::warn!("Timeout when getting data from endpoint {}: {}", idx, e);
                         self.mark_rpc_error(
                             idx,
-                            CALL::METHOD.to_string(),
+                            EthMethodCall::METHOD.to_string(),
                             VerifyEndpointResult::Unreachable,
                         );
                         if loop_no > 3 {
