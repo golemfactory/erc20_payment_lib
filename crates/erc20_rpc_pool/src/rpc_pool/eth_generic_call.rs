@@ -3,6 +3,7 @@ use crate::Web3RpcPool;
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
 use web3::{api::Eth, helpers::CallFuture};
+use crate::rpc_pool::web3_error_list::check_if_proper_rpc_error;
 
 pub trait EthMethod<T: web3::Transport> {
     const METHOD: &'static str;
@@ -33,22 +34,38 @@ impl Web3RpcPool {
                         self.mark_rpc_success(idx, EthMethodCall::METHOD.to_string());
                         return Ok(balance);
                     }
-                    Ok(Err(e)) => {
-                        log::warn!(
-                            "Error doing call {} from endpoint {}: {}",
-                            EthMethodCall::METHOD,
-                            idx,
-                            e
-                        );
-                        self.mark_rpc_error(
-                            idx,
-                            EthMethodCall::METHOD.to_string(),
-                            VerifyEndpointResult::RpcError(e.to_string()),
-                        );
-                        if loop_no > 3 {
-                            return Err(e);
+                    Ok(Err(e)) => match e {
+                        web3::Error::Rpc(e) => {
+                            let proper = check_if_proper_rpc_error(e.to_string());
+                            if proper {
+                                self.mark_rpc_success(idx, EthMethodCall::METHOD.to_string());
+                            } else {
+                                log::warn!("Unknown RPC error: {}", e);
+                                self.mark_rpc_error(
+                                    idx,
+                                    EthMethodCall::METHOD.to_string(),
+                                    VerifyEndpointResult::RpcWeb3Error(e.to_string()),
+                                );
+                            }
+                            return Err(web3::Error::Rpc(e));
                         }
-                    }
+                        _ => {
+                            log::warn!(
+                                "Error doing call {} from endpoint {}: {}",
+                                EthMethodCall::METHOD,
+                                idx,
+                                e
+                            );
+                            self.mark_rpc_error(
+                                idx,
+                                EthMethodCall::METHOD.to_string(),
+                                VerifyEndpointResult::OtherNetworkError(e.to_string()),
+                            );
+                            if loop_no > 3 {
+                                return Err(e);
+                            }
+                        }
+                    },
                     Err(e) => {
                         log::warn!("Timeout when getting data from endpoint {}: {}", idx, e);
                         self.mark_rpc_error(

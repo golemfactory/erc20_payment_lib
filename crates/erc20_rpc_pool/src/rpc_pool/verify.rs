@@ -26,7 +26,8 @@ pub enum VerifyEndpointResult {
     Ok(VerifyEndpointStatus),
     NoBlockInfo,
     WrongChainId,
-    RpcError(String),
+    RpcWeb3Error(String),
+    OtherNetworkError(String),
     HeadBehind(DateTime<Utc>),
     Unreachable,
 }
@@ -38,7 +39,7 @@ async fn verify_endpoint_int(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
             Ok(chain_id) => chain_id,
             Err(err) => {
                 log::warn!("Verify endpoint error {}", err);
-                return VerifyEndpointResult::RpcError(err.to_string());
+                return VerifyEndpointResult::OtherNetworkError(err.to_string());
             }
         };
         if U256::from(vep.chain_id) != chain_id {
@@ -58,7 +59,7 @@ async fn verify_endpoint_int(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
             }
             Err(err) => {
                 log::warn!("Verify endpoint error {}", err);
-                return VerifyEndpointResult::RpcError(err.to_string());
+                return VerifyEndpointResult::OtherNetworkError(err.to_string());
             }
         };
         let Some(date) = datetime_from_u256_timestamp(block_info.timestamp) else {
@@ -89,27 +90,28 @@ pub fn score_endpoint(web3_rpc_info: &mut Web3RpcInfo) {
     if let Some(verify_result) = &web3_rpc_info.verify_result {
         match verify_result {
             VerifyEndpointResult::Ok(status) => {
-                let endpoint_score = 1000000.0 / (status.check_time_ms + 1) as f64;
-                web3_rpc_info.score = endpoint_score as i64;
+                let endpoint_score = 100.0 * (0.0 - (status.check_time_ms as f64 / 1000.0)).exp() + 10.0;
+                web3_rpc_info.score += endpoint_score as i64;
             }
             VerifyEndpointResult::NoBlockInfo => {
-                web3_rpc_info.score = -20;
+                web3_rpc_info.score -= 20;
             }
             VerifyEndpointResult::WrongChainId => {
-                web3_rpc_info.score = -100;
+                web3_rpc_info.score -= 1000;
             }
-            VerifyEndpointResult::RpcError(_) => {
-                web3_rpc_info.score = -1;
+            VerifyEndpointResult::RpcWeb3Error(_) => {
+                web3_rpc_info.score -= 5;
+            }
+            VerifyEndpointResult::OtherNetworkError(_) => {
+                web3_rpc_info.score -= 10;
             }
             VerifyEndpointResult::HeadBehind(_) => {
-                web3_rpc_info.score = -10;
+                web3_rpc_info.score -= 10;
             }
             VerifyEndpointResult::Unreachable => {
-                web3_rpc_info.score = -2;
+                web3_rpc_info.score -= 10;
             }
         }
-    } else {
-        web3_rpc_info.score = 0;
     }
 }
 
@@ -142,7 +144,7 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
     let mut web3_rpc_info = m.read().unwrap().web3_rpc_info.clone();
     web3_rpc_info.last_verified = Some(Utc::now());
     web3_rpc_info.verify_result = Some(verify_result.clone());
-
+    web3_rpc_info.score = 0;
     score_endpoint(&mut web3_rpc_info);
     log::info!("Verification finished score: {}", web3_rpc_info.score);
     m.write().unwrap().web3_rpc_info = web3_rpc_info;
