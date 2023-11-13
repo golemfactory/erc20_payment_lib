@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct EndpointSimulateProblems {
     pub timeout_chance: f64,
+    pub min_timeout_ms: f64,
+    pub max_timeout_ms: f64,
     pub error_chance: f64,
     pub malformed_response_chance: f64,
     pub skip_sending_raw_transaction_chance: f64,
@@ -16,6 +18,8 @@ impl Default for EndpointSimulateProblems {
     fn default() -> Self {
         Self {
             timeout_chance: 0.0,
+            min_timeout_ms: 0.0,
+            max_timeout_ms: 0.0,
             error_chance: 0.0,
             malformed_response_chance: 0.0,
             skip_sending_raw_transaction_chance: 0.0,

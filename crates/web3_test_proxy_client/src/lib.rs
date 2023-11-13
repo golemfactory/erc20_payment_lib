@@ -121,6 +121,8 @@ pub async fn set_error_probability(proxy_address: &str, proxy_key: &str, error_p
 
     let endp_sim_prob = EndpointSimulateProblems {
         timeout_chance: 0.0,
+        min_timeout_ms: 0.0,
+        max_timeout_ms: 0.0,
         error_chance: error_probability,
         malformed_response_chance: 0.0,
         skip_sending_raw_transaction_chance: 0.0,

@@ -416,6 +416,17 @@ pub async fn web3(
         }
     };
 
+    //add some random delay according to the config
+    let elapsed = start.elapsed();
+    let target_ms = if problems.min_timeout_ms == problems.max_timeout_ms {
+        problems.min_timeout_ms
+    } else {
+        rng.gen_range(problems.min_timeout_ms..problems.max_timeout_ms)
+    };
+    if elapsed < Duration::from_secs_f64(target_ms / 1000.0) {
+        tokio::time::sleep(Duration::from_secs_f64(target_ms / 1000.0) - elapsed).await;
+    }
+
     let finish = Instant::now();
     //After call update info
     {
