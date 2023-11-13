@@ -146,7 +146,6 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
         metric_type: "# TYPE gauge".to_string(),
         metrics: Vec::new(),
     });
-
     metrics.push(MetricGroup {
         metric_help: "# HELP rpc_endpoint_error_count Number of error requests".to_string(),
         metric_type: "# TYPE counter".to_string(),
@@ -374,6 +373,7 @@ pub async fn transactions_next(data: Data<Box<ServerData>>, req: HttpRequest) ->
         "txs": txs,
     }))
 }
+
 pub async fn transactions_current(
     data: Data<Box<ServerData>>,
     _req: HttpRequest,
