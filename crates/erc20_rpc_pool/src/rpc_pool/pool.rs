@@ -3,8 +3,8 @@ use crate::rpc_pool::VerifyEndpointResult;
 use chrono::{DateTime, Utc};
 use futures::future;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::sync::{Arc, RwLock};
+use std::collections::{BTreeMap, VecDeque};
+use std::sync::{Arc, Mutex, RwLock};
 use web3::transports::Http;
 use web3::Web3;
 
@@ -44,6 +44,8 @@ pub struct Web3RpcInfo {
     pub web3_rpc_stats: Web3RpcStats,
     pub last_chosen: Option<DateTime<Utc>>,
     pub score: i64,
+    pub score_from_last_chosen: i64,
+    pub score_from_validation: i64
 }
 
 #[derive(Debug, Serialize)]
@@ -60,6 +62,7 @@ pub struct Web3RpcPool {
     //last_verified: Option<DateTime<Utc>>,
     pub endpoints: Vec<Arc<RwLock<Web3RpcEndpoint>>>,
     pub verify_mutex: tokio::sync::Mutex<()>,
+    pub last_chosen_endpoints: Arc<Mutex<VecDeque<usize>>>,
 }
 
 impl Web3RpcPool {
@@ -88,6 +91,7 @@ impl Web3RpcPool {
             chain_id,
             endpoints: web3_endpoints,
             verify_mutex: tokio::sync::Mutex::new(()),
+            last_chosen_endpoints: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
 
@@ -121,20 +125,73 @@ impl Web3RpcPool {
         .await;
     }
 
+    pub fn extra_score_from_last_chosen(self: Arc<Self>) -> (i64, i64) {
+        let mut extra_score_idx = -1;
+        let mut extra_score = 0;
+
+        {
+            let mut last_chosen_endpoints = self.last_chosen_endpoints.lock().unwrap();
+            while last_chosen_endpoints.len() > 4 {
+                last_chosen_endpoints.pop_back();
+            }
+
+            if let Some(last_chosen) = last_chosen_endpoints.get(0) {
+                extra_score_idx = *last_chosen as i64;
+                extra_score += 10;
+            }
+            if let Some(last_chosen) = last_chosen_endpoints.get(1) {
+                if extra_score_idx == *last_chosen as i64 {
+                    extra_score += 7;
+                } else {
+                    return (extra_score_idx, extra_score)
+                }
+            }
+            if let Some(last_chosen) = last_chosen_endpoints.get(2) {
+                if extra_score_idx == *last_chosen as i64 {
+                    extra_score += 5;
+                } else {
+                    return (extra_score_idx, extra_score)
+                }
+            }
+            if let Some(last_chosen) = last_chosen_endpoints.get(3) {
+                if extra_score_idx == *last_chosen as i64 {
+                    extra_score += 3;
+                } else {
+                    return (extra_score_idx, extra_score)
+                }
+            }
+        }
+        (extra_score_idx, extra_score)
+    }
+
     pub async fn choose_best_endpoint(self: Arc<Self>) -> Option<usize> {
+        let (extra_score_idx, extra_score) = self.clone().extra_score_from_last_chosen();
+        for (idx, el) in self.endpoints.iter().enumerate() {
+            el.write().unwrap().web3_rpc_info.score_from_last_chosen = if idx as i64 == extra_score_idx {
+                extra_score
+            } else {
+                0
+            };
+        }
+
         let end = self
             .endpoints
             .iter()
             .enumerate()
             .filter(|(_idx, element)| element.read().unwrap().web3_rpc_info.score > 0)
-            .max_by_key(|(_idx, element)| element.read().unwrap().web3_rpc_info.score)
+            .max_by_key(|(_idx, element)| {
+                element.read().unwrap().web3_rpc_info.score + element.read().unwrap().web3_rpc_info.score_from_last_chosen
+            })
             .map(|(idx, _element)| idx);
+
+
 
         if let Some(end) = end {
             //todo change type system to allow that call
 
             let self_cloned = self.clone();
             tokio::task::spawn(self_cloned.verify_unverified_endpoints());
+            self.last_chosen_endpoints.lock().unwrap().push_front(end);
             Some(end)
         } else {
             let self_cloned = self.clone();
@@ -148,9 +205,10 @@ impl Web3RpcPool {
                     .iter()
                     .enumerate()
                     .filter(|(_idx, element)| element.read().unwrap().web3_rpc_info.score > 0)
-                    .max_by_key(|(_idx, element)| element.read().unwrap().web3_rpc_info.score)
+                    .max_by_key(|(_idx, element)| element.read().unwrap().web3_rpc_info.score + element.read().unwrap().web3_rpc_info.score_from_last_chosen)
                     .map(|(idx, _element)| idx)
                 {
+                    self.last_chosen_endpoints.lock().unwrap().push_front(el);
                     return Some(el);
                 }
 
@@ -161,12 +219,16 @@ impl Web3RpcPool {
             }
 
             //if no endpoint is working return just with less severe error
-            return self
+            let el = self
                 .endpoints
                 .iter()
                 .enumerate()
-                .max_by_key(|(_idx, element)| element.read().unwrap().web3_rpc_info.score)
+                .max_by_key(|(_idx, element)| element.read().unwrap().web3_rpc_info.score + element.read().unwrap().web3_rpc_info.score_from_last_chosen)
                 .map(|(idx, _element)| idx);
+            if let Some(el) = el {
+                self.last_chosen_endpoints.lock().unwrap().push_front(el);
+            }
+            el
         }
     }
 

@@ -146,6 +146,7 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
     web3_rpc_info.verify_result = Some(verify_result.clone());
     web3_rpc_info.score = 0;
     score_endpoint(&mut web3_rpc_info);
+    web3_rpc_info.score_from_validation = web3_rpc_info.score;
     log::info!("Verification finished score: {}", web3_rpc_info.score);
     m.write().unwrap().web3_rpc_info = web3_rpc_info;
 }
