@@ -19,14 +19,14 @@ pub struct Web3RpcEndpoint {
 
 impl Web3RpcEndpoint {
     pub fn get_score(&self) -> i64 {
-        self.web3_rpc_info.penalty_from_last_critical_error
-            + self.web3_rpc_info.penalty_from_ms
-            + self.web3_rpc_info.penalty_from_head_behind
+        100 - self.web3_rpc_info.penalty_from_last_critical_error
+            - self.web3_rpc_info.penalty_from_ms
+            - self.web3_rpc_info.penalty_from_head_behind
             + self.web3_rpc_info.bonus_from_last_chosen
-            + self.web3_rpc_info.penalty_from_errors
+            - self.web3_rpc_info.penalty_from_errors
     }
     pub fn get_validation_score(&self) -> i64 {
-        self.web3_rpc_info.penalty_from_ms + self.web3_rpc_info.penalty_from_head_behind
+        100 - self.web3_rpc_info.penalty_from_ms - self.web3_rpc_info.penalty_from_head_behind
     }
 }
 
