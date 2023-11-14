@@ -1,6 +1,4 @@
-use crate::rpc_pool::verify::{score_endpoint, verify_endpoint};
-
-use crate::rpc_pool::verify_info::ReqStats;
+use crate::rpc_pool::verify::{score_endpoint, verify_endpoint, ReqStats};
 use crate::rpc_pool::VerifyEndpointResult;
 use crate::{Web3RpcInfo, Web3RpcParams};
 use chrono::Utc;

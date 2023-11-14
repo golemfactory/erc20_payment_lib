@@ -1,11 +1,11 @@
 use crate::rpc_pool::utils::datetime_from_u256_timestamp;
-use crate::rpc_pool::verify_info::{VerifyEndpointParams, VerifyEndpointStatus, Web3RpcInfo};
+use crate::rpc_pool::verify::{VerifyEndpointParams, VerifyEndpointStatus};
 use crate::rpc_pool::VerifyEndpointResult;
-use crate::Web3RpcEndpoint;
+use crate::{Web3RpcEndpoint, Web3RpcInfo};
 use chrono::{Duration, Utc};
 use std::sync::{Arc, RwLock};
+use std::time::Instant;
 use tokio::select;
-use tokio::time::Instant;
 use web3::transports::Http;
 use web3::types::{BlockId, BlockNumber, U256};
 use web3::Web3;
