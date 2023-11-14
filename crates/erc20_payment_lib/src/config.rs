@@ -96,10 +96,12 @@ pub struct FaucetClientSettings {
 pub struct RpcSettings {
     pub name: String,
     pub endpoint: String,
-    pub priority: i64,
+    pub backup_level: Option<i64>,
     pub verify_interval_secs: Option<u64>,
+    pub min_interval_ms: Option<u64>,
     pub max_timeout_ms: Option<u64>,
     pub allowed_head_behind_secs: Option<u64>,
+    pub max_consecutive_errors: Option<u64>,
 }
 
 #[derive(Deserialize, Debug, Clone)]

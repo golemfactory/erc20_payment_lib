@@ -132,17 +132,15 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
     let mut metrics = Vec::with_capacity(100);
 
     metrics.push(MetricGroup {
-        metric_help: "# HELP rpc_endpoint_effective_score Effective score of selected rpc endpoint".to_string(),
+        metric_help: "# HELP rpc_endpoint_effective_score Effective score of selected rpc endpoint"
+            .to_string(),
         metric_type: "# TYPE gauge".to_string(),
         metrics: Vec::new(),
     });
     metrics.push(MetricGroup {
-        metric_help: "# HELP rpc_endpoint_score_last_chosen Score (from last chosen) of selected rpc endpoint".to_string(),
-        metric_type: "# TYPE gauge".to_string(),
-        metrics: Vec::new(),
-    });
-    metrics.push(MetricGroup {
-        metric_help: "# HELP rpc_endpoint_score_validation Score (from validation) of selected rpc endpoint".to_string(),
+        metric_help:
+            "# HELP rpc_endpoint_score_validation Score (from validation) of selected rpc endpoint"
+                .to_string(),
         metric_type: "# TYPE gauge".to_string(),
         metrics: Vec::new(),
     });
@@ -170,23 +168,16 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
             let new_metric = Metric {
                 name: "rpc_endpoint_effective_score".into(),
                 params: params.clone(),
-                value: (endpoint.web3_rpc_info.score + endpoint.web3_rpc_info.score_from_last_chosen).to_string(),
+                value: (endpoint.web3_rpc_info.get_score()).to_string(),
             };
             metrics.get_mut(0).unwrap().metrics.push(new_metric);
 
             let new_metric = Metric {
-                name: "rpc_endpoint_score_last_chosen".into(),
-                params: params.clone(),
-                value: (endpoint.web3_rpc_info.score_from_last_chosen).to_string(),
-            };
-            metrics.get_mut(1).unwrap().metrics.push(new_metric);
-
-            let new_metric = Metric {
                 name: "rpc_endpoint_score_validation".into(),
                 params: params.clone(),
-                value: (endpoint.web3_rpc_info.score_from_validation).to_string(),
+                value: (endpoint.web3_rpc_info.get_validation_score()).to_string(),
             };
-            metrics.get_mut(2).unwrap().metrics.push(new_metric);
+            metrics.get_mut(1).unwrap().metrics.push(new_metric);
 
             let new_metric = Metric {
                 name: "rpc_endpoint_error_count".into(),
@@ -197,7 +188,7 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
                     .request_count_total_error
                     .to_string(),
             };
-            metrics.get_mut(3).unwrap().metrics.push(new_metric);
+            metrics.get_mut(2).unwrap().metrics.push(new_metric);
 
             let new_metric = Metric {
                 name: "rpc_endpoint_success_count".into(),
@@ -208,7 +199,7 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
                     .request_count_total_succeeded
                     .to_string(),
             };
-            metrics.get_mut(4).unwrap().metrics.push(new_metric);
+            metrics.get_mut(3).unwrap().metrics.push(new_metric);
         }
     }
 

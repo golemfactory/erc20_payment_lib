@@ -100,10 +100,12 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .map(|s| RpcSettings {
                     name: "ENV_RPC".to_string(),
                     endpoint: s.clone(),
-                    priority: 0,
                     verify_interval_secs: None,
+                    min_interval_ms: None,
                     max_timeout_ms: None,
                     allowed_head_behind_secs: None,
+                    backup_level: None,
+                    max_consecutive_errors: None,
                 })
                 .collect();
             config.change_rpc_endpoints(f.1, rpcs).await?;
@@ -241,12 +243,14 @@ async fn main_internal() -> Result<(), PaymentError> {
                     .iter()
                     .map(|rpc| Web3RpcParams {
                         chain_id: chain_cfg.chain_id as u64,
-                        priority: rpc.priority,
                         endpoint: rpc.endpoint.clone(),
+                        backup_level: 0,
                         name: rpc.name.clone(),
                         verify_interval_secs: rpc.verify_interval_secs.unwrap_or(120),
                         max_response_time_ms: rpc.max_timeout_ms.unwrap_or(10000),
                         max_head_behind_secs: rpc.allowed_head_behind_secs,
+                        max_number_of_consecutive_errors: 0,
+                        min_interval_requests_ms: None,
                     })
                     .collect(),
             ));

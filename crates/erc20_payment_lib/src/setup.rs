@@ -149,12 +149,15 @@ impl PaymentSetup {
                     .iter()
                     .map(|rpc| Web3RpcParams {
                         chain_id: chain_config.1.chain_id as u64,
-                        priority: rpc.priority,
+                        backup_level: rpc.backup_level.unwrap_or(0),
+
                         endpoint: rpc.endpoint.clone(),
                         name: rpc.name.clone(),
                         verify_interval_secs: rpc.verify_interval_secs.unwrap_or(120),
                         max_response_time_ms: rpc.max_timeout_ms.unwrap_or(10000),
-                        max_head_behind_secs: rpc.allowed_head_behind_secs,
+                        max_head_behind_secs: Some(rpc.allowed_head_behind_secs.unwrap_or(120)),
+                        max_number_of_consecutive_errors: rpc.max_consecutive_errors.unwrap_or(5),
+                        min_interval_requests_ms: rpc.min_interval_ms,
                     })
                     .collect(),
             ));

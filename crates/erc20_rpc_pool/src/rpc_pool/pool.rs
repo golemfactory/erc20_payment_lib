@@ -1,52 +1,15 @@
 use crate::rpc_pool::verify::{score_endpoint, verify_endpoint};
+
+use crate::rpc_pool::verify_info::ReqStats;
 use crate::rpc_pool::VerifyEndpointResult;
-use chrono::{DateTime, Utc};
+use crate::{Web3RpcInfo, Web3RpcParams};
+use chrono::Utc;
 use futures::future;
-use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, VecDeque};
+use serde::Serialize;
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock};
 use web3::transports::Http;
 use web3::Web3;
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Web3RpcParams {
-    pub chain_id: u64,
-    pub name: String,
-    pub endpoint: String,
-    pub priority: i64,
-    pub verify_interval_secs: u64,
-    pub max_head_behind_secs: Option<u64>,
-    pub max_response_time_ms: u64,
-}
-
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub struct ReqStats {
-    pub request_succeeded_count: u64,
-    pub last_success_request: Option<DateTime<Utc>>,
-    pub request_error_count: u64,
-    pub last_error_request: Option<DateTime<Utc>>,
-}
-
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub struct Web3RpcStats {
-    pub request_count_total_succeeded: u64,
-    pub request_count_total_error: u64,
-    pub request_count_chain_id: u64,
-    pub request_stats: BTreeMap<String, ReqStats>,
-    pub last_success_request: Option<DateTime<Utc>>,
-    pub last_error_request: Option<DateTime<Utc>>,
-}
-
-#[derive(Serialize, Deserialize, Default, Debug, Clone)]
-pub struct Web3RpcInfo {
-    pub last_verified: Option<DateTime<Utc>>,
-    pub verify_result: Option<VerifyEndpointResult>,
-    pub web3_rpc_stats: Web3RpcStats,
-    pub last_chosen: Option<DateTime<Utc>>,
-    pub score: i64,
-    pub score_from_last_chosen: i64,
-    pub score_from_validation: i64
-}
 
 #[derive(Debug, Serialize)]
 pub struct Web3RpcEndpoint {
@@ -102,8 +65,10 @@ impl Web3RpcPool {
                 chain_id,
                 name: endpoint.clone(),
                 endpoint: endpoint.clone(),
-                priority: 0,
+                backup_level: 0,
+                max_number_of_consecutive_errors: 5,
                 verify_interval_secs: 120,
+                min_interval_requests_ms: None,
                 max_head_behind_secs: Some(120),
                 max_response_time_ms: 5000,
             })
@@ -143,21 +108,21 @@ impl Web3RpcPool {
                 if extra_score_idx == *last_chosen as i64 {
                     extra_score += 7;
                 } else {
-                    return (extra_score_idx, extra_score)
+                    return (extra_score_idx, extra_score);
                 }
             }
             if let Some(last_chosen) = last_chosen_endpoints.get(2) {
                 if extra_score_idx == *last_chosen as i64 {
                     extra_score += 5;
                 } else {
-                    return (extra_score_idx, extra_score)
+                    return (extra_score_idx, extra_score);
                 }
             }
             if let Some(last_chosen) = last_chosen_endpoints.get(3) {
                 if extra_score_idx == *last_chosen as i64 {
                     extra_score += 3;
                 } else {
-                    return (extra_score_idx, extra_score)
+                    return (extra_score_idx, extra_score);
                 }
             }
         }
@@ -167,24 +132,21 @@ impl Web3RpcPool {
     pub async fn choose_best_endpoint(self: Arc<Self>) -> Option<usize> {
         let (extra_score_idx, extra_score) = self.clone().extra_score_from_last_chosen();
         for (idx, el) in self.endpoints.iter().enumerate() {
-            el.write().unwrap().web3_rpc_info.score_from_last_chosen = if idx as i64 == extra_score_idx {
-                extra_score
-            } else {
-                0
-            };
+            el.write().unwrap().web3_rpc_info.bonus_from_last_chosen =
+                if idx as i64 == extra_score_idx {
+                    extra_score
+                } else {
+                    0
+                };
         }
 
         let end = self
             .endpoints
             .iter()
             .enumerate()
-            .filter(|(_idx, element)| element.read().unwrap().web3_rpc_info.score > 0)
-            .max_by_key(|(_idx, element)| {
-                element.read().unwrap().web3_rpc_info.score + element.read().unwrap().web3_rpc_info.score_from_last_chosen
-            })
+            .filter(|(_idx, element)| element.read().unwrap().web3_rpc_info.is_allowed)
+            .max_by_key(|(_idx, element)| element.read().unwrap().web3_rpc_info.get_score())
             .map(|(idx, _element)| idx);
-
-
 
         if let Some(end) = end {
             //todo change type system to allow that call
@@ -204,8 +166,8 @@ impl Web3RpcPool {
                     .endpoints
                     .iter()
                     .enumerate()
-                    .filter(|(_idx, element)| element.read().unwrap().web3_rpc_info.score > 0)
-                    .max_by_key(|(_idx, element)| element.read().unwrap().web3_rpc_info.score + element.read().unwrap().web3_rpc_info.score_from_last_chosen)
+                    .filter(|(_idx, element)| element.read().unwrap().web3_rpc_info.is_allowed)
+                    .max_by_key(|(_idx, element)| element.read().unwrap().web3_rpc_info.get_score())
                     .map(|(idx, _element)| idx)
                 {
                     self.last_chosen_endpoints.lock().unwrap().push_front(el);
@@ -217,18 +179,8 @@ impl Web3RpcPool {
                 }
                 tokio::time::sleep(std::time::Duration::from_millis(10)).await;
             }
-
-            //if no endpoint is working return just with less severe error
-            let el = self
-                .endpoints
-                .iter()
-                .enumerate()
-                .max_by_key(|(_idx, element)| element.read().unwrap().web3_rpc_info.score + element.read().unwrap().web3_rpc_info.score_from_last_chosen)
-                .map(|(idx, _element)| idx);
-            if let Some(el) = el {
-                self.last_chosen_endpoints.lock().unwrap().push_front(el);
-            }
-            el
+            //no endpoint could be selected
+            None
         }
     }
 

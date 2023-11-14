@@ -1,9 +1,9 @@
+use crate::rpc_pool::web3_error_list::check_if_proper_rpc_error;
 use crate::rpc_pool::VerifyEndpointResult;
 use crate::Web3RpcPool;
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
 use web3::{api::Eth, helpers::CallFuture};
-use crate::rpc_pool::web3_error_list::check_if_proper_rpc_error;
 
 pub trait EthMethod<T: web3::Transport> {
     const METHOD: &'static str;

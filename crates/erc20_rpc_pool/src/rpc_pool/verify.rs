@@ -1,36 +1,14 @@
 use crate::rpc_pool::utils::datetime_from_u256_timestamp;
-use crate::rpc_pool::{Web3RpcEndpoint, Web3RpcInfo};
-use chrono::{DateTime, Duration, Utc};
-use serde::{Deserialize, Serialize};
+use crate::rpc_pool::verify_info::{VerifyEndpointParams, VerifyEndpointStatus, Web3RpcInfo};
+use crate::rpc_pool::VerifyEndpointResult;
+use crate::Web3RpcEndpoint;
+use chrono::{Duration, Utc};
 use std::sync::{Arc, RwLock};
 use tokio::select;
 use tokio::time::Instant;
 use web3::transports::Http;
 use web3::types::{BlockId, BlockNumber, U256};
 use web3::Web3;
-
-pub struct VerifyEndpointParams {
-    chain_id: u64,
-    allow_max_head_behind_secs: Option<u64>,
-    allow_max_response_time_ms: u64,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct VerifyEndpointStatus {
-    head_seconds_behind: u64,
-    check_time_ms: u64,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum VerifyEndpointResult {
-    Ok(VerifyEndpointStatus),
-    NoBlockInfo,
-    WrongChainId,
-    RpcWeb3Error(String),
-    OtherNetworkError(String),
-    HeadBehind(DateTime<Utc>),
-    Unreachable,
-}
 
 async fn verify_endpoint_int(web3: &Web3<Http>, vep: VerifyEndpointParams) -> VerifyEndpointResult {
     let tsk = async move {
@@ -90,7 +68,8 @@ pub fn score_endpoint(web3_rpc_info: &mut Web3RpcInfo) {
     if let Some(verify_result) = &web3_rpc_info.verify_result {
         match verify_result {
             VerifyEndpointResult::Ok(status) => {
-                let endpoint_score = 100.0 * (0.0 - (status.check_time_ms as f64 / 1000.0)).exp() + 10.0;
+                let endpoint_score =
+                    100.0 * (0.0 - (status.check_time_ms as f64 / 1000.0)).exp() + 10.0;
                 web3_rpc_info.score += endpoint_score as i64;
             }
             VerifyEndpointResult::NoBlockInfo => {
@@ -125,8 +104,10 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
     };
 
     if let Some(last_verified) = web3_rpc_info.last_verified {
-        log::debug!("Verification skipped {}", last_verified);
-        if Utc::now() - last_verified < Duration::seconds(60) {
+        if Utc::now() - last_verified
+            < Duration::seconds(web3_rpc_params.verify_interval_secs as i64)
+        {
+            log::debug!("Verification skipped {}", last_verified);
             return;
         }
     }
@@ -144,9 +125,8 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
     let mut web3_rpc_info = m.read().unwrap().web3_rpc_info.clone();
     web3_rpc_info.last_verified = Some(Utc::now());
     web3_rpc_info.verify_result = Some(verify_result.clone());
-    web3_rpc_info.score = 0;
+    web3_rpc_info.penalty_from_errors = 0;
     score_endpoint(&mut web3_rpc_info);
-    web3_rpc_info.score_from_validation = web3_rpc_info.score;
     log::info!("Verification finished score: {}", web3_rpc_info.score);
     m.write().unwrap().web3_rpc_info = web3_rpc_info;
 }

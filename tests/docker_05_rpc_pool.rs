@@ -66,24 +66,30 @@ async fn test_rpc_pool() -> Result<(), anyhow::Error> {
         rpc_endpoints = vec![RpcSettings {
         name: format!("{}/web3/{}", proxy_url_base, "endp1"),
         endpoint: format!("{}/web3/{}", proxy_url_base, "endp1"),
-        priority: 0,
+        backup_level: None,
         verify_interval_secs: Some(10),
+        min_interval_ms: None,
         max_timeout_ms: None,
         allowed_head_behind_secs: None,
+        max_consecutive_errors: None,
     }, RpcSettings {
         name: format!("{}/web3/{}", proxy_url_base, "endp2"),
         endpoint: format!("{}/web3/{}", proxy_url_base, "endp2"),
-        priority: 0,
+        backup_level: None,
         verify_interval_secs: Some(10),
+        min_interval_ms: None,
         max_timeout_ms: None,
         allowed_head_behind_secs: None,
+        max_consecutive_errors: None,
     }, RpcSettings {
         name: format!("{}/web3/{}", proxy_url_base, "endp3"),
         endpoint: format!("{}/web3/{}", proxy_url_base, "endp3"),
-        priority: 0,
+        backup_level: None,
         verify_interval_secs: Some(10),
+        min_interval_ms: None,
         max_timeout_ms: None,
         allowed_head_behind_secs: None,
+        max_consecutive_errors: None,
     }
     ];
 
