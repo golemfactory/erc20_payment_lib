@@ -32,8 +32,9 @@ use erc20_payment_lib::runtime::{
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::import_erc20_txs;
-use erc20_payment_lib_extra::{generate_test_payments};
+use erc20_payment_lib_extra::generate_test_payments;
 
+use erc20_payment_lib::account_balance::account_balance;
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt};
@@ -43,7 +44,6 @@ use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::ethabi::ethereum_types::Address;
-use erc20_payment_lib::account_balance::account_balance;
 
 fn check_address_name(n: &str) -> String {
     match n {
@@ -487,7 +487,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                         .join(","),
                 );
             }
-            let result = account_balance(account_balance_options, &config).await?;
+
+            let result = account_balance(None, None, account_balance_options, &config).await?;
             println!(
                 "{}",
                 serde_json::to_string_pretty(&result).map_err(|err| err_custom_create!(

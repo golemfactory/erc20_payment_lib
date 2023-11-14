@@ -1053,6 +1053,7 @@ dependencies = [
  "env_logger",
  "erc20_payment_lib",
  "erc20_payment_lib_extra",
+ "erc20_rpc_pool",
  "fastrand",
  "futures",
  "futures-util",

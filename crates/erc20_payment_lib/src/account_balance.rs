@@ -1,5 +1,7 @@
 use crate::error::PaymentError;
 use crate::eth::get_balance;
+use crate::runtime::SharedState;
+use crate::setup::PaymentSetup;
 use crate::utils::U256ConvExt;
 use crate::{config, err_custom_create};
 use erc20_rpc_pool::{Web3RpcParams, Web3RpcPool};
@@ -55,6 +57,8 @@ pub struct BalanceResult {
 }
 
 pub async fn account_balance(
+    _shared_state: Option<Arc<tokio::sync::Mutex<SharedState>>>,
+    payment_setup: Option<PaymentSetup>,
     account_balance_options: BalanceOptions,
     config: &config::Config,
 ) -> Result<BTreeMap<String, BalanceResult>, PaymentError> {
@@ -66,25 +70,40 @@ pub async fn account_balance(
             account_balance_options.chain_name
         ))?;
 
-    let web3_pool = Arc::new(Web3RpcPool::new(
-        chain_cfg.chain_id as u64,
-        chain_cfg
-            .rpc_endpoints
-            .iter()
-            .map(|rpc| Web3RpcParams {
-                chain_id: chain_cfg.chain_id as u64,
-                endpoint: rpc.endpoint.clone(),
-                skip_validation: rpc.skip_validation.unwrap_or(false),
-                backup_level: rpc.backup_level.unwrap_or(0),
-                name: rpc.name.clone(),
-                verify_interval_secs: rpc.verify_interval_secs.unwrap_or(120),
-                max_response_time_ms: rpc.max_timeout_ms.unwrap_or(10000),
-                max_head_behind_secs: rpc.allowed_head_behind_secs,
-                max_number_of_consecutive_errors: rpc.max_consecutive_errors.unwrap_or(5),
-                min_interval_requests_ms: rpc.min_interval_ms,
-            })
-            .collect(),
-    ));
+    config
+        .chain
+        .get(&account_balance_options.chain_name)
+        .ok_or(err_custom_create!(
+            "Chain {} not found in config file",
+            account_balance_options.chain_name
+        ))?;
+    let web3_pool = if let Some(ps) = payment_setup {
+        ps.get_provider(chain_cfg.chain_id as i64).unwrap()
+    } else {
+        let web3_pool = Arc::new(Web3RpcPool::new(
+            chain_cfg.chain_id as u64,
+            chain_cfg
+                .rpc_endpoints
+                .iter()
+                .map(|rpc| Web3RpcParams {
+                    chain_id: chain_cfg.chain_id as u64,
+                    endpoint: rpc.endpoint.clone(),
+                    skip_validation: rpc.skip_validation.unwrap_or(false),
+                    backup_level: rpc.backup_level.unwrap_or(0),
+                    name: rpc.name.clone(),
+                    verify_interval_secs: rpc.verify_interval_secs.unwrap_or(120),
+                    max_response_time_ms: rpc.max_timeout_ms.unwrap_or(10000),
+                    max_head_behind_secs: rpc.allowed_head_behind_secs,
+                    max_number_of_consecutive_errors: rpc.max_consecutive_errors.unwrap_or(5),
+                    min_interval_requests_ms: rpc.min_interval_ms,
+                })
+                .collect(),
+        ));
+        web3_pool
+    };
+
+    //shared_state.
+    //Vec::new(RwLock::new());
 
     let token = if !account_balance_options.hide_token {
         Some(chain_cfg.token.address)

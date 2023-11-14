@@ -21,6 +21,7 @@ use secp256k1::SecretKey;
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::Sender;
 
+use crate::account_balance::{account_balance, BalanceOptions};
 use crate::config::AdditionalOptions;
 use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
 use crate::sender::service_loop;
@@ -34,7 +35,6 @@ use std::sync::{Arc, RwLock};
 use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
 use web3::types::{Address, H256, U256};
-use crate::account_balance::{account_balance, BalanceOptions};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedInfoTx {
@@ -463,7 +463,9 @@ impl PaymentRuntime {
         let extra_testing_ = extra_testing.clone();
         let config_ = config.clone();
         let jh = tokio::task::spawn(async move {
-            if let Some(balance_check_loop) = extra_testing_.clone().and_then(|e| e.balance_check_loop) {
+            if let Some(balance_check_loop) =
+                extra_testing_.clone().and_then(|e| e.balance_check_loop)
+            {
                 let balance_options = BalanceOptions {
                     chain_name: "mumbai".to_string(),
                     //dead address
@@ -475,7 +477,15 @@ impl PaymentRuntime {
                     interval: Some(2.0),
                     debug_loop: Some(balance_check_loop),
                 };
-                let _ = account_balance(balance_options, &config_).await;
+                let _ = account_balance(
+                    Some(shared_state_clone),
+                    Some(ps.clone()),
+                    balance_options,
+                    &config_,
+                )
+                .await;
+                log::warn!("Balance debug loop finished");
+                return;
             }
             if options.skip_service_loop && options.keep_running {
                 log::warn!("Started with skip_service_loop and keep_running, no transaction will be sent or processed");
