@@ -1,4 +1,4 @@
-use erc20_payment_lib::config::AdditionalOptions;
+use erc20_payment_lib::config::{AdditionalOptions, RpcSettings};
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
@@ -74,7 +74,20 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
     });
 
     {
-        let config = create_default_config_setup(&proxy_url_base, proxy_key).await;
+        let mut config = create_default_config_setup(&proxy_url_base, proxy_key).await;
+
+        config.chain.get_mut("dev").unwrap().rpc_endpoints = vec![
+            RpcSettings {
+                name: format!("{}/web3/{}", proxy_url_base, proxy_key),
+                endpoint: format!("{}/web3/{}", proxy_url_base, proxy_key),
+                backup_level: None,
+                skip_validation: Some(true),
+                verify_interval_secs: Some(10),
+                min_interval_ms: None,
+                max_timeout_ms: None,
+                allowed_head_behind_secs: None,
+                max_consecutive_errors: None,
+            }];
 
         set_error_probability( &proxy_url_base, proxy_key ,error_probability).await;
 
