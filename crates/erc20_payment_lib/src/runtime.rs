@@ -34,6 +34,7 @@ use std::sync::{Arc, RwLock};
 use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
 use web3::types::{Address, H256, U256};
+use crate::account_balance::{account_balance, BalanceOptions};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedInfoTx {
@@ -429,7 +430,7 @@ impl PaymentRuntime {
             &mut web3_rpc_pool_info,
         )?;
         payment_setup.use_transfer_for_single_payment = options.use_transfer_for_single_payment;
-        payment_setup.extra_options_for_testing = extra_testing;
+        payment_setup.extra_options_for_testing = extra_testing.clone();
         payment_setup.contract_use_direct_method = options.contract_use_direct_method;
         payment_setup.contract_use_unpacked_method = options.contract_use_unpacked_method;
         log::debug!("Starting payment engine: {:#?}", payment_setup);
@@ -459,7 +460,23 @@ impl PaymentRuntime {
 
         let notify = Arc::new(Notify::new());
         let notify_ = notify.clone();
+        let extra_testing_ = extra_testing.clone();
+        let config_ = config.clone();
         let jh = tokio::task::spawn(async move {
+            if let Some(balance_check_loop) = extra_testing_.clone().and_then(|e| e.balance_check_loop) {
+                let balance_options = BalanceOptions {
+                    chain_name: "mumbai".to_string(),
+                    //dead address
+                    accounts: Some("0x000000000000000000000000000000000000dead".to_string()),
+                    hide_gas: false,
+                    hide_token: true,
+                    block_number: None,
+                    tasks: 0,
+                    interval: Some(2.0),
+                    debug_loop: Some(balance_check_loop),
+                };
+                let _ = account_balance(balance_options, &config_).await;
+            }
             if options.skip_service_loop && options.keep_running {
                 log::warn!("Started with skip_service_loop and keep_running, no transaction will be sent or processed");
                 loop {

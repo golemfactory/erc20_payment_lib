@@ -95,6 +95,4 @@ pub struct Web3RpcInfo {
     pub endpoint_consecutive_errors: u64,
 }
 
-impl Web3RpcInfo {
-
-}
+impl Web3RpcInfo {}

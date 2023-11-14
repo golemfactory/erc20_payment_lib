@@ -1,7 +1,7 @@
 use crate::config_setup::create_default_config_setup;
 use erc20_payment_lib::error::PaymentError;
-use erc20_payment_lib_extra::{account_balance, BalanceOptions, BalanceResult};
 use std::collections::BTreeMap;
+use erc20_payment_lib::account_balance::{account_balance, BalanceOptions, BalanceResult};
 
 pub async fn test_get_balance(
     proxy_url_base: &str,

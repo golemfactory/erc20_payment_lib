@@ -15,3 +15,4 @@ pub mod faucet_client;
 mod sender;
 pub mod server;
 pub mod signer;
+pub mod account_balance;

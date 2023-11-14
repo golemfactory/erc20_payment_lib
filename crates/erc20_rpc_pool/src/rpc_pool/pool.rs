@@ -156,7 +156,10 @@ impl Web3RpcPool {
             .endpoints
             .iter()
             .enumerate()
-            .filter(|(_idx, element)| element.read().unwrap().web3_rpc_params.skip_validation || element.read().unwrap().web3_rpc_info.is_allowed)
+            .filter(|(_idx, element)| {
+                element.read().unwrap().web3_rpc_params.skip_validation
+                    || element.read().unwrap().web3_rpc_info.is_allowed
+            })
             .max_by_key(|(_idx, element)| element.read().unwrap().get_score())
             .map(|(idx, _element)| idx);
 
@@ -178,7 +181,10 @@ impl Web3RpcPool {
                     .endpoints
                     .iter()
                     .enumerate()
-                    .filter(|(_idx, element)| element.read().unwrap().web3_rpc_params.skip_validation || element.read().unwrap().web3_rpc_info.is_allowed)
+                    .filter(|(_idx, element)| {
+                        element.read().unwrap().web3_rpc_params.skip_validation
+                            || element.read().unwrap().web3_rpc_info.is_allowed
+                    })
                     .max_by_key(|(_idx, element)| element.read().unwrap().get_score())
                     .map(|(idx, _element)| idx)
                 {
@@ -248,46 +254,50 @@ impl Web3RpcPool {
     }
 
     pub fn mark_rpc_error(&self, idx: usize, method: String, verify_result: VerifyEndpointResult) {
-        let stats = &mut self
+        // use read lock before write lock to avoid deadlock
+        let params = self
             .endpoints
             .get(idx)
             .unwrap()
-            .write()
+            .read()
             .unwrap()
-            .web3_rpc_info;
-        let el = if let Some(entry) = stats.web3_rpc_stats.request_stats.get_mut(&method) {
-            entry
-        } else {
-            stats
-                .web3_rpc_stats
-                .request_stats
-                .insert(method.clone(), ReqStats::default());
-            if let Some(res) = stats.web3_rpc_stats.request_stats.get_mut(&method) {
-                res
-            } else {
-                log::error!("Error inserting method {}", method);
-                return;
-            }
-        };
-        el.request_error_count += 1;
-        el.last_error_request = Some(Utc::now());
+            .web3_rpc_params
+            .clone();
 
-        stats.web3_rpc_stats.last_error_request = Some(Utc::now());
-        stats.verify_result = Some(verify_result);
-        stats.endpoint_consecutive_errors += 1;
-        stats.penalty_from_last_critical_error += 10;
-        if stats.endpoint_consecutive_errors
-            > self
+        {
+            // lock stats for writing, do not use read lock here
+            let stats = &mut self
                 .endpoints
                 .get(idx)
                 .unwrap()
-                .read()
+                .write()
                 .unwrap()
-                .web3_rpc_params
-                .max_number_of_consecutive_errors
-        {
-            stats.is_allowed = false;
-        }
+                .web3_rpc_info;
+            let el = if let Some(entry) = stats.web3_rpc_stats.request_stats.get_mut(&method) {
+                entry
+            } else {
+                stats
+                    .web3_rpc_stats
+                    .request_stats
+                    .insert(method.clone(), ReqStats::default());
+                if let Some(res) = stats.web3_rpc_stats.request_stats.get_mut(&method) {
+                    res
+                } else {
+                    log::error!("Error inserting method {}", method);
+                    return;
+                }
+            };
+            el.request_error_count += 1;
+            el.last_error_request = Some(Utc::now());
+
+            stats.web3_rpc_stats.last_error_request = Some(Utc::now());
+            stats.verify_result = Some(verify_result);
+            stats.endpoint_consecutive_errors += 1;
+            stats.penalty_from_last_critical_error += 10;
+            if stats.endpoint_consecutive_errors > params.max_number_of_consecutive_errors {
+                stats.is_allowed = false;
+            }
+        } // stats lock is released here
     }
 
     pub fn get_endpoints_info(&self) -> Vec<(usize, Web3RpcParams, Web3RpcInfo)> {

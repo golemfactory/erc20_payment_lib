@@ -32,7 +32,7 @@ use erc20_payment_lib::runtime::{
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::import_erc20_txs;
-use erc20_payment_lib_extra::{account_balance, generate_test_payments};
+use erc20_payment_lib_extra::{generate_test_payments};
 
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
@@ -43,6 +43,7 @@ use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::ethabi::ethereum_types::Address;
+use erc20_payment_lib::account_balance::account_balance;
 
 fn check_address_name(n: &str) -> String {
     match n {
@@ -173,6 +174,13 @@ async fn main_internal() -> Result<(), PaymentError> {
                 ..Default::default()
             };
 
+            let extra_testing_options = run_options.balance_check_loop.map(|balance_check_loop| {
+                erc20_payment_lib::setup::ExtraOptionsForTesting {
+                    balance_check_loop: Some(balance_check_loop),
+                    erc20_lib_test_replacement_timeout: None,
+                }
+            });
+
             let sp = PaymentRuntime::new(
                 &private_keys,
                 &db_filename,
@@ -181,7 +189,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 Some(conn.clone()),
                 Some(add_opt),
                 None,
-                None,
+                extra_testing_options,
             )
             .await?;
 
@@ -277,7 +285,9 @@ async fn main_internal() -> Result<(), PaymentError> {
                     }
                 }
                 if is_finished {
-                    enp_info.sort_by_key(|(_idx, _params, info)| info.penalty_from_ms + info.penalty_from_head_behind);
+                    enp_info.sort_by_key(|(_idx, _params, info)| {
+                        info.penalty_from_ms + info.penalty_from_head_behind
+                    });
                     break enp_info;
                 }
                 tokio::time::sleep(std::time::Duration::from_millis(1)).await;

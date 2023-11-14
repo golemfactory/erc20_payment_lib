@@ -981,6 +981,7 @@ dependencies = [
  "erc20_rpc_pool",
  "fastrand",
  "futures",
+ "futures-util",
  "hex",
  "humantime",
  "lazy_static",

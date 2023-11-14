@@ -149,6 +149,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
             Some(sender.clone()),
             Some(erc20_payment_lib::setup::ExtraOptionsForTesting {
                 erc20_lib_test_replacement_timeout: Some(extra_time),
+                balance_check_loop: None,
             }),
         ).await?;
 
@@ -183,6 +184,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
             Some(sender),
             Some(erc20_payment_lib::setup::ExtraOptionsForTesting {
                 erc20_lib_test_replacement_timeout: Some(extra_time),
+                balance_check_loop: None,
             }),
         ).await?;
 

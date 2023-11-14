@@ -61,6 +61,7 @@ pub struct ChainSetup {
 #[serde(rename_all = "camelCase")]
 pub struct ExtraOptionsForTesting {
     pub erc20_lib_test_replacement_timeout: Option<Duration>,
+    pub balance_check_loop: Option<u64>,
 }
 
 #[derive(Serialize, Clone, Debug)]

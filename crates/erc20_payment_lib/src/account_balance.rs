@@ -1,16 +1,13 @@
-use erc20_payment_lib::error::PaymentError;
-use erc20_payment_lib::eth::get_balance;
-use erc20_payment_lib::utils::U256ConvExt;
-use erc20_payment_lib::{config, err_custom_create};
+use crate::error::PaymentError;
+use crate::eth::get_balance;
+use crate::utils::U256ConvExt;
+use crate::{config, err_custom_create};
 use erc20_rpc_pool::{Web3RpcParams, Web3RpcPool};
 use futures_util::{stream, StreamExt};
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
 use std::collections::{BTreeMap, HashSet};
-use std::rc::Rc;
 use std::str::FromStr;
-use std::sync::Arc;
-use stream_rate_limiter::{RateLimitOptions, StreamRateLimitExt};
+use std::sync::{Arc, Mutex};
 use structopt::StructOpt;
 use web3::types::Address;
 
@@ -39,7 +36,10 @@ pub struct BalanceOptions {
     #[structopt(long = "interval")]
     pub interval: Option<f64>,
 
-    #[structopt(long = "debug-loop", help = "Run forever in loop (for RPC testing) or active balance monitoring. Set number of desired iterations. 0 means forever.")]
+    #[structopt(
+        long = "debug-loop",
+        help = "Run forever in loop (for RPC testing) or active balance monitoring. Set number of desired iterations. 0 means forever."
+    )]
     pub debug_loop: Option<u64>,
 }
 
@@ -102,7 +102,7 @@ pub async fn account_balance(
             .map(|s| s.trim().to_lowercase()),
     );
 
-    let result_map = Rc::new(RefCell::new(BTreeMap::<String, BalanceResult>::new()));
+    let result_map = Arc::new(Mutex::new(BTreeMap::<String, BalanceResult>::new()));
     let result_map_ = result_map.clone();
     let mut jobs = Vec::new();
     for account in accounts {
@@ -120,32 +120,55 @@ pub async fn account_balance(
         number_of_loops = u64::MAX;
     }
 
+    let mut prev_loop_time = std::time::Instant::now();
     for i in 0..number_of_loops {
         let jobs = jobs.clone();
-        let rate_limit_options = if let Some(interval) = account_balance_options.interval {
-            RateLimitOptions::empty().with_min_interval_sec(interval)
-        } else {
-            RateLimitOptions::empty()
-        };
+
         if number_of_loops > 1 {
             log::info!("Getting balance: Loop number {}/{}", i, number_of_loops);
+            if let Some(interval) = account_balance_options.interval {
+                if i > 0 {
+                    let elapsed = prev_loop_time.elapsed();
+                    if elapsed.as_secs_f64() < interval {
+                        tokio::time::sleep(std::time::Duration::from_secs_f64(
+                            interval - elapsed.as_secs_f64(),
+                        ))
+                        .await;
+                    }
+                    prev_loop_time = std::time::Instant::now();
+                }
+            }
         }
         stream::iter(0..jobs.len())
-            .rate_limit(rate_limit_options)
             .for_each_concurrent(account_balance_options.tasks, |i| {
                 let job = jobs[i];
                 let result_map = result_map_.clone();
                 let web3_pool = web3_pool.clone();
                 async move {
                     log::debug!("Getting balance for account: {:#x}", job);
-                    let balance = get_balance(
+                    let balance_result = get_balance(
                         web3_pool.clone(),
                         token,
                         job,
                         !account_balance_options.hide_gas,
                     )
-                    .await
-                    .unwrap();
+                    .await;
+
+                    let balance = match balance_result {
+                        Ok(balance) => balance,
+                        Err(err) => {
+                            if number_of_loops > 1 {
+                                log::error!(
+                                    "Error getting balance for account: {:#x} - {}",
+                                    job,
+                                    err
+                                );
+                                return;
+                            } else {
+                                panic!("Error getting balance for account: {:#x} - {}", job, err);
+                            }
+                        }
+                    };
 
                     let gas_balance = balance.gas_balance.map(|b| b.to_string());
                     let token_balance = balance.token_balance.map(|b| b.to_string());
@@ -171,7 +194,7 @@ pub async fn account_balance(
                             &chain_cfg.token.symbol
                         )
                     });
-                    result_map.borrow_mut().insert(
+                    result_map.lock().unwrap().insert(
                         format!("{:#x}", job),
                         BalanceResult {
                             gas: gas_balance,
@@ -187,5 +210,6 @@ pub async fn account_balance(
             .await;
     }
 
-    Ok(result_map.take())
+    let res = result_map.lock().unwrap().clone();
+    Ok(res)
 }

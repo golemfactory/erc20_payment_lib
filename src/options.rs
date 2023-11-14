@@ -1,8 +1,9 @@
 use std::{fmt::Debug, path::PathBuf};
 
-use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
+use erc20_payment_lib_extra::{GenerateOptions};
 use structopt::StructOpt;
 use web3::types::Address;
+use erc20_payment_lib::account_balance::BalanceOptions;
 
 #[derive(StructOpt)]
 #[structopt(about = "Payment admin tool - run options")]
@@ -63,6 +64,12 @@ pub struct RunOptions {
 
     #[structopt(long = "frontend", help = "Enabled frontend serving for the server")]
     pub frontend: bool,
+
+    #[structopt(
+        long = "balance-check-loop",
+        help = "Run forever in loop (for RPC testing) or active balance monitoring. Set number of desired iterations. 0 means forever."
+    )]
+    pub balance_check_loop: Option<u64>,
 }
 
 #[derive(StructOpt)]
