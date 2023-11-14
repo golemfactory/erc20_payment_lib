@@ -150,7 +150,7 @@ impl PaymentSetup {
                     .map(|rpc| Web3RpcParams {
                         chain_id: chain_config.1.chain_id as u64,
                         backup_level: rpc.backup_level.unwrap_or(0),
-
+                        skip_validation: rpc.skip_validation.unwrap_or(false),
                         endpoint: rpc.endpoint.clone(),
                         name: rpc.name.clone(),
                         verify_interval_secs: rpc.verify_interval_secs.unwrap_or(120),

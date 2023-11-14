@@ -17,6 +17,19 @@ pub struct Web3RpcEndpoint {
     pub web3_rpc_info: Web3RpcInfo,
 }
 
+impl Web3RpcEndpoint {
+    pub fn get_score(&self) -> i64 {
+        self.web3_rpc_info.penalty_from_last_critical_error
+            + self.web3_rpc_info.penalty_from_ms
+            + self.web3_rpc_info.penalty_from_head_behind
+            + self.web3_rpc_info.bonus_from_last_chosen
+            + self.web3_rpc_info.penalty_from_errors
+    }
+    pub fn get_validation_score(&self) -> i64 {
+        self.web3_rpc_info.penalty_from_ms + self.web3_rpc_info.penalty_from_head_behind
+    }
+}
+
 #[derive(Debug)]
 pub struct Web3RpcPool {
     pub chain_id: u64,
@@ -64,6 +77,7 @@ impl Web3RpcPool {
                 name: endpoint.clone(),
                 endpoint: endpoint.clone(),
                 backup_level: 0,
+                skip_validation: false,
                 max_number_of_consecutive_errors: 5,
                 verify_interval_secs: 120,
                 min_interval_requests_ms: None,
@@ -142,8 +156,8 @@ impl Web3RpcPool {
             .endpoints
             .iter()
             .enumerate()
-            .filter(|(_idx, element)| element.read().unwrap().web3_rpc_info.is_allowed)
-            .max_by_key(|(_idx, element)| element.read().unwrap().web3_rpc_info.get_score())
+            .filter(|(_idx, element)| element.read().unwrap().web3_rpc_params.skip_validation || element.read().unwrap().web3_rpc_info.is_allowed)
+            .max_by_key(|(_idx, element)| element.read().unwrap().get_score())
             .map(|(idx, _element)| idx);
 
         if let Some(end) = end {
@@ -164,8 +178,8 @@ impl Web3RpcPool {
                     .endpoints
                     .iter()
                     .enumerate()
-                    .filter(|(_idx, element)| element.read().unwrap().web3_rpc_info.is_allowed)
-                    .max_by_key(|(_idx, element)| element.read().unwrap().web3_rpc_info.get_score())
+                    .filter(|(_idx, element)| element.read().unwrap().web3_rpc_params.skip_validation || element.read().unwrap().web3_rpc_info.is_allowed)
+                    .max_by_key(|(_idx, element)| element.read().unwrap().get_score())
                     .map(|(idx, _element)| idx)
                 {
                     self.last_chosen_endpoints.lock().unwrap().push_front(el);

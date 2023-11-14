@@ -38,6 +38,9 @@ pub struct BalanceOptions {
 
     #[structopt(long = "interval")]
     pub interval: Option<f64>,
+
+    #[structopt(long = "debug-loop", help = "Run forever in loop (for RPC testing) or active balance monitoring. Set number of desired iterations. 0 means forever.")]
+    pub debug_loop: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,6 +74,7 @@ pub async fn account_balance(
             .map(|rpc| Web3RpcParams {
                 chain_id: chain_cfg.chain_id as u64,
                 endpoint: rpc.endpoint.clone(),
+                skip_validation: rpc.skip_validation.unwrap_or(false),
                 backup_level: rpc.backup_level.unwrap_or(0),
                 name: rpc.name.clone(),
                 verify_interval_secs: rpc.verify_interval_secs.unwrap_or(120),
@@ -111,67 +115,77 @@ pub async fn account_balance(
         jobs.push(addr);
     }
 
-    let rate_limit_options = if let Some(interval) = account_balance_options.interval {
-        RateLimitOptions::empty().with_min_interval_sec(interval)
-    } else {
-        RateLimitOptions::empty()
-    };
+    let mut number_of_loops = account_balance_options.debug_loop.unwrap_or(1);
+    if number_of_loops == 0 {
+        number_of_loops = u64::MAX;
+    }
 
-    stream::iter(0..jobs.len())
-        .rate_limit(rate_limit_options)
-        .for_each_concurrent(account_balance_options.tasks, |i| {
-            let job = jobs[i];
-            let result_map = result_map_.clone();
-            let web3_pool = web3_pool.clone();
-            async move {
-                log::debug!("Getting balance for account: {:#x}", job);
-                let balance = get_balance(
-                    web3_pool.clone(),
-                    token,
-                    job,
-                    !account_balance_options.hide_gas,
-                )
-                .await
-                .unwrap();
+    for i in 0..number_of_loops {
+        let jobs = jobs.clone();
+        let rate_limit_options = if let Some(interval) = account_balance_options.interval {
+            RateLimitOptions::empty().with_min_interval_sec(interval)
+        } else {
+            RateLimitOptions::empty()
+        };
+        if number_of_loops > 1 {
+            log::info!("Getting balance: Loop number {}/{}", i, number_of_loops);
+        }
+        stream::iter(0..jobs.len())
+            .rate_limit(rate_limit_options)
+            .for_each_concurrent(account_balance_options.tasks, |i| {
+                let job = jobs[i];
+                let result_map = result_map_.clone();
+                let web3_pool = web3_pool.clone();
+                async move {
+                    log::debug!("Getting balance for account: {:#x}", job);
+                    let balance = get_balance(
+                        web3_pool.clone(),
+                        token,
+                        job,
+                        !account_balance_options.hide_gas,
+                    )
+                    .await
+                    .unwrap();
 
-                let gas_balance = balance.gas_balance.map(|b| b.to_string());
-                let token_balance = balance.token_balance.map(|b| b.to_string());
-                log::debug!("{:#x} gas: {:?}", job, gas_balance);
-                log::debug!("{:#x} token: {:?}", job, token_balance);
-                let gas_balance_decimal = balance
-                    .gas_balance
-                    .map(|v| v.to_eth().unwrap_or_default().to_string());
-                let token_balance_decimal = balance
-                    .token_balance
-                    .map(|v| v.to_eth().unwrap_or_default().to_string());
-                let gas_balance_human = gas_balance_decimal.clone().map(|v| {
-                    format!(
-                        "{:.03} {}",
-                        (f64::from_str(&v).unwrap_or(0.0) * 1000.0).floor() / 1000.0,
-                        &chain_cfg.currency_symbol
-                    )
-                });
-                let token_balance_human = token_balance_decimal.clone().map(|v| {
-                    format!(
-                        "{:.03} {}",
-                        (f64::from_str(&v).unwrap_or(0.0) * 1000.0).floor() / 1000.0,
-                        &chain_cfg.token.symbol
-                    )
-                });
-                result_map.borrow_mut().insert(
-                    format!("{:#x}", job),
-                    BalanceResult {
-                        gas: gas_balance,
-                        gas_decimal: gas_balance_decimal,
-                        gas_human: gas_balance_human,
-                        token: token_balance,
-                        token_decimal: token_balance_decimal,
-                        token_human: token_balance_human,
-                    },
-                );
-            }
-        })
-        .await;
+                    let gas_balance = balance.gas_balance.map(|b| b.to_string());
+                    let token_balance = balance.token_balance.map(|b| b.to_string());
+                    log::debug!("{:#x} gas: {:?}", job, gas_balance);
+                    log::debug!("{:#x} token: {:?}", job, token_balance);
+                    let gas_balance_decimal = balance
+                        .gas_balance
+                        .map(|v| v.to_eth().unwrap_or_default().to_string());
+                    let token_balance_decimal = balance
+                        .token_balance
+                        .map(|v| v.to_eth().unwrap_or_default().to_string());
+                    let gas_balance_human = gas_balance_decimal.clone().map(|v| {
+                        format!(
+                            "{:.03} {}",
+                            (f64::from_str(&v).unwrap_or(0.0) * 1000.0).floor() / 1000.0,
+                            &chain_cfg.currency_symbol
+                        )
+                    });
+                    let token_balance_human = token_balance_decimal.clone().map(|v| {
+                        format!(
+                            "{:.03} {}",
+                            (f64::from_str(&v).unwrap_or(0.0) * 1000.0).floor() / 1000.0,
+                            &chain_cfg.token.symbol
+                        )
+                    });
+                    result_map.borrow_mut().insert(
+                        format!("{:#x}", job),
+                        BalanceResult {
+                            gas: gas_balance,
+                            gas_decimal: gas_balance_decimal,
+                            gas_human: gas_balance_human,
+                            token: token_balance,
+                            token_decimal: token_balance_decimal,
+                            token_human: token_balance_human,
+                        },
+                    );
+                }
+            })
+            .await;
+    }
 
     Ok(result_map.take())
 }

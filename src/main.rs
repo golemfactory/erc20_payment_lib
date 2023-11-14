@@ -100,6 +100,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .map(|s| RpcSettings {
                     name: "ENV_RPC".to_string(),
                     endpoint: s.clone(),
+                    skip_validation: None,
                     verify_interval_secs: None,
                     min_interval_ms: None,
                     max_timeout_ms: None,
@@ -245,6 +246,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                         chain_id: chain_cfg.chain_id as u64,
                         endpoint: rpc.endpoint.clone(),
                         backup_level: 0,
+                        skip_validation: rpc.skip_validation.unwrap_or(false),
                         name: rpc.name.clone(),
                         verify_interval_secs: rpc.verify_interval_secs.unwrap_or(120),
                         max_response_time_ms: rpc.max_timeout_ms.unwrap_or(10000),
@@ -275,7 +277,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     }
                 }
                 if is_finished {
-                    enp_info.sort_by_key(|(_idx, _params, info)| info.get_score());
+                    enp_info.sort_by_key(|(_idx, _params, info)| info.penalty_from_ms + info.penalty_from_head_behind);
                     break enp_info;
                 }
                 tokio::time::sleep(std::time::Duration::from_millis(1)).await;

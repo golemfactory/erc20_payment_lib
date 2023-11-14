@@ -31,6 +31,9 @@ pub struct Web3RpcParams {
     pub chain_id: u64,
     pub name: String,
     pub endpoint: String,
+
+    /// Always treat endpoint as valid
+    pub skip_validation: bool,
     /// priority level, when no more endpoints found on priority level 0, endpoints from priority level 1 will be used
     /// Useful when setting up backup paid endpoints (first public endpoints will be used until they will be marked unavailable)
     pub backup_level: i64,
@@ -93,14 +96,5 @@ pub struct Web3RpcInfo {
 }
 
 impl Web3RpcInfo {
-    pub fn get_score(&self) -> i64 {
-        self.penalty_from_last_critical_error
-            + self.penalty_from_ms
-            + self.penalty_from_head_behind
-            + self.bonus_from_last_chosen
-            + self.penalty_from_errors
-    }
-    pub fn get_validation_score(&self) -> i64 {
-        self.penalty_from_ms + self.penalty_from_head_behind
-    }
+
 }

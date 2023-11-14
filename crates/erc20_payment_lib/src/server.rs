@@ -168,14 +168,14 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
             let new_metric = Metric {
                 name: "rpc_endpoint_effective_score".into(),
                 params: params.clone(),
-                value: (endpoint.web3_rpc_info.get_score()).to_string(),
+                value: (endpoint.get_score()).to_string(),
             };
             metrics.get_mut(0).unwrap().metrics.push(new_metric);
 
             let new_metric = Metric {
                 name: "rpc_endpoint_score_validation".into(),
                 params: params.clone(),
-                value: (endpoint.web3_rpc_info.get_validation_score()).to_string(),
+                value: (endpoint.get_validation_score()).to_string(),
             };
             metrics.get_mut(1).unwrap().metrics.push(new_metric);
 

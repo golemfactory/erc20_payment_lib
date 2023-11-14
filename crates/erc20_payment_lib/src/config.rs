@@ -96,6 +96,7 @@ pub struct FaucetClientSettings {
 pub struct RpcSettings {
     pub name: String,
     pub endpoint: String,
+    pub skip_validation: Option<bool>,
     pub backup_level: Option<i64>,
     pub verify_interval_secs: Option<u64>,
     pub min_interval_ms: Option<u64>,

@@ -121,9 +121,9 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
             VerifyEndpointResult::Unreachable => {}
         }
     }
+    m.write().unwrap().web3_rpc_info = web3_rpc_info;
     log::info!(
         "Verification finished score: {}",
-        web3_rpc_info.get_validation_score()
+        m.read().unwrap().get_validation_score()
     );
-    m.write().unwrap().web3_rpc_info = web3_rpc_info;
 }
