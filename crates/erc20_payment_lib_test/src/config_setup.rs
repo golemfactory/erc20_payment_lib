@@ -23,7 +23,7 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
             verify_interval_secs: None,
             min_interval_ms: None,
             max_timeout_ms: None,
-            allowed_head_behind_secs: None,
+            allowed_head_behind_secs: Some(200000000000),
             max_consecutive_errors: None,
         }],
         currency_symbol: "tETH".to_string(),
