@@ -262,7 +262,16 @@ impl Web3RpcPool {
         stats.verify_result = Some(verify_result);
         stats.endpoint_consecutive_errors += 1;
         stats.penalty_from_last_critical_error += 10;
-        if stats.endpoint_consecutive_errors > self.endpoints.get(idx).unwrap().read().unwrap().web3_rpc_params.max_number_of_consecutive_errors {
+        if stats.endpoint_consecutive_errors
+            > self
+                .endpoints
+                .get(idx)
+                .unwrap()
+                .read()
+                .unwrap()
+                .web3_rpc_params
+                .max_number_of_consecutive_errors
+        {
             stats.is_allowed = false;
         }
     }

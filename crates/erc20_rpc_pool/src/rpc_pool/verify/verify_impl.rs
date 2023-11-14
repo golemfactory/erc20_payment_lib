@@ -1,7 +1,7 @@
 use crate::rpc_pool::utils::datetime_from_u256_timestamp;
 use crate::rpc_pool::verify::{VerifyEndpointParams, VerifyEndpointStatus};
 use crate::rpc_pool::VerifyEndpointResult;
-use crate::{Web3RpcEndpoint};
+use crate::Web3RpcEndpoint;
 use chrono::{Duration, Utc};
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
@@ -93,8 +93,8 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
     .await;
 
     let mut web3_rpc_info = m.read().unwrap().web3_rpc_info.clone();
-    let was_already_verified_and_not_allowed = web3_rpc_info.last_verified.is_some()
-        && !web3_rpc_info.is_allowed;
+    let was_already_verified_and_not_allowed =
+        web3_rpc_info.last_verified.is_some() && !web3_rpc_info.is_allowed;
     if was_already_verified_and_not_allowed {
         web3_rpc_info.penalty_from_last_critical_error = 100;
     } else {
@@ -113,20 +113,17 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
                 web3_rpc_info.penalty_from_head_behind += status.head_seconds_behind as i64;
                 web3_rpc_info.is_allowed = true;
             }
-            VerifyEndpointResult::NoBlockInfo => {
-            }
-            VerifyEndpointResult::WrongChainId => {
-            }
-            VerifyEndpointResult::RpcWeb3Error(_) => {
-            }
-            VerifyEndpointResult::OtherNetworkError(_) => {
-            }
-            VerifyEndpointResult::HeadBehind(_) => {
-            }
-            VerifyEndpointResult::Unreachable => {
-            }
+            VerifyEndpointResult::NoBlockInfo => {}
+            VerifyEndpointResult::WrongChainId => {}
+            VerifyEndpointResult::RpcWeb3Error(_) => {}
+            VerifyEndpointResult::OtherNetworkError(_) => {}
+            VerifyEndpointResult::HeadBehind(_) => {}
+            VerifyEndpointResult::Unreachable => {}
         }
     }
-    log::info!("Verification finished score: {}", web3_rpc_info.get_validation_score());
+    log::info!(
+        "Verification finished score: {}",
+        web3_rpc_info.get_validation_score()
+    );
     m.write().unwrap().web3_rpc_info = web3_rpc_info;
 }

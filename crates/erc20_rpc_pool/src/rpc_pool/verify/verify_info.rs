@@ -89,8 +89,6 @@ pub struct Web3RpcInfo {
     /// Give a bonus for last chosen endpoint to switch between endpoints less
     pub bonus_from_last_chosen: i64,
 
-
-
     pub endpoint_consecutive_errors: u64,
 }
 
