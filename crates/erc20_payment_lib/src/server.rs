@@ -134,19 +134,19 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
     metrics.push(MetricGroup {
         metric_help: "# HELP rpc_endpoint_effective_score Effective score of selected rpc endpoint"
             .to_string(),
-        metric_type: "# TYPE gauge".to_string(),
+        metric_type: "# TYPE rpc_endpoint_effective_score gauge".to_string(),
         metrics: Vec::new(),
     });
     metrics.push(MetricGroup {
         metric_help:
             "# HELP rpc_endpoint_score_validation Score (from validation) of selected rpc endpoint"
                 .to_string(),
-        metric_type: "# TYPE gauge".to_string(),
+        metric_type: "# TYPE rpc_endpoint_score_validation gauge".to_string(),
         metrics: Vec::new(),
     });
     metrics.push(MetricGroup {
         metric_help: "# HELP rpc_endpoint_error_count Number of error requests".to_string(),
-        metric_type: "# TYPE counter".to_string(),
+        metric_type: "# TYPE rpc_endpoint_error_count counter".to_string(),
         metrics: Vec::new(),
     });
     metrics.push(MetricGroup {
