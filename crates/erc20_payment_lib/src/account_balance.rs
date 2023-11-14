@@ -78,7 +78,7 @@ pub async fn account_balance(
             account_balance_options.chain_name
         ))?;
     let web3_pool = if let Some(ps) = payment_setup {
-        ps.get_provider(chain_cfg.chain_id as i64).unwrap()
+        ps.get_provider(chain_cfg.chain_id).unwrap()
     } else {
         let web3_pool = Arc::new(Web3RpcPool::new(
             chain_cfg.chain_id as u64,
