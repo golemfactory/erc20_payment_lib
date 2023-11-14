@@ -275,7 +275,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     }
                 }
                 if is_finished {
-                    enp_info.sort_by_key(|(_idx, _params, info)| info.score);
+                    enp_info.sort_by_key(|(_idx, _params, info)| info.get_score());
                     break enp_info;
                 }
                 tokio::time::sleep(std::time::Duration::from_millis(1)).await;

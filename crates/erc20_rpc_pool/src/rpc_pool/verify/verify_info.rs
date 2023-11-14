@@ -75,7 +75,6 @@ pub struct Web3RpcInfo {
     pub web3_rpc_stats: Web3RpcStats,
     pub last_chosen: Option<DateTime<Utc>>,
 
-    pub score: i64,
     /// If endpoint is critical it won't be chosen at all
     pub is_allowed: bool,
     /// If endpoint was critical in previous validation phase give it penalty (halve it for every validation phase)
@@ -89,6 +88,10 @@ pub struct Web3RpcInfo {
     pub penalty_from_ms: i64,
     /// Give a bonus for last chosen endpoint to switch between endpoints less
     pub bonus_from_last_chosen: i64,
+
+
+
+    pub endpoint_consecutive_errors: u64,
 }
 
 impl Web3RpcInfo {

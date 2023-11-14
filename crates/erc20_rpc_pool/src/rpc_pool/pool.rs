@@ -1,4 +1,4 @@
-use crate::rpc_pool::verify::{score_endpoint, verify_endpoint, ReqStats};
+use crate::rpc_pool::verify::{verify_endpoint, ReqStats};
 use crate::rpc_pool::VerifyEndpointResult;
 use crate::{Web3RpcInfo, Web3RpcParams};
 use chrono::Utc;
@@ -229,6 +229,7 @@ impl Web3RpcPool {
         el.request_succeeded_count += 1;
         el.last_success_request = Some(Utc::now());
 
+        stats.endpoint_consecutive_errors = 0;
         stats.web3_rpc_stats.request_count_total_succeeded += 1;
     }
 
@@ -259,8 +260,11 @@ impl Web3RpcPool {
 
         stats.web3_rpc_stats.last_error_request = Some(Utc::now());
         stats.verify_result = Some(verify_result);
-        stats.last_verified = Some(Utc::now());
-        score_endpoint(stats);
+        stats.endpoint_consecutive_errors += 1;
+        stats.penalty_from_last_critical_error += 10;
+        if stats.endpoint_consecutive_errors > self.endpoints.get(idx).unwrap().read().unwrap().web3_rpc_params.max_number_of_consecutive_errors {
+            stats.is_allowed = false;
+        }
     }
 
     pub fn get_endpoints_info(&self) -> Vec<(usize, Web3RpcParams, Web3RpcInfo)> {

@@ -1,7 +1,7 @@
 use crate::rpc_pool::utils::datetime_from_u256_timestamp;
 use crate::rpc_pool::verify::{VerifyEndpointParams, VerifyEndpointStatus};
 use crate::rpc_pool::VerifyEndpointResult;
-use crate::{Web3RpcEndpoint, Web3RpcInfo};
+use crate::{Web3RpcEndpoint};
 use chrono::{Duration, Utc};
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
@@ -64,36 +64,6 @@ async fn verify_endpoint_int(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
     }
 }
 
-pub fn score_endpoint(web3_rpc_info: &mut Web3RpcInfo) {
-    if let Some(verify_result) = &web3_rpc_info.verify_result {
-        match verify_result {
-            VerifyEndpointResult::Ok(status) => {
-                let endpoint_score =
-                    100.0 * (0.0 - (status.check_time_ms as f64 / 1000.0)).exp() + 10.0;
-                web3_rpc_info.score += endpoint_score as i64;
-            }
-            VerifyEndpointResult::NoBlockInfo => {
-                web3_rpc_info.score -= 20;
-            }
-            VerifyEndpointResult::WrongChainId => {
-                web3_rpc_info.score -= 1000;
-            }
-            VerifyEndpointResult::RpcWeb3Error(_) => {
-                web3_rpc_info.score -= 5;
-            }
-            VerifyEndpointResult::OtherNetworkError(_) => {
-                web3_rpc_info.score -= 10;
-            }
-            VerifyEndpointResult::HeadBehind(_) => {
-                web3_rpc_info.score -= 10;
-            }
-            VerifyEndpointResult::Unreachable => {
-                web3_rpc_info.score -= 10;
-            }
-        }
-    }
-}
-
 pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
     let (web3, web3_rpc_info, web3_rpc_params) = {
         (
@@ -123,10 +93,40 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
     .await;
 
     let mut web3_rpc_info = m.read().unwrap().web3_rpc_info.clone();
+    let was_already_verified_and_not_allowed = web3_rpc_info.last_verified.is_some()
+        && !web3_rpc_info.is_allowed;
+    if was_already_verified_and_not_allowed {
+        web3_rpc_info.penalty_from_last_critical_error = 100;
+    } else {
+        web3_rpc_info.penalty_from_last_critical_error /= 2;
+    }
     web3_rpc_info.last_verified = Some(Utc::now());
     web3_rpc_info.verify_result = Some(verify_result.clone());
     web3_rpc_info.penalty_from_errors = 0;
-    score_endpoint(&mut web3_rpc_info);
-    log::info!("Verification finished score: {}", web3_rpc_info.score);
+    web3_rpc_info.penalty_from_ms = 0;
+    web3_rpc_info.penalty_from_head_behind = 0;
+    web3_rpc_info.is_allowed = false;
+    if let Some(verify_result) = &web3_rpc_info.verify_result {
+        match verify_result {
+            VerifyEndpointResult::Ok(status) => {
+                web3_rpc_info.penalty_from_ms += status.check_time_ms as i64 / 10;
+                web3_rpc_info.penalty_from_head_behind += status.head_seconds_behind as i64;
+                web3_rpc_info.is_allowed = true;
+            }
+            VerifyEndpointResult::NoBlockInfo => {
+            }
+            VerifyEndpointResult::WrongChainId => {
+            }
+            VerifyEndpointResult::RpcWeb3Error(_) => {
+            }
+            VerifyEndpointResult::OtherNetworkError(_) => {
+            }
+            VerifyEndpointResult::HeadBehind(_) => {
+            }
+            VerifyEndpointResult::Unreachable => {
+            }
+        }
+    }
+    log::info!("Verification finished score: {}", web3_rpc_info.get_validation_score());
     m.write().unwrap().web3_rpc_info = web3_rpc_info;
 }
