@@ -151,7 +151,7 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
     });
     metrics.push(MetricGroup {
         metric_help: "# HELP rpc_endpoint_success_count Number of succeeded requests".to_string(),
-        metric_type: "# TYPE counter".to_string(),
+        metric_type: "# TYPE rpc_endpoint_success_count counter".to_string(),
         metrics: Vec::new(),
     });
 
