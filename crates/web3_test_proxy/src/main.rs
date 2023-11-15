@@ -646,7 +646,6 @@ async fn main_internal() -> Result<(), Web3ProxyError> {
                 let str = std::fs::read(problem_plan).expect("Cannot read problem plan");
                 let problem_plan: ProblemProject = serde_json::from_slice(&str).expect("Cannot parse problem plan");
 
-                //let frame_cycle = ;
                 let mut problem_project = SortedProblemIterator::from_problem_project(&problem_plan);
 
                 let mut last_time = Instant::now();
