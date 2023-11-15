@@ -18,6 +18,7 @@ pub struct ProblemProject {
     name : String,
     plan_type: String,
     pub frame_interval: f64,
+    pub frame_cycle: Option<u64>,
     entries: Vec<ProblemEntry>
 }
 
@@ -37,7 +38,7 @@ pub struct SortedProblemEntry {
 impl SortedProblemIterator {
 
     // sort problems by frame
-    pub fn from_problem_project(problem_project: ProblemProject) -> SortedProblemIterator {
+    pub fn from_problem_project(problem_project: &ProblemProject) -> SortedProblemIterator {
         let sorted_entries: Vec<SortedProblemEntry> = problem_project.entries
             .iter()
             .flat_map(|entry| { // Use flat_map to handle nested structure

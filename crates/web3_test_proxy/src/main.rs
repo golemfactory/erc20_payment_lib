@@ -646,19 +646,26 @@ async fn main_internal() -> Result<(), Web3ProxyError> {
                 let str = std::fs::read(problem_plan).expect("Cannot read problem plan");
                 let problem_plan: ProblemProject = serde_json::from_slice(&str).expect("Cannot parse problem plan");
 
-                let frame_interval = Duration::from_secs_f64(problem_plan.frame_interval);
-                let mut problem_project = SortedProblemIterator::from_problem_project(problem_plan);
+                //let frame_cycle = ;
+                let mut problem_project = SortedProblemIterator::from_problem_project(&problem_plan);
 
                 let mut last_time = Instant::now();
                 let mut frame_no = 0;
                 loop {
-                    if exit_cnd_.load(std::sync::atomic::Ordering::Relaxed) {
-                        return;
+                    if let Some(frame_cycle) = problem_plan.frame_cycle {
+                        if frame_no >= frame_cycle {
+                            frame_no = 0;
+                            problem_project = SortedProblemIterator::from_problem_project(&problem_plan.clone());
+                            log::info!("Cycle finished, restarting from frame 0");
+                        }
                     }
                     let server_data = server_data_.clone();
 
                     loop {
-                        let sleep_time = frame_interval.as_secs_f64() - last_time.elapsed().as_secs_f64();
+                        if exit_cnd_.load(std::sync::atomic::Ordering::Relaxed) {
+                            return;
+                        }
+                        let sleep_time = problem_plan.frame_interval - last_time.elapsed().as_secs_f64();
                         let sleep_time = sleep_time.min(0.1);
                         if frame_no > 0 && sleep_time > 0.0 {
                             tokio::time::sleep(Duration::from_secs_f64(sleep_time)).await;
@@ -667,28 +674,27 @@ async fn main_internal() -> Result<(), Web3ProxyError> {
                         }
                     }
 
-                    while let Some(problem_entry) = problem_project.get_next_entry(frame_no) {
+                    {
                         let mut shared_data = server_data.shared_data.lock().await;
-                        for key in &problem_entry.keys {
-
-
-                            let key_data = match shared_data.keys.get_mut(key) {
-                                Some(key_data) => key_data,
-                                None => {
-                                    shared_data.keys.insert(key.to_string(), KeyData {
-                                        key: key.to_string(),
-                                        value: "1".to_string(),
-                                        total_calls: 0,
-                                        total_requests: 0,
-                                        calls: VecDeque::new(),
-                                        problems: EndpointSimulateProblems::default(),
-                                    });
-                                    shared_data.keys.get_mut(key).unwrap()
-                                }
-                            };
-
-                            key_data.problems.apply_change(&problem_entry.values);
-                            log::info!("Applied change for key: {}, frame: {}", key, frame_no);
+                        while let Some(problem_entry) = problem_project.get_next_entry(frame_no) {
+                            for key in &problem_entry.keys {
+                                let key_data = match shared_data.keys.get_mut(key) {
+                                    Some(key_data) => key_data,
+                                    None => {
+                                        shared_data.keys.insert(key.to_string(), KeyData {
+                                            key: key.to_string(),
+                                            value: "1".to_string(),
+                                            total_calls: 0,
+                                            total_requests: 0,
+                                            calls: VecDeque::new(),
+                                            problems: EndpointSimulateProblems::default(),
+                                        });
+                                        shared_data.keys.get_mut(key).unwrap()
+                                    }
+                                };
+                                key_data.problems.apply_change(&problem_entry.values);
+                                log::info!("Applied change for key: {}, frame: {}", key, frame_no);
+                            }
                         }
                     }
 
