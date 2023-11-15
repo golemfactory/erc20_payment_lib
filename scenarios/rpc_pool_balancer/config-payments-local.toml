@@ -55,3 +55,10 @@ endpoint = "http://proxy:9400/web3/local2"
 priority = 0
 max-timeout-ms = 5000
 allowed-head-behind-secs = 120
+
+[[chain.mumbai.rpc-endpoints]]
+name = "local3"
+endpoint = "http://proxy:9400/web3/local3"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 120
