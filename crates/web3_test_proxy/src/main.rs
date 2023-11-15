@@ -1,6 +1,7 @@
 mod error;
 mod frontend;
 mod problems;
+mod plan;
 
 extern crate core;
 
@@ -23,6 +24,7 @@ use structopt::StructOpt;
 use crate::frontend::{frontend_serve, redirect_to_frontend};
 use crate::problems::EndpointSimulateProblems;
 use tokio::sync::Mutex;
+use crate::plan::{ProblemProject, SortedProblemIterator};
 
 #[derive(Debug, StructOpt, Clone)]
 pub struct CliOptions {
@@ -63,6 +65,13 @@ pub struct CliOptions {
         default_value = "10000"
     )]
     pub request_queue_size: usize,
+
+
+    #[structopt(
+    long = "problem-plan",
+    help = "Predefined schedule of problems",
+    )]
+    pub problem_plan: Option<String>,
 }
 macro_rules! return_on_error_json {
     ( $e:expr ) => {
@@ -610,6 +619,7 @@ pub async fn get_call(req: HttpRequest, server_data: Data<Box<ServerData>>) -> i
     }))
 }
 
+
 async fn main_internal() -> Result<(), Web3ProxyError> {
     if let Err(err) = dotenv::dotenv() {
         log::error!("Cannot load .env file: {err}");
@@ -623,6 +633,75 @@ async fn main_internal() -> Result<(), Web3ProxyError> {
             keys: HashMap::new(),
         })),
     }));
+
+    let server_data_ = server_data.clone();
+
+    let exit_cnd = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let exit_cnd_ = exit_cnd.clone();
+
+    #[allow(clippy::manual_map)]
+    let fut = if let Some(problem_plan) = cli.problem_plan.clone() {
+        Some(tokio::task::spawn(
+            async move {
+                let str = std::fs::read(problem_plan).expect("Cannot read problem plan");
+                let problem_plan: ProblemProject = serde_json::from_slice(&str).expect("Cannot parse problem plan");
+
+                let frame_interval = Duration::from_secs_f64(problem_plan.frame_interval);
+                let mut problem_project = SortedProblemIterator::from_problem_project(problem_plan);
+
+                let mut last_time = Instant::now();
+                let mut frame_no = 0;
+                loop {
+                    if exit_cnd_.load(std::sync::atomic::Ordering::Relaxed) {
+                        return;
+                    }
+                    let server_data = server_data_.clone();
+
+                    loop {
+                        let sleep_time = frame_interval.as_secs_f64() - last_time.elapsed().as_secs_f64();
+                        let sleep_time = sleep_time.min(0.1);
+                        if frame_no > 0 && sleep_time > 0.0 {
+                            tokio::time::sleep(Duration::from_secs_f64(sleep_time)).await;
+                        } else {
+                            break;
+                        }
+                    }
+
+                    while let Some(problem_entry) = problem_project.get_next_entry(frame_no) {
+                        let mut shared_data = server_data.shared_data.lock().await;
+                        for key in &problem_entry.keys {
+
+
+                            let key_data = match shared_data.keys.get_mut(key) {
+                                Some(key_data) => key_data,
+                                None => {
+                                    shared_data.keys.insert(key.to_string(), KeyData {
+                                        key: key.to_string(),
+                                        value: "1".to_string(),
+                                        total_calls: 0,
+                                        total_requests: 0,
+                                        calls: VecDeque::new(),
+                                        problems: EndpointSimulateProblems::default(),
+                                    });
+                                    shared_data.keys.get_mut(key).unwrap()
+                                }
+                            };
+
+                            key_data.problems.apply_change(&problem_entry.values);
+                            log::info!("Applied change for key: {}, frame: {}", key, frame_no);
+                        }
+                    }
+
+
+                    frame_no += 1;
+                    last_time = Instant::now();
+                }
+            }
+        ))
+    } else {
+        None
+    };
+
 
     let server = HttpServer::new(move || {
         let cors = actix_cors::Cors::default()
@@ -678,6 +757,10 @@ async fn main_internal() -> Result<(), Web3ProxyError> {
 
     server.await.unwrap();
 
+    if let Some(fut) = fut {
+        exit_cnd.store(true, std::sync::atomic::Ordering::Relaxed);
+        fut.await.unwrap();
+    }
     println!("Hello, world!");
     Ok(())
 }
