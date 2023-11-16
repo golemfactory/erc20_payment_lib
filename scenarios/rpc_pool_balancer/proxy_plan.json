@@ -1,7 +1,7 @@
 {
     "name": "Cycle 3 endpoints every one minute",
     "planType": "web3_proxy_program",
-    "frameInterval": 1,
+    "frameInterval": 0.3,
     "frameCycle": 180,
     "entries": [
         {

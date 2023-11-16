@@ -29,34 +29,36 @@ automatic-recover = false
 # set to true to not respect deadlines attached to payments
 ignore-deadlines = false
 
-[chain.mumbai]
-chain-name = "Mumbai testnet"
-chain-id = 80001
-currency-symbol = "tMATIC"
-priority-fee = 1.0
-max-fee-per-gas = 14.0
+[chain.dev]
+chain-name = "Golem testnet"
+chain-id = 987789
+currency-symbol = "tETH"
+priority-fee = 1.1
+max-fee-per-gas = 500.0
 gas-left-warning-limit = 1000000
-transaction-timeout = 60
-token = { address = "0x2036807B0B3aaf5b1858EE822D0e111fDdac7018", symbol = "tGLM" }
-multi-contract = { address = "0x800010D7d0d315DCA795110ecCf0127cBd76b89f", max-at-once = 10 }
+transaction-timeout = 100
+token = { address = "0xfff17584d526aba263025eE7fEF517E4A31D4246", symbol = "tGLM" }
+multi-contract = { address = "0xF9861F83766CD507E0d2749B60d4fD6C68E5B96C", max-at-once = 10 }
 confirmation-blocks = 1
-block-explorer-url = "https://mumbai.polygonscan.com"
+faucet-eth-amount = 10.0
+faucet-glm-amount = 20.0
+block-explorer-url = "http://127.0.0.1:4000"
 
-[[chain.mumbai.rpc-endpoints]]
+[[chain.dev.rpc-endpoints]]
 name = "local1"
 endpoint = "http://proxy:9400/web3/local1"
 priority = 0
 max-timeout-ms = 5000
 allowed-head-behind-secs = 120
 
-[[chain.mumbai.rpc-endpoints]]
+[[chain.dev.rpc-endpoints]]
 name = "local2"
 endpoint = "http://proxy:9400/web3/local2"
 priority = 0
 max-timeout-ms = 5000
 allowed-head-behind-secs = 120
 
-[[chain.mumbai.rpc-endpoints]]
+[[chain.dev.rpc-endpoints]]
 name = "local3"
 endpoint = "http://proxy:9400/web3/local3"
 priority = 0
