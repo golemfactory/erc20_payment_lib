@@ -139,6 +139,7 @@ pub fn parse_request(
     parsed_body: &serde_json::Value,
 ) -> Result<Vec<ParsedRequest>, Web3ProxyError> {
     let mut parsed_requests = Vec::new();
+    let empty_params = Vec::new();
 
     if parsed_body.is_array() {
     } else {
@@ -152,9 +153,7 @@ pub fn parse_request(
         let method = parsed_body["method"]
             .as_str()
             .ok_or(err_custom_create!("method field is missing"))?;
-        let params = parsed_body["params"]
-            .as_array()
-            .ok_or(err_custom_create!("params field is missing"))?;
+        let params = parsed_body["params"].as_array().unwrap_or(&empty_params);
         let mut parsed_call = None;
         if method == "eth_getBalance" {
             if params.is_empty() {
