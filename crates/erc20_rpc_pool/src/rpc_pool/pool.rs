@@ -22,18 +22,19 @@ impl Web3RpcEndpoint {
         if !self.web3_rpc_info.is_allowed {
             return 0.0;
         }
-        let negative_score =
-            self.web3_rpc_info.penalty_from_last_critical_error as f64
+        let negative_score = self.web3_rpc_info.penalty_from_last_critical_error as f64
             + self.web3_rpc_info.penalty_from_ms as f64
             + self.web3_rpc_info.penalty_from_head_behind as f64
             + self.web3_rpc_info.penalty_from_errors as f64;
 
         let negative_score_exp = (-negative_score / 1000.0).exp();
         //negative_score_exp should be in 0 to 1 range
-        negative_score_exp * 75.0
-            + self.web3_rpc_info.bonus_from_last_chosen as f64
+        negative_score_exp * 75.0 + self.web3_rpc_info.bonus_from_last_chosen as f64
     }
     pub fn get_validation_score(&self) -> f64 {
+        if !self.web3_rpc_info.is_allowed {
+            return 0.0;
+        }
         let negative_score = self.web3_rpc_info.penalty_from_ms as f64
             + self.web3_rpc_info.penalty_from_head_behind as f64;
         let negative_score_exp = (-negative_score / 1000.0).exp();
@@ -153,7 +154,7 @@ impl Web3RpcPool {
         (extra_score_idx, extra_score)
     }
 
-    pub async fn choose_best_endpoint(self: Arc<Self>) -> Option<usize> {
+    pub async fn choose_best_endpoint(self: Arc<Self>) -> Option<Vec<usize>> {
         let (extra_score_idx, extra_score) = self.clone().extra_score_from_last_chosen();
         for (idx, el) in self.endpoints.iter().enumerate() {
             el.write().unwrap().web3_rpc_info.bonus_from_last_chosen =
@@ -164,7 +165,7 @@ impl Web3RpcPool {
                 };
         }
 
-        let end = self
+        let mut end = self
             .endpoints
             .iter()
             .enumerate()
@@ -172,15 +173,22 @@ impl Web3RpcPool {
                 element.read().unwrap().web3_rpc_params.skip_validation
                     || element.read().unwrap().web3_rpc_info.is_allowed
             })
-            .max_by_key(|(_idx, element)| (element.read().unwrap().get_score() * 1000.0) as i64)
-            .map(|(idx, _element)| idx);
+            //.max_by_key(|(_idx, element)| (element.read().unwrap().get_score() * 1000.0) as i64)
+            .map(|(idx, _element)| idx)
+            .collect::<Vec<usize>>();
 
-        if let Some(end) = end {
+        end.sort_by_key(|idx| (self.endpoints[*idx].read().unwrap().get_score() * 1000.0) as i64);
+        end.reverse();
+
+        if let Some(first) = end.first() {
             //todo change type system to allow that call
 
             let self_cloned = self.clone();
             tokio::task::spawn(self_cloned.verify_unverified_endpoints());
-            self.last_chosen_endpoints.lock().unwrap().push_front(end);
+            self.last_chosen_endpoints
+                .lock()
+                .unwrap()
+                .push_front(*first);
             Some(end)
         } else {
             let self_cloned = self.clone();
@@ -197,11 +205,13 @@ impl Web3RpcPool {
                         element.read().unwrap().web3_rpc_params.skip_validation
                             || element.read().unwrap().web3_rpc_info.is_allowed
                     })
-                    .max_by_key(|(_idx, element)| (element.read().unwrap().get_score() * 1000.0) as i64)
+                    .max_by_key(|(_idx, element)| {
+                        (element.read().unwrap().get_score() * 1000.0) as i64
+                    })
                     .map(|(idx, _element)| idx)
                 {
                     self.last_chosen_endpoints.lock().unwrap().push_front(el);
-                    return Some(el);
+                    return Some(vec![el]);
                 }
 
                 if is_finished {
