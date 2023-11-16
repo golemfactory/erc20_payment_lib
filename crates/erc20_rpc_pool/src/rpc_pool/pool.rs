@@ -303,11 +303,12 @@ impl Web3RpcPool {
             el.last_error_request = Some(Utc::now());
 
             stats.web3_rpc_stats.last_error_request = Some(Utc::now());
+            stats.web3_rpc_stats.request_count_total_error += 1;
             stats.verify_result = Some(verify_result);
             stats.endpoint_consecutive_errors += 1;
             stats.penalty_from_last_critical_error += 10;
             if stats.endpoint_consecutive_errors > params.max_number_of_consecutive_errors {
-                stats.is_allowed = false;
+                //stats.is_allowed = false;
             }
         } // stats lock is released here
     }
