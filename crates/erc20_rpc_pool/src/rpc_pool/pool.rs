@@ -18,15 +18,27 @@ pub struct Web3RpcEndpoint {
 }
 
 impl Web3RpcEndpoint {
-    pub fn get_score(&self) -> i64 {
-        100 - self.web3_rpc_info.penalty_from_last_critical_error
-            - self.web3_rpc_info.penalty_from_ms
-            - self.web3_rpc_info.penalty_from_head_behind
-            + self.web3_rpc_info.bonus_from_last_chosen
-            - self.web3_rpc_info.penalty_from_errors
+    pub fn get_score(&self) -> f64 {
+        if !self.web3_rpc_info.is_allowed {
+            return 0.0;
+        }
+        let negative_score =
+            self.web3_rpc_info.penalty_from_last_critical_error as f64
+            + self.web3_rpc_info.penalty_from_ms as f64
+            + self.web3_rpc_info.penalty_from_head_behind as f64
+            + self.web3_rpc_info.penalty_from_errors as f64;
+
+        let negative_score_exp = (-negative_score / 1000.0).exp();
+        //negative_score_exp should be in 0 to 1 range
+        negative_score_exp * 75.0
+            + self.web3_rpc_info.bonus_from_last_chosen as f64
     }
-    pub fn get_validation_score(&self) -> i64 {
-        100 - self.web3_rpc_info.penalty_from_ms - self.web3_rpc_info.penalty_from_head_behind
+    pub fn get_validation_score(&self) -> f64 {
+        let negative_score = self.web3_rpc_info.penalty_from_ms as f64
+            + self.web3_rpc_info.penalty_from_head_behind as f64;
+        let negative_score_exp = (-negative_score / 1000.0).exp();
+
+        negative_score_exp * 100.0
     }
 }
 
@@ -160,7 +172,7 @@ impl Web3RpcPool {
                 element.read().unwrap().web3_rpc_params.skip_validation
                     || element.read().unwrap().web3_rpc_info.is_allowed
             })
-            .max_by_key(|(_idx, element)| element.read().unwrap().get_score())
+            .max_by_key(|(_idx, element)| (element.read().unwrap().get_score() * 1000.0) as i64)
             .map(|(idx, _element)| idx);
 
         if let Some(end) = end {
@@ -185,7 +197,7 @@ impl Web3RpcPool {
                         element.read().unwrap().web3_rpc_params.skip_validation
                             || element.read().unwrap().web3_rpc_info.is_allowed
                     })
-                    .max_by_key(|(_idx, element)| element.read().unwrap().get_score())
+                    .max_by_key(|(_idx, element)| (element.read().unwrap().get_score() * 1000.0) as i64)
                     .map(|(idx, _element)| idx)
                 {
                     self.last_chosen_endpoints.lock().unwrap().push_front(el);
