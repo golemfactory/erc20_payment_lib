@@ -78,32 +78,7 @@
                         ]
                     }
                 },
-                "overrides": [
-                    {
-                        "__systemRef": "hideSeriesFrom",
-                        "matcher": {
-                            "id": "byNames",
-                            "options": {
-                                "mode": "exclude",
-                                "names": [
-                                    "{__name__=\"rpc_endpoint_effective_score\", chain_id=\"80001\", instance=\"looper:9350\", job=\"metrics\", name=\"local1\"}"
-                                ],
-                                "prefix": "All except:",
-                                "readOnly": true
-                            }
-                        },
-                        "properties": [
-                            {
-                                "id": "custom.hideFrom",
-                                "value": {
-                                    "legend": false,
-                                    "tooltip": false,
-                                    "viz": true
-                                }
-                            }
-                        ]
-                    }
-                ]
+                "overrides": []
             },
             "gridPos": {
                 "h": 8,
@@ -450,7 +425,7 @@
         "list": []
     },
     "time": {
-        "from": "now-5m",
+        "from": "now-2m",
         "to": "now"
     },
     "timepicker": {},
