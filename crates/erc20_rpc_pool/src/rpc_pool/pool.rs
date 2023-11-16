@@ -154,7 +154,7 @@ impl Web3RpcPool {
         (extra_score_idx, extra_score)
     }
 
-    pub async fn choose_best_endpoint(self: Arc<Self>) -> Option<Vec<usize>> {
+    pub async fn choose_best_endpoints(self: Arc<Self>) -> Vec<usize> {
         let (extra_score_idx, extra_score) = self.clone().extra_score_from_last_chosen();
         for (idx, el) in self.endpoints.iter().enumerate() {
             el.write().unwrap().web3_rpc_info.bonus_from_last_chosen =
@@ -189,7 +189,7 @@ impl Web3RpcPool {
                 .lock()
                 .unwrap()
                 .push_front(*first);
-            Some(end)
+            end
         } else {
             let self_cloned = self.clone();
             let verify_task = tokio::task::spawn(self_cloned.verify_unverified_endpoints());
@@ -211,7 +211,7 @@ impl Web3RpcPool {
                     .map(|(idx, _element)| idx)
                 {
                     self.last_chosen_endpoints.lock().unwrap().push_front(el);
-                    return Some(vec![el]);
+                    return vec![el];
                 }
 
                 if is_finished {
@@ -220,7 +220,7 @@ impl Web3RpcPool {
                 tokio::time::sleep(std::time::Duration::from_millis(10)).await;
             }
             //no endpoint could be selected
-            None
+            vec![]
         }
     }
 

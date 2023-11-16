@@ -20,9 +20,11 @@ impl Web3RpcPool {
     ) -> Result<EthMethodCall::Return, web3::Error> {
         let mut loop_no = 0;
         loop {
-            let idx = self.clone().choose_best_endpoint().await;
+            let idx_vec = self.clone().choose_best_endpoints().await;
 
-            if let Some(idx_vec) = idx {
+            if idx_vec.is_empty() {
+                return Err(web3::Error::Unreachable);
+            } else {
                 for idx in idx_vec {
                     let res = tokio::time::timeout(
                         self.get_max_timeout(idx),
@@ -80,8 +82,6 @@ impl Web3RpcPool {
                     }
                     loop_no += 1;
                 }
-            } else {
-                return Err(web3::Error::Unreachable);
             }
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
