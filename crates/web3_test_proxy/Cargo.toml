@@ -35,4 +35,3 @@ structopt = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
 uuid = { workspace = true }
-snafu = "0.7.5"

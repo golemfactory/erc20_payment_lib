@@ -21,7 +21,7 @@ use secp256k1::SecretKey;
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::Sender;
 
-use crate::account_balance::{account_balance, BalanceOptions};
+use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
 use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
 use crate::sender::service_loop;
@@ -466,10 +466,14 @@ impl PaymentRuntime {
             if let Some(balance_check_loop) =
                 extra_testing_.clone().and_then(|e| e.balance_check_loop)
             {
-                let balance_options = BalanceOptions {
-                    chain_name: "mumbai".to_string(),
+                if config_.chain.values().len() != 1 {
+                    panic!("balance_check_loop can be used only with single chain");
+                }
+                let config_chain = config_.chain.values().next().unwrap().clone();
+                let balance_options = BalanceOptions2 {
+                    chain_name: "dev".to_string(),
                     //dead address
-                    accounts: Some("0x000000000000000000000000000000000000dead".to_string()),
+                    accounts: Some("0x2000000000000000000000000000000000000000".to_string()),
                     hide_gas: false,
                     hide_token: true,
                     block_number: None,
@@ -477,14 +481,22 @@ impl PaymentRuntime {
                     interval: Some(2.0),
                     debug_loop: Some(balance_check_loop),
                 };
-                let _ = account_balance(
+                match test_balance_loop(
                     Some(shared_state_clone),
-                    Some(ps.clone()),
+                    ps.clone(),
                     balance_options,
-                    &config_,
+                    &config_chain,
                 )
-                .await;
-                log::warn!("Balance debug loop finished");
+                .await
+                {
+                    Ok(_) => {
+                        log::info!("Balance debug loop finished");
+                    }
+                    Err(e) => {
+                        log::error!("Balance debug loop finished with error: {}", e);
+                        panic!("Balance debug loop finished with error: {}", e);
+                    }
+                }
                 return;
             }
             if options.skip_service_loop && options.keep_running {

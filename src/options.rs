@@ -1,7 +1,6 @@
 use std::{fmt::Debug, path::PathBuf};
 
-use erc20_payment_lib::account_balance::BalanceOptions;
-use erc20_payment_lib_extra::GenerateOptions;
+use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
 use structopt::StructOpt;
 use web3::types::Address;
 

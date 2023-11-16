@@ -1,6 +1,6 @@
 use crate::config_setup::create_default_config_setup;
-use erc20_payment_lib::account_balance::{account_balance, BalanceOptions, BalanceResult};
 use erc20_payment_lib::error::PaymentError;
+use erc20_payment_lib_extra::{account_balance, BalanceOptions, BalanceResult};
 use std::collections::BTreeMap;
 
 pub async fn test_get_balance(
@@ -16,8 +16,7 @@ pub async fn test_get_balance(
         block_number: None,
         tasks: 4,
         interval: Some(0.001),
-        debug_loop: None,
     };
 
-    account_balance(None, None, account_balance_options.clone(), &config_check).await
+    account_balance(account_balance_options.clone(), &config_check).await
 }

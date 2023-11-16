@@ -61,11 +61,16 @@ impl EndpointSimulateProblems {
         if let Some(malformed_response_chance) = change.malformed_response_chance {
             self.malformed_response_chance = malformed_response_chance;
         }
-        if let Some(skip_sending_raw_transaction_chance) = change.skip_sending_raw_transaction_chance {
+        if let Some(skip_sending_raw_transaction_chance) =
+            change.skip_sending_raw_transaction_chance
+        {
             self.skip_sending_raw_transaction_chance = skip_sending_raw_transaction_chance;
         }
-        if let Some(send_transaction_but_report_failure_chance) = change.send_transaction_but_report_failure_chance {
-            self.send_transaction_but_report_failure_chance = send_transaction_but_report_failure_chance;
+        if let Some(send_transaction_but_report_failure_chance) =
+            change.send_transaction_but_report_failure_chance
+        {
+            self.send_transaction_but_report_failure_chance =
+                send_transaction_but_report_failure_chance;
         }
         if let Some(allow_only_parsed_calls) = change.allow_only_parsed_calls {
             self.allow_only_parsed_calls = allow_only_parsed_calls;

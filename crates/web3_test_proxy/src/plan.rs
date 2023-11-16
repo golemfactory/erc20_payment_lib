@@ -1,8 +1,6 @@
-use std::collections::HashSet;
-use serde::{Deserialize, Serialize};
 use crate::problems::ValuesChangeOptions;
-
-
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -15,11 +13,11 @@ pub struct ProblemEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProblemProject {
-    name : String,
+    name: String,
     plan_type: String,
     pub frame_interval: f64,
     pub frame_cycle: Option<u64>,
-    entries: Vec<ProblemEntry>
+    entries: Vec<ProblemEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,13 +34,15 @@ pub struct SortedProblemEntry {
 }
 
 impl SortedProblemIterator {
-
     // sort problems by frame
     pub fn from_problem_project(problem_project: &ProblemProject) -> SortedProblemIterator {
-        let sorted_entries: Vec<SortedProblemEntry> = problem_project.entries
+        let sorted_entries: Vec<SortedProblemEntry> = problem_project
+            .entries
             .iter()
-            .flat_map(|entry| { // Use flat_map to handle nested structure
-                entry.frames.iter().map(move |&frame| { // Iterate over frames and map to SortedProblemEntry
+            .flat_map(|entry| {
+                // Use flat_map to handle nested structure
+                entry.frames.iter().map(move |&frame| {
+                    // Iterate over frames and map to SortedProblemEntry
                     SortedProblemEntry {
                         frame,
                         keys: entry.keys.clone(),
@@ -69,7 +69,7 @@ impl SortedProblemIterator {
             }
         }
 
-        SortedProblemIterator{
+        SortedProblemIterator {
             sorted_entries,
             current_index: 0,
         }
@@ -79,7 +79,7 @@ impl SortedProblemIterator {
         if let Some(problem_entry) = self.sorted_entries.get(self.current_index) {
             if problem_entry.frame <= current_frame {
                 self.current_index += 1;
-                return Some(problem_entry.clone())
+                return Some(problem_entry.clone());
             }
             None
         } else {
