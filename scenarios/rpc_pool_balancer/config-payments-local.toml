@@ -29,121 +29,52 @@ automatic-recover = false
 # set to true to not respect deadlines attached to payments
 ignore-deadlines = false
 
-[chain.goerli]
-chain-name = "Goerli"
-chain-id = 5
+[chain.dev]
+chain-name = "Golem testnet"
+chain-id = 987789
 currency-symbol = "tETH"
-priority-fee = 0.000001
-max-fee-per-gas = 10.0
+priority-fee = 1.1
+max-fee-per-gas = 500.0
 gas-left-warning-limit = 1000000
 transaction-timeout = 100
-token = { address = "0x33af15c79d64b85ba14aaffaa4577949104b22e8", symbol = "tGLM" }
-multi-contract = { address = "0x7777784f803a7bf1d7f115f849d29ce5706da64a", max-at-once = 10 }
-faucet-client = { max-eth-allowed = 0.009, faucet-srv = "_eth-faucet._tcp", faucet-host = "faucet.testnet.golem.network", faucet-lookup-domain = "dev.golem.network", faucet-srv-port = 4001 }
-mint-contract = { address = "0xCCA41b09C1F50320bFB41BD6822BD0cdBDC7d85C", max-glm-allowed = 400 }
-confirmation-blocks = 0
-block-explorer-url = "https://goerli.etherscan.io"
+token = { address = "0xfff17584d526aba263025eE7fEF517E4A31D4246", symbol = "tGLM" }
+multi-contract = { address = "0xF9861F83766CD507E0d2749B60d4fD6C68E5B96C", max-at-once = 10 }
+confirmation-blocks = 1
+faucet-eth-amount = 10.0
+faucet-glm-amount = 20.0
+block-explorer-url = "http://127.0.0.1:4000"
 
-[[chain.goerli.rpc-endpoints]]
-name = "eth-goerli.g.alchemy.com"
-endpoint = "https://eth-goerli.g.alchemy.com/v2/demo"
-priority = 0
+[[chain.dev.rpc-endpoints]]
+name = "local1"
+endpoint = "http://proxy:9400/web3/local1"
+priority = 1
 max-timeout-ms = 5000
-verify-interval-secs = 600
 allowed-head-behind-secs = 120
 
-[[chain.goerli.rpc-endpoints]]
-name = "eth-goerli.public.blastapi.io"
-endpoint = "https://eth-goerli.public.blastapi.io"
-priority = 0
+[[chain.dev.rpc-endpoints]]
+name = "local2"
+endpoint = "http://proxy:9400/web3/local2"
+priority = 1
 max-timeout-ms = 5000
-verify-interval-secs = 600
 allowed-head-behind-secs = 120
 
-[[chain.goerli.rpc-endpoints]]
-name = "eth-goerli.api.onfinality.io/public"
-endpoint = "https://eth-goerli.api.onfinality.io/public"
-priority = 0
+[[chain.dev.rpc-endpoints]]
+name = "local3"
+endpoint = "http://proxy:9400/web3/local3"
+priority = 1
 max-timeout-ms = 5000
-verify-interval-secs = 600
 allowed-head-behind-secs = 120
 
-[[chain.goerli.rpc-endpoints]]
-name = "rpc.goerli.mudit.blog"
-endpoint = "https://rpc.goerli.mudit.blog"
+[[chain.dev.rpc-endpoints]]
+name = "backup1"
+endpoint = "http://proxy:9400/web3/backup1"
 priority = 0
 max-timeout-ms = 5000
-verify-interval-secs = 600
 allowed-head-behind-secs = 120
 
-[[chain.goerli.rpc-endpoints]]
-name = "endpoints.omniatech.io/v1/eth/goerli/public"
-endpoint = "https://endpoints.omniatech.io/v1/eth/goerli/public"
+[[chain.dev.rpc-endpoints]]
+name = "backup2"
+endpoint = "http://proxy:9400/web3/backup2"
 priority = 0
 max-timeout-ms = 5000
-verify-interval-secs = 600
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "rpc.goerli.eth.gateway.fm"
-endpoint = "https://rpc.goerli.eth.gateway.fm"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 600
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "goerli.blockpi.network/v1/rpc/public"
-endpoint = "https://goerli.blockpi.network/v1/rpc/public"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 600
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"
-endpoint = "https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 600
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "rpc.ankr.com/eth_goerli"
-endpoint = "https://rpc.ankr.com/eth_goerli"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 600
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "ethereum-goerli-rpc.allthatnode.com"
-endpoint = "https://ethereum-goerli-rpc.allthatnode.com"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 600
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "rpc.slock.it/goerli"
-endpoint = "https://rpc.slock.it/goerli"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 600
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "www.ethercluster.com/goerli"
-endpoint = "https://www.ethercluster.com/goerli"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 600
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "rpc.ankr.com/eth_goerli"
-endpoint = "https://rpc.ankr.com/eth_goerli"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 600
 allowed-head-behind-secs = 120
