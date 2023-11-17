@@ -118,6 +118,15 @@
                 }
             ],
             "title": "Total score",
+            "transformations": [
+                {
+                    "id": "renameByRegex",
+                    "options": {
+                        "regex": ".*name=\\\"([a-zA-Z 0-9\\.\\,\\+\\-\\/_]+)\\\".*",
+                        "renamePattern": "$1"
+                    }
+                }
+            ],
             "type": "timeseries"
         },
         {
