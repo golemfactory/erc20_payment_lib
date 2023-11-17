@@ -1,0 +1,80 @@
+[engine]
+# proces interval (in seconds) is to set how often we want to recheck transaction status
+# minimum 1 second, sensible maximum around 60 seconds
+process-interval = 5
+# proces interval after send (in seconds) is to set how long to wait after sending transaction before checking for confirmation
+# sensible minimum 20 seconds, sensible maximum around 60 seconds
+process-interval-after-send = 5
+# proces interval after error (in seconds) is to set how long to wait after encountering error before trying again
+# minimum 1 second, sensible maximum around 60 seconds
+process-interval-after-error = 5
+
+# proces interval after missing gas or token (in seconds)
+# it is starting with checking every process-interval-after-no-gas-or-token-start
+# and then increasing by multiplying by process-interval-after-no-gas-or-token-increase
+# up to process-interval-after-no-gas-or-token-max
+process-interval-after-no-gas-or-token-start = 5
+process-interval-after-no-gas-or-token-max = 5
+process-interval-after-no-gas-or-token-increase = 1.5
+
+# report alive interval (in seconds) is to set how often we want to report that we are alive
+# minimum 1 second, maximum is capped by gather-interval
+report-alive-interval = 10
+# gather interval (in seconds) is to set how often payments are gathered
+# minimum 1 second, no maximum limit
+gather-interval = 60
+# gather payments on payment driver start (otherwise wait for first gather-interval)
+gather-at-start = true
+automatic-recover = false
+# set to true to not respect deadlines attached to payments
+ignore-deadlines = false
+
+[chain.dev]
+chain-name = "Golem testnet"
+chain-id = 987789
+currency-symbol = "tETH"
+priority-fee = 1.1
+max-fee-per-gas = 500.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 100
+token = { address = "0xfff17584d526aba263025eE7fEF517E4A31D4246", symbol = "tGLM" }
+multi-contract = { address = "0xF9861F83766CD507E0d2749B60d4fD6C68E5B96C", max-at-once = 10 }
+confirmation-blocks = 1
+faucet-eth-amount = 10.0
+faucet-glm-amount = 20.0
+block-explorer-url = "http://127.0.0.1:4000"
+
+[[chain.dev.rpc-endpoints]]
+name = "local1"
+endpoint = "http://proxy:9400/web3/local1"
+priority = 1
+max-timeout-ms = 5000
+allowed-head-behind-secs = 120
+
+[[chain.dev.rpc-endpoints]]
+name = "local2"
+endpoint = "http://proxy:9400/web3/local2"
+priority = 1
+max-timeout-ms = 5000
+allowed-head-behind-secs = 120
+
+[[chain.dev.rpc-endpoints]]
+name = "local3"
+endpoint = "http://proxy:9400/web3/local3"
+priority = 1
+max-timeout-ms = 5000
+allowed-head-behind-secs = 120
+
+[[chain.dev.rpc-endpoints]]
+name = "backup1"
+endpoint = "http://proxy:9400/web3/backup1"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 120
+
+[[chain.dev.rpc-endpoints]]
+name = "backup2"
+endpoint = "http://proxy:9400/web3/backup2"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 120

@@ -10,8 +10,8 @@ pub struct VerifyEndpointParams {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct VerifyEndpointStatus {
-    pub(crate) head_seconds_behind: u64,
-    pub(crate) check_time_ms: u64,
+    pub head_seconds_behind: u64,
+    pub check_time_ms: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

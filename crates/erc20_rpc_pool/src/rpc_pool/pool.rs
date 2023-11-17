@@ -27,7 +27,7 @@ impl Web3RpcEndpoint {
             + self.web3_rpc_info.penalty_from_head_behind as f64
             + self.web3_rpc_info.penalty_from_errors as f64;
 
-        let negative_score_exp = (-negative_score / 1000.0).exp();
+        let negative_score_exp = (-negative_score / 500.0).exp();
         //negative_score_exp should be in 0 to 1 range
         negative_score_exp * 75.0 + self.web3_rpc_info.bonus_from_last_chosen as f64
     }
@@ -37,7 +37,7 @@ impl Web3RpcEndpoint {
         }
         let negative_score = self.web3_rpc_info.penalty_from_ms as f64
             + self.web3_rpc_info.penalty_from_head_behind as f64;
-        let negative_score_exp = (-negative_score / 1000.0).exp();
+        let negative_score_exp = (-negative_score / 500.0).exp();
 
         negative_score_exp * 100.0
     }

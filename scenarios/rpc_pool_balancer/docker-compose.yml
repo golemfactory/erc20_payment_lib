@@ -14,12 +14,12 @@ services:
         - ./proxy_plan.json:/proxy_plan.json
   looper:
     image: ghcr.io/golemfactory/erc20_processor:${ERC20_PAYMENT_TAG}
-    command: erc20_processor run --http-addr 0.0.0.0 --http-port 9350 --http --keep-running --balance-check-loop 120
+    command: erc20_processor run --http-addr 0.0.0.0 --http-port 9350 --http --keep-running --balance-check-loop 0
     working_dir: /looper
     ports:
       - 9350:9350
     volumes:
-      - ./config-payments-local.toml:/looper/config-payments-local.toml
+      - ./config-payments-goerli.toml:/looper/config-payments-local.toml
   prometheus:
     image: prom/prometheus
     volumes:

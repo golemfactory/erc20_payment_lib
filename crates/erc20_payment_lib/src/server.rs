@@ -16,6 +16,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use web3::types::Address;
+use erc20_rpc_pool::VerifyEndpointResult;
 
 pub struct ServerData {
     pub shared_state: Arc<Mutex<SharedState>>,
@@ -154,6 +155,17 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
         metric_type: "# TYPE rpc_endpoint_success_count counter".to_string(),
         metrics: Vec::new(),
     });
+    metrics.push(MetricGroup {
+        metric_help: "# HELP rpc_endpoint_ms Endpoint validation time".to_string(),
+        metric_type: "# TYPE rpc_endpoint_ms gauge".to_string(),
+        metrics: Vec::new(),
+    });
+    metrics.push(MetricGroup {
+        metric_help: "# HELP rpc_endpoint_block_delay Time since last block head".to_string(),
+        metric_type: "# TYPE rpc_endpoint_block_delay gauge".to_string(),
+        metrics: Vec::new(),
+    });
+
 
     for (_idx, vec) in pool_ref {
         for (_idx, endpoint) in vec.iter().enumerate() {
@@ -170,14 +182,14 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
                 params: params.clone(),
                 value: (endpoint.get_score()).to_string(),
             };
-            metrics.get_mut(0).unwrap().metrics.push(new_metric);
+            metrics[0].metrics.push(new_metric);
 
             let new_metric = Metric {
                 name: "rpc_endpoint_score_validation".into(),
                 params: params.clone(),
                 value: (endpoint.get_validation_score()).to_string(),
             };
-            metrics.get_mut(1).unwrap().metrics.push(new_metric);
+            metrics[1].metrics.push(new_metric);
 
             let new_metric = Metric {
                 name: "rpc_endpoint_error_count".into(),
@@ -188,7 +200,7 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
                     .request_count_total_error
                     .to_string(),
             };
-            metrics.get_mut(2).unwrap().metrics.push(new_metric);
+            metrics[2].metrics.push(new_metric);
 
             let new_metric = Metric {
                 name: "rpc_endpoint_success_count".into(),
@@ -199,7 +211,31 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
                     .request_count_total_succeeded
                     .to_string(),
             };
-            metrics.get_mut(3).unwrap().metrics.push(new_metric);
+            metrics[3].metrics.push(new_metric);
+
+
+            let (head_behind, check_time_ms) = match &endpoint
+                .web3_rpc_info
+                .verify_result {
+                    Some(VerifyEndpointResult::Ok(res)) => {
+                        (res.head_seconds_behind as i64, res.check_time_ms as i64)
+                    },
+                    _ => {(-1, -1)},
+            };
+
+            let new_metric = Metric {
+                name: "rpc_endpoint_ms".into(),
+                params: params.clone(),
+                value: check_time_ms.to_string()
+            };
+            metrics[4].metrics.push(new_metric);
+
+            let new_metric = Metric {
+                name: "rpc_endpoint_block_delay".into(),
+                params: params.clone(),
+                value: head_behind.to_string()
+            };
+            metrics[5].metrics.push(new_metric);
         }
     }
 
