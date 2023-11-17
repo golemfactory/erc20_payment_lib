@@ -1,0 +1,104 @@
+[engine]
+# proces interval (in seconds) is to set how often we want to recheck transaction status
+# minimum 1 second, sensible maximum around 60 seconds
+process-interval = 5
+# proces interval after send (in seconds) is to set how long to wait after sending transaction before checking for confirmation
+# sensible minimum 20 seconds, sensible maximum around 60 seconds
+process-interval-after-send = 5
+# proces interval after error (in seconds) is to set how long to wait after encountering error before trying again
+# minimum 1 second, sensible maximum around 60 seconds
+process-interval-after-error = 5
+
+# proces interval after missing gas or token (in seconds)
+# it is starting with checking every process-interval-after-no-gas-or-token-start
+# and then increasing by multiplying by process-interval-after-no-gas-or-token-increase
+# up to process-interval-after-no-gas-or-token-max
+process-interval-after-no-gas-or-token-start = 5
+process-interval-after-no-gas-or-token-max = 5
+process-interval-after-no-gas-or-token-increase = 1.5
+
+# report alive interval (in seconds) is to set how often we want to report that we are alive
+# minimum 1 second, maximum is capped by gather-interval
+report-alive-interval = 10
+# gather interval (in seconds) is to set how often payments are gathered
+# minimum 1 second, no maximum limit
+gather-interval = 60
+# gather payments on payment driver start (otherwise wait for first gather-interval)
+gather-at-start = true
+automatic-recover = false
+# set to true to not respect deadlines attached to payments
+ignore-deadlines = false
+
+[chain.ethereum]
+chain-name = "Ethereum"
+chain-id = 1
+currency-symbol = "ETH"
+priority-fee = 1.01
+max-fee-per-gas = 40.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 100
+token = { address = "0x7DD9c5Cba05E151C895FDe1CF355C9A1D5DA6429", symbol = "GLM" }
+confirmation-blocks = 1
+block-explorer-url = "https://etherscan.io"
+
+[[chain.ethereum.rpc-endpoints]]
+name = "eth.llamarpc.com"
+endpoint = "https://eth.llamarpc.com"
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+
+[[chain.ethereum.rpc-endpoints]]
+name = "public.blastapi.io"
+endpoint = "https://eth-mainnet.public.blastapi.io"
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+
+[[chain.ethereum.rpc-endpoints]]
+name = "rpc.ankr.com/eth"
+endpoint = "https://rpc.ankr.com/eth"
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+
+[[chain.ethereum.rpc-endpoints]]
+name = "rpc.flashbots.net"
+endpoint = "https://rpc.flashbots.net"
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+
+[[chain.ethereum.rpc-endpoints]]
+name = "cloudflare-eth.com"
+endpoint = "https://cloudflare-eth.com/"
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+
+[[chain.ethereum.rpc-endpoints]]
+name = "ethereum.publicnode.com"
+endpoint = "https://ethereum.publicnode.com"
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+
+[[chain.ethereum.rpc-endpoints]]
+name = "chainstack"
+endpoint = "https://chainstack.com/"
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+
+
+
+
+
+
