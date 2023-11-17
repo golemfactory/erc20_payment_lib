@@ -90,9 +90,10 @@
             "options": {
                 "legend": {
                     "calcs": [],
-                    "displayMode": "list",
-                    "placement": "bottom",
-                    "showLegend": true
+                    "displayMode": "table",
+                    "placement": "right",
+                    "showLegend": true,
+                    "width": 200
                 },
                 "tooltip": {
                     "mode": "single",
@@ -198,9 +199,10 @@
             "options": {
                 "legend": {
                     "calcs": [],
-                    "displayMode": "list",
-                    "placement": "bottom",
-                    "showLegend": true
+                    "displayMode": "table",
+                    "placement": "right",
+                    "showLegend": true,
+                    "width": 200
                 },
                 "tooltip": {
                     "mode": "single",
@@ -226,6 +228,15 @@
                 }
             ],
             "title": "Validation score",
+            "transformations": [
+                {
+                    "id": "renameByRegex",
+                    "options": {
+                        "regex": ".*name=\\\"([a-zA-Z 0-9\\.\\,\\+\\-\\/_]+)\\\".*",
+                        "renamePattern": "$1"
+                    }
+                }
+            ],
             "type": "timeseries"
         },
         {
@@ -297,9 +308,10 @@
             "options": {
                 "legend": {
                     "calcs": [],
-                    "displayMode": "list",
-                    "placement": "bottom",
-                    "showLegend": true
+                    "displayMode": "table",
+                    "placement": "right",
+                    "showLegend": true,
+                    "width": 200
                 },
                 "tooltip": {
                     "mode": "single",
@@ -325,6 +337,15 @@
                 }
             ],
             "title": "Success requests",
+            "transformations": [
+                {
+                    "id": "renameByRegex",
+                    "options": {
+                        "regex": ".*name=\\\"([a-zA-Z 0-9\\.\\,\\+\\-\\/_]+)\\\".*",
+                        "renamePattern": "$1"
+                    }
+                }
+            ],
             "type": "timeseries"
         },
         {
@@ -396,9 +417,10 @@
             "options": {
                 "legend": {
                     "calcs": [],
-                    "displayMode": "list",
-                    "placement": "bottom",
-                    "showLegend": true
+                    "displayMode": "table",
+                    "placement": "right",
+                    "showLegend": true,
+                    "width": 200
                 },
                 "tooltip": {
                     "mode": "single",
@@ -424,6 +446,15 @@
                 }
             ],
             "title": "Error requests",
+            "transformations": [
+                {
+                    "id": "renameByRegex",
+                    "options": {
+                        "regex": ".*name=\\\"([a-zA-Z 0-9\\.\\,\\+\\-\\/_]+)\\\".*",
+                        "renamePattern": "$1"
+                    }
+                }
+            ],
             "type": "timeseries"
         }
     ],
