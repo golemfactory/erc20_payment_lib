@@ -244,54 +244,30 @@
                 "type": "prometheus",
                 "uid": "PBFA97CFB590B2093"
             },
+            "description": "",
             "fieldConfig": {
                 "defaults": {
                     "color": {
-                        "mode": "palette-classic"
+                        "mode": "continuous-greens"
                     },
                     "custom": {
-                        "axisBorderShow": false,
-                        "axisCenteredZero": false,
-                        "axisColorMode": "text",
-                        "axisLabel": "",
-                        "axisPlacement": "auto",
-                        "barAlignment": 0,
-                        "drawStyle": "line",
-                        "fillOpacity": 0,
-                        "gradientMode": "none",
+                        "fillOpacity": 70,
                         "hideFrom": {
                             "legend": false,
                             "tooltip": false,
                             "viz": false
                         },
                         "insertNulls": false,
-                        "lineInterpolation": "linear",
-                        "lineWidth": 1,
-                        "pointSize": 5,
-                        "scaleDistribution": {
-                            "type": "linear"
-                        },
-                        "showPoints": "auto",
-                        "spanNulls": false,
-                        "stacking": {
-                            "group": "A",
-                            "mode": "none"
-                        },
-                        "thresholdsStyle": {
-                            "mode": "off"
-                        }
+                        "lineWidth": 0,
+                        "spanNulls": false
                     },
                     "mappings": [],
                     "thresholds": {
                         "mode": "absolute",
                         "steps": [
                             {
-                                "color": "green",
+                                "color": "#707070",
                                 "value": null
-                            },
-                            {
-                                "color": "red",
-                                "value": 80
                             }
                         ]
                     }
@@ -306,18 +282,21 @@
             },
             "id": 6,
             "options": {
+                "alignValue": "left",
                 "legend": {
-                    "calcs": [],
-                    "displayMode": "table",
-                    "placement": "right",
-                    "showLegend": true,
-                    "width": 200
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
                 },
+                "mergeValues": true,
+                "rowHeight": 0.9,
+                "showValue": "auto",
                 "tooltip": {
                     "mode": "single",
                     "sort": "none"
                 }
             },
+            "pluginVersion": "10.2.1",
             "targets": [
                 {
                     "datasource": {
@@ -346,7 +325,7 @@
                     }
                 }
             ],
-            "type": "timeseries"
+            "type": "state-timeline"
         },
         {
             "datasource": {
