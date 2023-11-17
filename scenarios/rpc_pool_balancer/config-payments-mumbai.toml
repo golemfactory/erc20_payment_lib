@@ -112,14 +112,14 @@ priority = 0
 max-timeout-ms = 5000
 allowed-head-behind-secs = 60
 
-[[chain.polygon.rpc-endpoints]]
+[[chain.mumbai.rpc-endpoints]]
 name = "archive.allthatnode.com"
 endpoint = "https://polygon-testnet-archive.allthatnode.com:8545"
 priority = 0
 max-timeout-ms = 5000
 allowed-head-behind-secs = 120
 
-[[chain.polygon.rpc-endpoints]]
+[[chain.mumbai.rpc-endpoints]]
 name = "rpc.allthatnode.com"
 endpoint = "https://polygon-testnet-rpc.allthatnode.com:8545"
 priority = 0
