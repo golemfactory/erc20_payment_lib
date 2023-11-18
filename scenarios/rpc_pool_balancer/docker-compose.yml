@@ -19,7 +19,7 @@ services:
     ports:
       - 9350:9350
     volumes:
-      - ./config-payments-ethereum.toml:/looper/config-payments-local.toml
+      - ./config-payments-mumbai.toml:/looper/config-payments-local.toml
   prometheus:
     image: prom/prometheus
     volumes:

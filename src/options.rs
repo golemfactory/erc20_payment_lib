@@ -102,6 +102,12 @@ pub struct MintTestTokensOptions {
         help = "Faucet address contract (leave empty)"
     )]
     pub faucet_contract_address: Option<Address>,
+
+    #[structopt(
+        long = "mint-loop",
+        help = "Address where to sent tokens minted in the loop"
+    )]
+    pub mint_loop_address: Option<Address>,
 }
 
 #[derive(StructOpt)]

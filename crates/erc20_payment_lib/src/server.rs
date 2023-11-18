@@ -9,6 +9,7 @@ use actix_web::http::header::HeaderValue;
 use actix_web::http::{header, StatusCode};
 use actix_web::web::Data;
 use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
+use erc20_rpc_pool::VerifyEndpointResult;
 use serde_json::json;
 use sqlx::SqlitePool;
 use std::collections::BTreeMap;
@@ -16,7 +17,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use web3::types::Address;
-use erc20_rpc_pool::VerifyEndpointResult;
 
 pub struct ServerData {
     pub shared_state: Arc<Mutex<SharedState>>,
@@ -166,7 +166,6 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
         metrics: Vec::new(),
     });
 
-
     for (_idx, vec) in pool_ref {
         for (_idx, endpoint) in vec.iter().enumerate() {
             let endpoint = endpoint.read().unwrap();
@@ -213,27 +212,24 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
             };
             metrics[3].metrics.push(new_metric);
 
-
-            let (head_behind, check_time_ms) = match &endpoint
-                .web3_rpc_info
-                .verify_result {
-                    Some(VerifyEndpointResult::Ok(res)) => {
-                        (res.head_seconds_behind as i64, res.check_time_ms as i64)
-                    },
-                    _ => {(-1, -1)},
+            let (head_behind, check_time_ms) = match &endpoint.web3_rpc_info.verify_result {
+                Some(VerifyEndpointResult::Ok(res)) => {
+                    (res.head_seconds_behind as i64, res.check_time_ms as i64)
+                }
+                _ => (-1, -1),
             };
 
             let new_metric = Metric {
                 name: "rpc_endpoint_ms".into(),
                 params: params.clone(),
-                value: check_time_ms.to_string()
+                value: check_time_ms.to_string(),
             };
             metrics[4].metrics.push(new_metric);
 
             let new_metric = Metric {
                 name: "rpc_endpoint_block_delay".into(),
                 params: params.clone(),
-                value: head_behind.to_string()
+                value: head_behind.to_string(),
             };
             metrics[5].metrics.push(new_metric);
         }

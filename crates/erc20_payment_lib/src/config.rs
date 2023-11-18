@@ -4,8 +4,8 @@ use std::collections::btree_map::BTreeMap as Map;
 use rust_decimal::Decimal;
 use std::path::Path;
 
+use crate::err_custom_create;
 use crate::error::*;
-use crate::{err_custom_create, err_from};
 use tokio::fs;
 use web3::types::Address;
 
@@ -143,7 +143,13 @@ impl Config {
     }
 
     pub async fn load<P: AsRef<Path>>(path: P) -> Result<Self, PaymentError> {
-        match toml::from_slice(&fs::read(&path).await.map_err(err_from!())?) {
+        match toml::from_slice(&fs::read(&path).await.map_err(|e| {
+            err_custom_create!(
+                "Failed to read config file {}. Error {}",
+                path.as_ref().display(),
+                e
+            )
+        })?) {
             Ok(config) => Ok(config),
             Err(e) => Err(err_custom_create!(
                 "Failed to parse toml {}: {}",
