@@ -696,6 +696,7 @@ impl PaymentRuntime {
             from,
             golem_address,
             faucet_contract_address,
+            false,
         )
         .await;
         self.wake.notify_one();
@@ -770,6 +771,7 @@ pub async fn mint_golem_token(
     from: Address,
     glm_address: Address,
     faucet_contract_address: Option<Address>,
+    skip_balance_check: bool,
 ) -> Result<(), PaymentError> {
     let faucet_contract_address = if chain_id == 5 {
         faucet_contract_address
@@ -782,33 +784,35 @@ pub async fn mint_golem_token(
         ));
     };
 
-    let balance = web3
-        .clone()
-        .eth_balance(from, None)
-        .await
-        .map_err(err_from!())?
-        .to_eth_saturate();
-    if balance < Decimal::from_f64(0.005).unwrap() {
-        return Err(err_custom_create!(
+    if !skip_balance_check {
+        let balance = web3
+            .clone()
+            .eth_balance(from, None)
+            .await
+            .map_err(err_from!())?
+            .to_eth_saturate();
+        if balance < Decimal::from_f64(0.005).unwrap() {
+            return Err(err_custom_create!(
             "You need at least 0.005 ETH to continue. You have {} ETH on network with chain id: {} and account {:#x} ",
             balance,
             chain_id,
             from
         ));
-    };
+        };
 
-    let token_balance = get_token_balance(web3.clone(), glm_address, from)
-        .await?
-        .to_eth_saturate();
+        let token_balance = get_token_balance(web3.clone(), glm_address, from)
+            .await?
+            .to_eth_saturate();
 
-    if token_balance > Decimal::from_f64(500.0).unwrap() {
-        return Err(err_custom_create!(
-            "You already have {} tGLM on network with chain id: {} and account {:#x} ",
-            token_balance,
-            chain_id,
-            from
-        ));
-    };
+        if token_balance > Decimal::from_f64(500.0).unwrap() {
+            return Err(err_custom_create!(
+                "You already have {} tGLM on network with chain id: {} and account {:#x} ",
+                token_balance,
+                chain_id,
+                from
+            ));
+        };
+    }
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
     let filter = format!(

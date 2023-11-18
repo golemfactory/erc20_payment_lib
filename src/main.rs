@@ -343,6 +343,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 mint_test_tokens_options.from.unwrap_or(*public_addr),
                 chain_cfg.token.address,
                 mint_test_tokens_options.faucet_contract_address,
+                true,
             )
             .await?;
         }
