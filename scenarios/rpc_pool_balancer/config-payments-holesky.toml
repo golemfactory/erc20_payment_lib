@@ -1,0 +1,100 @@
+[engine]
+# proces interval (in seconds) is to set how often we want to recheck transaction status
+# minimum 1 second, sensible maximum around 60 seconds
+process-interval = 5
+# proces interval after send (in seconds) is to set how long to wait after sending transaction before checking for confirmation
+# sensible minimum 20 seconds, sensible maximum around 60 seconds
+process-interval-after-send = 5
+# proces interval after error (in seconds) is to set how long to wait after encountering error before trying again
+# minimum 1 second, sensible maximum around 60 seconds
+process-interval-after-error = 5
+
+# proces interval after missing gas or token (in seconds)
+# it is starting with checking every process-interval-after-no-gas-or-token-start
+# and then increasing by multiplying by process-interval-after-no-gas-or-token-increase
+# up to process-interval-after-no-gas-or-token-max
+process-interval-after-no-gas-or-token-start = 5
+process-interval-after-no-gas-or-token-max = 5
+process-interval-after-no-gas-or-token-increase = 1.5
+
+# report alive interval (in seconds) is to set how often we want to report that we are alive
+# minimum 1 second, maximum is capped by gather-interval
+report-alive-interval = 10
+# gather interval (in seconds) is to set how often payments are gathered
+# minimum 1 second, no maximum limit
+gather-interval = 60
+# gather payments on payment driver start (otherwise wait for first gather-interval)
+gather-at-start = true
+automatic-recover = false
+# set to true to not respect deadlines attached to payments
+ignore-deadlines = false
+
+[chain.holesky]
+chain-name = "Holesky"
+chain-id = 17000
+currency-symbol = "tETH"
+priority-fee = 0.000001
+max-fee-per-gas = 10.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 100
+token = { address = "0x8888888815bf4DB87e57B609A50f938311EEd068", symbol = "tGLM" }
+multi-contract = { address = "0xAaAAAaA00E1841A63342db7188abA84BDeE236c7", max-at-once = 10 }
+mint-contract = { address = "0xFACe100969FF47EB58d2CF603321B581A84bcEaC", max-glm-allowed = 400 }
+confirmation-blocks = 0
+block-explorer-url = "https://holesky.etherscan.io"
+
+[[chain.holesky.rpc-endpoints]]
+name = "holesky.publicnode.com"
+endpoint = "https://ethereum-holesky.publicnode.com"
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+
+[[chain.holesky.rpc-endpoints]]
+name = "1rpc.io/holesky"
+endpoint = "https://1rpc.io/holesky"
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+
+[[chain.holesky.rpc-endpoints]]
+name = "rpc.ankr.com/eth_holesky"
+endpoint = "https://rpc.ankr.com/eth_holesky"
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+
+[[chain.holesky.rpc-endpoints]]
+name = "holesky.public.blastapi.io"
+endpoint = "https://eth-holesky.public.blastapi.io"
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+
+[[chain.holesky.rpc-endpoints]]
+name = "holesky.drpc.org"
+endpoint = "https://holesky.drpc.org"
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+
+[[chain.holesky.rpc-endpoints]]
+name = "gateway.tenderly.co"
+endpoint = "https://holesky.gateway.tenderly.co"
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+
+[[chain.holesky.rpc-endpoints]]
+name = "holesky.rpc.thirdweb.com"
+endpoint = "https://holesky.rpc.thirdweb.com"
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
