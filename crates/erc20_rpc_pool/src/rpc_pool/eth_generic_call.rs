@@ -1,3 +1,4 @@
+use crate::rpc_pool::pool::{RpcPoolEvent, RpcPoolEventContent};
 use crate::rpc_pool::web3_error_list::check_if_proper_rpc_error;
 use crate::rpc_pool::VerifyEndpointResult;
 use crate::Web3RpcPool;
@@ -31,9 +32,17 @@ impl Web3RpcPool {
                         EthMethodCall::do_call(self.get_web3(idx).eth(), args.clone()),
                     );
 
-                    match res.await {
+                    let err = match res.await {
                         Ok(Ok(balance)) => {
                             self.mark_rpc_success(idx, EthMethodCall::METHOD.to_string());
+                            if let Some(event_sender) = &self.event_sender {
+                                let _ = event_sender
+                                    .send(RpcPoolEvent {
+                                        create_date: chrono::Utc::now(),
+                                        content: RpcPoolEventContent::RpcSuccess,
+                                    })
+                                    .await;
+                            }
                             return Ok(balance);
                         }
                         Ok(Err(e)) => match e {
@@ -41,6 +50,15 @@ impl Web3RpcPool {
                                 let proper = check_if_proper_rpc_error(e.to_string());
                                 if proper {
                                     self.mark_rpc_success(idx, EthMethodCall::METHOD.to_string());
+                                    if let Some(event_sender) = &self.event_sender {
+                                        let _ = event_sender
+                                            .send(RpcPoolEvent {
+                                                create_date: chrono::Utc::now(),
+                                                content: RpcPoolEventContent::RpcSuccess,
+                                            })
+                                            .await;
+                                    }
+                                    return Err(web3::Error::Rpc(e));
                                 } else {
                                     log::warn!("Unknown RPC error: {}", e);
                                     self.mark_rpc_error(
@@ -48,8 +66,8 @@ impl Web3RpcPool {
                                         EthMethodCall::METHOD.to_string(),
                                         VerifyEndpointResult::RpcWeb3Error(e.to_string()),
                                     );
+                                    web3::Error::Rpc(e)
                                 }
-                                return Err(web3::Error::Rpc(e));
                             }
                             _ => {
                                 log::warn!(
@@ -63,9 +81,7 @@ impl Web3RpcPool {
                                     EthMethodCall::METHOD.to_string(),
                                     VerifyEndpointResult::OtherNetworkError(e.to_string()),
                                 );
-                                if loop_no > 3 {
-                                    return Err(e);
-                                }
+                                e
                             }
                         },
                         Err(e) => {
@@ -75,11 +91,22 @@ impl Web3RpcPool {
                                 EthMethodCall::METHOD.to_string(),
                                 VerifyEndpointResult::Unreachable,
                             );
-                            if loop_no > 3 {
-                                return Err(web3::Error::Unreachable);
-                            }
+                            web3::Error::Unreachable
                         }
+                    };
+                    if loop_no >= 4 {
+                        if let Some(event_sender) = &self.event_sender {
+                            let _ = event_sender
+                                .send(RpcPoolEvent {
+                                    create_date: chrono::Utc::now(),
+                                    content: RpcPoolEventContent::RpcError(format!("{}", err)),
+                                })
+                                .await;
+                        }
+                        return Err(err);
                     }
+                    // Wait half a second after encountering an error
+                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                     loop_no += 1;
                 }
             }

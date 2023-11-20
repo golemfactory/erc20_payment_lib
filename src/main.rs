@@ -262,6 +262,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                         min_interval_requests_ms: None,
                     })
                     .collect(),
+                None,
             ));
 
             let task = tokio::task::spawn(web3_pool.clone().verify_unverified_endpoints());

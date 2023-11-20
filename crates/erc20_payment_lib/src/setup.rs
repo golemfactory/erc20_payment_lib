@@ -161,6 +161,7 @@ impl PaymentSetup {
                         min_interval_requests_ms: rpc.min_interval_ms,
                     })
                     .collect(),
+                None,
             ));
             web3_rpc_pool_info.insert(chain_config.1.chain_id, web3_pool.endpoints.to_vec());
 
