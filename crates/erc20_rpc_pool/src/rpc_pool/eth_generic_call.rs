@@ -24,6 +24,14 @@ impl Web3RpcPool {
             let idx_vec = self.clone().choose_best_endpoints().await;
 
             if idx_vec.is_empty() {
+                if let Some(event_sender) = &self.event_sender {
+                    let _ = event_sender
+                        .send(RpcPoolEvent {
+                            create_date: chrono::Utc::now(),
+                            content: RpcPoolEventContent::AllEndpointsFailed,
+                        })
+                        .await;
+                }
                 return Err(web3::Error::Unreachable);
             } else {
                 for idx in idx_vec {

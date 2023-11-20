@@ -47,6 +47,7 @@ impl Web3RpcEndpoint {
 pub enum RpcPoolEventContent {
     RpcSuccess,
     RpcError(String),
+    AllEndpointsFailed,
 }
 
 #[derive(Debug, Clone, Serialize)]
