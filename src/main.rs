@@ -306,7 +306,10 @@ async fn main_internal() -> Result<(), PaymentError> {
                         "Chain {} not found in config file",
                         get_dev_eth_options.chain_name
                     ))?;
-            let cfg = chain_cfg.faucet_client.clone().expect("No faucet client config found");
+            let cfg = chain_cfg
+                .faucet_client
+                .clone()
+                .expect("No faucet client config found");
             let faucet_srv_prefix = cfg.faucet_srv;
             let faucet_lookup_domain = cfg.faucet_lookup_domain;
             let faucet_srv_port = cfg.faucet_srv_port;
