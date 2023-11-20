@@ -339,13 +339,14 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let payment_setup = PaymentSetup::new_empty(&config)?;
             let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
+
             mint_golem_token(
                 web3,
                 &conn,
                 chain_cfg.chain_id as u64,
                 mint_test_tokens_options.from.unwrap_or(*public_addr),
                 chain_cfg.token.address,
-                mint_test_tokens_options.faucet_contract_address,
+                chain_cfg.mint_contract.clone().map(|c| c.address),
                 true,
             )
             .await?;

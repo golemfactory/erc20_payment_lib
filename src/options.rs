@@ -81,7 +81,7 @@ pub struct GenerateKeyOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Get dev eth options if faucet is accessible")]
 pub struct GetDevEthOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
     #[structopt(long = "from", help = "From (has to have private key)")]
@@ -91,17 +91,11 @@ pub struct GetDevEthOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Mint test token options")]
 pub struct MintTestTokensOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
     #[structopt(long = "from", help = "From (has to have private key)")]
     pub from: Option<Address>,
-
-    #[structopt(
-        long = "faucet-address",
-        help = "Faucet address contract (leave empty)"
-    )]
-    pub faucet_contract_address: Option<Address>,
 
     #[structopt(
         long = "mint-loop",
@@ -113,7 +107,7 @@ pub struct MintTestTokensOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Single transfer options")]
 pub struct TransferOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
     #[structopt(short = "r", long = "recipient", help = "Recipient")]
@@ -187,7 +181,7 @@ pub struct ScanBlockchainOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Check web3 RPC")]
 pub struct CheckWeb3RpcOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "goerli")]
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 }
 
@@ -208,7 +202,7 @@ pub struct ExportHistoryStatsOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Payment statistics options")]
 pub struct PaymentStatsOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
     #[structopt(

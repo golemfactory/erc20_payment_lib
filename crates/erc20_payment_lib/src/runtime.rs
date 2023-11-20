@@ -680,7 +680,6 @@ impl PaymentRuntime {
         &self,
         chain_name: &str,
         from: Address,
-        faucet_contract_address: Option<Address>,
     ) -> Result<(), PaymentError> {
         let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
             "Chain {} not found in config file",
@@ -695,7 +694,7 @@ impl PaymentRuntime {
             chain_cfg.chain_id as u64,
             from,
             golem_address,
-            faucet_contract_address,
+            chain_cfg.mint_contract.clone().map(|c| c.address),
             false,
         )
         .await;
@@ -773,14 +772,11 @@ pub async fn mint_golem_token(
     faucet_contract_address: Option<Address>,
     skip_balance_check: bool,
 ) -> Result<(), PaymentError> {
-    let faucet_contract_address = if chain_id == 5 {
-        faucet_contract_address
-            .unwrap_or(Address::from_str("0xCCA41b09C1F50320bFB41BD6822BD0cdBDC7d85C").unwrap())
-    } else if let Some(faucet_contract_address) = faucet_contract_address {
+    let faucet_contract_address = if let Some(faucet_contract_address) = faucet_contract_address {
         faucet_contract_address
     } else {
         return Err(err_custom_create!(
-            "Faucet contract address unknown. If not sure try on goerli network"
+            "Faucet/mint contract address unknown. If not sure try on holesky network"
         ));
     };
 
