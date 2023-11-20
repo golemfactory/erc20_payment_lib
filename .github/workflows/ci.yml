@@ -202,6 +202,7 @@ jobs:
 
       - name: Check ETH balance after getting funds from faucet (should be 0.01)
         run: |
+          sleep 20 # give time for the blockchain to propagate info about the transaction
           [ $(cargo run -- balance -c goerli | jq -r '.[] | .gasDecimal') == "0.01" ]
         env:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
