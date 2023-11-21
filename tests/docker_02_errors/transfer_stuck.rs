@@ -50,9 +50,7 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
                         }
                     }
                 }
-                TransactionConfirmed(_) | StatusChanged(_) => {
-
-                }
+                TransactionConfirmed(_) | StatusChanged(_) | Web3RpcMessage(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
                     panic!("Unexpected message: {:?}", msg);

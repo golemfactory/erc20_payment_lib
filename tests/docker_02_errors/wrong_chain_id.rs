@@ -55,6 +55,7 @@ async fn test_wrong_chain_id() -> Result<(), anyhow::Error> {
                 TransactionConfirmed(_tx_dao) => {
                     tx_confirmed_message_count += 1;
                 },
+                Web3RpcMessage(_) => { },
                 StatusChanged(_) => { },
                 _ => {
                     //maybe remove this if caused too much hassle to maintain

@@ -72,6 +72,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
                         }
                     }
                 }
+                Web3RpcMessage(_) => { }
                 StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain

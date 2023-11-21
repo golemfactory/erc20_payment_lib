@@ -42,6 +42,7 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
                     assert_eq!(tx_dao.gas_limit, Some(21000));
                     tx_confirmed_message_count += 1;
                 },
+                Web3RpcMessage(_) => { }
                 StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain

@@ -48,6 +48,7 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
                         }
                     }
                 }
+                Web3RpcMessage(_) => { }
                 StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
