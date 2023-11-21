@@ -1,7 +1,7 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::PaymentRuntime;
+use erc20_payment_lib::runtime::{PaymentRuntime, PaymentRuntimeArgs};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::U256ConvExt;
@@ -78,17 +78,19 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
         // *** TEST RUN ***
 
         let sp = PaymentRuntime::new(
-            &private_keys.0,
-            std::path::Path::new(""),
-            config.clone(),
+            PaymentRuntimeArgs {
+                secret_keys: private_keys.0,
+                db_filename: Default::default(),
+                config: config.clone(),
+                conn: Some(conn.clone()),
+                options: Some(AdditionalOptions {
+                    keep_running: false,
+                    ..Default::default()
+                }),
+                event_sender: Some(sender),
+                extra_testing: None,
+            },
             signer,
-            Some(conn.clone()),
-            Some(AdditionalOptions {
-                keep_running: false,
-                ..Default::default()
-            }),
-            Some(sender),
-            None
         ).await?;
         sp.runtime_handle.await?;
     }
