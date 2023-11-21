@@ -267,6 +267,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let task = tokio::task::spawn(web3_pool.clone().verify_unverified_endpoints());
             let mut idx_set_completed = HashSet::new();
+
             let enp_info = loop {
                 let is_finished = task.is_finished();
                 let mut enp_info = web3_pool.get_endpoints_info();
@@ -277,8 +278,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                     if let Some(verify_result) = &info.verify_result {
                         idx_set_completed.insert(*idx);
                         log::info!(
-                            "Endpoint no {}, name: {} verified, result: {:?}",
-                            *idx,
+                            "Endpoint no {:?}, name: {} verified, result: {:?}",
+                            idx,
                             params.name,
                             verify_result
                         );
@@ -292,7 +293,15 @@ async fn main_internal() -> Result<(), PaymentError> {
                 }
                 tokio::time::sleep(std::time::Duration::from_millis(1)).await;
             };
-            println!("{}", serde_json::to_string_pretty(&enp_info).unwrap());
+            let enp_info_simple = enp_info
+                .iter()
+                .enumerate()
+                .map(|(idx, (_, params, info))| (idx, params, info))
+                .collect::<Vec<_>>();
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&enp_info_simple).unwrap()
+            );
         }
         PaymentCommands::GetDevEth {
             get_dev_eth_options,

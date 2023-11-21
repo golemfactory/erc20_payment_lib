@@ -32,6 +32,7 @@ use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
 use std::sync::{Arc, RwLock};
+use thunderdome::Arena;
 use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
 use web3::types::{Address, H256, U256};
@@ -405,7 +406,7 @@ impl PaymentRuntime {
         extra_testing: Option<ExtraOptionsForTesting>,
     ) -> Result<PaymentRuntime, PaymentError> {
         let options = options.unwrap_or_default();
-        let mut web3_rpc_pool_info = BTreeMap::<i64, Vec<Arc<RwLock<Web3RpcEndpoint>>>>::new();
+        let mut web3_rpc_pool_info = BTreeMap::<i64, Arena<Arc<RwLock<Web3RpcEndpoint>>>>::new();
 
         let mut payment_setup = PaymentSetup::new(
             &config,
@@ -445,6 +446,12 @@ impl PaymentRuntime {
         let (status_tracker, event_sender) = StatusTracker::new(event_sender);
 
         let ps = payment_setup.clone();
+
+        // Convert BTreeMap of Arenas to BTreeMap of Vec because serde can't serialize Arena
+        let web3_rpc_pool_info = web3_rpc_pool_info
+            .iter()
+            .map(|(k, v)| (*k, v.iter().map(|pair| pair.1.clone()).collect::<Vec<_>>()))
+            .collect::<BTreeMap<_, _>>();
 
         let shared_state = Arc::new(Mutex::new(SharedState {
             inserted: 0,

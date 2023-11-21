@@ -11,6 +11,7 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
+use thunderdome::Arena;
 use web3::types::{Address, U256};
 
 #[derive(Clone, Debug)]
@@ -114,7 +115,7 @@ impl PaymentSetup {
         gather_at_start: bool,
         ignore_deadlines: bool,
         automatic_recover: bool,
-        web3_rpc_pool_info: &mut BTreeMap<i64, Vec<Arc<RwLock<Web3RpcEndpoint>>>>,
+        web3_rpc_pool_info: &mut BTreeMap<i64, Arena<Arc<RwLock<Web3RpcEndpoint>>>>,
     ) -> Result<Self, PaymentError> {
         let mut ps = PaymentSetup {
             chain_setup: BTreeMap::new(),
@@ -163,7 +164,7 @@ impl PaymentSetup {
                     .collect(),
                 None,
             ));
-            web3_rpc_pool_info.insert(chain_config.1.chain_id, web3_pool.endpoints.to_vec());
+            web3_rpc_pool_info.insert(chain_config.1.chain_id, web3_pool.endpoints.clone());
 
             let faucet_eth_amount = match &chain_config.1.faucet_eth_amount {
                 Some(f) => Some((*f).to_u256_from_eth().map_err(err_from!())?),

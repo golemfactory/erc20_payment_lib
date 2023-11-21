@@ -82,7 +82,7 @@ impl Web3RpcPool {
                             log::warn!(
                                 "Error doing call {} from endpoint {}: {}",
                                 EthMethodCall::METHOD,
-                                idx,
+                                self.get_name(idx),
                                 e
                             );
                             self.mark_rpc_error(
@@ -94,7 +94,11 @@ impl Web3RpcPool {
                         }
                     },
                     Err(e) => {
-                        log::warn!("Timeout when getting data from endpoint {}: {}", idx, e);
+                        log::warn!(
+                            "Timeout when getting data from endpoint {}: {}",
+                            self.get_name(idx),
+                            e
+                        );
                         self.mark_rpc_error(
                             idx,
                             EthMethodCall::METHOD.to_string(),
