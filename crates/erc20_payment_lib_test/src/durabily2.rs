@@ -115,20 +115,19 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
                 let sp = PaymentRuntime::new(
                     PaymentRuntimeArgs {
                         secret_keys: private_keys,
+                        db_filename: Default::default(),
                         config: config.clone(),
                         conn: Some(conn_.clone()),
-                        extra_testing: None,
-                        event_sender: None,
-                        db_filename: Default::default(),
                         options: Some(AdditionalOptions {
                             keep_running: false,
                             ..Default::default()
                         }),
+                        event_sender: Some(sender),
+                        extra_testing: None,
                     },
                     signer,
-                )
-                .await
-                .unwrap();
+                ).await.unwrap();
+                sp.runtime_handle.await.unwrap();
             }
         );
 
