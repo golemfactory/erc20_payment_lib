@@ -464,20 +464,6 @@ impl PaymentRuntime {
         })
     }
 
-    pub async fn get_web3_provider(
-        &self,
-        chain_name: &str,
-    ) -> Result<Arc<Web3RpcPool>, PaymentError> {
-        let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
-            "Chain {} not found in config file",
-            chain_name
-        ))?;
-
-        let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
-
-        Ok(web3.clone())
-    }
-
     pub async fn get_unpaid_token_amount(
         &self,
         chain_name: String,
@@ -648,7 +634,7 @@ impl PaymentRuntime {
         receiver: Address,
         amount: U256,
     ) -> Result<VerifyTransactionResult, PaymentError> {
-        let network_name = self.network_name(chain_id).ok_or(err_custom_create!(
+        let _ = self.network_name(chain_id).ok_or(err_custom_create!(
             "Chain {} not found in config file",
             chain_id
         ))?;
@@ -656,7 +642,7 @@ impl PaymentRuntime {
             .get_chain(chain_id)
             .ok_or(err_custom_create!("Chain {} not found", chain_id))?
             .glm_address;
-        let prov = self.get_web3_provider(network_name).await?;
+        let prov = self.setup.get_provider(chain_id)?;
         verify_transaction(
             prov,
             chain_id,
