@@ -1,11 +1,12 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::DriverEventContent::*;
-use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime};
+use erc20_payment_lib::runtime::PaymentRuntime;
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::U256ConvExt;
+use erc20_payment_lib_common::DriverEvent;
+use erc20_payment_lib_common::DriverEventContent::*;
 use erc20_payment_lib_test::*;
 use rust_decimal::prelude::ToPrimitive;
 use std::str::FromStr;

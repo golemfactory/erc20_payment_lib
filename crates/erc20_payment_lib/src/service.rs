@@ -1,7 +1,6 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::db::model::*;
 use crate::db::ops::*;
 use crate::error::{ErrorBag, PaymentError};
 
@@ -12,6 +11,7 @@ use crate::err_from;
 use crate::setup::ChainSetup;
 
 use crate::contracts::encode_erc20_balance_of;
+use erc20_payment_lib_common::model::{ChainTxDao, TransferInDao};
 use erc20_rpc_pool::Web3RpcPool;
 use sqlx::SqlitePool;
 use web3::types::{Address, BlockNumber, CallRequest, U256};

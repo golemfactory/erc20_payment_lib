@@ -1,15 +1,17 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::DriverEventContent::*;
-use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime, TransactionFailedReason};
+use erc20_payment_lib::runtime::PaymentRuntime;
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::U256ConvExt;
+use erc20_payment_lib_common::DriverEventContent::*;
+use erc20_payment_lib_common::{DriverEvent, TransactionFailedReason};
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
+
 #[tokio::test(flavor = "multi_thread")]
 #[rustfmt::skip]
 async fn test_wrong_chain_id() -> Result<(), anyhow::Error> {

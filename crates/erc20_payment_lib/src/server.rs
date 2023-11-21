@@ -1,6 +1,6 @@
 use crate::db::ops::*;
 use crate::eth::get_eth_addr_from_secret;
-use crate::runtime::{FaucetData, SharedState};
+use crate::runtime::SharedState;
 use crate::setup::{ChainSetup, PaymentSetup};
 use crate::transaction::create_token_transfer;
 use actix_files::NamedFile;
@@ -9,6 +9,7 @@ use actix_web::http::header::HeaderValue;
 use actix_web::http::{header, StatusCode};
 use actix_web::web::Data;
 use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
+use erc20_payment_lib_common::FaucetData;
 use erc20_rpc_pool::VerifyEndpointResult;
 use serde_json::json;
 use sqlx::SqlitePool;

@@ -7,7 +7,6 @@ use actix_web::{web, App, HttpServer};
 use csv::ReaderBuilder;
 use erc20_payment_lib::config::{AdditionalOptions, RpcSettings};
 use erc20_payment_lib::db::create_sqlite_connection;
-use erc20_payment_lib::db::model::{ScanDao, TokenTransferDao};
 use erc20_payment_lib::db::ops::{
     delete_scan_info, get_next_transactions_to_process, get_scan_info, insert_token_transfer,
     update_token_transfer, upsert_scan_info,
@@ -37,6 +36,7 @@ use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt};
+use erc20_payment_lib_common::model::{ScanDao, TokenTransferDao};
 use erc20_rpc_pool::{Web3RpcParams, Web3RpcPool};
 use rust_decimal::Decimal;
 use std::sync::Arc;

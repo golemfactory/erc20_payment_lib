@@ -1,9 +1,9 @@
-use crate::db::model::TokenTransferDao;
 use crate::error::PaymentError;
 use crate::error::*;
 use crate::eth::get_eth_addr_from_secret;
 use crate::transaction::create_token_transfer;
 use crate::{err_custom_create, err_from};
+use erc20_payment_lib_common::model::TokenTransferDao;
 use futures::{stream, Stream, StreamExt};
 use rand::Rng;
 use secp256k1::SecretKey;

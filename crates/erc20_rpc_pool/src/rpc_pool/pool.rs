@@ -1,7 +1,8 @@
 use crate::rpc_pool::verify::{verify_endpoint, ReqStats};
 use crate::rpc_pool::VerifyEndpointResult;
 use crate::{Web3RpcInfo, Web3RpcParams};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
+use erc20_payment_lib_common::DriverEvent;
 use futures::future;
 use serde::Serialize;
 use std::collections::VecDeque;
@@ -44,19 +45,6 @@ impl Web3RpcEndpoint {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub enum RpcPoolEventContent {
-    RpcSuccess,
-    RpcError(String),
-    AllEndpointsFailed,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RpcPoolEvent {
-    pub create_date: DateTime<Utc>,
-    pub content: RpcPoolEventContent,
-}
-
 #[derive(Debug)]
 pub struct Web3RpcPool {
     pub chain_id: u64,
@@ -64,14 +52,14 @@ pub struct Web3RpcPool {
     pub endpoints: Arena<Arc<RwLock<Web3RpcEndpoint>>>,
     pub verify_mutex: tokio::sync::Mutex<()>,
     pub last_success_endpoints: Arc<Mutex<VecDeque<Index>>>,
-    pub event_sender: Option<tokio::sync::mpsc::Sender<RpcPoolEvent>>,
+    pub event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
 }
 
 impl Web3RpcPool {
     pub fn new(
         chain_id: u64,
         endpoints: Vec<Web3RpcParams>,
-        events: Option<tokio::sync::mpsc::Sender<RpcPoolEvent>>,
+        events: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     ) -> Self {
         let mut web3_endpoints = Arena::new();
         for endpoint_params in endpoints {

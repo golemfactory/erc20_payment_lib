@@ -1,14 +1,12 @@
 [package]
-name = "erc20_rpc_pool"
-description = "Rpc pool for web3 library"
+name = "erc20_payment_lib_common"
+description = "Payment processor for ERC20 tokens"
 authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
 version = "0.3.7"
 edition = "2021"
 license = "MIT"
 
 [dependencies]
-anyhow = { workspace = true }
-bollard = { workspace = true }
 async-trait = { workspace = true }
 web3 = { workspace = true }
 tokio = { workspace = true }
@@ -19,7 +17,6 @@ hex = { workspace = true }
 humantime = { workspace = true }
 fastrand = { workspace = true }
 futures = { workspace = true }
-futures-util = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 log = { workspace = true }
 rand = { workspace = true }
@@ -33,7 +30,10 @@ toml = { workspace = true }
 actix-web = { workspace = true }
 actix-files = { workspace = true }
 serde_json = { workspace = true }
-thunderdome = { workspace = true }
 uuid = { workspace = true }
-env_logger = { workspace = true }
-erc20_payment_lib_common = { path = "../erc20_payment_lib_common", version = "0.3.7" }
+regex = { workspace = true }
+awc = { workspace = true }
+trust-dns-resolver = { workspace = true }
+thunderdome = { workspace = true }
+url = { workspace = true }
+futures-util = { workspace = true }

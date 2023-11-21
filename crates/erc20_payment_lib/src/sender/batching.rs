@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::str::FromStr;
 
-use crate::db::model::*;
 use crate::db::ops::*;
 use crate::error::{AllowanceRequest, ErrorBag, PaymentError};
 
@@ -12,7 +11,9 @@ use crate::{err_create, err_custom_create, err_from};
 
 use sqlx::SqlitePool;
 
-use crate::runtime::{send_driver_event, DriverEvent, DriverEventContent, TransactionFailedReason};
+use crate::runtime::send_driver_event;
+use erc20_payment_lib_common::model::TokenTransferDao;
+use erc20_payment_lib_common::{DriverEvent, DriverEventContent, TransactionFailedReason};
 use web3::types::{Address, U256};
 
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]

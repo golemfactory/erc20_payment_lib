@@ -1,4 +1,3 @@
-use crate::db::model::*;
 use crate::db::ops::*;
 use crate::error::{ErrorBag, PaymentError};
 use std::sync::Arc;
@@ -9,14 +8,14 @@ use crate::sender::process::{process_transaction, ProcessTransactionResult};
 
 use crate::utils::ConversionError;
 
-use crate::runtime::{
-    send_driver_event, DriverEvent, DriverEventContent, SharedState, TransactionFinishedInfo,
-};
+use crate::runtime::{send_driver_event, SharedState};
 use crate::sender::batching::{gather_transactions_post, gather_transactions_pre};
 use crate::sender::process_allowance;
 use crate::setup::PaymentSetup;
 use crate::signer::Signer;
 use crate::{err_create, err_custom_create, err_from};
+use erc20_payment_lib_common::model::TxDao;
+use erc20_payment_lib_common::{DriverEvent, DriverEventContent, TransactionFinishedInfo};
 use sqlx::SqlitePool;
 use tokio::select;
 use web3::types::U256;

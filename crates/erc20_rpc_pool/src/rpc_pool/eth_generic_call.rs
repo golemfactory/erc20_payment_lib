@@ -1,7 +1,9 @@
-use crate::rpc_pool::pool::{RpcPoolEvent, RpcPoolEventContent};
 use crate::rpc_pool::web3_error_list::check_if_proper_rpc_error;
 use crate::rpc_pool::VerifyEndpointResult;
 use crate::Web3RpcPool;
+use erc20_payment_lib_common::{
+    DriverEvent, DriverEventContent, Web3RpcPoolContent, Web3RpcPoolInfo,
+};
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
 use web3::{api::Eth, helpers::CallFuture};
@@ -26,9 +28,12 @@ impl Web3RpcPool {
             if idx_vec.is_empty() {
                 if let Some(event_sender) = &self.event_sender {
                     let _ = event_sender
-                        .send(RpcPoolEvent {
+                        .send(DriverEvent {
                             create_date: chrono::Utc::now(),
-                            content: RpcPoolEventContent::AllEndpointsFailed,
+                            content: DriverEventContent::Web3RpcMessage(Web3RpcPoolInfo {
+                                chain_id: self.chain_id,
+                                content: Web3RpcPoolContent::AllEndpointsFailed,
+                            }),
                         })
                         .await;
                 }
@@ -46,9 +51,12 @@ impl Web3RpcPool {
                         self.mark_rpc_success(idx, EthMethodCall::METHOD.to_string());
                         if let Some(event_sender) = &self.event_sender {
                             let _ = event_sender
-                                .send(RpcPoolEvent {
+                                .send(DriverEvent {
                                     create_date: chrono::Utc::now(),
-                                    content: RpcPoolEventContent::RpcSuccess,
+                                    content: DriverEventContent::Web3RpcMessage(Web3RpcPoolInfo {
+                                        chain_id: self.chain_id,
+                                        content: Web3RpcPoolContent::Success,
+                                    }),
                                 })
                                 .await;
                         }
@@ -61,9 +69,14 @@ impl Web3RpcPool {
                                 self.mark_rpc_success(idx, EthMethodCall::METHOD.to_string());
                                 if let Some(event_sender) = &self.event_sender {
                                     let _ = event_sender
-                                        .send(RpcPoolEvent {
+                                        .send(DriverEvent {
                                             create_date: chrono::Utc::now(),
-                                            content: RpcPoolEventContent::RpcSuccess,
+                                            content: DriverEventContent::Web3RpcMessage(
+                                                Web3RpcPoolInfo {
+                                                    chain_id: self.chain_id,
+                                                    content: Web3RpcPoolContent::Success,
+                                                },
+                                            ),
                                         })
                                         .await;
                                 }
@@ -110,9 +123,15 @@ impl Web3RpcPool {
                 if loop_no >= 4 {
                     if let Some(event_sender) = &self.event_sender {
                         let _ = event_sender
-                            .send(RpcPoolEvent {
+                            .send(DriverEvent {
                                 create_date: chrono::Utc::now(),
-                                content: RpcPoolEventContent::RpcError(format!("{}", err)),
+                                content: DriverEventContent::Web3RpcMessage(Web3RpcPoolInfo {
+                                    chain_id: self.chain_id,
+                                    content: Web3RpcPoolContent::Error(format!(
+                                        "Web3 rpc call failed {}",
+                                        err
+                                    )),
+                                }),
                             })
                             .await;
                     }

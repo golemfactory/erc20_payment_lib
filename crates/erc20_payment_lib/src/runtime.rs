@@ -23,10 +23,13 @@ use tokio::sync::mpsc::Sender;
 
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
-use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
 use crate::sender::service_loop;
 use crate::utils::{StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
+use erc20_payment_lib_common::{
+    DriverEvent, DriverEventContent, FaucetData, SharedInfoTx, StatusProperty,
+    TransactionFailedReason, TransactionStuckReason,
+};
 use erc20_rpc_pool::{Web3RpcEndpoint, Web3RpcPool};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
@@ -36,93 +39,6 @@ use thunderdome::Arena;
 use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
 use web3::types::{Address, H256, U256};
-
-#[derive(Debug, Clone, Serialize)]
-pub struct SharedInfoTx {
-    pub message: String,
-    pub error: Option<String>,
-    pub skip: bool,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct FaucetData {
-    pub faucet_events: BTreeMap<String, DateTime<Utc>>,
-    pub last_cleanup: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct GasLowInfo {
-    pub tx: TxDao,
-    pub tx_max_fee_per_gas_gwei: Decimal,
-    pub block_date: chrono::DateTime<Utc>,
-    pub block_number: u64,
-    pub block_base_fee_per_gas_gwei: Decimal,
-    pub assumed_min_priority_fee_gwei: Decimal,
-    pub user_friendly_message: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct NoGasDetails {
-    pub tx: TxDao,
-    pub gas_balance: Decimal,
-    pub gas_needed: Decimal,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct NoTokenDetails {
-    pub tx: TxDao,
-    pub sender: Address,
-    pub token_balance: Decimal,
-    pub token_needed: Decimal,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[allow(clippy::large_enum_variant)]
-pub enum TransactionStuckReason {
-    NoGas(NoGasDetails),
-    NoToken(NoTokenDetails),
-    GasPriceLow(GasLowInfo),
-    RPCEndpointProblems(String),
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub enum TransactionFailedReason {
-    InvalidChainId(i64),
-    Unknown,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct TransactionFinishedInfo {
-    pub token_transfer_dao: TokenTransferDao,
-    pub tx_dao: TxDao,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[allow(clippy::large_enum_variant)]
-pub enum DriverEventContent {
-    TransactionConfirmed(TxDao),
-    TransferFinished(TransactionFinishedInfo),
-    ApproveFinished(AllowanceDao),
-    TransactionStuck(TransactionStuckReason),
-    TransactionFailed(TransactionFailedReason),
-    CantSign(TxDao),
-    StatusChanged(Vec<StatusProperty>),
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct DriverEvent {
-    pub create_date: DateTime<Utc>,
-    pub content: DriverEventContent,
-}
-
-impl DriverEvent {
-    pub fn now(content: DriverEventContent) -> Self {
-        DriverEvent {
-            create_date: Utc::now(),
-            content,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedState {
@@ -184,27 +100,6 @@ impl SharedState {
     pub fn delete_tx_info(&mut self, id: i64) {
         self.current_tx_info.remove(&id);
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
-pub enum StatusProperty {
-    InvalidChainId {
-        chain_id: i64,
-    },
-    CantSign {
-        chain_id: i64,
-        address: String,
-    },
-    NoGas {
-        chain_id: i64,
-        address: String,
-        missing_gas: Decimal,
-    },
-    NoToken {
-        chain_id: i64,
-        address: String,
-        missing_token: Decimal,
-    },
 }
 
 struct StatusTracker {
@@ -429,6 +324,7 @@ impl PaymentRuntime {
             config.engine.ignore_deadlines,
             config.engine.automatic_recover,
             &mut web3_rpc_pool_info,
+            event_sender.clone(),
         )?;
         payment_setup.use_transfer_for_single_payment = options.use_transfer_for_single_payment;
         payment_setup.extra_options_for_testing = extra_testing.clone();

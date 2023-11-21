@@ -1,4 +1,4 @@
-use crate::db::model::*;
+use erc20_payment_lib_common::model::TxDao;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
 use sqlx::{Executor, Transaction};

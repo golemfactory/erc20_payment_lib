@@ -4,6 +4,7 @@ use crate::error::PaymentError;
 
 use crate::utils::DecimalConvExt;
 use crate::{err_custom_create, err_from};
+use erc20_payment_lib_common::DriverEvent;
 use erc20_rpc_pool::{Web3RpcEndpoint, Web3RpcParams, Web3RpcPool};
 use rust_decimal::Decimal;
 use secp256k1::SecretKey;
@@ -116,6 +117,7 @@ impl PaymentSetup {
         ignore_deadlines: bool,
         automatic_recover: bool,
         web3_rpc_pool_info: &mut BTreeMap<i64, Arena<Arc<RwLock<Web3RpcEndpoint>>>>,
+        mpsc_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     ) -> Result<Self, PaymentError> {
         let mut ps = PaymentSetup {
             chain_setup: BTreeMap::new(),
@@ -162,7 +164,7 @@ impl PaymentSetup {
                         min_interval_requests_ms: rpc.min_interval_ms,
                     })
                     .collect(),
-                None,
+                mpsc_sender.clone(),
             ));
             web3_rpc_pool_info.insert(chain_config.1.chain_id, web3_pool.endpoints.clone());
 
@@ -272,6 +274,7 @@ impl PaymentSetup {
             false,
             false,
             &mut BTreeMap::new(),
+            None,
         )
     }
 

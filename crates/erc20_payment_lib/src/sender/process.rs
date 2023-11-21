@@ -6,6 +6,11 @@ use crate::db::ops::{
 use crate::error::PaymentError;
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
+use erc20_payment_lib_common::model::TxDao;
+use erc20_payment_lib_common::{
+    DriverEvent, DriverEventContent, GasLowInfo, NoGasDetails, TransactionFailedReason,
+    TransactionStuckReason,
+};
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
 use sqlx::SqlitePool;
@@ -17,12 +22,8 @@ use web3::transports::Http;
 use web3::types::{Address, BlockId, BlockNumber, U256, U64};
 use web3::Web3;
 
-use crate::db::model::TxDao;
 use crate::eth::get_transaction_count;
-use crate::runtime::{
-    remove_transaction_force, send_driver_event, DriverEvent, DriverEventContent, GasLowInfo,
-    NoGasDetails, SharedState, TransactionFailedReason, TransactionStuckReason,
-};
+use crate::runtime::{remove_transaction_force, send_driver_event, SharedState};
 use crate::setup::PaymentSetup;
 use crate::signer::Signer;
 use crate::transaction::check_transaction;

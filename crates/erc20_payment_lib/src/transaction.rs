@@ -1,16 +1,18 @@
 use crate::contracts::*;
-use crate::db::model::*;
 use crate::error::*;
 use crate::eth::get_eth_addr_from_secret;
 use crate::multi::pack_transfers_for_multi_contract;
 use crate::runtime::{
     get_token_balance, get_unpaid_token_amount, remove_transaction_force, send_driver_event,
-    DriverEvent, DriverEventContent, NoGasDetails, NoTokenDetails, TransactionStuckReason,
 };
 use crate::signer::Signer;
 use crate::utils::{datetime_from_u256_timestamp, ConversionError, StringConvExt, U256ConvExt};
 use crate::{err_custom_create, err_from};
 use chrono::Utc;
+use erc20_payment_lib_common::model::{ChainTransferDao, ChainTxDao, TokenTransferDao, TxDao};
+use erc20_payment_lib_common::{
+    DriverEvent, DriverEventContent, NoGasDetails, NoTokenDetails, TransactionStuckReason,
+};
 use erc20_rpc_pool::Web3RpcPool;
 use secp256k1::SecretKey;
 use sqlx::SqlitePool;
