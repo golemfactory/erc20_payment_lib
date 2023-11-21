@@ -400,6 +400,10 @@ pub async fn gather_transactions_post(
                                 //    )),
                                 //)
                                 log::error!("Failed to gather transactions: {:?}", e);
+                                tokio::time::sleep(std::time::Duration::from_secs(
+                                    payment_setup.process_interval_after_error,
+                                ))
+                                .await;
                             }
                         }
                     }
@@ -464,6 +468,10 @@ pub async fn gather_transactions_post(
                                 }
                             }
                             log::error!("Failed to gather transactions: {:?}", e);
+                            tokio::time::sleep(std::time::Duration::from_secs(
+                                payment_setup.process_interval_after_error,
+                            ))
+                            .await;
                         }
                     }
                 }
