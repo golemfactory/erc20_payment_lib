@@ -4,7 +4,9 @@ use std::str::FromStr;
 use crate::db::ops::*;
 use crate::error::{AllowanceRequest, ErrorBag, PaymentError};
 
-use crate::transaction::{create_erc20_transfer, create_erc20_transfer_multi, create_eth_transfer};
+use crate::transaction::{
+    create_erc20_transfer, create_erc20_transfer_multi, create_eth_transfer, MultiTransferArgs,
+};
 
 use crate::setup::PaymentSetup;
 use crate::{err_create, err_custom_create, err_from};
@@ -224,16 +226,16 @@ pub async fn gather_transactions_batch_multi(
                     erc20_to.len()
                 );
 
-                create_erc20_transfer_multi(
-                    Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
-                    multi_contract_address,
+                create_erc20_transfer_multi(MultiTransferArgs {
+                    from: Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
+                    contract: multi_contract_address,
                     erc20_to,
-                    erc20_amounts,
-                    token_transfer.chain_id as u64,
-                    None,
-                    use_direct_method,
-                    use_unpacked_method,
-                )?
+                    erc20_amount: erc20_amounts,
+                    chain_id: token_transfer.chain_id as u64,
+                    gas_limit: None,
+                    direct: use_direct_method,
+                    unpacked: use_unpacked_method,
+                })?
             } else {
                 log::error!(
                     "Multi contract address not set, but it is needed to process transactions"

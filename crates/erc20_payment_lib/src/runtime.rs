@@ -321,6 +321,16 @@ pub struct PaymentRuntimeArgs {
     pub extra_testing: Option<ExtraOptionsForTesting>,
 }
 
+pub struct TransferArgs {
+    pub chain_name: String,
+    pub from: Address,
+    pub receiver: Address,
+    pub tx_type: TransferType,
+    pub amount: U256,
+    pub payment_id: String,
+    pub deadline: Option<DateTime<Utc>>,
+}
+
 impl PaymentRuntime {
     pub async fn new(
         payment_runtime_args: PaymentRuntimeArgs,
@@ -523,23 +533,17 @@ impl PaymentRuntime {
         Ok(gas_balance)
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub async fn transfer(
-        &self,
-        chain_name: &str,
-        from: Address,
-        receiver: Address,
-        tx_type: TransferType,
-        amount: U256,
-        payment_id: &str,
-        deadline: Option<DateTime<Utc>>,
-    ) -> Result<(), PaymentError> {
-        let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
-            "Chain {} not found in config file",
-            chain_name
-        ))?;
+    pub async fn transfer(&self, transfer_args: TransferArgs) -> Result<(), PaymentError> {
+        let chain_cfg =
+            self.config
+                .chain
+                .get(&transfer_args.chain_name)
+                .ok_or(err_custom_create!(
+                    "Chain {} not found in config file",
+                    transfer_args.chain_name
+                ))?;
 
-        let token_addr = match tx_type {
+        let token_addr = match transfer_args.tx_type {
             TransferType::Token => {
                 let address = chain_cfg.token.address;
                 Some(address)
@@ -548,12 +552,12 @@ impl PaymentRuntime {
         };
 
         let token_transfer = create_token_transfer(
-            from,
-            receiver,
+            transfer_args.from,
+            transfer_args.receiver,
             chain_cfg.chain_id,
-            Some(payment_id),
+            Some(&transfer_args.payment_id),
             token_addr,
-            amount,
+            transfer_args.amount,
         );
 
         insert_token_transfer(&self.conn, &token_transfer)
@@ -561,7 +565,7 @@ impl PaymentRuntime {
             .map_err(err_from!())?;
 
         if !self.setup.ignore_deadlines {
-            if let Some(deadline) = deadline {
+            if let Some(deadline) = transfer_args.deadline {
                 let mut s = self.shared_state.lock().await;
 
                 let new_time = s

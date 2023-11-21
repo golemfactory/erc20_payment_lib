@@ -31,7 +31,7 @@ use erc20_payment_lib::runtime::{
 };
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
-use erc20_payment_lib::transaction::import_erc20_txs;
+use erc20_payment_lib::transaction::{import_erc20_txs, ImportErc20TxsArgs};
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 
 use erc20_payment_lib::faucet_client::faucet_donate;
@@ -630,16 +630,16 @@ async fn main_internal() -> Result<(), PaymentError> {
                 }
             }
 
-            let txs = import_erc20_txs(
-                web3.clone(),
-                chain_cfg.token.address,
-                chain_cfg.chain_id,
-                Some(&[sender]),
-                None,
+            let txs = import_erc20_txs(ImportErc20TxsArgs {
+                web3: web3.clone(),
+                erc20_address: chain_cfg.token.address,
+                chain_id: chain_cfg.chain_id,
+                filter_by_senders: Some([sender].to_vec()),
+                filter_by_receivers: None,
                 start_block,
-                end_block,
-                scan_blockchain_options.blocks_at_once,
-            )
+                scan_end_block: end_block,
+                blocks_at_once: scan_blockchain_options.blocks_at_once,
+            })
             .await
             .unwrap();
 
