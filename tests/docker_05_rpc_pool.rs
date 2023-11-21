@@ -48,6 +48,7 @@ async fn test_rpc_pool() -> Result<(), anyhow::Error> {
                     tx_dao_return = Some(tx_dao);
                     tx_confirmed_message_count += 1;
                 },
+                Web3RpcMessage(_) => { }
                 StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
