@@ -24,6 +24,10 @@ pub enum StatusProperty {
         address: String,
         missing_token: Decimal,
     },
+    Web3RpcError {
+        chain_id: i64,
+        error: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]

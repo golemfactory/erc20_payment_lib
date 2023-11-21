@@ -28,7 +28,7 @@ use crate::utils::{StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
 use erc20_payment_lib_common::{
     DriverEvent, DriverEventContent, FaucetData, SharedInfoTx, StatusProperty,
-    TransactionFailedReason, TransactionStuckReason,
+    TransactionFailedReason, TransactionStuckReason, Web3RpcPoolContent,
 };
 use erc20_rpc_pool::{Web3RpcEndpoint, Web3RpcPool};
 use rust_decimal::prelude::FromPrimitive;
@@ -193,21 +193,22 @@ impl StatusTracker {
     fn new(mut sender: Option<Sender<DriverEvent>>) -> (Self, Sender<DriverEvent>) {
         let (status_tx, mut status_rx) = tokio::sync::mpsc::channel::<DriverEvent>(1);
         let status = Arc::new(Mutex::new(Vec::new()));
-        let status2 = Arc::clone(&status);
+        let status_ = Arc::clone(&status);
 
         tokio::spawn(async move {
+            let status = status_;
             while let Some(ev) = status_rx.recv().await {
                 let emit_changed = match &ev.content {
                     DriverEventContent::TransactionFailed(
                         TransactionFailedReason::InvalidChainId(chain_id),
                     ) => Self::update(
-                        status2.lock().await.deref_mut(),
+                        status.lock().await.deref_mut(),
                         StatusProperty::InvalidChainId {
                             chain_id: *chain_id,
                         },
                     ),
                     DriverEventContent::CantSign(tx) => Self::update(
-                        status2.lock().await.deref_mut(),
+                        status.lock().await.deref_mut(),
                         StatusProperty::CantSign {
                             chain_id: tx.chain_id,
                             address: tx.from_addr.clone(),
@@ -219,7 +220,7 @@ impl StatusTracker {
                         let missing_gas = details.gas_balance - details.gas_needed;
 
                         Self::update(
-                            status2.lock().await.deref_mut(),
+                            status.lock().await.deref_mut(),
                             StatusProperty::NoGas {
                                 chain_id: details.tx.chain_id,
                                 address: details.tx.from_addr.clone(),
@@ -232,7 +233,7 @@ impl StatusTracker {
                     )) => {
                         let missing_token = details.token_needed - details.token_balance;
                         Self::update(
-                            status2.lock().await.deref_mut(),
+                            status.lock().await.deref_mut(),
                             StatusProperty::NoToken {
                                 chain_id: details.tx.chain_id,
                                 address: details.tx.from_addr.clone(),
@@ -242,9 +243,31 @@ impl StatusTracker {
                     }
                     DriverEventContent::TransferFinished(transaction_finished_info) => {
                         Self::clear_issues(
-                            status2.lock().await.deref_mut(),
+                            status.lock().await.deref_mut(),
                             transaction_finished_info.token_transfer_dao.chain_id,
                         )
+                    }
+                    DriverEventContent::Web3RpcMessage(rpc_pool_info) => {
+                        match &rpc_pool_info.content {
+                            Web3RpcPoolContent::Success => {
+                                //Self::clear_issues(status.lock().await.deref_mut(), rpc_pool_info.chain_id)
+                                false
+                            }
+                            Web3RpcPoolContent::Error(err) => Self::update(
+                                status.lock().await.deref_mut(),
+                                StatusProperty::Web3RpcError {
+                                    chain_id: rpc_pool_info.chain_id as i64,
+                                    error: err.clone(),
+                                },
+                            ),
+                            Web3RpcPoolContent::AllEndpointsFailed => Self::update(
+                                status.lock().await.deref_mut(),
+                                StatusProperty::Web3RpcError {
+                                    chain_id: rpc_pool_info.chain_id as i64,
+                                    error: "All endpoints failed".to_string(),
+                                },
+                            ),
+                        }
                     }
 
                     _ => false,
@@ -255,7 +278,7 @@ impl StatusTracker {
                     if emit_changed {
                         sender
                             .send(DriverEvent::now(DriverEventContent::StatusChanged(
-                                status2.lock().await.clone(),
+                                status.lock().await.clone(),
                             )))
                             .await
                             .ok();
