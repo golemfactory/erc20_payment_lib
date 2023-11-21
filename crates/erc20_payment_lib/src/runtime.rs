@@ -9,7 +9,7 @@ use crate::transaction::{create_faucet_mint, create_token_transfer, find_receipt
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
 use std::ops::DerefMut;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use crate::error::{ErrorBag, PaymentError};
@@ -311,58 +311,49 @@ pub struct PaymentRuntime {
     config: Config,
 }
 
+pub struct PaymentRuntimeArgs {
+    pub secret_keys: Vec<SecretKey>,
+    pub db_filename: PathBuf,
+    pub config: config::Config,
+    pub conn: Option<SqlitePool>,
+    pub options: Option<AdditionalOptions>,
+    pub event_sender: Option<Sender<DriverEvent>>,
+    pub extra_testing: Option<ExtraOptionsForTesting>,
+}
+
 impl PaymentRuntime {
-    #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        secret_keys: &[SecretKey],
-        db_filename: &Path,
-        config: config::Config,
+        payment_runtime_args: PaymentRuntimeArgs,
         signer: impl Signer + Send + Sync + 'static,
-        conn: Option<SqlitePool>,
-        options: Option<AdditionalOptions>,
-        event_sender: Option<Sender<DriverEvent>>,
-        extra_testing: Option<ExtraOptionsForTesting>,
     ) -> Result<PaymentRuntime, PaymentError> {
-        let options = options.unwrap_or_default();
+        let options = payment_runtime_args.options.unwrap_or_default();
         let mut web3_rpc_pool_info = BTreeMap::<i64, Arena<Arc<RwLock<Web3RpcEndpoint>>>>::new();
 
         let mut payment_setup = PaymentSetup::new(
-            &config,
-            secret_keys.to_vec(),
-            !options.keep_running,
-            options.generate_tx_only,
-            options.skip_multi_contract_check,
-            config.engine.process_interval,
-            config.engine.process_interval_after_error,
-            config.engine.process_interval_after_no_gas_or_token_start,
-            config.engine.process_interval_after_no_gas_or_token_max,
-            config
-                .engine
-                .process_interval_after_no_gas_or_token_increase,
-            config.engine.process_interval_after_send,
-            config.engine.report_alive_interval,
-            config.engine.gather_interval,
-            config.engine.mark_as_unrecoverable_after_seconds,
-            config.engine.gather_at_start,
-            config.engine.ignore_deadlines,
-            config.engine.automatic_recover,
+            &payment_runtime_args.config,
+            payment_runtime_args.secret_keys.to_vec(),
+            &options,
             &mut web3_rpc_pool_info,
-            event_sender.clone(),
+            payment_runtime_args.event_sender.clone(),
         )?;
         payment_setup.use_transfer_for_single_payment = options.use_transfer_for_single_payment;
-        payment_setup.extra_options_for_testing = extra_testing.clone();
+        payment_setup.extra_options_for_testing = payment_runtime_args.extra_testing.clone();
         payment_setup.contract_use_direct_method = options.contract_use_direct_method;
         payment_setup.contract_use_unpacked_method = options.contract_use_unpacked_method;
         log::debug!("Starting payment engine: {:#?}", payment_setup);
 
-        let conn = if let Some(conn) = conn {
+        let conn = if let Some(conn) = payment_runtime_args.conn {
             conn
         } else {
-            log::info!("connecting to sqlite file db: {}", db_filename.display());
-            create_sqlite_connection(Some(db_filename), None, false, true).await?
+            log::info!(
+                "connecting to sqlite file db: {}",
+                payment_runtime_args.db_filename.display()
+            );
+            create_sqlite_connection(Some(&payment_runtime_args.db_filename), None, false, true)
+                .await?
         };
 
-        let (status_tracker, event_sender) = StatusTracker::new(event_sender);
+        let (status_tracker, event_sender) = StatusTracker::new(payment_runtime_args.event_sender);
 
         let ps = payment_setup.clone();
 
@@ -386,8 +377,8 @@ impl PaymentRuntime {
 
         let notify = Arc::new(Notify::new());
         let notify_ = notify.clone();
-        let extra_testing_ = extra_testing.clone();
-        let config_ = config.clone();
+        let extra_testing_ = payment_runtime_args.extra_testing.clone();
+        let config_ = payment_runtime_args.config.clone();
         let jh = tokio::task::spawn(async move {
             if let Some(balance_check_loop) =
                 extra_testing_.clone().and_then(|e| e.balance_check_loop)
@@ -460,7 +451,7 @@ impl PaymentRuntime {
             wake: notify,
             conn,
             status_tracker,
-            config,
+            config: payment_runtime_args.config,
         })
     }
 

@@ -9,12 +9,12 @@ use erc20_payment_lib_common::model::TxDao;
 use erc20_payment_lib_common::DriverEvent;
 use erc20_payment_lib_common::DriverEventContent::*;
 use erc20_payment_lib_test::*;
+use erc20_rpc_pool::Web3RpcPool;
 use rust_decimal::prelude::ToPrimitive;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use web3::types::{Address, H256, U256};
-use erc20_rpc_pool::Web3RpcPool;
 use web3_test_proxy_client::list_transactions_human;
 
 #[tokio::test(flavor = "multi_thread")]
