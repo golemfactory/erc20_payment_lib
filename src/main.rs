@@ -25,7 +25,10 @@ use std::env;
 use std::str::FromStr;
 
 use crate::stats::{export_stats, run_stats};
-use erc20_payment_lib::runtime::{get_token_balance, mint_golem_token, PaymentRuntimeArgs, remove_last_unsent_transactions, remove_transaction_force};
+use erc20_payment_lib::runtime::{
+    get_token_balance, mint_golem_token, remove_last_unsent_transactions, remove_transaction_force,
+    PaymentRuntimeArgs,
+};
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::import_erc20_txs;
@@ -189,7 +192,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                     extra_testing: extra_testing_options,
                 },
                 signer,
-            ).await?;
+            )
+            .await?;
 
             let server_data = web::Data::new(Box::new(ServerData {
                 shared_state: sp.shared_state.clone(),

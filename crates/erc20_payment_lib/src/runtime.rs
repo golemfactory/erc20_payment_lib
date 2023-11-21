@@ -9,7 +9,7 @@ use crate::transaction::{create_faucet_mint, create_token_transfer, find_receipt
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
 use std::ops::DerefMut;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use crate::error::{ErrorBag, PaymentError};
