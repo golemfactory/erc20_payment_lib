@@ -325,6 +325,7 @@ pub async fn web3(
 
     let mut rng = rand::thread_rng();
     let mut response_body_str = None;
+    let mut is_response_type_json = false;
 
     let status_code = if problems.error_chance > 0.0
         && rng.gen_range(0.0..1.0) < problems.error_chance
@@ -358,6 +359,7 @@ pub async fn web3(
                 "result": random_hash})
             .to_string(),
         );
+        is_response_type_json = true;
         StatusCode::OK
     } else {
         let client = awc::Client::new();
@@ -460,7 +462,13 @@ pub async fn web3(
         }
     }
     if let Some(response_body_str) = response_body_str {
-        HttpResponse::build(status_code).body(response_body_str)
+        if is_response_type_json {
+            HttpResponse::build(status_code)
+                .content_type("application/json")
+                .body(response_body_str)
+        } else {
+            HttpResponse::build(status_code).body(response_body_str)
+        }
     } else {
         HttpResponse::build(status_code).finish()
     }

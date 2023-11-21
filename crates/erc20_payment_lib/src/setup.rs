@@ -124,7 +124,7 @@ impl PaymentSetup {
                 .process_interval_after_no_gas_or_token_increase,
             process_interval_after_send: config.engine.process_interval_after_send,
             report_alive_interval: config.engine.report_alive_interval,
-            gather_interval: config.engine.report_alive_interval,
+            gather_interval: config.engine.gather_interval,
             gather_at_start: config.engine.gather_at_start,
             mark_as_unrecoverable_after_seconds: config
                 .engine
