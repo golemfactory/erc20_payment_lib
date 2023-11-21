@@ -63,6 +63,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
                     tx_dao_return = Some(tx_dao);
                     tx_confirmed_message_count += 1;
                 },
+                Web3RpcMessage(_) => { }
                 StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
