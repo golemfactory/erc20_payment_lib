@@ -1,5 +1,5 @@
 use erc20_payment_lib::config;
-use erc20_payment_lib::config::{Chain, Config, Engine, MultiContractSettings, Token};
+use erc20_payment_lib::config::{Chain, Config, Engine, MultiContractSettings, RpcSettings, Token};
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::utils::get_env_bool_value;
 use rust_decimal::prelude::FromPrimitive;
@@ -15,7 +15,17 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
     let chain = Chain {
         chain_name: "dev".to_string(),
         chain_id: 987789,
-        rpc_endpoints: vec![format!("{}/web3/{}", proxy_url_base, proxy_key)],
+        rpc_endpoints: vec![RpcSettings {
+            name: format!("{}/web3/{}", proxy_url_base, proxy_key),
+            endpoint: format!("{}/web3/{}", proxy_url_base, proxy_key),
+            skip_validation: None,
+            backup_level: None,
+            verify_interval_secs: None,
+            min_interval_ms: None,
+            max_timeout_ms: None,
+            allowed_head_behind_secs: Some(200000000000),
+            max_consecutive_errors: None,
+        }],
         currency_symbol: "tETH".to_string(),
         priority_fee: Decimal::from_f64(1.1).unwrap(),
         max_fee_per_gas: Decimal::from_f64(500.0).unwrap(),

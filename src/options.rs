@@ -63,6 +63,12 @@ pub struct RunOptions {
 
     #[structopt(long = "frontend", help = "Enabled frontend serving for the server")]
     pub frontend: bool,
+
+    #[structopt(
+        long = "balance-check-loop",
+        help = "Run forever in loop (for RPC testing) or active balance monitoring. Set number of desired iterations. 0 means forever."
+    )]
+    pub balance_check_loop: Option<u64>,
 }
 
 #[derive(StructOpt)]
@@ -75,7 +81,7 @@ pub struct GenerateKeyOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Get dev eth options if faucet is accessible")]
 pub struct GetDevEthOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
     #[structopt(long = "from", help = "From (has to have private key)")]
@@ -85,23 +91,23 @@ pub struct GetDevEthOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Mint test token options")]
 pub struct MintTestTokensOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
     #[structopt(long = "from", help = "From (has to have private key)")]
     pub from: Option<Address>,
 
     #[structopt(
-        long = "faucet-address",
-        help = "Faucet address contract (leave empty)"
+        long = "mint-loop",
+        help = "Address where to sent tokens minted in the loop"
     )]
-    pub faucet_contract_address: Option<Address>,
+    pub mint_loop_address: Option<Address>,
 }
 
 #[derive(StructOpt)]
 #[structopt(about = "Single transfer options")]
 pub struct TransferOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
     #[structopt(short = "r", long = "recipient", help = "Recipient")]
@@ -173,6 +179,13 @@ pub struct ScanBlockchainOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Check web3 RPC")]
+pub struct CheckWeb3RpcOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    pub chain_name: String,
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Export history stats")]
 pub struct ExportHistoryStatsOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
@@ -189,7 +202,7 @@ pub struct ExportHistoryStatsOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Payment statistics options")]
 pub struct PaymentStatsOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
     #[structopt(
@@ -274,6 +287,10 @@ pub enum PaymentCommands {
     GenerateKey {
         #[structopt(flatten)]
         generate_key_options: GenerateKeyOptions,
+    },
+    CheckRpc {
+        #[structopt(flatten)]
+        check_web3_rpc_options: CheckWeb3RpcOptions,
     },
     GetDevEth {
         #[structopt(flatten)]

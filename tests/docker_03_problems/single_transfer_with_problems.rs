@@ -1,5 +1,4 @@
-use awc::Client;
-use erc20_payment_lib::config::AdditionalOptions;
+use erc20_payment_lib::config::{AdditionalOptions, RpcSettings};
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::DriverEventContent::*;
@@ -10,9 +9,8 @@ use erc20_payment_lib::utils::U256ConvExt;
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
 use std::time::Duration;
-use tokio::task;
 use web3::types::{Address, U256};
-use web3_test_proxy_client::{list_transactions_human, EndpointSimulateProblems};
+use web3_test_proxy_client::{list_transactions_human, set_error_probability};
 #[rustfmt::skip]
 async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
@@ -76,41 +74,22 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
     });
 
     {
-        let config = create_default_config_setup(&proxy_url_base, proxy_key).await;
+        let mut config = create_default_config_setup(&proxy_url_base, proxy_key).await;
 
-        let local = task::LocalSet::new();
+        config.chain.get_mut("dev").unwrap().rpc_endpoints = vec![
+            RpcSettings {
+                name: format!("{}/web3/{}", proxy_url_base, proxy_key),
+                endpoint: format!("{}/web3/{}", proxy_url_base, proxy_key),
+                backup_level: None,
+                skip_validation: Some(true),
+                verify_interval_secs: Some(10),
+                min_interval_ms: None,
+                max_timeout_ms: None,
+                allowed_head_behind_secs: None,
+                max_consecutive_errors: None,
+            }];
 
-        let endp_sim_prob = EndpointSimulateProblems {
-            timeout_chance: 0.0,
-            error_chance: error_probability,
-            malformed_response_chance: 0.0,
-            skip_sending_raw_transaction_chance: 0.0,
-            send_transaction_but_report_failure_chance: 0.0,
-            allow_only_parsed_calls: false,
-            allow_only_single_calls: false,
-        };
-
-        local.run_until(async move {
-            let client = Client::default();
-            let mut res = client
-                .post(format!(
-                    "http://127.0.0.1:{}/api/problems/set/{}",
-                    geth_container.web3_proxy_port, proxy_key
-                ))
-                .insert_header(("Content-Type", "application/json"))
-                .send_body(serde_json::to_string(&endp_sim_prob).unwrap())
-                .await
-                .unwrap();
-            println!(
-                "Response: {}: {}",
-                res.status(),
-                res.body()
-                    .await
-                    .map(|b| String::from_utf8_lossy(&b).to_string())
-                    .unwrap_or_default()
-            );
-        })
-        .await;
+        set_error_probability( &proxy_url_base, proxy_key ,error_probability).await;
 
         //load private key for account 0x653b48E1348F480149047AA3a58536eb0dbBB2E2
         let private_keys = load_private_keys("c2b876dd5ef1bcab6864249c58dfea6018538d67d0237f105ff8b54d32fb98e1")?;
@@ -168,15 +147,15 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_gas_transfer_05() -> Result<(), anyhow::Error> {
-    test_gas_transfer(0.5).await
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn test_gas_transfer_06() -> Result<(), anyhow::Error> {
     test_gas_transfer(0.6).await
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_gas_transfer_07() -> Result<(), anyhow::Error> {
+async fn test_gas_transfer_06() -> Result<(), anyhow::Error> {
     test_gas_transfer(0.7).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_gas_transfer_07() -> Result<(), anyhow::Error> {
+    test_gas_transfer(0.8).await
 }

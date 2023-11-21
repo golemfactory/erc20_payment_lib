@@ -5,7 +5,7 @@ use crate::options::{PaymentCommands, PaymentOptions};
 use actix_web::Scope;
 use actix_web::{web, App, HttpServer};
 use csv::ReaderBuilder;
-use erc20_payment_lib::config::AdditionalOptions;
+use erc20_payment_lib::config::{AdditionalOptions, RpcSettings};
 use erc20_payment_lib::db::create_sqlite_connection;
 use erc20_payment_lib::db::model::{ScanDao, TokenTransferDao};
 use erc20_payment_lib::db::ops::{
@@ -14,6 +14,7 @@ use erc20_payment_lib::db::ops::{
 };
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::signer::PrivateKeySigner;
+use std::collections::HashSet;
 
 use erc20_payment_lib::{
     config, err_custom_create, err_from,
@@ -36,6 +37,7 @@ use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt};
+use erc20_rpc_pool::{Web3RpcParams, Web3RpcPool};
 use rust_decimal::Decimal;
 use std::sync::Arc;
 use structopt::StructOpt;
@@ -92,7 +94,22 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .map(|s| s.to_string())
                 .collect::<Vec<String>>();
             log::info!("Overriding default rpc endpoints for {}", f.0,);
-            config.change_rpc_endpoints(f.1, strs).await?;
+
+            let rpcs = strs
+                .iter()
+                .map(|s| RpcSettings {
+                    name: "ENV_RPC".to_string(),
+                    endpoint: s.clone(),
+                    skip_validation: None,
+                    verify_interval_secs: None,
+                    min_interval_ms: None,
+                    max_timeout_ms: None,
+                    allowed_head_behind_secs: None,
+                    backup_level: None,
+                    max_consecutive_errors: None,
+                })
+                .collect();
+            config.change_rpc_endpoints(f.1, rpcs).await?;
         }
     }
 
@@ -156,6 +173,13 @@ async fn main_internal() -> Result<(), PaymentError> {
                 ..Default::default()
             };
 
+            let extra_testing_options = run_options.balance_check_loop.map(|balance_check_loop| {
+                erc20_payment_lib::setup::ExtraOptionsForTesting {
+                    balance_check_loop: Some(balance_check_loop),
+                    erc20_lib_test_replacement_timeout: None,
+                }
+            });
+
             let sp = PaymentRuntime::new(
                 &private_keys,
                 &db_filename,
@@ -164,7 +188,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 Some(conn.clone()),
                 Some(add_opt),
                 None,
-                None,
+                extra_testing_options,
             )
             .await?;
 
@@ -208,11 +232,73 @@ async fn main_internal() -> Result<(), PaymentError> {
                 sp.runtime_handle.await.unwrap();
             }
         }
+        PaymentCommands::CheckRpc {
+            check_web3_rpc_options,
+        } => {
+            let chain_cfg =
+                config
+                    .chain
+                    .get(&check_web3_rpc_options.chain_name)
+                    .ok_or(err_custom_create!(
+                        "Chain {} not found in config file",
+                        check_web3_rpc_options.chain_name
+                    ))?;
+
+            let web3_pool = Arc::new(Web3RpcPool::new(
+                chain_cfg.chain_id as u64,
+                chain_cfg
+                    .rpc_endpoints
+                    .iter()
+                    .map(|rpc| Web3RpcParams {
+                        chain_id: chain_cfg.chain_id as u64,
+                        endpoint: rpc.endpoint.clone(),
+                        backup_level: 0,
+                        skip_validation: rpc.skip_validation.unwrap_or(false),
+                        name: rpc.name.clone(),
+                        verify_interval_secs: rpc.verify_interval_secs.unwrap_or(120),
+                        max_response_time_ms: rpc.max_timeout_ms.unwrap_or(10000),
+                        max_head_behind_secs: rpc.allowed_head_behind_secs,
+                        max_number_of_consecutive_errors: 0,
+                        min_interval_requests_ms: None,
+                    })
+                    .collect(),
+                None,
+            ));
+
+            let task = tokio::task::spawn(web3_pool.clone().verify_unverified_endpoints());
+            let mut idx_set_completed = HashSet::new();
+            let enp_info = loop {
+                let is_finished = task.is_finished();
+                let mut enp_info = web3_pool.get_endpoints_info();
+                for (idx, params, info) in enp_info.iter() {
+                    if idx_set_completed.contains(idx) {
+                        continue;
+                    }
+                    if let Some(verify_result) = &info.verify_result {
+                        idx_set_completed.insert(*idx);
+                        log::info!(
+                            "Endpoint no {}, name: {} verified, result: {:?}",
+                            *idx,
+                            params.name,
+                            verify_result
+                        );
+                    }
+                }
+                if is_finished {
+                    enp_info.sort_by_key(|(_idx, _params, info)| {
+                        info.penalty_from_ms + info.penalty_from_head_behind
+                    });
+                    break enp_info;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            };
+            println!("{}", serde_json::to_string_pretty(&enp_info).unwrap());
+        }
         PaymentCommands::GetDevEth {
             get_dev_eth_options,
         } => {
             log::info!("Getting funds from faucet...");
-            let public_addr = public_addrs.get(0).expect("No public address found");
+            let public_addr = public_addrs.get(0).expect("No public adss found");
             let chain_cfg =
                 config
                     .chain
@@ -221,7 +307,10 @@ async fn main_internal() -> Result<(), PaymentError> {
                         "Chain {} not found in config file",
                         get_dev_eth_options.chain_name
                     ))?;
-            let cfg = chain_cfg.faucet_client.clone().unwrap();
+            let cfg = chain_cfg
+                .faucet_client
+                .clone()
+                .expect("No faucet client config found");
             let faucet_srv_prefix = cfg.faucet_srv;
             let faucet_lookup_domain = cfg.faucet_lookup_domain;
             let faucet_srv_port = cfg.faucet_srv_port;
@@ -251,13 +340,15 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let payment_setup = PaymentSetup::new_empty(&config)?;
             let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
+
             mint_golem_token(
                 web3,
                 &conn,
                 chain_cfg.chain_id as u64,
                 mint_test_tokens_options.from.unwrap_or(*public_addr),
                 chain_cfg.token.address,
-                mint_test_tokens_options.faucet_contract_address,
+                chain_cfg.mint_contract.clone().map(|c| c.address),
+                true,
             )
             .await?;
         }
@@ -325,8 +416,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     {
                         let val = payment_setup
                             .get_provider(chain_cfg.chain_id)?
-                            .eth()
-                            .balance(*public_addr, None)
+                            .eth_balance(*public_addr, None)
                             .await
                             .map_err(err_from!())?;
                         let gas_val = Decimal::from_str(&chain_cfg.max_fee_per_gas.to_string())
@@ -402,6 +492,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                         .join(","),
                 );
             }
+
             let result = account_balance(account_balance_options, &config).await?;
             println!(
                 "{}",
@@ -465,8 +556,8 @@ async fn main_internal() -> Result<(), PaymentError> {
             };
 
             let current_block = web3
-                .eth()
-                .block_number()
+                .clone()
+                .eth_block_number()
                 .await
                 .map_err(err_from!())?
                 .as_u64() as i64;
@@ -528,7 +619,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             }
 
             let txs = import_erc20_txs(
-                web3,
+                web3.clone(),
                 chain_cfg.token.address,
                 chain_cfg.chain_id,
                 Some(&[sender]),
@@ -543,7 +634,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             let mut max_block_from_tx = None;
             for tx in &txs {
                 match transaction_from_chain_and_into_db(
-                    web3,
+                    web3.clone(),
                     &conn,
                     chain_cfg.chain_id,
                     &format!("{tx:#x}"),

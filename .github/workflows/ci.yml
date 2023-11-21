@@ -20,6 +20,12 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
 
+      - name: Check generation
+        run: |
+          cd crates/erc20_rpc_pool/src/rpc_pool
+          python gen_methods.py
+          git diff --exit-code
+
       - name: Fmt
         run: cargo fmt -- --check
 
@@ -104,7 +110,7 @@ jobs:
           save-if: false
 
       - name: Build tests
-        run: cargo test --profile=release-fast --no-run
+        run: cargo test --test docker_01_basic --test docker_02_errors --test docker_04_multi --profile=release-fast --no-run
 
       - name: Run tests (docker_01_basic)
         run: cargo test --test docker_01_basic --profile=release-fast -- --test-threads=10
@@ -114,6 +120,29 @@ jobs:
 
       - name: Run tests (docker_04_multi)
         run: cargo test --test docker_04_multi --profile=release-fast -- --test-threads=10
+
+
+  payment_tests_pool:
+    name: Payment tests (rpc pool)
+    timeout-minutes: 20
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "test-cache-release-fast"
+          save-if: false
+
+      - name: Build tests
+        run: cargo test --test docker_05_rpc_pool --profile=release-fast --no-run
+
+      - name: Run tests (docker_05_rpc_pool)
+        run: cargo test --test docker_05_rpc_pool --profile=release-fast -- --test-threads=10
 
 
   payment_tests_multi:
@@ -133,13 +162,13 @@ jobs:
           save-if: false
 
       - name: Build tests
-        run: cargo test --profile=release-fast --no-run
+        run: cargo test --test docker_03_problems --profile=release-fast --no-run
 
       - name: Run tests (docker_03_problems)
         run: cargo test --test docker_03_problems --profile=release-fast -- --test-threads=10
 
   test_faucet:
-    name: Test faucet
+    name: Test Goerli faucet
     timeout-minutes: 20
 
     runs-on: ubuntu-latest
@@ -173,6 +202,7 @@ jobs:
 
       - name: Check ETH balance after getting funds from faucet (should be 0.01)
         run: |
+          sleep 20 # give time for the blockchain to propagate info about the transaction
           [ $(cargo run -- balance -c goerli | jq -r '.[] | .gasDecimal') == "0.01" ]
         env:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
@@ -216,6 +246,85 @@ jobs:
           cargo run -- run
         env:
           GOERLI_GETH_ADDR: ${{ secrets.GOERLI_RPC_ADDRESS }}
+
+  test_faucet_holesky:
+    name: Test Holesky faucet
+    timeout-minutes: 20
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "dev-build-cache"
+
+      - name: Build
+        run: cargo build
+
+      - name: Run tests (faucet)
+        run: cargo run -- generate-key -n 1 > .env
+
+      - name: Check if balance is 0
+        run: |
+          [ $(cargo run -- balance -c holesky | jq -r '.[] | .gasDecimal') == "0" ]
+          [ $(cargo run -- balance -c holesky | jq -r '.[] | .tokenDecimal') == "0" ]
+
+      - name: Get ETH from faucet
+        run: cargo run -- get-dev-eth -c holesky
+
+      - name: Check ETH balance after getting funds from faucet (should be 0.01)
+        run: |
+          sleep 20 # give time for the blockchain to propagate info about the transaction
+          [ $(cargo run -- balance -c holesky | jq -r '.[] | .gasDecimal') == "0.01" ]
+
+      - name: Mint tokens
+        run: |
+          cargo run -- mint-test-tokens -c holesky
+          cargo run -- run
+
+      - name: Check token balance
+        run: |
+          [ $(cargo run -- balance -c holesky | jq -r '.[] | .tokenDecimal') == "1000" ]
+
+      - name: Transfer 166.6 GLM tokens
+        run: |
+          cargo run -- transfer -c holesky --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --amount 166.6
+          cargo run -- run
+
+      - name: Transfer all GLM tokens
+        run: |
+          cargo run -- transfer -c holesky --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --all
+          cargo run -- run
+
+      - name: Check token balance zero
+        run: |
+          [ $(cargo run -- balance -c holesky | jq -r '.[] | .tokenDecimal') == "0" ]
+
+      - name: Transfer all left ETH tokens
+        run: |
+          cargo run -- transfer -c holesky --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
+          cargo run -- run
+
+  # generate_goeli_glms:
+  #   name: Generate goerli GLMs
+  #   timeout-minutes: 20
+  #   runs-on: ubuntu-latest
+  #
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v3
+  #
+  #     - name: Cache dependencies
+  #       uses: Swatinem/rust-cache@v2
+  #       with:
+  #         shared-key: "dev-build-cache"
+  #
+  #     - name: Generate
+  #       run: python junk/generate_goerli_glms.py
 
   payment_tests_custom:
     name: Payment tests (custom)

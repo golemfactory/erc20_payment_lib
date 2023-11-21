@@ -16,7 +16,7 @@ use web3::types::Address;
 #[derive(Clone, StructOpt)]
 #[structopt(about = "Payment statistics options")]
 pub struct BalanceOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "mumbai")]
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
     ///list of accounts separated by comma
@@ -106,6 +106,7 @@ pub async fn account_balance(
         .for_each_concurrent(account_balance_options.tasks, |i| {
             let job = jobs[i];
             let result_map = result_map_.clone();
+            let web3 = web3.clone();
             async move {
                 log::debug!("Getting balance for account: {:#x}", job);
                 let balance = get_balance(web3, token, job, !account_balance_options.hide_gas)

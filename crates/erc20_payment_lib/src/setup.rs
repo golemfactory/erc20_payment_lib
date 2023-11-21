@@ -4,20 +4,31 @@ use crate::error::PaymentError;
 
 use crate::utils::DecimalConvExt;
 use crate::{err_custom_create, err_from};
-use rand::Rng;
+use erc20_rpc_pool::{Web3RpcEndpoint, Web3RpcParams, Web3RpcPool};
 use rust_decimal::Decimal;
 use secp256k1::SecretKey;
 use serde::Serialize;
 use std::collections::BTreeMap;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use web3::transports::Http;
 use web3::types::{Address, U256};
-use web3::Web3;
 
 #[derive(Clone, Debug)]
 pub struct ProviderSetup {
-    pub provider: Web3<Http>,
+    pub provider: Arc<Web3RpcPool>,
     pub number_of_calls: u64,
+}
+
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FaucetSetup {
+    pub client_max_eth_allowed: Option<Decimal>,
+    pub client_srv: Option<String>,
+    pub client_host: Option<String>,
+    pub srv_port: Option<u16>,
+    pub lookup_domain: Option<String>,
+    pub mint_glm_address: Option<Address>,
+    pub mint_max_glm_allowed: Option<Decimal>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -25,7 +36,7 @@ pub struct ProviderSetup {
 pub struct ChainSetup {
     pub network: String,
     #[serde(skip_serializing)]
-    pub providers: Vec<ProviderSetup>,
+    pub provider: Arc<Web3RpcPool>,
     pub chain_name: String,
     pub chain_id: i64,
     pub currency_gas_symbol: String,
@@ -35,13 +46,7 @@ pub struct ChainSetup {
     pub priority_fee: U256,
     pub glm_address: Address,
     pub multi_contract_address: Option<Address>,
-    pub mint_glm_address: Option<Address>,
-    pub mint_max_glm_allowed: Option<Decimal>,
-    pub faucet_client_max_eth_allowed: Option<Decimal>,
-    pub faucet_client_srv: Option<String>,
-    pub faucet_client_host: Option<String>,
-    pub faucet_srv_port: Option<u16>,
-    pub faucet_lookup_domain: Option<String>,
+    pub faucet_setup: FaucetSetup,
     pub multi_contract_max_at_once: usize,
     pub transaction_timeout: u64,
     pub skip_multi_contract_check: bool,
@@ -56,6 +61,7 @@ pub struct ChainSetup {
 #[serde(rename_all = "camelCase")]
 pub struct ExtraOptionsForTesting {
     pub erc20_lib_test_replacement_timeout: Option<Duration>,
+    pub balance_check_loop: Option<u64>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -108,6 +114,7 @@ impl PaymentSetup {
         gather_at_start: bool,
         ignore_deadlines: bool,
         automatic_recover: bool,
+        web3_rpc_pool_info: &mut BTreeMap<i64, Vec<Arc<RwLock<Web3RpcEndpoint>>>>,
     ) -> Result<Self, PaymentError> {
         let mut ps = PaymentSetup {
             chain_setup: BTreeMap::new(),
@@ -135,22 +142,29 @@ impl PaymentSetup {
             use_transfer_for_single_payment: true,
         };
         for chain_config in &config.chain {
-            let mut providers = Vec::new();
-            for endp in &chain_config.1.rpc_endpoints {
-                let transport = match Http::new(endp) {
-                    Ok(t) => t,
-                    Err(err) => {
-                        return Err(err_custom_create!(
-                            "Failed to create transport for endpoint: {endp} - {err:?}"
-                        ));
-                    }
-                };
-                let provider = Web3::new(transport);
-                providers.push(ProviderSetup {
-                    provider,
-                    number_of_calls: 0,
-                });
-            }
+            let web3_pool = Arc::new(Web3RpcPool::new(
+                chain_config.1.chain_id as u64,
+                chain_config
+                    .1
+                    .rpc_endpoints
+                    .iter()
+                    .map(|rpc| Web3RpcParams {
+                        chain_id: chain_config.1.chain_id as u64,
+                        backup_level: rpc.backup_level.unwrap_or(0),
+                        skip_validation: rpc.skip_validation.unwrap_or(false),
+                        endpoint: rpc.endpoint.clone(),
+                        name: rpc.name.clone(),
+                        verify_interval_secs: rpc.verify_interval_secs.unwrap_or(120),
+                        max_response_time_ms: rpc.max_timeout_ms.unwrap_or(10000),
+                        max_head_behind_secs: Some(rpc.allowed_head_behind_secs.unwrap_or(120)),
+                        max_number_of_consecutive_errors: rpc.max_consecutive_errors.unwrap_or(5),
+                        min_interval_requests_ms: rpc.min_interval_ms,
+                    })
+                    .collect(),
+                None,
+            ));
+            web3_rpc_pool_info.insert(chain_config.1.chain_id, web3_pool.endpoints.to_vec());
+
             let faucet_eth_amount = match &chain_config.1.faucet_eth_amount {
                 Some(f) => Some((*f).to_u256_from_eth().map_err(err_from!())?),
                 None => None,
@@ -160,11 +174,41 @@ impl PaymentSetup {
                 None => None,
             };
 
+            let faucet_setup = FaucetSetup {
+                client_max_eth_allowed: chain_config
+                    .1
+                    .faucet_client
+                    .clone()
+                    .map(|fc| fc.max_eth_allowed),
+                client_srv: chain_config.1.faucet_client.clone().map(|fc| fc.faucet_srv),
+                client_host: chain_config
+                    .1
+                    .faucet_client
+                    .clone()
+                    .map(|fc| fc.faucet_host),
+                srv_port: chain_config
+                    .1
+                    .faucet_client
+                    .clone()
+                    .map(|fc| fc.faucet_srv_port),
+                lookup_domain: chain_config
+                    .1
+                    .faucet_client
+                    .clone()
+                    .map(|fc| fc.faucet_lookup_domain),
+                mint_max_glm_allowed: chain_config
+                    .1
+                    .mint_contract
+                    .clone()
+                    .map(|mc| mc.max_glm_allowed),
+                mint_glm_address: chain_config.1.mint_contract.clone().map(|mc| mc.address),
+            };
+
             ps.chain_setup.insert(
                 chain_config.1.chain_id,
                 ChainSetup {
                     network: chain_config.0.clone(),
-                    providers,
+                    provider: web3_pool.clone(),
                     chain_name: chain_config.1.chain_name.clone(),
                     max_fee_per_gas: chain_config
                         .1
@@ -189,33 +233,8 @@ impl PaymentSetup {
                         .clone()
                         .map(|m| m.max_at_once)
                         .unwrap_or(1),
-                    faucet_client_max_eth_allowed: chain_config
-                        .1
-                        .faucet_client
-                        .clone()
-                        .map(|fc| fc.max_eth_allowed),
-                    faucet_client_srv: chain_config.1.faucet_client.clone().map(|fc| fc.faucet_srv),
-                    faucet_client_host: chain_config
-                        .1
-                        .faucet_client
-                        .clone()
-                        .map(|fc| fc.faucet_host),
-                    faucet_srv_port: chain_config
-                        .1
-                        .faucet_client
-                        .clone()
-                        .map(|fc| fc.faucet_srv_port),
-                    faucet_lookup_domain: chain_config
-                        .1
-                        .faucet_client
-                        .clone()
-                        .map(|fc| fc.faucet_lookup_domain),
-                    mint_max_glm_allowed: chain_config
-                        .1
-                        .mint_contract
-                        .clone()
-                        .map(|mc| mc.max_glm_allowed),
-                    mint_glm_address: chain_config.1.mint_contract.clone().map(|mc| mc.address),
+                    faucet_setup,
+
                     transaction_timeout: chain_config.1.transaction_timeout,
                     skip_multi_contract_check,
                     confirmation_blocks: chain_config.1.confirmation_blocks,
@@ -251,20 +270,16 @@ impl PaymentSetup {
             false,
             false,
             false,
+            &mut BTreeMap::new(),
         )
     }
 
-    pub fn get_provider(&self, chain_id: i64) -> Result<&Web3<Http>, PaymentError> {
+    pub fn get_provider(&self, chain_id: i64) -> Result<Arc<Web3RpcPool>, PaymentError> {
         let chain_setup = self
             .chain_setup
             .get(&chain_id)
             .ok_or_else(|| err_custom_create!("No chain setup for chain id: {}", chain_id))?;
 
-        let mut rng = rand::thread_rng();
-        let provider = chain_setup
-            .providers
-            .get(rng.gen_range(0..chain_setup.providers.len()))
-            .ok_or_else(|| err_custom_create!("No providers found for chain id: {}", chain_id))?;
-        Ok(&provider.provider)
+        Ok(chain_setup.provider.clone())
     }
 }

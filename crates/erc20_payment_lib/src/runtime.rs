@@ -21,20 +21,20 @@ use secp256k1::SecretKey;
 use sqlx::SqlitePool;
 use tokio::sync::mpsc::Sender;
 
+use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
 use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
 use crate::sender::service_loop;
 use crate::utils::{StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
+use erc20_rpc_pool::{Web3RpcEndpoint, Web3RpcPool};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
-use web3::transports::Http;
 use web3::types::{Address, H256, U256};
-use web3::Web3;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedInfoTx {
@@ -126,6 +126,9 @@ impl DriverEvent {
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedState {
     pub current_tx_info: BTreeMap<i64, SharedInfoTx>,
+    //pub web3_rpc_pool: BTreeMap<i64, Vec<(Web3RpcParams, Web3RpcInfo)>>,
+    pub web3_pool_ref: BTreeMap<i64, Vec<Arc<RwLock<Web3RpcEndpoint>>>>,
+
     pub faucet: Option<FaucetData>,
     pub inserted: usize,
     pub idling: bool,
@@ -402,6 +405,8 @@ impl PaymentRuntime {
         extra_testing: Option<ExtraOptionsForTesting>,
     ) -> Result<PaymentRuntime, PaymentError> {
         let options = options.unwrap_or_default();
+        let mut web3_rpc_pool_info = BTreeMap::<i64, Vec<Arc<RwLock<Web3RpcEndpoint>>>>::new();
+
         let mut payment_setup = PaymentSetup::new(
             &config,
             secret_keys.to_vec(),
@@ -422,9 +427,10 @@ impl PaymentRuntime {
             config.engine.gather_at_start,
             config.engine.ignore_deadlines,
             config.engine.automatic_recover,
+            &mut web3_rpc_pool_info,
         )?;
         payment_setup.use_transfer_for_single_payment = options.use_transfer_for_single_payment;
-        payment_setup.extra_options_for_testing = extra_testing;
+        payment_setup.extra_options_for_testing = extra_testing.clone();
         payment_setup.contract_use_direct_method = options.contract_use_direct_method;
         payment_setup.contract_use_unpacked_method = options.contract_use_unpacked_method;
         log::debug!("Starting payment engine: {:#?}", payment_setup);
@@ -446,12 +452,53 @@ impl PaymentRuntime {
             current_tx_info: BTreeMap::new(),
             faucet: None,
             external_gather_time: None,
+            web3_pool_ref: web3_rpc_pool_info,
         }));
+
         let shared_state_clone = shared_state.clone();
         let conn_ = conn.clone();
+
         let notify = Arc::new(Notify::new());
         let notify_ = notify.clone();
-        let jh = tokio::spawn(async move {
+        let extra_testing_ = extra_testing.clone();
+        let config_ = config.clone();
+        let jh = tokio::task::spawn(async move {
+            if let Some(balance_check_loop) =
+                extra_testing_.clone().and_then(|e| e.balance_check_loop)
+            {
+                if config_.chain.values().len() != 1 {
+                    panic!("balance_check_loop can be used only with single chain");
+                }
+                let config_chain = config_.chain.values().next().unwrap().clone();
+                let balance_options = BalanceOptions2 {
+                    chain_name: "dev".to_string(),
+                    //dead address
+                    accounts: Some("0x2000000000000000000000000000000000000000".to_string()),
+                    hide_gas: false,
+                    hide_token: true,
+                    block_number: None,
+                    tasks: 0,
+                    interval: Some(2.0),
+                    debug_loop: Some(balance_check_loop),
+                };
+                match test_balance_loop(
+                    Some(shared_state_clone),
+                    ps.clone(),
+                    balance_options,
+                    &config_chain,
+                )
+                .await
+                {
+                    Ok(_) => {
+                        log::info!("Balance debug loop finished");
+                    }
+                    Err(e) => {
+                        log::error!("Balance debug loop finished with error: {}", e);
+                        panic!("Balance debug loop finished with error: {}", e);
+                    }
+                }
+                return;
+            }
             if options.skip_service_loop && options.keep_running {
                 log::warn!("Started with skip_service_loop and keep_running, no transaction will be sent or processed");
                 loop {
@@ -491,7 +538,10 @@ impl PaymentRuntime {
         })
     }
 
-    pub async fn get_web3_provider(&self, chain_name: &str) -> Result<Web3<Http>, PaymentError> {
+    pub async fn get_web3_provider(
+        &self,
+        chain_name: &str,
+    ) -> Result<Arc<Web3RpcPool>, PaymentError> {
         let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
             "Chain {} not found in config file",
             chain_name
@@ -630,7 +680,6 @@ impl PaymentRuntime {
         &self,
         chain_name: &str,
         from: Address,
-        faucet_contract_address: Option<Address>,
     ) -> Result<(), PaymentError> {
         let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
             "Chain {} not found in config file",
@@ -645,7 +694,8 @@ impl PaymentRuntime {
             chain_cfg.chain_id as u64,
             from,
             golem_address,
-            faucet_contract_address,
+            chain_cfg.mint_contract.clone().map(|c| c.address),
+            false,
         )
         .await;
         self.wake.notify_one();
@@ -682,7 +732,7 @@ impl PaymentRuntime {
             .glm_address;
         let prov = self.get_web3_provider(network_name).await?;
         verify_transaction(
-            &prov,
+            prov,
             chain_id,
             tx_hash,
             sender,
@@ -714,51 +764,51 @@ impl VerifyTransactionResult {
 }
 
 pub async fn mint_golem_token(
-    web3: &Web3<Http>,
+    web3: Arc<Web3RpcPool>,
     conn: &SqlitePool,
     chain_id: u64,
     from: Address,
     glm_address: Address,
     faucet_contract_address: Option<Address>,
+    skip_balance_check: bool,
 ) -> Result<(), PaymentError> {
-    let faucet_contract_address = if chain_id == 5 {
-        faucet_contract_address
-            .unwrap_or(Address::from_str("0xCCA41b09C1F50320bFB41BD6822BD0cdBDC7d85C").unwrap())
-    } else if let Some(faucet_contract_address) = faucet_contract_address {
+    let faucet_contract_address = if let Some(faucet_contract_address) = faucet_contract_address {
         faucet_contract_address
     } else {
         return Err(err_custom_create!(
-            "Faucet contract address unknown. If not sure try on goerli network"
+            "Faucet/mint contract address unknown. If not sure try on holesky network"
         ));
     };
 
-    let balance = web3
-        .eth()
-        .balance(from, None)
-        .await
-        .map_err(err_from!())?
-        .to_eth_saturate();
-    if balance < Decimal::from_f64(0.005).unwrap() {
-        return Err(err_custom_create!(
+    if !skip_balance_check {
+        let balance = web3
+            .clone()
+            .eth_balance(from, None)
+            .await
+            .map_err(err_from!())?
+            .to_eth_saturate();
+        if balance < Decimal::from_f64(0.005).unwrap() {
+            return Err(err_custom_create!(
             "You need at least 0.005 ETH to continue. You have {} ETH on network with chain id: {} and account {:#x} ",
             balance,
             chain_id,
             from
         ));
-    };
+        };
 
-    let token_balance = get_token_balance(web3, glm_address, from)
-        .await?
-        .to_eth_saturate();
+        let token_balance = get_token_balance(web3.clone(), glm_address, from)
+            .await?
+            .to_eth_saturate();
 
-    if token_balance > Decimal::from_f64(500.0).unwrap() {
-        return Err(err_custom_create!(
-            "You already have {} tGLM on network with chain id: {} and account {:#x} ",
-            token_balance,
-            chain_id,
-            from
-        ));
-    };
+        if token_balance > Decimal::from_f64(500.0).unwrap() {
+            return Err(err_custom_create!(
+                "You already have {} tGLM on network with chain id: {} and account {:#x} ",
+                token_balance,
+                chain_id,
+                from
+            ));
+        };
+    }
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
     let filter = format!(
@@ -787,7 +837,7 @@ pub async fn mint_golem_token(
 }
 
 pub async fn get_token_balance(
-    web3: &Web3<Http>,
+    web3: Arc<Web3RpcPool>,
     token_address: Address,
     address: Address,
 ) -> Result<U256, PaymentError> {
@@ -829,7 +879,7 @@ pub async fn get_unpaid_token_amount(
 
 // This is for now very limited check. It needs lot more work to be complete
 pub async fn verify_transaction(
-    web3: &web3::Web3<web3::transports::Http>,
+    web3: Arc<Web3RpcPool>,
     chain_id: i64,
     tx_hash: H256,
     sender: Address,

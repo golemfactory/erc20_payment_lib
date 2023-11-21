@@ -11,10 +11,12 @@ use crate::signer::Signer;
 use crate::utils::{datetime_from_u256_timestamp, ConversionError, StringConvExt, U256ConvExt};
 use crate::{err_custom_create, err_from};
 use chrono::Utc;
+use erc20_rpc_pool::Web3RpcPool;
 use secp256k1::SecretKey;
 use sqlx::SqlitePool;
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::sync::Arc;
 use web3::transports::Http;
 use web3::types::{
     Address, BlockId, BlockNumber, Bytes, CallRequest, TransactionId, TransactionParameters, H160,
@@ -403,7 +405,7 @@ pub fn create_erc20_approve(
 }
 
 pub async fn get_no_token_details(
-    web3: &Web3<Http>,
+    web3: Arc<Web3RpcPool>,
     conn: &SqlitePool,
     web3_tx_dao: &TxDao,
     glm_token: Address,
@@ -435,7 +437,7 @@ pub async fn check_transaction(
     event_sender: &Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     conn: &SqlitePool,
     glm_token: Address,
-    web3: &Web3<Http>,
+    web3: Arc<Web3RpcPool>,
     web3_tx_dao: &mut TxDao,
 ) -> Result<Option<U256>, PaymentError> {
     let call_request = dao_to_call_request(web3_tx_dao)?;
@@ -446,7 +448,7 @@ pub async fn check_transaction(
     let gas_est = if web3_tx_dao.call_data.is_none() {
         U256::from(21000)
     } else {
-        match web3.eth().estimate_gas(loc_call_request, None).await {
+        match web3.clone().eth_estimate_gas(loc_call_request, None).await {
             Ok(gas_est) => gas_est,
             Err(e) => {
                 let event = if e.to_string().contains("gas required exceeds allowance") {
@@ -587,7 +589,7 @@ pub async fn send_transaction(
     conn: &SqlitePool,
     glm_token: Address,
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
-    web3: &Web3<Http>,
+    web3: Arc<Web3RpcPool>,
     web3_tx_dao: &mut TxDao,
 ) -> Result<(), PaymentError> {
     if let Some(signed_raw_data) = web3_tx_dao.signed_raw_data.as_ref() {
@@ -596,7 +598,7 @@ pub async fn send_transaction(
                 .map_err(|_err| ConversionError::from("cannot decode signed_raw_data".to_string()))
                 .map_err(err_from!())?,
         );
-        let result = web3.eth().send_raw_transaction(bytes).await;
+        let result = web3.clone().eth_send_raw_transaction(bytes).await;
         web3_tx_dao.broadcast_date = Some(chrono::Utc::now());
 
         if let Err(e) = result {
@@ -611,8 +613,8 @@ pub async fn send_transaction(
                             TransactionStuckReason::NoGas(NoGasDetails {
                                 tx: web3_tx_dao.clone(),
                                 gas_balance: web3
-                                    .eth()
-                                    .balance(
+                                    .clone()
+                                    .eth_balance(
                                         Address::from_str(&web3_tx_dao.from_addr)
                                             .map_err(err_from!())?,
                                         None,
@@ -720,7 +722,7 @@ pub async fn find_tx(web3: &Web3<Http>, web3_tx_dao: &mut TxDao) -> Result<bool,
 }
 
 pub async fn find_receipt(
-    web3: &Web3<Http>,
+    web3: Arc<Web3RpcPool>,
     web3_tx_dao: &mut TxDao,
 ) -> Result<Option<U256>, PaymentError> {
     if let Some(tx_hash) = web3_tx_dao.tx_hash.as_ref() {
@@ -728,8 +730,8 @@ pub async fn find_receipt(
             .map_err(|_err| ConversionError::from("Cannot parse tx_hash".to_string()))
             .map_err(err_from!())?;
         let receipt = web3
-            .eth()
-            .transaction_receipt(tx_hash)
+            .clone()
+            .eth_transaction_receipt(tx_hash)
             .await
             .map_err(err_from!())?;
         if let Some(receipt) = receipt {
@@ -756,7 +758,7 @@ pub async fn find_receipt(
 }
 
 pub async fn find_receipt_extended(
-    web3: &Web3<Http>,
+    web3: Arc<Web3RpcPool>,
     tx_hash: H256,
     chain_id: i64,
     glm_address: Address,
@@ -789,14 +791,14 @@ pub async fn find_receipt_extended(
     };
 
     let receipt = web3
-        .eth()
-        .transaction_receipt(tx_hash)
+        .clone()
+        .eth_transaction_receipt(tx_hash)
         .await
         .map_err(err_from!())?
         .ok_or(err_custom_create!("Receipt not found"))?;
     let tx = web3
-        .eth()
-        .transaction(TransactionId::Hash(tx_hash))
+        .clone()
+        .eth_transaction(TransactionId::Hash(tx_hash))
         .await
         .map_err(err_from!())?
         .ok_or(err_custom_create!("Transaction not found"))?;
@@ -806,8 +808,8 @@ pub async fn find_receipt_extended(
         .ok_or(err_custom_create!("Block number is None"))?;
 
     let block_info = web3
-        .eth()
-        .block(BlockId::Number(BlockNumber::Number(U64::from(
+        .clone()
+        .eth_block(BlockId::Number(BlockNumber::Number(U64::from(
             chain_tx_dao.block_number as u64,
         ))))
         .await
@@ -1007,7 +1009,7 @@ pub async fn find_receipt_extended(
 }
 
 pub async fn get_erc20_logs(
-    web3: &Web3<Http>,
+    web3: Arc<Web3RpcPool>,
     erc20_address: Address,
     topic_senders: Option<Vec<H256>>,
     topic_receivers: Option<Vec<H256>>,
@@ -1030,15 +1032,14 @@ pub async fn get_erc20_logs(
         )
         .from_block(BlockNumber::Number(U64::from(from_block as u64)))
         .to_block(BlockNumber::Number(U64::from(to_block as u64)));
-    web3.eth()
-        .logs(filter.build())
+    web3.eth_logs(filter.build())
         .await
         .map_err(|e| err_custom_create!("Error while getting logs: {}", e))
 }
 
 #[allow(clippy::too_many_arguments)]
 pub async fn import_erc20_txs(
-    web3: &Web3<Http>,
+    web3: Arc<Web3RpcPool>,
     erc20_address: Address,
     _chain_id: i64,
     filter_by_senders: Option<&[Address]>,
@@ -1064,8 +1065,8 @@ pub async fn import_erc20_txs(
     let topic_senders = option_address_to_option_h256(filter_by_senders);
 
     let current_block = web3
-        .eth()
-        .block_number()
+        .clone()
+        .eth_block_number()
         .await
         .map_err(err_from!())?
         .as_u64() as i64;
@@ -1081,7 +1082,7 @@ pub async fn import_erc20_txs(
         }
         log::info!("Scanning chain, blocks: {start_block} - {end_block}");
         let logs = get_erc20_logs(
-            web3,
+            web3.clone(),
             erc20_address,
             topic_senders.clone(),
             topic_receivers.clone(),

@@ -1,0 +1,39 @@
+services:
+  geth:
+    image: scx1332/geth:lean
+    env_file:
+      - geth.env
+    environment:
+      - GETH_MAX_LIFESPAN=100000000
+  proxy:
+    image: ghcr.io/golemfactory/erc20_processor:${ERC20_PAYMENT_TAG}
+    command: web3_test_proxy --problem-plan /proxy_plan.json --http-addr 0.0.0.0 --http-port 9400 --target-addr http://geth:8545
+    ports:
+      - 9400:9400
+    volumes:
+        - ./proxy_plan.json:/proxy_plan.json
+  looper:
+    image: ghcr.io/golemfactory/erc20_processor:${ERC20_PAYMENT_TAG}
+    command: erc20_processor run --http-addr 0.0.0.0 --http-port 9350 --http --keep-running --balance-check-loop 0
+    working_dir: /looper
+    ports:
+      - 9350:9350
+    volumes:
+      - ./config-payments-mumbai.toml:/looper/config-payments-local.toml
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - type: bind
+        source: ./prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090
+  grafana:
+    image: grafana/grafana
+    ports:
+      - 3000:3000
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_SECURITY_ALLOW_EMBEDDING=true
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning

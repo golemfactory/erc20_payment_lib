@@ -1,0 +1,43 @@
+{
+    "name": "Cycle 3 endpoints every one minute",
+    "planType": "web3_proxy_program",
+    "frameInterval": 1,
+    "frameCycle": 180,
+    "entries": [
+        {
+            "frames": [0],
+            "keys": ["local1", "local3"],
+            "values": {
+                "errorChance": 1.0
+            }
+        },
+        {
+            "frames": [60],
+            "keys": ["local1"],
+            "values": {
+                "errorChance": 0.0
+            }
+        },
+        {
+            "frames": [60],
+            "keys": ["local2"],
+            "values": {
+                "errorChance": 1.0
+            }
+        },
+        {
+            "frames": [120],
+            "keys": ["local1"],
+            "values": {
+                "errorChance": 1.0
+            }
+        },
+        {
+            "frames": [120],
+            "keys": ["local3"],
+            "values": {
+                "errorChance": 0.0
+            }
+        }
+    ]
+}

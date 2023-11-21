@@ -1,0 +1,80 @@
+{
+    "name": "Cycle 3 endpoints every one minute",
+    "planType": "web3_proxy_program",
+    "frameInterval": 1.0,
+    "frameCycle": 240,
+    "entries": [
+        {
+            "frames": [0],
+            "keys": ["local1"],
+            "values": {
+                "minTimeoutMs": 400,
+                "maxTimeoutMs": 400,
+                "errorChance": 0.0
+            }
+        },
+        {
+            "frames": [0],
+            "keys": ["local2"],
+            "values": {
+                "minTimeoutMs": 300,
+                "maxTimeoutMs": 300,
+                "errorChance": 0.0
+            }
+        },
+        {
+            "frames": [0],
+            "keys": ["local3"],
+            "values": {
+                "minTimeoutMs": 200,
+                "maxTimeoutMs": 200,
+                "errorChance": 0.0
+            }
+        },
+        {
+            "frames": [60],
+            "keys": ["local2","local3"],
+            "values": {
+                "errorChance": 1.0
+            }
+        },
+        {
+            "frames": [60],
+            "keys": ["local1"],
+            "values": {
+                "errorChance": 0.0
+            }
+        },
+        {
+            "frames": [120],
+            "keys": ["local1","local3"],
+            "values": {
+                "errorChance": 1.0
+            }
+        },
+        {
+            "frames": [120],
+            "keys": ["local2"],
+            "values": {
+                "errorChance": 0.0
+            }
+        },
+        {
+            "frames": [180],
+            "keys": ["local2","local3"],
+            "values": {
+                "errorChance": 1.0
+            }
+        },
+        {
+            "frames": [180],
+            "keys": ["local1"],
+            "values": {
+                "errorChance": 0.0
+            }
+        }
+
+
+
+    ]
+}

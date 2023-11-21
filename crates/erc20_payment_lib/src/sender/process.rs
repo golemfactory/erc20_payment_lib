@@ -102,7 +102,7 @@ pub async fn process_transaction(
             .await
             .set_tx_message(web3_tx_dao.id, "Obtaining transaction nonce".to_string());
 
-        let nonce = get_transaction_count(from_addr, web3, false)
+        let nonce = get_transaction_count(from_addr, web3.clone(), false)
             .await
             .map_err(|err| {
                 err_custom_create!(
@@ -155,8 +155,8 @@ pub async fn process_transaction(
 
         if is_polygon_eco_mode {
             let blockchain_gas_price = web3
-                .eth()
-                .block(BlockId::Number(BlockNumber::Latest))
+                .clone()
+                .eth_block(BlockId::Number(BlockNumber::Latest))
                 .await
                 .map_err(err_from!())?
                 .ok_or(err_create!(TransactionFailedError::new(
@@ -228,8 +228,8 @@ pub async fn process_transaction(
             .await
             .set_tx_message(web3_tx_dao.id, "Checking balance".to_string());
         let gas_balance = web3
-            .eth()
-            .balance(from_addr, None)
+            .clone()
+            .eth_balance(from_addr, None)
             .await
             .map_err(err_from!())?;
         let expected_gas_balance =
@@ -285,7 +285,7 @@ pub async fn process_transaction(
                 &event_sender,
                 conn,
                 chain_setup.glm_address,
-                web3,
+                web3.clone(),
                 web3_tx_dao,
             )
             .await
@@ -299,8 +299,8 @@ pub async fn process_transaction(
                         ));
                     };
                     let gas_balance = web3
-                        .eth()
-                        .balance(from_addr, None)
+                        .clone()
+                        .eth_balance(from_addr, None)
                         .await
                         .map_err(err_from!())?;
                     if gas_balance < res {
@@ -369,7 +369,7 @@ pub async fn process_transaction(
             conn,
             chain_setup.glm_address,
             event_sender.clone(),
-            web3,
+            web3.clone(),
             web3_tx_dao,
         )
         .await?;
@@ -401,7 +401,7 @@ pub async fn process_transaction(
             web3_tx_dao.id,
             transaction_nonce + 1
         );
-        let latest_nonce = get_transaction_count(from_addr, web3, false)
+        let latest_nonce = get_transaction_count(from_addr, web3.clone(), false)
             .await
             .map_err(|err| {
                 err_custom_create!(
@@ -413,8 +413,8 @@ pub async fn process_transaction(
             })?;
 
         let current_block_number = web3
-            .eth()
-            .block_number()
+            .clone()
+            .eth_block_number()
             .await
             .map_err(|err| {
                 err_custom_create!(
@@ -440,7 +440,7 @@ pub async fn process_transaction(
             //Normally we have one transaction to check, unless it is replacement transaction then we have to check whole chain
             let mut current_tx = web3_tx_dao.clone();
             let res = loop {
-                let res = find_receipt(web3, &mut current_tx).await?;
+                let res = find_receipt(web3.clone(), &mut current_tx).await?;
                 if res.is_some() {
                     //if receipt found then break early, we found our transaction
                     break res;
@@ -478,8 +478,7 @@ pub async fn process_transaction(
 
                     if is_polygon_eco_mode {
                         let blockchain_gas_price = web3
-                            .eth()
-                            .block(BlockId::Number(BlockNumber::Number(U64::from(
+                            .eth_block(BlockId::Number(BlockNumber::Number(U64::from(
                                 block_number,
                             ))))
                             .await;
@@ -629,7 +628,7 @@ pub async fn process_transaction(
             web3_tx_dao.id,
             transaction_nonce + 1
         );
-        let pending_nonce = get_transaction_count(from_addr, web3, true)
+        let pending_nonce = get_transaction_count(from_addr, web3.clone(), true)
             .await
             .map_err(err_from!())?;
 
@@ -827,7 +826,7 @@ pub async fn process_transaction(
                 conn,
                 chain_setup.glm_address,
                 event_sender.clone(),
-                web3,
+                web3.clone(),
                 web3_tx_dao,
             )
             .await?;
@@ -851,8 +850,10 @@ pub async fn process_transaction(
                         //if transaction was already broad-casted and still not processed then we can assume that gas price is too low
 
                         //Check if really gas price is the reason of problems
-                        if let Ok(Some(block)) =
-                            web3.eth().block(BlockId::Number(BlockNumber::Latest)).await
+                        if let Ok(Some(block)) = web3
+                            .clone()
+                            .eth_block(BlockId::Number(BlockNumber::Latest))
+                            .await
                         {
                             let block_base_fee_per_gas_gwei = block
                                 .base_fee_per_gas

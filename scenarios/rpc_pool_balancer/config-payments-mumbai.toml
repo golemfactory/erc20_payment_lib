@@ -1,0 +1,127 @@
+[engine]
+# proces interval (in seconds) is to set how often we want to recheck transaction status
+# minimum 1 second, sensible maximum around 60 seconds
+process-interval = 5
+# proces interval after send (in seconds) is to set how long to wait after sending transaction before checking for confirmation
+# sensible minimum 20 seconds, sensible maximum around 60 seconds
+process-interval-after-send = 5
+# proces interval after error (in seconds) is to set how long to wait after encountering error before trying again
+# minimum 1 second, sensible maximum around 60 seconds
+process-interval-after-error = 5
+
+# proces interval after missing gas or token (in seconds)
+# it is starting with checking every process-interval-after-no-gas-or-token-start
+# and then increasing by multiplying by process-interval-after-no-gas-or-token-increase
+# up to process-interval-after-no-gas-or-token-max
+process-interval-after-no-gas-or-token-start = 5
+process-interval-after-no-gas-or-token-max = 5
+process-interval-after-no-gas-or-token-increase = 1.5
+
+# report alive interval (in seconds) is to set how often we want to report that we are alive
+# minimum 1 second, maximum is capped by gather-interval
+report-alive-interval = 10
+# gather interval (in seconds) is to set how often payments are gathered
+# minimum 1 second, no maximum limit
+gather-interval = 60
+# gather payments on payment driver start (otherwise wait for first gather-interval)
+gather-at-start = true
+automatic-recover = false
+# set to true to not respect deadlines attached to payments
+ignore-deadlines = false
+
+[chain.mumbai]
+chain-name = "Mumbai testnet"
+chain-id = 80001
+currency-symbol = "tMATIC"
+priority-fee = 1.0
+max-fee-per-gas = 14.0
+gas-left-warning-limit = 1000000
+transaction-timeout = 60
+token = { address = "0x2036807B0B3aaf5b1858EE822D0e111fDdac7018", symbol = "tGLM" }
+multi-contract = { address = "0x800010D7d0d315DCA795110ecCf0127cBd76b89f", max-at-once = 10 }
+confirmation-blocks = 1
+block-explorer-url = "https://mumbai.polygonscan.com"
+
+[[chain.mumbai.rpc-endpoints]]
+name = "g.alchemy.com/v2/demo"
+endpoint = "https://polygon-mumbai.g.alchemy.com/v2/demo"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 60
+
+[[chain.mumbai.rpc-endpoints]]
+name = "blockpi.network/v1/rpc/public"
+endpoint = "https://polygon-mumbai.blockpi.network/v1/rpc/public"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 60
+
+[[chain.mumbai.rpc-endpoints]]
+name = "public.blastapi.io/public"
+endpoint = "https://polygon-testnet.public.blastapi.io"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 60
+
+[[chain.mumbai.rpc-endpoints]]
+name = "omniatech.io/mumbai/public"
+endpoint = "https://endpoints.omniatech.io/v1/matic/mumbai/public"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 60
+
+[[chain.mumbai.rpc-endpoints]]
+name = "maticvigil.com/public"
+endpoint = "https://rpc-mumbai.maticvigil.com"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 60
+
+[[chain.mumbai.rpc-endpoints]]
+name = "terminet.io/public"
+endpoint = "https://polygontestapi.terminet.io/rpc"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 60
+
+[[chain.mumbai.rpc-endpoints]]
+name = "chainstacklabs.com/public"
+endpoint = "https://matic-mumbai.chainstacklabs.com"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 60
+
+[[chain.mumbai.rpc-endpoints]]
+name = "archive-rpc.bwarelabs/public"
+endpoint = "https://matic-testnet-archive-rpc.bwarelabs.com"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 60
+
+[[chain.mumbai.rpc-endpoints]]
+name = "rpc.ankr.com/public"
+endpoint = "https://rpc.ankr.com/polygon_mumbai"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 60
+
+[[chain.mumbai.rpc-endpoints]]
+name = "lavanet.xyz"
+endpoint = "https://g.w.lavanet.xyz:443/gateway/polygon1t/rpc-http/f7ee0000000000000000000000000000"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 60
+
+[[chain.mumbai.rpc-endpoints]]
+name = "archive.allthatnode.com"
+endpoint = "https://polygon-testnet-archive.allthatnode.com:8545"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 120
+
+[[chain.mumbai.rpc-endpoints]]
+name = "rpc.allthatnode.com"
+endpoint = "https://polygon-testnet-rpc.allthatnode.com:8545"
+priority = 0
+max-timeout-ms = 5000
+allowed-head-behind-secs = 120

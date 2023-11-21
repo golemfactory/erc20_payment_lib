@@ -10,6 +10,8 @@ interface EndpointProps {
 
 interface EndpointProblems {
     timeoutChance: number;
+    minTimeoutMs: number;
+    maxTimeoutMs: number;
     errorChance: number;
     malformedResponseChance: number;
     skipSendingRawTransactionChance: number;
@@ -29,12 +31,16 @@ const Endpoint = (props: EndpointProps) => {
     const { backendSettings } = useContext(BackendSettingsContext);
     const [errorChance, setErrorChance] = useState<string>("");
     const [timeoutChance, setTimeoutChance] = useState<string>("");
+    const [minTimeoutMs, setMinTimeoutMs] = useState<string>("");
+    const [maxTimeoutMs, setMaxTimeoutMs] = useState<string>("");
     const [malformedResponseChance, setMalformedResponseChance] = useState<string>("");
     const [skipSendingRawTransactionChance, setSkipSendingRawTransactionChance] = useState<string>("");
     const [sendTransactionButReportFailureChance, setSendTransactionButReportFailureChance] = useState<string>("");
 
     const [errorChanceValidation, setErrorChanceValidation] = useState<string>("");
     const [timeoutChanceValidation, setTimeoutChanceValidation] = useState<string>("");
+    const [minTimeoutMsValidation, setMinTimeoutMsChanceValidation] = useState<string>("");
+    const [maxTimeoutMsValidation, setMaxTimeoutMsChanceValidation] = useState<string>("");
     const [malformedResponseChanceValidation, setMalformedResponseChanceValidation] = useState<string>("");
     const [skipSendingRawTransactionChanceValidation, setRawTransactionChanceValidation] = useState<string>("");
     const [sendTransactionButReportFailureChanceValidation, setSendTransactionButReportFailureChanceValidation] = useState<string>("");
@@ -48,6 +54,8 @@ const Endpoint = (props: EndpointProps) => {
             setProblems(response_json.problems);
             setErrorChance(response_json.problems.errorChance.toString());
             setTimeoutChance(response_json.problems.timeoutChance.toString());
+            setMinTimeoutMs(response_json.problems.minTimeoutMs.toString());
+            setMaxTimeoutMs(response_json.problems.maxTimeoutMs.toString());
             setMalformedResponseChance(response_json.problems.malformedResponseChance.toString());
             setSkipSendingRawTransactionChance(response_json.problems.skipSendingRawTransactionChance.toString());
             setSendTransactionButReportFailureChance(response_json.problems.sendTransactionButReportFailureChance.toString());
@@ -82,6 +90,26 @@ const Endpoint = (props: EndpointProps) => {
             setTimeoutChanceValidation("Has to be number between 0.0 and 1.0");
         }
     }, [timeoutChance]);
+    React.useEffect(() => {
+        const minTimeoutMsNumber = parseFloat(minTimeoutMs);
+        if (isNaN(minTimeoutMsNumber)) {
+            setMinTimeoutMsChanceValidation("Not a number");
+        } else if (minTimeoutMsNumber >= 0 && minTimeoutMsNumber <= 100000) {
+            setMinTimeoutMsChanceValidation("");
+        } else {
+            setMinTimeoutMsChanceValidation("Has to be number >= 0");
+        }
+    }, [minTimeoutMs]);
+    React.useEffect(() => {
+        const maxTimeoutMsNumber = parseFloat(maxTimeoutMs);
+        if (isNaN(maxTimeoutMsNumber)) {
+            setMaxTimeoutMsChanceValidation("Not a number");
+        } else if (maxTimeoutMsNumber >= 0 && maxTimeoutMsNumber <= 100000) {
+            setMaxTimeoutMsChanceValidation("");
+        } else {
+            setMaxTimeoutMsChanceValidation("Has to be number >= 0");
+        }
+    }, [maxTimeoutMs]);
     React.useEffect(() => {
         const malformedResponseChanceNumber = parseFloat(malformedResponseChance);
         if (isNaN(malformedResponseChanceNumber)) {
@@ -120,6 +148,8 @@ const Endpoint = (props: EndpointProps) => {
             const newProblems: EndpointProblems = {
                 errorChance: parseFloat(errorChance),
                 timeoutChance: parseFloat(timeoutChance),
+                minTimeoutMs: parseFloat(minTimeoutMs),
+                maxTimeoutMs: parseFloat(maxTimeoutMs),
                 malformedResponseChance: parseFloat(malformedResponseChance),
                 skipSendingRawTransactionChance: parseFloat(skipSendingRawTransactionChance),
                 sendTransactionButReportFailureChance: parseFloat(sendTransactionButReportFailureChance),
@@ -139,6 +169,8 @@ const Endpoint = (props: EndpointProps) => {
         setRefresh,
         errorChance,
         timeoutChance,
+        minTimeoutMs,
+        maxTimeoutMs,
         malformedResponseChance,
         skipSendingRawTransactionChance,
         sendTransactionButReportFailureChance,
@@ -165,6 +197,8 @@ const Endpoint = (props: EndpointProps) => {
     let buttonDisabled =
         errorChanceValidation !== "" ||
         timeoutChanceValidation !== "" ||
+        minTimeoutMsValidation !== "" ||
+        maxTimeoutMsValidation !== "" ||
         malformedResponseChanceValidation !== "" ||
         skipSendingRawTransactionChanceValidation !== "" ||
         sendTransactionButReportFailureChanceValidation !== "";
@@ -172,6 +206,8 @@ const Endpoint = (props: EndpointProps) => {
     if (
         errorChance === problems.errorChance.toString() &&
         timeoutChance === problems.timeoutChance.toString() &&
+        minTimeoutMs === problems.minTimeoutMs.toString() &&
+        maxTimeoutMs === problems.maxTimeoutMs.toString() &&
         malformedResponseChance === problems.malformedResponseChance.toString() &&
         skipSendingRawTransactionChance === problems.skipSendingRawTransactionChance.toString() &&
         sendTransactionButReportFailureChance === problems.sendTransactionButReportFailureChance.toString()
@@ -204,6 +240,26 @@ const Endpoint = (props: EndpointProps) => {
                         <td>{problems.timeoutChance}</td>
                         <td>
                             <div>{timeoutChanceValidation}</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Minimal timeout in ms</th>
+                        <td>
+                            <input value={minTimeoutMs} onChange={(e) => setMinTimeoutMs(e.target.value)} />
+                        </td>
+                        <td>{problems.minTimeoutMs}</td>
+                        <td>
+                            <div>{minTimeoutMsValidation}</div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Maximum timeout in ms</th>
+                        <td>
+                            <input value={maxTimeoutMs} onChange={(e) => setMaxTimeoutMs(e.target.value)} />
+                        </td>
+                        <td>{problems.maxTimeoutMs}</td>
+                        <td>
+                            <div>{maxTimeoutMsValidation}</div>
                         </td>
                     </tr>
                     <tr>

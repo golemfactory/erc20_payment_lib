@@ -1,6 +1,5 @@
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 use crate::db::model::*;
 use crate::db::ops::*;
@@ -10,14 +9,12 @@ use crate::transaction::find_receipt_extended;
 use crate::utils::{ConversionError, U256ConvExt};
 
 use crate::err_from;
-use crate::setup::{ChainSetup, PaymentSetup};
+use crate::setup::ChainSetup;
 
 use crate::contracts::encode_erc20_balance_of;
-use crate::runtime::SharedState;
+use erc20_rpc_pool::Web3RpcPool;
 use sqlx::SqlitePool;
-use web3::transports::Http;
 use web3::types::{Address, BlockNumber, CallRequest, U256};
-use web3::Web3;
 
 pub async fn add_payment_request_2(
     conn: &SqlitePool,
@@ -71,7 +68,7 @@ pub async fn add_glm_request(
 }
 
 pub async fn transaction_from_chain_and_into_db(
-    web3: &Web3<Http>,
+    web3: Arc<Web3RpcPool>,
     conn: &SqlitePool,
     chain_id: i64,
     tx_hash: &str,
@@ -91,7 +88,7 @@ pub async fn transaction_from_chain_and_into_db(
     }
 
     let (mut chain_tx_dao, transfers) =
-        find_receipt_extended(web3, tx_hash, chain_id, glm_address).await?;
+        find_receipt_extended(web3.clone(), tx_hash, chain_id, glm_address).await?;
 
     if chain_tx_dao.chain_status != 1 {
         return Ok(None);
@@ -101,8 +98,8 @@ pub async fn transaction_from_chain_and_into_db(
     let balance = loop {
         loop_no += 1;
         match web3
-            .eth()
-            .balance(
+            .clone()
+            .eth_balance(
                 Address::from_str(&chain_tx_dao.from_addr).unwrap(),
                 Some(BlockNumber::Number(chain_tx_dao.block_number.into())),
             )
@@ -131,8 +128,8 @@ pub async fn transaction_from_chain_and_into_db(
             encode_erc20_balance_of(Address::from_str(&chain_tx_dao.from_addr).unwrap())
                 .map_err(err_from!())?;
         match web3
-            .eth()
-            .call(
+            .clone()
+            .eth_call(
                 CallRequest {
                     from: None,
                     to: Some(glm_address),
@@ -225,6 +222,7 @@ pub async fn transaction_from_chain_and_into_db(
     Ok(Some(tx))
 }
 
+/*
 pub async fn confirm_loop(
     _shared_state: Arc<Mutex<SharedState>>,
     _conn: &SqlitePool,
@@ -236,4 +234,4 @@ pub async fn confirm_loop(
         ))
         .await;
     }
-}
+}*/

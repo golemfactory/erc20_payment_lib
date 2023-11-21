@@ -4,8 +4,8 @@ use std::collections::btree_map::BTreeMap as Map;
 use rust_decimal::Decimal;
 use std::path::Path;
 
+use crate::err_custom_create;
 use crate::error::*;
-use crate::{err_custom_create, err_from};
 use tokio::fs;
 use web3::types::Address;
 
@@ -93,10 +93,24 @@ pub struct FaucetClientSettings {
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
+pub struct RpcSettings {
+    pub name: String,
+    pub endpoint: String,
+    pub skip_validation: Option<bool>,
+    pub backup_level: Option<i64>,
+    pub verify_interval_secs: Option<u64>,
+    pub min_interval_ms: Option<u64>,
+    pub max_timeout_ms: Option<u64>,
+    pub allowed_head_behind_secs: Option<u64>,
+    pub max_consecutive_errors: Option<u64>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct Chain {
     pub chain_name: String,
     pub chain_id: i64,
-    pub rpc_endpoints: Vec<String>,
+    pub rpc_endpoints: Vec<RpcSettings>,
     pub currency_symbol: String,
     pub priority_fee: Decimal,
     pub max_fee_per_gas: Decimal,
@@ -129,7 +143,13 @@ impl Config {
     }
 
     pub async fn load<P: AsRef<Path>>(path: P) -> Result<Self, PaymentError> {
-        match toml::from_slice(&fs::read(&path).await.map_err(err_from!())?) {
+        match toml::from_slice(&fs::read(&path).await.map_err(|e| {
+            err_custom_create!(
+                "Failed to read config file {}. Error {}",
+                path.as_ref().display(),
+                e
+            )
+        })?) {
             Ok(config) => Ok(config),
             Err(e) => Err(err_custom_create!(
                 "Failed to parse toml {}: {}",
@@ -142,7 +162,7 @@ impl Config {
     pub async fn change_rpc_endpoints(
         &mut self,
         chain: &str,
-        rpc_endpoints: Vec<String>,
+        rpc_endpoints: Vec<RpcSettings>,
     ) -> Result<(), PaymentError> {
         self.chain
             .get_mut(chain)

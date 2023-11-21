@@ -35,3 +35,5 @@ regex = { workspace = true }
 awc = { workspace = true }
 trust-dns-resolver = { workspace = true }
 url = { workspace = true }
+erc20_rpc_pool = { path = "../erc20_rpc_pool", version = "0.3.7" }
+futures-util = { workspace = true }

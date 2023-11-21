@@ -17,5 +17,6 @@ pub async fn test_get_balance(
         tasks: 4,
         interval: Some(0.001),
     };
+
     account_balance(account_balance_options.clone(), &config_check).await
 }

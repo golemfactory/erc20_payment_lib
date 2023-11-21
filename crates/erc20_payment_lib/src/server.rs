@@ -9,6 +9,7 @@ use actix_web::http::header::HeaderValue;
 use actix_web::http::{header, StatusCode};
 use actix_web::web::Data;
 use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
+use erc20_rpc_pool::VerifyEndpointResult;
 use serde_json::json;
 use sqlx::SqlitePool;
 use std::collections::BTreeMap;
@@ -92,6 +93,172 @@ pub async fn tx_details(data: Data<Box<ServerData>>, req: HttpRequest) -> impl R
     web::Json(json!({
         "tx": tx,
     }))
+}
+
+pub async fn rpc_pool(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Responder {
+    let my_data = data.shared_state.lock().await;
+    //synchronize rpc_pool statistics with server
+    /*shared_state.lock().await.web3_rpc_pool.insert(
+        chain_id,
+        web3.endpoints
+            .iter()
+            .map(|e| {
+                (
+                    e.read().unwrap().web3_rpc_params.clone(),
+                    e.read().unwrap().web3_rpc_info.clone(),
+                )
+            })
+            .collect::<Vec<(Web3RpcParams, Web3RpcInfo)>>(),
+    );*/
+
+    web::Json(json!({
+        "rpc_pool": my_data.web3_pool_ref,
+    }))
+}
+
+struct MetricGroup {
+    metric_help: String,
+    metric_type: String,
+    metrics: Vec<Metric>,
+}
+struct Metric {
+    name: String,
+    params: Vec<(String, String)>,
+    value: String,
+}
+
+pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Responder {
+    let pool_ref = data.shared_state.lock().await.web3_pool_ref.clone();
+
+    let mut metrics = Vec::with_capacity(100);
+
+    metrics.push(MetricGroup {
+        metric_help: "# HELP rpc_endpoint_effective_score Effective score of selected rpc endpoint"
+            .to_string(),
+        metric_type: "# TYPE rpc_endpoint_effective_score gauge".to_string(),
+        metrics: Vec::new(),
+    });
+    metrics.push(MetricGroup {
+        metric_help:
+            "# HELP rpc_endpoint_score_validation Score (from validation) of selected rpc endpoint"
+                .to_string(),
+        metric_type: "# TYPE rpc_endpoint_score_validation gauge".to_string(),
+        metrics: Vec::new(),
+    });
+    metrics.push(MetricGroup {
+        metric_help: "# HELP rpc_endpoint_error_count Number of error requests".to_string(),
+        metric_type: "# TYPE rpc_endpoint_error_count counter".to_string(),
+        metrics: Vec::new(),
+    });
+    metrics.push(MetricGroup {
+        metric_help: "# HELP rpc_endpoint_success_count Number of succeeded requests".to_string(),
+        metric_type: "# TYPE rpc_endpoint_success_count counter".to_string(),
+        metrics: Vec::new(),
+    });
+    metrics.push(MetricGroup {
+        metric_help: "# HELP rpc_endpoint_ms Endpoint validation time".to_string(),
+        metric_type: "# TYPE rpc_endpoint_ms gauge".to_string(),
+        metrics: Vec::new(),
+    });
+    metrics.push(MetricGroup {
+        metric_help: "# HELP rpc_endpoint_block_delay Time since last block head".to_string(),
+        metric_type: "# TYPE rpc_endpoint_block_delay gauge".to_string(),
+        metrics: Vec::new(),
+    });
+
+    for (_idx, vec) in pool_ref {
+        for (_idx, endpoint) in vec.iter().enumerate() {
+            let endpoint = endpoint.read().unwrap();
+            let params = vec![
+                (
+                    "chain_id".to_string(),
+                    endpoint.web3_rpc_params.chain_id.to_string(),
+                ),
+                ("name".to_string(), endpoint.web3_rpc_params.name.clone()),
+            ];
+            let new_metric = Metric {
+                name: "rpc_endpoint_effective_score".into(),
+                params: params.clone(),
+                value: (endpoint.get_score()).to_string(),
+            };
+            metrics[0].metrics.push(new_metric);
+
+            let new_metric = Metric {
+                name: "rpc_endpoint_score_validation".into(),
+                params: params.clone(),
+                value: (endpoint.get_validation_score()).to_string(),
+            };
+            metrics[1].metrics.push(new_metric);
+
+            let new_metric = Metric {
+                name: "rpc_endpoint_error_count".into(),
+                params: params.clone(),
+                value: endpoint
+                    .web3_rpc_info
+                    .web3_rpc_stats
+                    .request_count_total_error
+                    .to_string(),
+            };
+            metrics[2].metrics.push(new_metric);
+
+            let new_metric = Metric {
+                name: "rpc_endpoint_success_count".into(),
+                params: params.clone(),
+                value: endpoint
+                    .web3_rpc_info
+                    .web3_rpc_stats
+                    .request_count_total_succeeded
+                    .to_string(),
+            };
+            metrics[3].metrics.push(new_metric);
+
+            let (head_behind, check_time_ms) = match &endpoint.web3_rpc_info.verify_result {
+                Some(VerifyEndpointResult::Ok(res)) => {
+                    (res.head_seconds_behind as i64, res.check_time_ms as i64)
+                }
+                _ => (-1, -1),
+            };
+
+            let new_metric = Metric {
+                name: "rpc_endpoint_ms".into(),
+                params: params.clone(),
+                value: check_time_ms.to_string(),
+            };
+            metrics[4].metrics.push(new_metric);
+
+            let new_metric = Metric {
+                name: "rpc_endpoint_block_delay".into(),
+                params: params.clone(),
+                value: head_behind.to_string(),
+            };
+            metrics[5].metrics.push(new_metric);
+        }
+    }
+
+    let mut resp: String = String::with_capacity(1024 * 1024);
+    for metric_group in metrics {
+        resp += &format!("{}\n", metric_group.metric_help);
+        resp += &format!("{}\n", metric_group.metric_type);
+        for metric in metric_group.metrics {
+            resp += &format!("{}{{", metric.name);
+            for (idx, param) in metric.params.iter().enumerate() {
+                resp += &format!(
+                    "{}=\"{}\"{}",
+                    param.0,
+                    param.1,
+                    if idx < metric.params.len() - 1 {
+                        ","
+                    } else {
+                        ""
+                    }
+                );
+            }
+            resp += &format!("}} {}\n", metric.value);
+        }
+        resp += "\n";
+    }
+
+    resp
 }
 
 pub async fn allowances(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Responder {
@@ -229,6 +396,7 @@ pub async fn transactions_next(data: Data<Box<ServerData>>, req: HttpRequest) ->
         "txs": txs,
     }))
 }
+
 pub async fn transactions_current(
     data: Data<Box<ServerData>>,
     _req: HttpRequest,
@@ -651,6 +819,8 @@ pub fn runtime_web_scope(
     let mut api_scope = api_scope
         .app_data(server_data)
         .route("/allowances", web::get().to(allowances))
+        .route("/rpc_pool", web::get().to(rpc_pool))
+        .route("/rpc_pool/metrics", web::get().to(rpc_pool_metrics))
         .route("/config", web::get().to(config_endpoint))
         .route("/transactions", web::get().to(transactions))
         .route("/transactions/count", web::get().to(transactions_count))

@@ -4,7 +4,8 @@ members = [
     "crates/erc20_payment_lib_extra",
     "crates/erc20_payment_lib_test",
     "crates/web3_test_proxy_client",
-    "crates/web3_test_proxy"
+    "crates/web3_test_proxy",
+    "crates/erc20_rpc_pool",
 ]
 
 [[bin]]
@@ -56,6 +57,7 @@ sqlx = { version = "0.7", features = ["sqlite", "chrono", "runtime-tokio"] }
 stream-rate-limiter = "0.3"
 structopt = "0.3.26"
 thiserror = "1.0.37"
+thunderdome = "0.6.1"
 tokio = { version = "^1.21", features = ["macros", "rt-multi-thread"] }
 toml = "0.5.9" # need some refactor to update
 uuid = { version = "1.2.2", features = ["serde", "v4"] }
@@ -105,8 +107,9 @@ trust-dns-resolver = { workspace = true }
 url = { workspace = true }
 regex = { workspace = true }
 
-erc20_payment_lib = { path = "crates/erc20_payment_lib", version = "0.3.0" }
-erc20_payment_lib_extra = { path = "crates/erc20_payment_lib_extra", version = "0.3.0" }
+erc20_rpc_pool = { path = "crates/erc20_rpc_pool", version = "0.3.7" }
+erc20_payment_lib = { path = "crates/erc20_payment_lib", version = "0.3.7" }
+erc20_payment_lib_extra = { path = "crates/erc20_payment_lib_extra", version = "0.3.2" }
 
 [dev-dependencies]
 bollard = { workspace = true }
