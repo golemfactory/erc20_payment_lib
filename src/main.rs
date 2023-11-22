@@ -7,7 +7,6 @@ use actix_web::{web, App, HttpServer};
 use csv::ReaderBuilder;
 use erc20_payment_lib::config::{AdditionalOptions, RpcSettings};
 use erc20_payment_lib::db::create_sqlite_connection;
-use erc20_payment_lib::db::model::{ScanDao, TokenTransferDao};
 use erc20_payment_lib::db::ops::{
     delete_scan_info, get_next_transactions_to_process, get_scan_info, insert_token_transfer,
     update_token_transfer, upsert_scan_info,
@@ -28,15 +27,17 @@ use std::str::FromStr;
 use crate::stats::{export_stats, run_stats};
 use erc20_payment_lib::runtime::{
     get_token_balance, mint_golem_token, remove_last_unsent_transactions, remove_transaction_force,
+    PaymentRuntimeArgs,
 };
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
-use erc20_payment_lib::transaction::import_erc20_txs;
+use erc20_payment_lib::transaction::{import_erc20_txs, ImportErc20TxsArgs};
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt};
+use erc20_payment_lib_common::model::{ScanDao, TokenTransferDao};
 use erc20_rpc_pool::{Web3RpcParams, Web3RpcPool};
 use rust_decimal::Decimal;
 use std::sync::Arc;
@@ -181,14 +182,16 @@ async fn main_internal() -> Result<(), PaymentError> {
             });
 
             let sp = PaymentRuntime::new(
-                &private_keys,
-                &db_filename,
-                config,
+                PaymentRuntimeArgs {
+                    secret_keys: private_keys,
+                    db_filename,
+                    config,
+                    conn: Some(conn.clone()),
+                    options: Some(add_opt),
+                    event_sender: None,
+                    extra_testing: extra_testing_options,
+                },
                 signer,
-                Some(conn.clone()),
-                Some(add_opt),
-                None,
-                extra_testing_options,
             )
             .await?;
 
@@ -267,6 +270,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let task = tokio::task::spawn(web3_pool.clone().verify_unverified_endpoints());
             let mut idx_set_completed = HashSet::new();
+
             let enp_info = loop {
                 let is_finished = task.is_finished();
                 let mut enp_info = web3_pool.get_endpoints_info();
@@ -277,8 +281,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                     if let Some(verify_result) = &info.verify_result {
                         idx_set_completed.insert(*idx);
                         log::info!(
-                            "Endpoint no {}, name: {} verified, result: {:?}",
-                            *idx,
+                            "Endpoint no {:?}, name: {} verified, result: {:?}",
+                            idx,
                             params.name,
                             verify_result
                         );
@@ -292,7 +296,15 @@ async fn main_internal() -> Result<(), PaymentError> {
                 }
                 tokio::time::sleep(std::time::Duration::from_millis(1)).await;
             };
-            println!("{}", serde_json::to_string_pretty(&enp_info).unwrap());
+            let enp_info_simple = enp_info
+                .iter()
+                .enumerate()
+                .map(|(idx, (_, params, info))| (idx, params, info))
+                .collect::<Vec<_>>();
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&enp_info_simple).unwrap()
+            );
         }
         PaymentCommands::GetDevEth {
             get_dev_eth_options,
@@ -618,16 +630,16 @@ async fn main_internal() -> Result<(), PaymentError> {
                 }
             }
 
-            let txs = import_erc20_txs(
-                web3.clone(),
-                chain_cfg.token.address,
-                chain_cfg.chain_id,
-                Some(&[sender]),
-                None,
+            let txs = import_erc20_txs(ImportErc20TxsArgs {
+                web3: web3.clone(),
+                erc20_address: chain_cfg.token.address,
+                chain_id: chain_cfg.chain_id,
+                filter_by_senders: Some([sender].to_vec()),
+                filter_by_receivers: None,
                 start_block,
-                end_block,
-                scan_blockchain_options.blocks_at_once,
-            )
+                scan_end_block: end_block,
+                blocks_at_once: scan_blockchain_options.blocks_at_once,
+            })
             .await
             .unwrap();
 

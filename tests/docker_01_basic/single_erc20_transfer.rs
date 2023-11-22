@@ -1,15 +1,18 @@
 use erc20_payment_lib::config::AdditionalOptions;
-use erc20_payment_lib::db::model::TxDao;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::DriverEventContent::*;
-use erc20_payment_lib::runtime::{verify_transaction, DriverEvent, PaymentRuntime};
+use erc20_payment_lib::runtime::{verify_transaction, PaymentRuntime, PaymentRuntimeArgs};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
 use erc20_payment_lib::utils::U256ConvExt;
+use erc20_payment_lib_common::model::TxDao;
+use erc20_payment_lib_common::DriverEvent;
+use erc20_payment_lib_common::DriverEventContent::*;
 use erc20_payment_lib_test::*;
+use erc20_rpc_pool::Web3RpcPool;
 use rust_decimal::prelude::ToPrimitive;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use web3::types::{Address, H256, U256};
 use web3_test_proxy_client::list_transactions_human;
@@ -48,6 +51,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
                     tx_dao_return = Some(tx_dao);
                     tx_confirmed_message_count += 1;
                 },
+                Web3RpcMessage(_) => { }
                 StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
@@ -63,7 +67,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
     });
     let config = create_default_config_setup(&proxy_url_base, proxy_key).await;
     let token_address = config.chain.get("dev").unwrap().token.address;
-    let web3 = {
+    {
         //load private key for account 0xbfb29b133aa51c4b45b49468f9a22958eafea6fa
         let private_keys = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963")?;
         let signer = PrivateKeySigner::new(private_keys.0.clone());
@@ -82,23 +86,22 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
         ).await?;
 
         // *** TEST RUN ***
-
         let sp = PaymentRuntime::new(
-            &private_keys.0,
-            std::path::Path::new(""),
-            config.clone(),
+            PaymentRuntimeArgs {
+                secret_keys: private_keys.0,
+                db_filename: Default::default(),
+                config: config.clone(),
+                conn: Some(conn.clone()),
+                options: Some(AdditionalOptions {
+                    keep_running: false,
+                    ..Default::default()
+                }),
+                event_sender: Some(sender),
+                extra_testing: None,
+            },
             signer,
-            Some(conn.clone()),
-            Some(AdditionalOptions {
-                keep_running: false,
-                ..Default::default()
-            }),
-            Some(sender),
-            None
-        ).await?;
-        let web3 = sp.get_web3_provider("dev").await.unwrap();
+        ).await.unwrap();
         sp.runtime_handle.await?;
-        web3
     };
 
     #[allow(clippy::bool_assert_comparison)]
@@ -128,6 +131,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
         let fr_str_wrong = Address::from_str("0xcfb29b133aa51c4b45b49468f9a22958eafea6fa").unwrap();
         let to_str = Address::from_str("0xf2f86a61b769c91fc78f15059a5bd2c189b84be2").unwrap();
         let to_str_wrong = Address::from_str("0x02f86a61b769c91fc78f15059a5bd2c189b84be2").unwrap();
+        let web3 = Arc::new(Web3RpcPool::new_from_urls(987789, vec![format!("{}/web3/{}", proxy_url_base, "check")]));
         assert_eq!(verify_transaction(web3.clone(), 987789, tx_hash,fr_str,to_str,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified(), true);
         assert_eq!(verify_transaction(web3.clone(), 987789, tx_hash,fr_str,to_str_wrong,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified(), false);
         assert_eq!(verify_transaction(web3.clone(), 987789, tx_hash,fr_str_wrong,to_str,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified(), false);

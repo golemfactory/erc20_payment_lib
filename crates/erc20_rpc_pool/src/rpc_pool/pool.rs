@@ -1,11 +1,13 @@
 use crate::rpc_pool::verify::{verify_endpoint, ReqStats};
 use crate::rpc_pool::VerifyEndpointResult;
 use crate::{Web3RpcInfo, Web3RpcParams};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
+use erc20_payment_lib_common::DriverEvent;
 use futures::future;
 use serde::Serialize;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock};
+use thunderdome::{Arena, Index};
 use web3::transports::Http;
 use web3::Web3;
 
@@ -43,36 +45,23 @@ impl Web3RpcEndpoint {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub enum RpcPoolEventContent {
-    RpcSuccess,
-    RpcError(String),
-    AllEndpointsFailed,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RpcPoolEvent {
-    pub create_date: DateTime<Utc>,
-    pub content: RpcPoolEventContent,
-}
-
 #[derive(Debug)]
 pub struct Web3RpcPool {
     pub chain_id: u64,
     //last_verified: Option<DateTime<Utc>>,
-    pub endpoints: Vec<Arc<RwLock<Web3RpcEndpoint>>>,
+    pub endpoints: Arena<Arc<RwLock<Web3RpcEndpoint>>>,
     pub verify_mutex: tokio::sync::Mutex<()>,
-    pub last_success_endpoints: Arc<Mutex<VecDeque<usize>>>,
-    pub event_sender: Option<tokio::sync::mpsc::Sender<RpcPoolEvent>>,
+    pub last_success_endpoints: Arc<Mutex<VecDeque<Index>>>,
+    pub event_sender: Option<tokio::sync::mpsc::WeakSender<DriverEvent>>,
 }
 
 impl Web3RpcPool {
     pub fn new(
         chain_id: u64,
         endpoints: Vec<Web3RpcParams>,
-        events: Option<tokio::sync::mpsc::Sender<RpcPoolEvent>>,
+        events: Option<tokio::sync::mpsc::WeakSender<DriverEvent>>,
     ) -> Self {
-        let mut web3_endpoints = Vec::new();
+        let mut web3_endpoints = Arena::new();
         for endpoint_params in endpoints {
             if endpoint_params.chain_id != chain_id {
                 log::error!(
@@ -90,7 +79,7 @@ impl Web3RpcPool {
                 web3_rpc_info: Default::default(),
             };
             log::debug!("Added endpoint {:?}", endpoint);
-            web3_endpoints.push(Arc::new(RwLock::new(endpoint)));
+            web3_endpoints.insert(Arc::new(RwLock::new(endpoint)));
         }
         Self {
             chain_id,
@@ -129,13 +118,13 @@ impl Web3RpcPool {
         future::join_all(
             self.endpoints
                 .iter()
-                .map(|s| verify_endpoint(self.chain_id, s.clone())),
+                .map(|s| verify_endpoint(self.chain_id, s.1.clone())),
         )
         .await;
     }
 
-    pub fn extra_score_from_last_chosen(self: Arc<Self>) -> (i64, i64) {
-        let mut extra_score_idx = -1;
+    pub fn extra_score_from_last_chosen(self: Arc<Self>) -> (Option<Index>, i64) {
+        let mut extra_score_idx = None;
         let mut extra_score = 0;
 
         {
@@ -145,25 +134,25 @@ impl Web3RpcPool {
             }
 
             if let Some(last_chosen) = last_success_endpoints.get(0) {
-                extra_score_idx = *last_chosen as i64;
+                extra_score_idx = Some(*last_chosen);
                 extra_score += 10;
             }
             if let Some(last_chosen) = last_success_endpoints.get(1) {
-                if extra_score_idx == *last_chosen as i64 {
+                if extra_score_idx == Some(*last_chosen) {
                     extra_score += 7;
                 } else {
                     return (extra_score_idx, extra_score);
                 }
             }
             if let Some(last_chosen) = last_success_endpoints.get(2) {
-                if extra_score_idx == *last_chosen as i64 {
+                if extra_score_idx == Some(*last_chosen) {
                     extra_score += 5;
                 } else {
                     return (extra_score_idx, extra_score);
                 }
             }
             if let Some(last_chosen) = last_success_endpoints.get(3) {
-                if extra_score_idx == *last_chosen as i64 {
+                if extra_score_idx == Some(*last_chosen) {
                     extra_score += 3;
                 } else {
                     return (extra_score_idx, extra_score);
@@ -173,11 +162,11 @@ impl Web3RpcPool {
         (extra_score_idx, extra_score)
     }
 
-    pub async fn choose_best_endpoints(self: Arc<Self>) -> Vec<usize> {
+    pub async fn choose_best_endpoints(self: Arc<Self>) -> Vec<Index> {
         let (extra_score_idx, extra_score) = self.clone().extra_score_from_last_chosen();
-        for (idx, el) in self.endpoints.iter().enumerate() {
+        for (idx, el) in self.endpoints.iter() {
             el.write().unwrap().web3_rpc_info.bonus_from_last_chosen =
-                if idx as i64 == extra_score_idx {
+                if Some(idx) == extra_score_idx {
                     extra_score
                 } else {
                     0
@@ -187,14 +176,13 @@ impl Web3RpcPool {
         let mut allowed_endpoints = self
             .endpoints
             .iter()
-            .enumerate()
             .filter(|(_idx, element)| {
                 element.read().unwrap().web3_rpc_params.skip_validation
                     || element.read().unwrap().web3_rpc_info.is_allowed
             })
             //.max_by_key(|(_idx, element)| (element.read().unwrap().get_score() * 1000.0) as i64)
             .map(|(idx, _element)| idx)
-            .collect::<Vec<usize>>();
+            .collect::<Vec<Index>>();
 
         allowed_endpoints
             .sort_by_key(|idx| (self.endpoints[*idx].read().unwrap().get_score() * 1000.0) as i64);
@@ -216,7 +204,6 @@ impl Web3RpcPool {
                 if let Some(el) = self
                     .endpoints
                     .iter()
-                    .enumerate()
                     .filter(|(_idx, element)| {
                         element.read().unwrap().web3_rpc_params.skip_validation
                             || element.read().unwrap().web3_rpc_info.is_allowed
@@ -239,7 +226,7 @@ impl Web3RpcPool {
         }
     }
 
-    pub fn get_web3(&self, idx: usize) -> Web3<Http> {
+    pub fn get_web3(&self, idx: Index) -> Web3<Http> {
         self.endpoints
             .get(idx)
             .unwrap()
@@ -249,7 +236,18 @@ impl Web3RpcPool {
             .clone()
     }
 
-    pub fn get_max_timeout(&self, idx: usize) -> std::time::Duration {
+    pub fn get_name(&self, idx: Index) -> String {
+        self.endpoints
+            .get(idx)
+            .unwrap()
+            .read()
+            .unwrap()
+            .web3_rpc_params
+            .name
+            .clone()
+    }
+
+    pub fn get_max_timeout(&self, idx: Index) -> std::time::Duration {
         std::time::Duration::from_millis(
             self.endpoints
                 .get(idx)
@@ -261,7 +259,7 @@ impl Web3RpcPool {
         )
     }
 
-    pub fn mark_rpc_success(&self, idx: usize, method: String) {
+    pub fn mark_rpc_success(&self, idx: Index, method: String) {
         let stats = &mut self
             .endpoints
             .get(idx)
@@ -293,7 +291,7 @@ impl Web3RpcPool {
         stats.web3_rpc_stats.request_count_total_succeeded += 1;
     }
 
-    pub fn mark_rpc_error(&self, idx: usize, method: String, verify_result: VerifyEndpointResult) {
+    pub fn mark_rpc_error(&self, idx: Index, method: String, verify_result: VerifyEndpointResult) {
         // use read lock before write lock to avoid deadlock
         let params = self
             .endpoints
@@ -341,10 +339,9 @@ impl Web3RpcPool {
         } // stats lock is released here
     }
 
-    pub fn get_endpoints_info(&self) -> Vec<(usize, Web3RpcParams, Web3RpcInfo)> {
+    pub fn get_endpoints_info(&self) -> Vec<(Index, Web3RpcParams, Web3RpcInfo)> {
         self.endpoints
             .iter()
-            .enumerate()
             .map(|(idx, w)| {
                 (
                     idx,

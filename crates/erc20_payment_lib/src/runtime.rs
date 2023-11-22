@@ -9,7 +9,7 @@ use crate::transaction::{create_faucet_mint, create_token_transfer, find_receipt
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
 use std::ops::DerefMut;
-use std::path::Path;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use crate::error::{ErrorBag, PaymentError};
@@ -23,105 +23,22 @@ use tokio::sync::mpsc::Sender;
 
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
-use crate::db::model::{AllowanceDao, TokenTransferDao, TxDao};
 use crate::sender::service_loop;
 use crate::utils::{StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
+use erc20_payment_lib_common::{
+    DriverEvent, DriverEventContent, FaucetData, SharedInfoTx, StatusProperty,
+    TransactionFailedReason, TransactionStuckReason, Web3RpcPoolContent,
+};
 use erc20_rpc_pool::{Web3RpcEndpoint, Web3RpcPool};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
 use std::sync::{Arc, RwLock};
+use thunderdome::Arena;
 use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
 use web3::types::{Address, H256, U256};
-
-#[derive(Debug, Clone, Serialize)]
-pub struct SharedInfoTx {
-    pub message: String,
-    pub error: Option<String>,
-    pub skip: bool,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct FaucetData {
-    pub faucet_events: BTreeMap<String, DateTime<Utc>>,
-    pub last_cleanup: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct GasLowInfo {
-    pub tx: TxDao,
-    pub tx_max_fee_per_gas_gwei: Decimal,
-    pub block_date: chrono::DateTime<Utc>,
-    pub block_number: u64,
-    pub block_base_fee_per_gas_gwei: Decimal,
-    pub assumed_min_priority_fee_gwei: Decimal,
-    pub user_friendly_message: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct NoGasDetails {
-    pub tx: TxDao,
-    pub gas_balance: Decimal,
-    pub gas_needed: Decimal,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct NoTokenDetails {
-    pub tx: TxDao,
-    pub sender: Address,
-    pub token_balance: Decimal,
-    pub token_needed: Decimal,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[allow(clippy::large_enum_variant)]
-pub enum TransactionStuckReason {
-    NoGas(NoGasDetails),
-    NoToken(NoTokenDetails),
-    GasPriceLow(GasLowInfo),
-    RPCEndpointProblems(String),
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub enum TransactionFailedReason {
-    InvalidChainId(i64),
-    Unknown,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct TransactionFinishedInfo {
-    pub token_transfer_dao: TokenTransferDao,
-    pub tx_dao: TxDao,
-}
-
-#[derive(Debug, Clone, Serialize)]
-#[allow(clippy::large_enum_variant)]
-pub enum DriverEventContent {
-    TransactionConfirmed(TxDao),
-    TransferFinished(TransactionFinishedInfo),
-    ApproveFinished(AllowanceDao),
-    TransactionStuck(TransactionStuckReason),
-    TransactionFailed(TransactionFailedReason),
-    CantSign(TxDao),
-    StatusChanged(Vec<StatusProperty>),
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct DriverEvent {
-    pub create_date: DateTime<Utc>,
-    pub content: DriverEventContent,
-}
-
-impl DriverEvent {
-    pub fn now(content: DriverEventContent) -> Self {
-        DriverEvent {
-            create_date: Utc::now(),
-            content,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedState {
@@ -183,27 +100,6 @@ impl SharedState {
     pub fn delete_tx_info(&mut self, id: i64) {
         self.current_tx_info.remove(&id);
     }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize)]
-pub enum StatusProperty {
-    InvalidChainId {
-        chain_id: i64,
-    },
-    CantSign {
-        chain_id: i64,
-        address: String,
-    },
-    NoGas {
-        chain_id: i64,
-        address: String,
-        missing_gas: Decimal,
-    },
-    NoToken {
-        chain_id: i64,
-        address: String,
-        missing_token: Decimal,
-    },
 }
 
 struct StatusTracker {
@@ -297,21 +193,22 @@ impl StatusTracker {
     fn new(mut sender: Option<Sender<DriverEvent>>) -> (Self, Sender<DriverEvent>) {
         let (status_tx, mut status_rx) = tokio::sync::mpsc::channel::<DriverEvent>(1);
         let status = Arc::new(Mutex::new(Vec::new()));
-        let status2 = Arc::clone(&status);
+        let status_ = Arc::clone(&status);
 
         tokio::spawn(async move {
+            let status = status_;
             while let Some(ev) = status_rx.recv().await {
                 let emit_changed = match &ev.content {
                     DriverEventContent::TransactionFailed(
                         TransactionFailedReason::InvalidChainId(chain_id),
                     ) => Self::update(
-                        status2.lock().await.deref_mut(),
+                        status.lock().await.deref_mut(),
                         StatusProperty::InvalidChainId {
                             chain_id: *chain_id,
                         },
                     ),
                     DriverEventContent::CantSign(tx) => Self::update(
-                        status2.lock().await.deref_mut(),
+                        status.lock().await.deref_mut(),
                         StatusProperty::CantSign {
                             chain_id: tx.chain_id,
                             address: tx.from_addr.clone(),
@@ -323,7 +220,7 @@ impl StatusTracker {
                         let missing_gas = details.gas_balance - details.gas_needed;
 
                         Self::update(
-                            status2.lock().await.deref_mut(),
+                            status.lock().await.deref_mut(),
                             StatusProperty::NoGas {
                                 chain_id: details.tx.chain_id,
                                 address: details.tx.from_addr.clone(),
@@ -336,7 +233,7 @@ impl StatusTracker {
                     )) => {
                         let missing_token = details.token_needed - details.token_balance;
                         Self::update(
-                            status2.lock().await.deref_mut(),
+                            status.lock().await.deref_mut(),
                             StatusProperty::NoToken {
                                 chain_id: details.tx.chain_id,
                                 address: details.tx.from_addr.clone(),
@@ -346,9 +243,31 @@ impl StatusTracker {
                     }
                     DriverEventContent::TransferFinished(transaction_finished_info) => {
                         Self::clear_issues(
-                            status2.lock().await.deref_mut(),
+                            status.lock().await.deref_mut(),
                             transaction_finished_info.token_transfer_dao.chain_id,
                         )
+                    }
+                    DriverEventContent::Web3RpcMessage(rpc_pool_info) => {
+                        match &rpc_pool_info.content {
+                            Web3RpcPoolContent::Success => {
+                                //Self::clear_issues(status.lock().await.deref_mut(), rpc_pool_info.chain_id)
+                                false
+                            }
+                            Web3RpcPoolContent::Error(err) => Self::update(
+                                status.lock().await.deref_mut(),
+                                StatusProperty::Web3RpcError {
+                                    chain_id: rpc_pool_info.chain_id as i64,
+                                    error: err.clone(),
+                                },
+                            ),
+                            Web3RpcPoolContent::AllEndpointsFailed => Self::update(
+                                status.lock().await.deref_mut(),
+                                StatusProperty::Web3RpcError {
+                                    chain_id: rpc_pool_info.chain_id as i64,
+                                    error: "All endpoints failed".to_string(),
+                                },
+                            ),
+                        }
                     }
 
                     _ => false,
@@ -359,7 +278,7 @@ impl StatusTracker {
                     if emit_changed {
                         sender
                             .send(DriverEvent::now(DriverEventContent::StatusChanged(
-                                status2.lock().await.clone(),
+                                status.lock().await.clone(),
                             )))
                             .await
                             .ok();
@@ -392,59 +311,67 @@ pub struct PaymentRuntime {
     config: Config,
 }
 
+pub struct PaymentRuntimeArgs {
+    pub secret_keys: Vec<SecretKey>,
+    pub db_filename: PathBuf,
+    pub config: config::Config,
+    pub conn: Option<SqlitePool>,
+    pub options: Option<AdditionalOptions>,
+    pub event_sender: Option<Sender<DriverEvent>>,
+    pub extra_testing: Option<ExtraOptionsForTesting>,
+}
+
+pub struct TransferArgs {
+    pub chain_name: String,
+    pub from: Address,
+    pub receiver: Address,
+    pub tx_type: TransferType,
+    pub amount: U256,
+    pub payment_id: String,
+    pub deadline: Option<DateTime<Utc>>,
+}
+
 impl PaymentRuntime {
-    #[allow(clippy::too_many_arguments)]
     pub async fn new(
-        secret_keys: &[SecretKey],
-        db_filename: &Path,
-        config: config::Config,
+        payment_runtime_args: PaymentRuntimeArgs,
         signer: impl Signer + Send + Sync + 'static,
-        conn: Option<SqlitePool>,
-        options: Option<AdditionalOptions>,
-        event_sender: Option<Sender<DriverEvent>>,
-        extra_testing: Option<ExtraOptionsForTesting>,
     ) -> Result<PaymentRuntime, PaymentError> {
-        let options = options.unwrap_or_default();
-        let mut web3_rpc_pool_info = BTreeMap::<i64, Vec<Arc<RwLock<Web3RpcEndpoint>>>>::new();
+        let options = payment_runtime_args.options.unwrap_or_default();
+        let mut web3_rpc_pool_info = BTreeMap::<i64, Arena<Arc<RwLock<Web3RpcEndpoint>>>>::new();
 
         let mut payment_setup = PaymentSetup::new(
-            &config,
-            secret_keys.to_vec(),
-            !options.keep_running,
-            options.generate_tx_only,
-            options.skip_multi_contract_check,
-            config.engine.process_interval,
-            config.engine.process_interval_after_error,
-            config.engine.process_interval_after_no_gas_or_token_start,
-            config.engine.process_interval_after_no_gas_or_token_max,
-            config
-                .engine
-                .process_interval_after_no_gas_or_token_increase,
-            config.engine.process_interval_after_send,
-            config.engine.report_alive_interval,
-            config.engine.gather_interval,
-            config.engine.mark_as_unrecoverable_after_seconds,
-            config.engine.gather_at_start,
-            config.engine.ignore_deadlines,
-            config.engine.automatic_recover,
+            &payment_runtime_args.config,
+            payment_runtime_args.secret_keys.to_vec(),
+            &options,
             &mut web3_rpc_pool_info,
+            payment_runtime_args.event_sender.clone(),
         )?;
         payment_setup.use_transfer_for_single_payment = options.use_transfer_for_single_payment;
-        payment_setup.extra_options_for_testing = extra_testing.clone();
+        payment_setup.extra_options_for_testing = payment_runtime_args.extra_testing.clone();
         payment_setup.contract_use_direct_method = options.contract_use_direct_method;
         payment_setup.contract_use_unpacked_method = options.contract_use_unpacked_method;
         log::debug!("Starting payment engine: {:#?}", payment_setup);
 
-        let conn = if let Some(conn) = conn {
+        let conn = if let Some(conn) = payment_runtime_args.conn {
             conn
         } else {
-            log::info!("connecting to sqlite file db: {}", db_filename.display());
-            create_sqlite_connection(Some(db_filename), None, false, true).await?
+            log::info!(
+                "connecting to sqlite file db: {}",
+                payment_runtime_args.db_filename.display()
+            );
+            create_sqlite_connection(Some(&payment_runtime_args.db_filename), None, false, true)
+                .await?
         };
 
-        let (status_tracker, event_sender) = StatusTracker::new(event_sender);
+        let (status_tracker, event_sender) = StatusTracker::new(payment_runtime_args.event_sender);
 
         let ps = payment_setup.clone();
+
+        // Convert BTreeMap of Arenas to BTreeMap of Vec because serde can't serialize Arena
+        let web3_rpc_pool_info = web3_rpc_pool_info
+            .iter()
+            .map(|(k, v)| (*k, v.iter().map(|pair| pair.1.clone()).collect::<Vec<_>>()))
+            .collect::<BTreeMap<_, _>>();
 
         let shared_state = Arc::new(Mutex::new(SharedState {
             inserted: 0,
@@ -460,8 +387,8 @@ impl PaymentRuntime {
 
         let notify = Arc::new(Notify::new());
         let notify_ = notify.clone();
-        let extra_testing_ = extra_testing.clone();
-        let config_ = config.clone();
+        let extra_testing_ = payment_runtime_args.extra_testing.clone();
+        let config_ = payment_runtime_args.config.clone();
         let jh = tokio::task::spawn(async move {
             if let Some(balance_check_loop) =
                 extra_testing_.clone().and_then(|e| e.balance_check_loop)
@@ -534,22 +461,8 @@ impl PaymentRuntime {
             wake: notify,
             conn,
             status_tracker,
-            config,
+            config: payment_runtime_args.config,
         })
-    }
-
-    pub async fn get_web3_provider(
-        &self,
-        chain_name: &str,
-    ) -> Result<Arc<Web3RpcPool>, PaymentError> {
-        let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
-            "Chain {} not found in config file",
-            chain_name
-        ))?;
-
-        let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
-
-        Ok(web3.clone())
     }
 
     pub async fn get_unpaid_token_amount(
@@ -620,23 +533,17 @@ impl PaymentRuntime {
         Ok(gas_balance)
     }
 
-    #[allow(clippy::too_many_arguments)]
-    pub async fn transfer(
-        &self,
-        chain_name: &str,
-        from: Address,
-        receiver: Address,
-        tx_type: TransferType,
-        amount: U256,
-        payment_id: &str,
-        deadline: Option<DateTime<Utc>>,
-    ) -> Result<(), PaymentError> {
-        let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
-            "Chain {} not found in config file",
-            chain_name
-        ))?;
+    pub async fn transfer(&self, transfer_args: TransferArgs) -> Result<(), PaymentError> {
+        let chain_cfg =
+            self.config
+                .chain
+                .get(&transfer_args.chain_name)
+                .ok_or(err_custom_create!(
+                    "Chain {} not found in config file",
+                    transfer_args.chain_name
+                ))?;
 
-        let token_addr = match tx_type {
+        let token_addr = match transfer_args.tx_type {
             TransferType::Token => {
                 let address = chain_cfg.token.address;
                 Some(address)
@@ -645,12 +552,12 @@ impl PaymentRuntime {
         };
 
         let token_transfer = create_token_transfer(
-            from,
-            receiver,
+            transfer_args.from,
+            transfer_args.receiver,
             chain_cfg.chain_id,
-            Some(payment_id),
+            Some(&transfer_args.payment_id),
             token_addr,
-            amount,
+            transfer_args.amount,
         );
 
         insert_token_transfer(&self.conn, &token_transfer)
@@ -658,7 +565,7 @@ impl PaymentRuntime {
             .map_err(err_from!())?;
 
         if !self.setup.ignore_deadlines {
-            if let Some(deadline) = deadline {
+            if let Some(deadline) = transfer_args.deadline {
                 let mut s = self.shared_state.lock().await;
 
                 let new_time = s
@@ -722,7 +629,7 @@ impl PaymentRuntime {
         receiver: Address,
         amount: U256,
     ) -> Result<VerifyTransactionResult, PaymentError> {
-        let network_name = self.network_name(chain_id).ok_or(err_custom_create!(
+        let _ = self.network_name(chain_id).ok_or(err_custom_create!(
             "Chain {} not found in config file",
             chain_id
         ))?;
@@ -730,7 +637,7 @@ impl PaymentRuntime {
             .get_chain(chain_id)
             .ok_or(err_custom_create!("Chain {} not found", chain_id))?
             .glm_address;
-        let prov = self.get_web3_provider(network_name).await?;
+        let prov = self.setup.get_provider(chain_id)?;
         verify_transaction(
             prov,
             chain_id,

@@ -1,9 +1,10 @@
-use crate::config::Config;
+use crate::config::{AdditionalOptions, Config};
 use crate::error::ErrorBag;
 use crate::error::PaymentError;
 
 use crate::utils::DecimalConvExt;
 use crate::{err_custom_create, err_from};
+use erc20_payment_lib_common::DriverEvent;
 use erc20_rpc_pool::{Web3RpcEndpoint, Web3RpcParams, Web3RpcPool};
 use rust_decimal::Decimal;
 use secp256k1::SecretKey;
@@ -11,6 +12,7 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
+use thunderdome::Arena;
 use web3::types::{Address, U256};
 
 #[derive(Clone, Debug)]
@@ -95,47 +97,41 @@ pub struct PaymentSetup {
 const MARK_AS_UNRECOVERABLE_AFTER_SECONDS: u64 = 300;
 
 impl PaymentSetup {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         config: &Config,
         secret_keys: Vec<SecretKey>,
-        finish_when_done: bool,
-        generate_txs_only: bool,
-        skip_multi_contract_check: bool,
-        process_interval: u64,
-        process_interval_after_error: u64,
-        process_interval_after_no_gas_or_token_start: u64,
-        process_interval_after_no_gas_or_token_max: u64,
-        process_interval_after_no_gas_or_token_increase: f64,
-        process_interval_after_send: u64,
-        report_alive_interval: u64,
-        gather_interval: u64,
-        mark_as_unrecoverable_after_seconds: Option<u64>,
-        gather_at_start: bool,
-        ignore_deadlines: bool,
-        automatic_recover: bool,
-        web3_rpc_pool_info: &mut BTreeMap<i64, Vec<Arc<RwLock<Web3RpcEndpoint>>>>,
+        options: &AdditionalOptions,
+        web3_rpc_pool_info: &mut BTreeMap<i64, Arena<Arc<RwLock<Web3RpcEndpoint>>>>,
+        mpsc_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     ) -> Result<Self, PaymentError> {
         let mut ps = PaymentSetup {
             chain_setup: BTreeMap::new(),
             secret_keys,
             //pub_address: get_eth_addr_from_secret(secret_key),
-            finish_when_done,
-            generate_tx_only: generate_txs_only,
-            skip_multi_contract_check,
-            process_interval,
-            process_interval_after_error,
-            process_interval_after_no_gas_or_token_start,
-            process_interval_after_no_gas_or_token_max,
-            process_interval_after_no_gas_or_token_increase,
-            process_interval_after_send,
-            report_alive_interval,
-            gather_interval,
-            gather_at_start,
-            mark_as_unrecoverable_after_seconds: mark_as_unrecoverable_after_seconds
+            finish_when_done: !options.keep_running,
+            generate_tx_only: options.generate_tx_only,
+            skip_multi_contract_check: options.skip_multi_contract_check,
+            process_interval: config.engine.process_interval,
+            process_interval_after_error: config.engine.process_interval_after_error,
+            process_interval_after_no_gas_or_token_start: config
+                .engine
+                .process_interval_after_no_gas_or_token_start,
+            process_interval_after_no_gas_or_token_max: config
+                .engine
+                .process_interval_after_no_gas_or_token_max,
+            process_interval_after_no_gas_or_token_increase: config
+                .engine
+                .process_interval_after_no_gas_or_token_increase,
+            process_interval_after_send: config.engine.process_interval_after_send,
+            report_alive_interval: config.engine.report_alive_interval,
+            gather_interval: config.engine.gather_interval,
+            gather_at_start: config.engine.gather_at_start,
+            mark_as_unrecoverable_after_seconds: config
+                .engine
+                .mark_as_unrecoverable_after_seconds
                 .unwrap_or(MARK_AS_UNRECOVERABLE_AFTER_SECONDS),
-            ignore_deadlines,
-            automatic_recover,
+            ignore_deadlines: config.engine.ignore_deadlines,
+            automatic_recover: config.engine.automatic_recover,
             contract_use_direct_method: false,
             contract_use_unpacked_method: false,
             extra_options_for_testing: None,
@@ -161,9 +157,9 @@ impl PaymentSetup {
                         min_interval_requests_ms: rpc.min_interval_ms,
                     })
                     .collect(),
-                None,
+                mpsc_sender.as_ref().map(|s| s.downgrade()),
             ));
-            web3_rpc_pool_info.insert(chain_config.1.chain_id, web3_pool.endpoints.to_vec());
+            web3_rpc_pool_info.insert(chain_config.1.chain_id, web3_pool.endpoints.clone());
 
             let faucet_eth_amount = match &chain_config.1.faucet_eth_amount {
                 Some(f) => Some((*f).to_u256_from_eth().map_err(err_from!())?),
@@ -236,7 +232,7 @@ impl PaymentSetup {
                     faucet_setup,
 
                     transaction_timeout: chain_config.1.transaction_timeout,
-                    skip_multi_contract_check,
+                    skip_multi_contract_check: options.skip_multi_contract_check,
                     confirmation_blocks: chain_config.1.confirmation_blocks,
                     gas_left_warning_limit: chain_config.1.gas_left_warning_limit,
                     currency_gas_symbol: chain_config.1.currency_symbol.clone(),
@@ -255,22 +251,9 @@ impl PaymentSetup {
         PaymentSetup::new(
             config,
             vec![],
-            true,
-            false,
-            false,
-            1,
-            1,
-            1,
-            1,
-            1.0,
-            1,
-            1,
-            1,
-            None,
-            false,
-            false,
-            false,
+            &AdditionalOptions::default(),
             &mut BTreeMap::new(),
+            None,
         )
     }
 

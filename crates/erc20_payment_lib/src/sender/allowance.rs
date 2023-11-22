@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use crate::db::model::*;
 use crate::db::ops::*;
 use crate::error::{AllowanceRequest, ErrorBag, PaymentError};
 use crate::signer::Signer;
@@ -13,6 +12,7 @@ use sqlx::SqlitePool;
 
 use crate::error::TransactionFailedError;
 use crate::eth::check_allowance;
+use erc20_payment_lib_common::model::AllowanceDao;
 use web3::types::{Address, U256};
 
 pub async fn process_allowance(

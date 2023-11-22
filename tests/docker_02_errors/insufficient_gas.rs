@@ -1,12 +1,11 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-
-use erc20_payment_lib::runtime::DriverEventContent::{StatusChanged, TransactionStuck};
-
-use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime, TransactionStuckReason};
+use erc20_payment_lib::runtime::{PaymentRuntime, PaymentRuntimeArgs};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
+use erc20_payment_lib_common::DriverEventContent::*;
+use erc20_payment_lib_common::{DriverEvent, TransactionStuckReason};
 use erc20_payment_lib_test::*;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
@@ -49,6 +48,7 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
                         }
                     }
                 }
+                Web3RpcMessage(_) => { }
                 StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
@@ -85,17 +85,19 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
         // *** TEST RUN ***
 
         let sp = PaymentRuntime::new(
-            &private_keys.0,
-            std::path::Path::new(""),
-            config.clone(),
+            PaymentRuntimeArgs {
+                secret_keys: private_keys.0,
+                db_filename: Default::default(),
+                config: config.clone(),
+                conn: Some(conn.clone()),
+                options: Some(AdditionalOptions {
+                    keep_running: false,
+                    ..Default::default()
+                }),
+                event_sender: Some(sender),
+                extra_testing: None,
+            },
             signer,
-            Some(conn.clone()),
-            Some(AdditionalOptions {
-                keep_running: false,
-                ..Default::default()
-            }),
-            Some(sender),
-            None
         ).await?;
 	    
         tokio::time::sleep(Duration::from_secs(5)).await;

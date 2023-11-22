@@ -1,7 +1,9 @@
-use crate::rpc_pool::pool::{RpcPoolEvent, RpcPoolEventContent};
 use crate::rpc_pool::web3_error_list::check_if_proper_rpc_error;
 use crate::rpc_pool::VerifyEndpointResult;
 use crate::Web3RpcPool;
+use erc20_payment_lib_common::{
+    DriverEvent, DriverEventContent, Web3RpcPoolContent, Web3RpcPoolInfo,
+};
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
 use web3::{api::Eth, helpers::CallFuture};
@@ -24,101 +26,127 @@ impl Web3RpcPool {
             let idx_vec = self.clone().choose_best_endpoints().await;
 
             if idx_vec.is_empty() {
-                if let Some(event_sender) = &self.event_sender {
+                if let Some(event_sender) = self.event_sender.clone().and_then(|es| es.upgrade()) {
                     let _ = event_sender
-                        .send(RpcPoolEvent {
+                        .send(DriverEvent {
                             create_date: chrono::Utc::now(),
-                            content: RpcPoolEventContent::AllEndpointsFailed,
+                            content: DriverEventContent::Web3RpcMessage(Web3RpcPoolInfo {
+                                chain_id: self.chain_id,
+                                content: Web3RpcPoolContent::AllEndpointsFailed,
+                            }),
                         })
                         .await;
                 }
                 return Err(web3::Error::Unreachable);
-            } else {
-                for idx in idx_vec {
-                    let res = tokio::time::timeout(
-                        self.get_max_timeout(idx),
-                        EthMethodCall::do_call(self.get_web3(idx).eth(), args.clone()),
-                    );
+            }
 
-                    let err = match res.await {
-                        Ok(Ok(balance)) => {
-                            self.mark_rpc_success(idx, EthMethodCall::METHOD.to_string());
-                            if let Some(event_sender) = &self.event_sender {
-                                let _ = event_sender
-                                    .send(RpcPoolEvent {
-                                        create_date: chrono::Utc::now(),
-                                        content: RpcPoolEventContent::RpcSuccess,
-                                    })
-                                    .await;
-                            }
-                            return Ok(balance);
-                        }
-                        Ok(Err(e)) => match e {
-                            web3::Error::Rpc(e) => {
-                                let proper = check_if_proper_rpc_error(e.to_string());
-                                if proper {
-                                    self.mark_rpc_success(idx, EthMethodCall::METHOD.to_string());
-                                    if let Some(event_sender) = &self.event_sender {
-                                        let _ = event_sender
-                                            .send(RpcPoolEvent {
-                                                create_date: chrono::Utc::now(),
-                                                content: RpcPoolEventContent::RpcSuccess,
-                                            })
-                                            .await;
-                                    }
-                                    return Err(web3::Error::Rpc(e));
-                                } else {
-                                    log::warn!("Unknown RPC error: {}", e);
-                                    self.mark_rpc_error(
-                                        idx,
-                                        EthMethodCall::METHOD.to_string(),
-                                        VerifyEndpointResult::RpcWeb3Error(e.to_string()),
-                                    );
-                                    web3::Error::Rpc(e)
-                                }
-                            }
-                            _ => {
-                                log::warn!(
-                                    "Error doing call {} from endpoint {}: {}",
-                                    EthMethodCall::METHOD,
-                                    idx,
-                                    e
-                                );
-                                self.mark_rpc_error(
-                                    idx,
-                                    EthMethodCall::METHOD.to_string(),
-                                    VerifyEndpointResult::OtherNetworkError(e.to_string()),
-                                );
-                                e
-                            }
-                        },
-                        Err(e) => {
-                            log::warn!("Timeout when getting data from endpoint {}: {}", idx, e);
-                            self.mark_rpc_error(
-                                idx,
-                                EthMethodCall::METHOD.to_string(),
-                                VerifyEndpointResult::Unreachable,
-                            );
-                            web3::Error::Unreachable
-                        }
-                    };
-                    if loop_no >= 4 {
-                        if let Some(event_sender) = &self.event_sender {
+            for idx in idx_vec {
+                let res = tokio::time::timeout(
+                    self.get_max_timeout(idx),
+                    EthMethodCall::do_call(self.get_web3(idx).eth(), args.clone()),
+                );
+
+                let err = match res.await {
+                    Ok(Ok(balance)) => {
+                        self.mark_rpc_success(idx, EthMethodCall::METHOD.to_string());
+                        if let Some(event_sender) =
+                            self.event_sender.clone().and_then(|es| es.upgrade())
+                        {
                             let _ = event_sender
-                                .send(RpcPoolEvent {
+                                .send(DriverEvent {
                                     create_date: chrono::Utc::now(),
-                                    content: RpcPoolEventContent::RpcError(format!("{}", err)),
+                                    content: DriverEventContent::Web3RpcMessage(Web3RpcPoolInfo {
+                                        chain_id: self.chain_id,
+                                        content: Web3RpcPoolContent::Success,
+                                    }),
                                 })
                                 .await;
                         }
-                        return Err(err);
+                        return Ok(balance);
                     }
-                    // Wait half a second after encountering an error
-                    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                    loop_no += 1;
+                    Ok(Err(e)) => match e {
+                        web3::Error::Rpc(e) => {
+                            let proper = check_if_proper_rpc_error(e.to_string());
+                            if proper {
+                                self.mark_rpc_success(idx, EthMethodCall::METHOD.to_string());
+                                if let Some(event_sender) =
+                                    self.event_sender.clone().and_then(|es| es.upgrade())
+                                {
+                                    let _ = event_sender
+                                        .send(DriverEvent {
+                                            create_date: chrono::Utc::now(),
+                                            content: DriverEventContent::Web3RpcMessage(
+                                                Web3RpcPoolInfo {
+                                                    chain_id: self.chain_id,
+                                                    content: Web3RpcPoolContent::Success,
+                                                },
+                                            ),
+                                        })
+                                        .await;
+                                }
+                                return Err(web3::Error::Rpc(e));
+                            } else {
+                                log::warn!("Unknown RPC error: {}", e);
+                                self.mark_rpc_error(
+                                    idx,
+                                    EthMethodCall::METHOD.to_string(),
+                                    VerifyEndpointResult::RpcWeb3Error(e.to_string()),
+                                );
+                                web3::Error::Rpc(e)
+                            }
+                        }
+                        _ => {
+                            log::warn!(
+                                "Error doing call {} from endpoint {}: {}",
+                                EthMethodCall::METHOD,
+                                self.get_name(idx),
+                                e
+                            );
+                            self.mark_rpc_error(
+                                idx,
+                                EthMethodCall::METHOD.to_string(),
+                                VerifyEndpointResult::OtherNetworkError(e.to_string()),
+                            );
+                            e
+                        }
+                    },
+                    Err(e) => {
+                        log::warn!(
+                            "Timeout when getting data from endpoint {}: {}",
+                            self.get_name(idx),
+                            e
+                        );
+                        self.mark_rpc_error(
+                            idx,
+                            EthMethodCall::METHOD.to_string(),
+                            VerifyEndpointResult::Unreachable,
+                        );
+                        web3::Error::Unreachable
+                    }
+                };
+                if loop_no >= 4 {
+                    if let Some(event_sender) =
+                        self.event_sender.clone().and_then(|es| es.upgrade())
+                    {
+                        let _ = event_sender
+                            .send(DriverEvent {
+                                create_date: chrono::Utc::now(),
+                                content: DriverEventContent::Web3RpcMessage(Web3RpcPoolInfo {
+                                    chain_id: self.chain_id,
+                                    content: Web3RpcPoolContent::Error(format!(
+                                        "Web3 rpc call failed {}",
+                                        err
+                                    )),
+                                }),
+                            })
+                            .await;
+                    }
+                    return Err(err);
                 }
+                // Wait half a second after encountering an error
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                loop_no += 1;
             }
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
     }
 }

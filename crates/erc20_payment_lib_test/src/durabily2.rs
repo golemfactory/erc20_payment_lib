@@ -6,13 +6,13 @@ use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::get_transfer_stats;
 use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::DriverEventContent::*;
-use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime};
+use erc20_payment_lib::runtime::{PaymentRuntime, PaymentRuntimeArgs};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::utils::U256ConvExt;
+use erc20_payment_lib_common::DriverEvent;
+use erc20_payment_lib_common::DriverEventContent::*;
 use erc20_payment_lib_extra::{generate_test_payments, GenerateOptions};
 use std::env;
-use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::U256;
@@ -49,6 +49,7 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
                 TransactionConfirmed(_tx_dao) => {
                     tx_confirmed_message_count += 1;
                 }
+                Web3RpcMessage(_) => { }
                 StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
@@ -111,17 +112,19 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
             async move {
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 let sp = PaymentRuntime::new(
-                    &private_keys,
-                    Path::new(""),
-                    config.clone(),
+                    PaymentRuntimeArgs {
+                        secret_keys: private_keys,
+                        db_filename: Default::default(),
+                        config: config.clone(),
+                        conn: Some(conn_.clone()),
+                        options: Some(AdditionalOptions {
+                            keep_running: false,
+                            ..Default::default()
+                        }),
+                        event_sender: Some(sender),
+                        extra_testing: None,
+                    },
                     signer,
-                    Some(conn_.clone()),
-                    Some(AdditionalOptions {
-                        keep_running: false,
-                        ..Default::default()
-                    }),
-                    Some(sender),
-                    None,
                 ).await.unwrap();
                 sp.runtime_handle.await.unwrap();
             }

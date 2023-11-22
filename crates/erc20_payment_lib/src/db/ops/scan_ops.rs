@@ -1,4 +1,4 @@
-use crate::db::model::ScanDao;
+use erc20_payment_lib_common::model::ScanDao;
 use sqlx::{Executor, Sqlite};
 
 pub async fn get_scan_info<'c, E>(

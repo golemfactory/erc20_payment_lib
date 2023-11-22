@@ -1,10 +1,11 @@
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
-use erc20_payment_lib::runtime::DriverEventContent::*;
-use erc20_payment_lib::runtime::{DriverEvent, PaymentRuntime, TransactionStuckReason};
+use erc20_payment_lib::runtime::{PaymentRuntime, PaymentRuntimeArgs};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
+use erc20_payment_lib_common::DriverEventContent::*;
+use erc20_payment_lib_common::{DriverEvent, TransactionStuckReason};
 use erc20_payment_lib_test::*;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
@@ -71,6 +72,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
                         }
                     }
                 }
+                Web3RpcMessage(_) => { }
                 StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
@@ -111,17 +113,19 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
         // *** TEST RUN ***
 
         let sp = PaymentRuntime::new(
-            &private_keys.0,
-            std::path::Path::new(""),
-            config.clone(),
+            PaymentRuntimeArgs {
+                secret_keys: private_keys.0.clone(),
+                db_filename: Default::default(),
+                config: config.clone(),
+                conn: Some(conn.clone()),
+                options: Some(AdditionalOptions {
+                    keep_running: false,
+                    ..Default::default()
+                }),
+                event_sender: Some(sender.clone()),
+                extra_testing: None,
+            },
             signer,
-            Some(conn.clone()),
-            Some(AdditionalOptions {
-                keep_running: false,
-                ..Default::default()
-            }),
-            Some(sender.clone()),
-            None
         ).await?;
 
         tokio::time::sleep(Duration::from_secs(5)).await;
@@ -137,20 +141,22 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
         };
 
         let sp = PaymentRuntime::new(
-            &private_keys.0,
-            std::path::Path::new(""),
-            config.clone(),
+            PaymentRuntimeArgs {
+                secret_keys: private_keys.0.clone(),
+                db_filename: Default::default(),
+                config: config.clone(),
+                conn: Some(conn.clone()),
+                options: Some(AdditionalOptions {
+                    keep_running: false,
+                    ..Default::default()
+                }),
+                event_sender: Some(sender.clone()),
+                extra_testing: Some(erc20_payment_lib::setup::ExtraOptionsForTesting {
+                    erc20_lib_test_replacement_timeout: Some(extra_time),
+                    balance_check_loop: None,
+                }),
+            },
             signer2,
-            Some(conn.clone()),
-            Some(AdditionalOptions {
-                keep_running: false,
-                ..Default::default()
-            }),
-            Some(sender.clone()),
-            Some(erc20_payment_lib::setup::ExtraOptionsForTesting {
-                erc20_lib_test_replacement_timeout: Some(extra_time),
-                balance_check_loop: None,
-            }),
         ).await?;
 
         match scenario {
@@ -172,27 +178,31 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
             Scenarios::FirstTransactionDone => Duration::from_secs(0),
         };
         let sp = PaymentRuntime::new(
-            &private_keys.0,
-            std::path::Path::new(""),
-            config.clone(),
+            PaymentRuntimeArgs {
+                secret_keys: private_keys.0.clone(),
+                db_filename: Default::default(),
+                config: config.clone(),
+                conn: Some(conn.clone()),
+                options: Some(AdditionalOptions {
+                    keep_running: false,
+                    ..Default::default()
+                }),
+                event_sender: Some(sender.clone()),
+                extra_testing: Some(erc20_payment_lib::setup::ExtraOptionsForTesting {
+                    erc20_lib_test_replacement_timeout: Some(extra_time),
+                    balance_check_loop: None,
+                })
+            },
             signer3,
-            Some(conn.clone()),
-            Some(AdditionalOptions {
-                keep_running: false,
-                ..Default::default()
-            }),
-            Some(sender),
-            Some(erc20_payment_lib::setup::ExtraOptionsForTesting {
-                erc20_lib_test_replacement_timeout: Some(extra_time),
-                balance_check_loop: None,
-            }),
         ).await?;
 
         sp.runtime_handle.await?;
+        drop(sender);
     }
 
     {
         // *** RESULT CHECK ***
+        log::info!("wait for receiver loop");
         let _ = receiver_loop.await.unwrap();
 
         let res = test_get_balance(&proxy_url_base, "0x653b48E1348F480149047AA3a58536eb0dbBB2E2,0x41162E565ebBF1A52eC904c7365E239c40d82568").await?;

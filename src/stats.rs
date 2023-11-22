@@ -1,7 +1,6 @@
 use crate::options::{ExportHistoryStatsOptions, PaymentStatsOptions};
 use erc20_payment_lib::config::Config;
 use erc20_payment_lib::db::create_sqlite_connection;
-use erc20_payment_lib::db::model::ChainTxDao;
 use erc20_payment_lib::db::ops::{
     get_chain_transfers_by_chain_id, get_chain_txs_by_chain_id, get_transfer_stats,
     get_transfer_stats_from_blockchain, TransferStatsPart,
@@ -10,6 +9,7 @@ use erc20_payment_lib::error::ErrorBag;
 use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::utils::{u256_eth_from_str, U256ConvExt};
 use erc20_payment_lib::{err_custom_create, err_from};
+use erc20_payment_lib_common::model::ChainTxDao;
 use itertools::Itertools;
 use rust_decimal::Decimal;
 use sqlx::{Executor, SqlitePool};

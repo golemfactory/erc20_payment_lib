@@ -36,6 +36,7 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 env_logger = { workspace = true }
 erc20_payment_lib = { path = "../erc20_payment_lib", version = "0.3.2" }
+erc20_payment_lib_common = { path = "../erc20_payment_lib_common", version = "0.3.2" }
 erc20_payment_lib_extra = { path = "../erc20_payment_lib_extra", version = "0.3.2" }
 web3_test_proxy_client = { path = "../web3_test_proxy_client", version = "0.3.2" }
 erc20_rpc_pool = { path = "../erc20_rpc_pool", version = "0.3.2" }

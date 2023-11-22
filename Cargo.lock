@@ -978,6 +978,7 @@ dependencies = [
  "awc",
  "chrono",
  "dotenv",
+ "erc20_payment_lib_common",
  "erc20_rpc_pool",
  "fastrand",
  "futures",
@@ -996,6 +997,43 @@ dependencies = [
  "sha3",
  "sqlx",
  "structopt",
+ "thunderdome",
+ "tokio",
+ "toml",
+ "trust-dns-resolver",
+ "url",
+ "uuid 1.5.0",
+ "web3",
+]
+
+[[package]]
+name = "erc20_payment_lib_common"
+version = "0.3.7"
+dependencies = [
+ "actix-files",
+ "actix-web",
+ "async-trait",
+ "awc",
+ "chrono",
+ "dotenv",
+ "fastrand",
+ "futures",
+ "futures-util",
+ "hex",
+ "humantime",
+ "lazy_static",
+ "log",
+ "rand",
+ "regex",
+ "rust_decimal",
+ "rustc-hex",
+ "secp256k1",
+ "serde",
+ "serde_json",
+ "sha3",
+ "sqlx",
+ "structopt",
+ "thunderdome",
  "tokio",
  "toml",
  "trust-dns-resolver",
@@ -1052,6 +1090,7 @@ dependencies = [
  "dotenv",
  "env_logger",
  "erc20_payment_lib",
+ "erc20_payment_lib_common",
  "erc20_payment_lib_extra",
  "erc20_rpc_pool",
  "fastrand",
@@ -1093,6 +1132,7 @@ dependencies = [
  "dotenv",
  "env_logger",
  "erc20_payment_lib",
+ "erc20_payment_lib_common",
  "erc20_payment_lib_extra",
  "erc20_payment_lib_test",
  "erc20_rpc_pool",
@@ -1137,6 +1177,7 @@ dependencies = [
  "chrono",
  "dotenv",
  "env_logger",
+ "erc20_payment_lib_common",
  "fastrand",
  "futures",
  "futures-util",
@@ -1153,6 +1194,7 @@ dependencies = [
  "sha3",
  "sqlx",
  "structopt",
+ "thunderdome",
  "tokio",
  "toml",
  "uuid 1.5.0",
@@ -3393,6 +3435,12 @@ dependencies = [
  "quote",
  "syn 2.0.38",
 ]
+
+[[package]]
+name = "thunderdome"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "92e170f93360bf9ae6fe3c31116bbf27adb1d054cedd6bc3d7857e34f2d98d0b"
 
 [[package]]
 name = "time"

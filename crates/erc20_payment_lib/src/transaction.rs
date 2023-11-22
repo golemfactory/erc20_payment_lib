@@ -1,16 +1,18 @@
 use crate::contracts::*;
-use crate::db::model::*;
 use crate::error::*;
 use crate::eth::get_eth_addr_from_secret;
 use crate::multi::pack_transfers_for_multi_contract;
 use crate::runtime::{
     get_token_balance, get_unpaid_token_amount, remove_transaction_force, send_driver_event,
-    DriverEvent, DriverEventContent, NoGasDetails, NoTokenDetails, TransactionStuckReason,
 };
 use crate::signer::Signer;
 use crate::utils::{datetime_from_u256_timestamp, ConversionError, StringConvExt, U256ConvExt};
 use crate::{err_custom_create, err_from};
 use chrono::Utc;
+use erc20_payment_lib_common::model::{ChainTransferDao, ChainTxDao, TokenTransferDao, TxDao};
+use erc20_payment_lib_common::{
+    DriverEvent, DriverEventContent, NoGasDetails, NoTokenDetails, TransactionStuckReason,
+};
 use erc20_rpc_pool::Web3RpcPool;
 use secp256k1::SecretKey;
 use sqlx::SqlitePool;
@@ -210,7 +212,6 @@ pub fn create_eth_transfer_str(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn create_erc20_transfer(
     from: Address,
     token: Address,
@@ -253,33 +254,37 @@ pub fn create_erc20_transfer(
     })
 }
 
+pub struct MultiTransferArgs {
+    pub from: Address,
+    pub contract: Address,
+    pub erc20_to: Vec<Address>,
+    pub erc20_amount: Vec<U256>,
+    pub chain_id: u64,
+    pub gas_limit: Option<u64>,
+    pub direct: bool,
+    pub unpacked: bool,
+}
+
 /// Defaults direct to false and unpacked to false
-#[allow(clippy::too_many_arguments)]
-pub fn create_erc20_transfer_multi(
-    from: Address,
-    contract: Address,
-    erc20_to: Vec<Address>,
-    erc20_amount: Vec<U256>,
-    chain_id: u64,
-    gas_limit: Option<u64>,
-    direct: bool,
-    unpacked: bool,
-) -> Result<TxDao, PaymentError> {
-    let (data, method_str) = if unpacked {
-        if direct {
+pub fn create_erc20_transfer_multi(multi_args: MultiTransferArgs) -> Result<TxDao, PaymentError> {
+    let (data, method_str) = if multi_args.unpacked {
+        if multi_args.direct {
             (
-                encode_multi_direct(erc20_to, erc20_amount).map_err(err_from!())?,
+                encode_multi_direct(multi_args.erc20_to, multi_args.erc20_amount)
+                    .map_err(err_from!())?,
                 "MULTI.golemTransferDirect".to_string(),
             )
         } else {
             (
-                encode_multi_indirect(erc20_to, erc20_amount).map_err(err_from!())?,
+                encode_multi_indirect(multi_args.erc20_to, multi_args.erc20_amount)
+                    .map_err(err_from!())?,
                 "MULTI.golemTransferIndirect".to_string(),
             )
         }
     } else {
-        let (packed, sum) = pack_transfers_for_multi_contract(erc20_to, erc20_amount)?;
-        if direct {
+        let (packed, sum) =
+            pack_transfers_for_multi_contract(multi_args.erc20_to, multi_args.erc20_amount)?;
+        if multi_args.direct {
             (
                 encode_multi_direct_packed(packed).map_err(err_from!())?,
                 "MULTI.golemTransferDirectPacked".to_string(),
@@ -296,10 +301,10 @@ pub fn create_erc20_transfer_multi(
     Ok(TxDao {
         id: 0,
         method: method_str,
-        from_addr: format!("{from:#x}"),
-        to_addr: format!("{contract:#x}"),
-        chain_id: chain_id as i64,
-        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
+        from_addr: format!("{:#x}", multi_args.from),
+        to_addr: format!("{:#x}", multi_args.contract),
+        chain_id: multi_args.chain_id as i64,
+        gas_limit: multi_args.gas_limit.map(|gas_limit| gas_limit as i64),
         max_fee_per_gas: None,
         priority_fee: None,
         val: "0".to_string(),
@@ -1037,18 +1042,20 @@ pub async fn get_erc20_logs(
         .map_err(|e| err_custom_create!("Error while getting logs: {}", e))
 }
 
-#[allow(clippy::too_many_arguments)]
-pub async fn import_erc20_txs(
-    web3: Arc<Web3RpcPool>,
-    erc20_address: Address,
-    _chain_id: i64,
-    filter_by_senders: Option<&[Address]>,
-    filter_by_receivers: Option<&[Address]>,
-    mut start_block: i64,
-    scan_end_block: i64,
-    blocks_at_once: u64,
-) -> Result<Vec<H256>, PaymentError> {
-    let option_address_to_option_h256 = |val: Option<&[Address]>| -> Option<Vec<H256>> {
+pub struct ImportErc20TxsArgs {
+    pub web3: Arc<Web3RpcPool>,
+    pub erc20_address: Address,
+    pub chain_id: i64,
+    pub filter_by_senders: Option<Vec<Address>>,
+    pub filter_by_receivers: Option<Vec<Address>>,
+    pub start_block: i64,
+    pub scan_end_block: i64,
+    pub blocks_at_once: u64,
+}
+
+pub async fn import_erc20_txs(import_args: ImportErc20TxsArgs) -> Result<Vec<H256>, PaymentError> {
+    let mut start_block = import_args.start_block;
+    let option_address_to_option_h256 = |val: Option<Vec<Address>>| -> Option<Vec<H256>> {
         val.map(|accounts| {
             accounts
                 .iter()
@@ -1061,10 +1068,11 @@ pub async fn import_erc20_txs(
         })
     };
 
-    let topic_receivers = option_address_to_option_h256(filter_by_receivers);
-    let topic_senders = option_address_to_option_h256(filter_by_senders);
+    let topic_receivers = option_address_to_option_h256(import_args.filter_by_receivers);
+    let topic_senders = option_address_to_option_h256(import_args.filter_by_senders);
 
-    let current_block = web3
+    let current_block = import_args
+        .web3
         .clone()
         .eth_block_number()
         .await
@@ -1075,15 +1083,15 @@ pub async fn import_erc20_txs(
     loop {
         let end_block = std::cmp::min(
             std::cmp::min(start_block + 1000, current_block),
-            scan_end_block,
+            import_args.scan_end_block,
         );
         if start_block > end_block {
             break;
         }
         log::info!("Scanning chain, blocks: {start_block} - {end_block}");
         let logs = get_erc20_logs(
-            web3.clone(),
-            erc20_address,
+            import_args.web3.clone(),
+            import_args.erc20_address,
             topic_senders.clone(),
             topic_receivers.clone(),
             start_block,
@@ -1104,7 +1112,7 @@ pub async fn import_erc20_txs(
                 log.block_number.unwrap()
             );
         }
-        start_block += blocks_at_once as i64;
+        start_block += import_args.blocks_at_once as i64;
     }
 
     if txs.is_empty() {
