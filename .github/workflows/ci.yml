@@ -94,7 +94,7 @@ jobs:
         run: cargo test -p erc20_payment_lib --profile=release-fast
 
   payment_tests:
-    name: Payment tests (basic + short ones)
+    name: Payment tests (basic + multi)
     timeout-minutes: 20
 
     runs-on: ubuntu-latest
@@ -110,20 +110,17 @@ jobs:
           save-if: false
 
       - name: Build tests
-        run: cargo test --test docker_01_basic --test docker_02_errors --test docker_04_multi --profile=release-fast --no-run
+        run: cargo test --test docker_01_basic --test docker_04_multi --profile=release-fast --no-run
 
       - name: Run tests (docker_01_basic)
         run: cargo test --test docker_01_basic --profile=release-fast -- --test-threads=10
-
-      - name: Run tests (docker_02_errors)
-        run: cargo test --test docker_02_errors --profile=release-fast -- --test-threads=10
 
       - name: Run tests (docker_04_multi)
         run: cargo test --test docker_04_multi --profile=release-fast -- --test-threads=10
 
 
   payment_tests_2:
-    name: Payment tests (basic + short ones)
+    name: Payment tests (errors)
     timeout-minutes: 20
 
     runs-on: ubuntu-latest
