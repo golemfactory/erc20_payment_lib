@@ -73,11 +73,11 @@ async fn main_internal() -> Result<(), PaymentError> {
     display_private_keys(&private_keys);
     let signer = PrivateKeySigner::new(private_keys.clone());
 
-    let mut config = match config::Config::load("config-payments-local.toml").await {
+    let mut config = match config::Config::load("config-payments.toml").await {
         Ok(c) => c,
         Err(_) => {
             log::info!("No local config found, using default config");
-            config::Config::load("config-payments.toml").await?
+            config::Config::default_config()
         }
     };
 

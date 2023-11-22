@@ -135,6 +135,17 @@ pub struct Token {
 }
 
 impl Config {
+    pub fn default_config_str() -> &'static str {
+        //include config.toml
+        let config = include_str!("../config-payments.toml");
+        config
+    }
+
+    pub fn default_config() -> Self {
+        //include config.toml
+        Self::load_from_str(Self::default_config_str()).unwrap()
+    }
+
     pub fn load_from_str(str: &str) -> Result<Self, PaymentError> {
         match toml::from_str(str) {
             Ok(config) => Ok(config),
