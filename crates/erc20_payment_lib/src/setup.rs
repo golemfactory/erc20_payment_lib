@@ -157,7 +157,7 @@ impl PaymentSetup {
                         min_interval_requests_ms: rpc.min_interval_ms,
                     })
                     .collect(),
-                mpsc_sender.clone(),
+                mpsc_sender.as_ref().map(|s| s.downgrade()),
             ));
             web3_rpc_pool_info.insert(chain_config.1.chain_id, web3_pool.endpoints.clone());
 

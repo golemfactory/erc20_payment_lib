@@ -26,7 +26,7 @@ impl Web3RpcPool {
             let idx_vec = self.clone().choose_best_endpoints().await;
 
             if idx_vec.is_empty() {
-                if let Some(event_sender) = &self.event_sender {
+                if let Some(event_sender) = self.event_sender.clone().and_then(|es| es.upgrade()) {
                     let _ = event_sender
                         .send(DriverEvent {
                             create_date: chrono::Utc::now(),
@@ -49,7 +49,9 @@ impl Web3RpcPool {
                 let err = match res.await {
                     Ok(Ok(balance)) => {
                         self.mark_rpc_success(idx, EthMethodCall::METHOD.to_string());
-                        if let Some(event_sender) = &self.event_sender {
+                        if let Some(event_sender) =
+                            self.event_sender.clone().and_then(|es| es.upgrade())
+                        {
                             let _ = event_sender
                                 .send(DriverEvent {
                                     create_date: chrono::Utc::now(),
@@ -67,7 +69,9 @@ impl Web3RpcPool {
                             let proper = check_if_proper_rpc_error(e.to_string());
                             if proper {
                                 self.mark_rpc_success(idx, EthMethodCall::METHOD.to_string());
-                                if let Some(event_sender) = &self.event_sender {
+                                if let Some(event_sender) =
+                                    self.event_sender.clone().and_then(|es| es.upgrade())
+                                {
                                     let _ = event_sender
                                         .send(DriverEvent {
                                             create_date: chrono::Utc::now(),
@@ -121,7 +125,9 @@ impl Web3RpcPool {
                     }
                 };
                 if loop_no >= 4 {
-                    if let Some(event_sender) = &self.event_sender {
+                    if let Some(event_sender) =
+                        self.event_sender.clone().and_then(|es| es.upgrade())
+                    {
                         let _ = event_sender
                             .send(DriverEvent {
                                 create_date: chrono::Utc::now(),

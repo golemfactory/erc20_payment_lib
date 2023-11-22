@@ -52,14 +52,14 @@ pub struct Web3RpcPool {
     pub endpoints: Arena<Arc<RwLock<Web3RpcEndpoint>>>,
     pub verify_mutex: tokio::sync::Mutex<()>,
     pub last_success_endpoints: Arc<Mutex<VecDeque<Index>>>,
-    pub event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
+    pub event_sender: Option<tokio::sync::mpsc::WeakSender<DriverEvent>>,
 }
 
 impl Web3RpcPool {
     pub fn new(
         chain_id: u64,
         endpoints: Vec<Web3RpcParams>,
-        events: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
+        events: Option<tokio::sync::mpsc::WeakSender<DriverEvent>>,
     ) -> Self {
         let mut web3_endpoints = Arena::new();
         for endpoint_params in endpoints {
