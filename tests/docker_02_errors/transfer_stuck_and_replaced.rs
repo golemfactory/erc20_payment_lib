@@ -197,12 +197,12 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
         ).await?;
 
         sp.runtime_handle.await?;
+        drop(sender);
     }
 
     {
         // *** RESULT CHECK ***
         log::info!("wait for receiver loop");
-        drop(sender);
         let _ = receiver_loop.await.unwrap();
 
         let res = test_get_balance(&proxy_url_base, "0x653b48E1348F480149047AA3a58536eb0dbBB2E2,0x41162E565ebBF1A52eC904c7365E239c40d82568").await?;
