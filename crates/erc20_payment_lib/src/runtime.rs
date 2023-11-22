@@ -166,6 +166,21 @@ impl StatusTracker {
                     *old_missing = *new_missing;
                     return true;
                 }
+
+                (
+                    Web3RpcError {
+                        chain_id: id1,
+                        error: err1,
+                    },
+                    Web3RpcError {
+                        chain_id: id2,
+                        error: err2,
+                    },
+                ) if id1 == id2 => {
+                    err1.clear();
+                    err1.push_str(err2);
+                    return true;
+                }
                 _ => {}
             }
         }

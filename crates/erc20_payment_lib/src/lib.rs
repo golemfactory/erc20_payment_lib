@@ -16,3 +16,5 @@ pub mod faucet_client;
 mod sender;
 pub mod server;
 pub mod signer;
+
+pub use erc20_payment_lib_common::*;
