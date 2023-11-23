@@ -80,11 +80,20 @@ interface IERC20 {
 }
 
 
-struct Allocation {
-    uint128 amount;
-    address requestor;
-    uint32 block_no;
-}
+/**
+  * Actors:
+  * - spender - the address that spends the funds
+  * -  - the address that requested the funds
+
+  */
+
+    struct Allocation {
+        address customer; //provides the funds locked in allocation
+        address spender; //address that can spend the funds provided by customer
+        uint128 amount; //remaining funds locked
+        uint128 feeAmount; //fee amount locked for spender
+        uint32 block_no; //after this block funds can be returned to customer
+    }
 
 
 /**
@@ -94,52 +103,69 @@ struct Allocation {
 contract LockPayment {
     IERC20 public GLM;
 
-    //store amount
+    // allocation is stored using arbitrary id
     mapping(uint32 => Allocation) public lockedAmounts;
-    /**
-     * @dev Contract works only on currency specified during contract deployment
-     */
+
+    // fees are stored using spender address
+    mapping(address => uint128) public feesToClaim;
     constructor(IERC20 _GLM) {
         GLM = _GLM;
     }
 
-    // lock funds for requestor
-    // requestor is the address of requestor that is allowed to use the funds
-    // allocation_id is unique id for requestor
-    // amount is amount of GLM tokens to lock
-    // block_no is block number until which funds are locked
-    function lockForRequestor(address requestor, uint32 allocation_id, uint128 amount, uint32 block_no) external {
-        //check if allocation_id is not used
-        require(lockedAmounts[allocation_id].amount == 0, "lockedAmounts[allocation_id].amount == 0");
-        require(GLM.transferFrom(msg.sender, address(this), amount), "transferFrom failed");
-        //store the amount
-        lockedAmounts[allocation_id] = Allocation(amount, requestor, block_no);
+    // createAllocation - Customer locks funds for usage by spender
+    //
+    // id - unique id (you should search for unused id, this will become id of allocation if succeeded)
+    // spender - the address that is allowed to spend the funds regardless of time
+    // amount - amount of GLM tokens to lock
+    // feeAmount - amount of GLM tokens given to spender (non-refundable). Fee is claimed by spender when called payoutSingle or payoutMultiple first time.
+    // blockNo - block number until which funds are guaranteed to be locked for spender.
+    //           Spender still can use the funds after this block,
+    //           but customer can request the funds to be returned clearing allocation after (or equal to) this block number.
+    function createAllocation(uint32 id, address spender, uint128 amount, uint128 feeAmount, uint32 blockNo) external {
+        //check if id is not used
+        require(lockedAmounts[id].amount == 0, "lockedAmounts[id].amount == 0");
+        require(amount > 0, "amount > 0");
+
+        require(GLM.transferFrom(msg.sender, address(this), amount + feeAmount), "transferFrom failed");
+        lockedAmounts[id] = Allocation(msg.sender, spender, amount, feeAmount, blockNo);
     }
 
-    function returnRemainingFunds(uint32 allocation_id) external {
-        Allocation memory allocation = lockedAmounts[allocation_id];
-        require(allocation.block_no >= block.number, "allocation.block_no >= block.number");
-        require(GLM.transfer(allocation.requestor, allocation.amount), "transfer failed");
-        delete lockedAmounts[allocation_id];
+    // only spender and customer can return funds after block_no
+    // these are two parties interested in returning funds
+    function returnFunds(uint32 id) external {
+        Allocation memory allocation = lockedAmounts[id];
+        // customer cannot return funds before block_no
+        // sender can return funds at any time
+        require((msg.sender == allocation.customer && allocation.block_no <= block.number) || msg.sender == allocation.spender);
+        require(GLM.transfer(allocation.customer, allocation.amount + allocation.feeAmount), "transfer failed");
+        delete lockedAmounts[id];
     }
 
-    function payoutSingle(uint32 allocation_id, address recipient, uint128 amount) external {
-        Allocation memory allocation = lockedAmounts[allocation_id];
-        require(msg.sender == allocation.requestor, "msg.sender == allocation.requestor");
+
+    function payoutSingle(uint32 id, address recipient, uint128 amount) external {
+        Allocation memory allocation = lockedAmounts[id];
+        require(msg.sender == allocation.spender, "msg.sender == allocation.spender");
         require(allocation.amount >= amount, "allocation.amount >= amount");
+
         require(GLM.transfer(recipient, amount), "transfer failed");
-        //update allocation amount
         allocation.amount -= amount;
-        //update allocation
+
+        if (allocation.feeAmount > 0) {
+            require(GLM.transfer(allocation.spender, allocation.feeAmount), "transfer failed");
+            allocation.feeAmount = 0;
+        }
+
         if (allocation.amount == 0) {
-            delete lockedAmounts[allocation_id];
+            delete lockedAmounts[id];
         } else {
-            lockedAmounts[allocation_id] = allocation;
+            lockedAmounts[id] = allocation;
         }
     }
 
-    function payoutMultiple(uint32 allocation_id, bytes32[] calldata payments) external {
-        Allocation memory allocation = lockedAmounts[allocation_id];
+    function payoutMultiple(uint32 id, bytes32[] calldata payments) external {
+        Allocation memory allocation = lockedAmounts[id];
+        require(msg.sender == allocation.spender, "msg.sender == allocation.spender");
+
         for (uint i = 0; i < payments.length; ++i) {
             // A payment contains compressed data:
             // first 160 bits (20 bytes) is an address.
@@ -151,11 +177,16 @@ contract LockPayment {
             require(allocation.amount >= amount, "allocation.amount >= amount");
             allocation.amount -= amount;
         }
-        //update allocation
+
+        if (allocation.feeAmount > 0) {
+            require(GLM.transfer(allocation.spender, allocation.feeAmount), "transfer failed");
+            allocation.feeAmount = 0;
+        }
+
         if (allocation.amount == 0) {
-            delete lockedAmounts[allocation_id];
+            delete lockedAmounts[id];
         } else {
-            lockedAmounts[allocation_id] = allocation;
+            lockedAmounts[id] = allocation;
         }
     }
 }
