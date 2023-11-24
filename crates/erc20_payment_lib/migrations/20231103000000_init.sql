@@ -29,8 +29,12 @@ CREATE TABLE "tx"
     broadcast_count     INTEGER     NOT NULL,
     first_stuck_date    TEXT        NULL,
     confirm_date        TEXT        NULL,
+    blockchain_date     TEXT        NULL,
+    gas_used            INTEGER     NULL,
     block_number        INTEGER     NULL,
     chain_status        INTEGER     NULL,
+    block_gas_price     TEXT        NULL,
+    effective_gas_price TEXT        NULL,
     fee_paid            TEXT        NULL,
     error               TEXT        NULL,
     orig_tx_id          INTEGER     NULL

@@ -162,8 +162,8 @@ where
 {
     let res = sqlx::query_as::<_, TxDao>(
         r"INSERT INTO tx
-(method, from_addr, to_addr, chain_id, gas_limit, max_fee_per_gas, priority_fee, val, nonce, processing, call_data, created_date, first_processed, tx_hash, signed_raw_data, signed_date, broadcast_date, broadcast_count, first_stuck_date, confirm_date, block_number, chain_status, fee_paid, error, orig_tx_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25) RETURNING *;
+(method, from_addr, to_addr, chain_id, gas_limit, max_fee_per_gas, priority_fee, val, nonce, processing, call_data, created_date, first_processed, tx_hash, signed_raw_data, signed_date, broadcast_date, broadcast_count, first_stuck_date, confirm_date, blockchain_date, gas_used, block_number, chain_status, block_gas_price, effective_gas_price, fee_paid, error, orig_tx_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29) RETURNING *;
 ",
     )
         .bind(&tx.method)
@@ -186,8 +186,12 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $
         .bind( tx.broadcast_count)
         .bind( tx.first_stuck_date)
         .bind( tx.confirm_date)
+        .bind( tx.blockchain_date)
+        .bind( tx.gas_used)
         .bind( tx.block_number)
         .bind( tx.chain_status)
+        .bind( &tx.block_gas_price)
+        .bind( &tx.effective_gas_price)
         .bind( &tx.fee_paid)
         .bind(&tx.error)
         .bind( tx.orig_tx_id)
@@ -244,11 +248,15 @@ broadcast_date = $18,
 broadcast_count = $19,
 first_stuck_date = $20,
 confirm_date = $21,
-block_number = $22,
-chain_status = $23,
-fee_paid = $24,
-error = $25,
-orig_tx_id = $26
+blockchain_date = $22,
+gas_used = $23,
+block_number = $24,
+chain_status = $25,
+block_gas_price = $26,
+effective_gas_price = $27,
+fee_paid = $28,
+error = $29,
+orig_tx_id = $30
 WHERE id = $1
 ",
     )
@@ -273,8 +281,12 @@ WHERE id = $1
     .bind(tx.broadcast_count)
     .bind(tx.first_stuck_date)
     .bind(tx.confirm_date)
+    .bind(tx.blockchain_date)
+    .bind(tx.gas_used)
     .bind(tx.block_number)
     .bind(tx.chain_status)
+    .bind(&tx.block_gas_price)
+    .bind(&tx.effective_gas_price)
     .bind(&tx.fee_paid)
     .bind(&tx.error)
     .bind(tx.orig_tx_id)
@@ -335,13 +347,17 @@ async fn tx_test() -> sqlx::Result<()> {
         created_date: chrono::Utc::now(),
         block_number: Some(119677),
         chain_status: Some(1),
+        block_gas_price: Some("557034000005500".to_string()),
+        effective_gas_price: Some("103434000005500".to_string()),
         fee_paid: Some("83779300533141".to_string()),
         error: Some("Test error message".to_string()),
         orig_tx_id: None,
         engine_message: None,
         engine_error: None,
         first_processed: None,
-        confirm_date: None,
+        confirm_date: Some(chrono::Utc::now()),
+        blockchain_date: Some(chrono::Utc::now()),
+        gas_used: Some(40000),
     };
 
     let tx_from_insert = insert_tx(&conn, &tx_to_insert).await?;

@@ -122,7 +122,7 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
         }
     }
     m.write().unwrap().web3_rpc_info = web3_rpc_info;
-    log::info!(
+    log::debug!(
         "Verification finished score: {}",
         m.read().unwrap().get_validation_score()
     );

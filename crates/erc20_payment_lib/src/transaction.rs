@@ -162,8 +162,12 @@ pub fn create_eth_transfer(
         first_stuck_date: None,
         tx_hash: None,
         confirm_date: None,
+        blockchain_date: None,
+        gas_used: None,
         block_number: None,
         chain_status: None,
+        block_gas_price: None,
+        effective_gas_price: None,
         fee_paid: None,
         error: None,
         engine_message: None,
@@ -202,8 +206,12 @@ pub fn create_eth_transfer_str(
         first_stuck_date: None,
         tx_hash: None,
         confirm_date: None,
+        blockchain_date: None,
+        gas_used: None,
         block_number: None,
         chain_status: None,
+        block_gas_price: None,
+        effective_gas_price: None,
         fee_paid: None,
         error: None,
         engine_message: None,
@@ -244,8 +252,12 @@ pub fn create_erc20_transfer(
         first_stuck_date: None,
         tx_hash: None,
         confirm_date: None,
+        blockchain_date: None,
+        gas_used: None,
         block_number: None,
         chain_status: None,
+        block_gas_price: None,
+        effective_gas_price: None,
         fee_paid: None,
         error: None,
         engine_message: None,
@@ -320,8 +332,12 @@ pub fn create_erc20_transfer_multi(multi_args: MultiTransferArgs) -> Result<TxDa
         first_stuck_date: None,
         tx_hash: None,
         confirm_date: None,
+        blockchain_date: None,
+        gas_used: None,
         block_number: None,
         chain_status: None,
+        block_gas_price: None,
+        effective_gas_price: None,
         fee_paid: None,
         error: None,
         engine_message: None,
@@ -358,8 +374,12 @@ pub fn create_faucet_mint(
         first_stuck_date: None,
         tx_hash: None,
         confirm_date: None,
+        blockchain_date: None,
+        gas_used: None,
         block_number: None,
         chain_status: None,
+        block_gas_price: None,
+        effective_gas_price: None,
         fee_paid: None,
         error: None,
         engine_message: None,
@@ -399,8 +419,12 @@ pub fn create_erc20_approve(
         first_stuck_date: None,
         tx_hash: None,
         confirm_date: None,
+        blockchain_date: None,
+        gas_used: None,
         block_number: None,
         chain_status: None,
+        block_gas_price: None,
+        effective_gas_price: None,
         fee_paid: None,
         error: None,
         engine_message: None,
@@ -742,6 +766,16 @@ pub async fn find_receipt(
         if let Some(receipt) = receipt {
             web3_tx_dao.block_number = receipt.block_number.map(|x| x.as_u64() as i64);
             web3_tx_dao.chain_status = receipt.status.map(|x| x.as_u64() as i64);
+            web3_tx_dao.gas_used = receipt.gas_used.map(|x| x.as_u64() as i64);
+            web3_tx_dao.effective_gas_price = receipt.effective_gas_price.map(|x| x.to_string());
+            let block_info = web3.clone().eth_block(BlockId::Number(BlockNumber::Number(
+                U64::from(web3_tx_dao.block_number.ok_or_else(|| {
+                    err_custom_create!("Block number is None")
+                })? as u64),
+            ))).await.map_err(err_from!())?.ok_or_else(|| err_custom_create!("Block not found"))?;
+            web3_tx_dao.block_gas_price = block_info.base_fee_per_gas.map(|x| x.to_string());
+            web3_tx_dao.blockchain_date = Some(datetime_from_u256_timestamp(block_info.timestamp)
+                .ok_or_else(|| err_custom_create!("Cannot convert timestamp to NaiveDateTime"))?);
 
             let gas_used = receipt
                 .gas_used
