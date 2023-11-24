@@ -87,14 +87,13 @@ interface IERC20 {
 
   */
 
-    struct Allocation {
-        address customer; //provides the funds locked in allocation
-        address spender; //address that can spend the funds provided by customer
-        uint128 amount; //remaining funds locked
-        uint128 feeAmount; //fee amount locked for spender
-        uint32 block_no; //after this block funds can be returned to customer
-    }
-
+struct Allocation {
+    address payer; //provides the funds locked in allocation
+    address spender; //address that can spend the funds provided by payer
+    uint128 amount; //remaining funds locked
+    uint128 feeAmount; //fee amount locked for spender
+    uint32 block_no; //after this block funds can be returned to payer
+}
 
 /**
  * @dev This contract is part of GLM payment system. Visit https://golem.network for details.
@@ -120,7 +119,7 @@ contract LockPayment {
     // feeAmount - amount of GLM tokens given to spender (non-refundable). Fee is claimed by spender when called payoutSingle or payoutMultiple first time.
     // blockNo - block number until which funds are guaranteed to be locked for spender.
     //           Spender still can use the funds after this block,
-    //           but customer can request the funds to be returned clearing allocation after (or equal to) this block number.
+    //           but payer can request the funds to be returned clearing allocation after (or equal to) this block number.
     function createAllocation(uint32 id, address spender, uint128 amount, uint128 feeAmount, uint32 blockNo) external {
         //check if id is not used
         require(lockedAmounts[id].amount == 0, "lockedAmounts[id].amount == 0");
@@ -130,14 +129,14 @@ contract LockPayment {
         lockedAmounts[id] = Allocation(msg.sender, spender, amount, feeAmount, blockNo);
     }
 
-    // only spender and customer can return funds after block_no
+    // only spender and payer can return funds after block_no
     // these are two parties interested in returning funds
     function returnFunds(uint32 id) external {
         Allocation memory allocation = lockedAmounts[id];
-        // customer cannot return funds before block_no
+        // payer cannot return funds before block_no
         // sender can return funds at any time
-        require((msg.sender == allocation.customer && allocation.block_no <= block.number) || msg.sender == allocation.spender);
-        require(GLM.transfer(allocation.customer, allocation.amount + allocation.feeAmount), "transfer failed");
+        require((msg.sender == allocation.payer && allocation.block_no <= block.number) || msg.sender == allocation.spender);
+        require(GLM.transfer(allocation.payer, allocation.amount + allocation.feeAmount), "transfer failed");
         delete lockedAmounts[id];
     }
 

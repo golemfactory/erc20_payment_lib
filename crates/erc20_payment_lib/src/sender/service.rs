@@ -518,7 +518,7 @@ pub async fn service_loop(
 
         if !payment_setup.finish_when_done {
             if let Some(next_gather_time) = next_gather_time {
-                log::info!(
+                log::debug!(
                     "Payments will be gathered in {}",
                     humantime::format_duration(Duration::from_secs(
                         (next_gather_time - current_time)
@@ -608,7 +608,7 @@ pub async fn service_loop(
             break;
         }
         if !process_tx_needed {
-            log::info!("No work found for now...");
+            log::debug!("No work found for now...");
             shared_state.lock().await.idling = true;
         } else {
             shared_state.lock().await.idling = false;
