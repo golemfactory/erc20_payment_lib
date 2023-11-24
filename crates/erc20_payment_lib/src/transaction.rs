@@ -768,14 +768,23 @@ pub async fn find_receipt(
             web3_tx_dao.chain_status = receipt.status.map(|x| x.as_u64() as i64);
             web3_tx_dao.gas_used = receipt.gas_used.map(|x| x.as_u64() as i64);
             web3_tx_dao.effective_gas_price = receipt.effective_gas_price.map(|x| x.to_string());
-            let block_info = web3.clone().eth_block(BlockId::Number(BlockNumber::Number(
-                U64::from(web3_tx_dao.block_number.ok_or_else(|| {
-                    err_custom_create!("Block number is None")
-                })? as u64),
-            ))).await.map_err(err_from!())?.ok_or_else(|| err_custom_create!("Block not found"))?;
+            let block_info = web3
+                .clone()
+                .eth_block(BlockId::Number(BlockNumber::Number(U64::from(
+                    web3_tx_dao
+                        .block_number
+                        .ok_or_else(|| err_custom_create!("Block number is None"))?
+                        as u64,
+                ))))
+                .await
+                .map_err(err_from!())?
+                .ok_or_else(|| err_custom_create!("Block not found"))?;
             web3_tx_dao.block_gas_price = block_info.base_fee_per_gas.map(|x| x.to_string());
-            web3_tx_dao.blockchain_date = Some(datetime_from_u256_timestamp(block_info.timestamp)
-                .ok_or_else(|| err_custom_create!("Cannot convert timestamp to NaiveDateTime"))?);
+            web3_tx_dao.blockchain_date = Some(
+                datetime_from_u256_timestamp(block_info.timestamp).ok_or_else(|| {
+                    err_custom_create!("Cannot convert timestamp to NaiveDateTime")
+                })?,
+            );
 
             let gas_used = receipt
                 .gas_used
