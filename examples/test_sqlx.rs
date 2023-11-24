@@ -31,7 +31,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
     let _cli: TestOptions = TestOptions::from_args();
 
-    let _config = config::Config::load("config-payments.toml").await?;
+    let _config = config::Config::load("../crates/erc20_payment_lib/config-payments.toml").await?;
 
     let (private_keys, _public_addrs) = load_private_keys(&env::var("ETH_PRIVATE_KEYS").unwrap())?;
     display_private_keys(&private_keys);
