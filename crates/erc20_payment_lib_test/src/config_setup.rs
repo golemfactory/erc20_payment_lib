@@ -40,6 +40,7 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
             max_at_once: 10,
         }),
         mint_contract: None,
+        lock_contract: None,
         faucet_client: None,
         transaction_timeout: 25,
         confirmation_blocks: 1,

@@ -5,7 +5,9 @@ use crate::db::ops::{
     insert_tx,
 };
 use crate::signer::Signer;
-use crate::transaction::{create_faucet_mint, create_token_transfer, find_receipt_extended};
+use crate::transaction::{
+    create_faucet_mint, create_lock_deposit, create_token_transfer, find_receipt_extended,
+};
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
 use std::ops::DerefMut;
@@ -24,7 +26,7 @@ use tokio::sync::mpsc::Sender;
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
 use crate::sender::service_loop;
-use crate::utils::{StringConvExt, U256ConvExt};
+use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
 use erc20_payment_lib_common::{
     DriverEvent, DriverEventContent, FaucetData, SharedInfoTx, StatusProperty,
@@ -755,6 +757,78 @@ pub async fn mint_golem_token(
     db_transaction.commit().await.map_err(err_from!())?;
 
     log::info!("Mint transaction added to queue: {}", mint_tx.id);
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn deposit_funds(
+    web3: Arc<Web3RpcPool>,
+    conn: &SqlitePool,
+    chain_id: u64,
+    from: Address,
+    glm_address: Address,
+    lock_contract_address: Address,
+    skip_balance_check: bool,
+    amount: Option<Decimal>,
+    deposit_all: bool,
+) -> Result<(), PaymentError> {
+    let amount = if let Some(amount) = amount {
+        amount
+    } else if deposit_all {
+        get_token_balance(web3.clone(), glm_address, from)
+            .await?
+            .to_eth()
+            .map_err(err_from!())?
+    } else {
+        return Err(err_custom_create!(
+            "Amount not specified. Use --amount or --deposit-all"
+        ));
+    };
+
+    if !skip_balance_check {
+        let token_balance = get_token_balance(web3.clone(), glm_address, from)
+            .await?
+            .to_eth_saturate();
+
+        if token_balance < amount {
+            return Err(err_custom_create!(
+                "You don't have enough: {} tGLM on network with chain id: {} and account {:#x} ",
+                token_balance,
+                chain_id,
+                from
+            ));
+        };
+    }
+
+    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
+    let filter = format!(
+        "from_addr=\"{:#x}\" AND method=\"LOCK.deposit\" AND fee_paid is NULL",
+        from
+    );
+    let tx_existing = get_transactions(&mut *db_transaction, Some(&filter), None, None)
+        .await
+        .map_err(err_from!())?;
+
+    if let Some(tx) = tx_existing.first() {
+        return Err(err_custom_create!(
+            "You already have a pending deposit transaction with id: {}",
+            tx.id
+        ));
+    }
+
+    let deposit_tx = create_lock_deposit(
+        from,
+        lock_contract_address,
+        chain_id,
+        None,
+        amount.to_u256_from_eth().map_err(err_from!())?,
+    )?;
+    let deposit_tx = insert_tx(&mut *db_transaction, &deposit_tx)
+        .await
+        .map_err(err_from!())?;
+    db_transaction.commit().await.map_err(err_from!())?;
+
+    log::info!("Deposit transaction added to queue: {}", deposit_tx.id);
     Ok(())
 }
 

@@ -105,6 +105,30 @@ pub struct MintTestTokensOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Deposit token options")]
+pub struct DepositTokensOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    pub chain_name: String,
+
+    #[structopt(long = "from", help = "From (has to have private key)")]
+    pub from: Option<Address>,
+
+    #[structopt(
+        short = "a",
+        long = "amount",
+        help = "Amount (decimal, full precision, i.e. 0.01)"
+    )]
+    pub amount: Option<rust_decimal::Decimal>,
+
+    #[structopt(long = "deposit-all", help = "Deposit all available tokens")]
+    pub deposit_all: bool,
+
+    #[structopt(long = "skip-allowance", help = "Skip allowance check")]
+    pub skip_allowance: bool,
+
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Single transfer options")]
 pub struct TransferOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
@@ -299,6 +323,10 @@ pub enum PaymentCommands {
     MintTestTokens {
         #[structopt(flatten)]
         mint_test_tokens_options: MintTestTokensOptions,
+    },
+    DepositTokens {
+        #[structopt(flatten)]
+        deposit_tokens_options: DepositTokensOptions,
     },
     Transfer {
         #[structopt(flatten)]

@@ -24,6 +24,8 @@ lazy_static! {
     pub static ref ERC20_MULTI_CONTRACT_TEMPLATE: Contract<Http> = {
         prepare_contract_template(include_bytes!("../contracts/multi_transfer_erc20.json")).unwrap()
     };
+    pub static ref LOCK_CONTRACT_TEMPLATE: Contract<Http> =
+        prepare_contract_template(include_bytes!("../contracts/lock_payments.json")).unwrap();
 }
 
 pub fn prepare_contract_template(json_abi: &[u8]) -> Result<Contract<Http>, PaymentError> {
@@ -32,7 +34,7 @@ pub fn prepare_contract_template(json_abi: &[u8]) -> Result<Contract<Http>, Paym
         Address::from_str("0x0000000000000000000000000000000000000000").unwrap(),
         json_abi,
     )
-    .map_err(|_err| err_custom_create!("Failed to create contract"))?;
+    .map_err(|err| err_custom_create!("Failed to create contract {err}"))?;
 
     Ok(contract)
 }
@@ -121,4 +123,16 @@ pub fn encode_multi_indirect_packed(
         "golemTransferIndirectPacked",
         (packed, sum),
     )
+}
+
+pub fn encode_deposit_to_lock(amount: U256) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(&LOCK_CONTRACT_TEMPLATE, "deposit", (amount,))
+}
+
+pub fn withdraw_from_lock(amount: U256) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(&LOCK_CONTRACT_TEMPLATE, "withdraw", (amount,))
+}
+
+pub fn withdraw_all_from_lock() -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(&LOCK_CONTRACT_TEMPLATE, "withdraw_all", ())
 }

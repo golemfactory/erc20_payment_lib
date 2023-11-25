@@ -7,36 +7,29 @@ use actix_web::{web, App, HttpServer};
 use csv::ReaderBuilder;
 use erc20_payment_lib::config::{AdditionalOptions, RpcSettings};
 use erc20_payment_lib::db::create_sqlite_connection;
-use erc20_payment_lib::db::ops::{
-    delete_scan_info, get_next_transactions_to_process, get_scan_info, insert_token_transfer,
-    update_token_transfer, upsert_scan_info,
-};
+use erc20_payment_lib::db::ops::{delete_scan_info, get_next_transactions_to_process, get_scan_info, insert_token_transfer, update_token_transfer, upsert_scan_info};
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::signer::PrivateKeySigner;
 use std::collections::HashSet;
 
-use erc20_payment_lib::{
-    config, err_custom_create, err_from,
-    error::*,
-    misc::{display_private_keys, load_private_keys},
-    runtime::PaymentRuntime,
-};
+use erc20_payment_lib::{config, err_custom_create, err_from, error::*, misc::{display_private_keys, load_private_keys}, process_allowance, runtime::PaymentRuntime};
 use std::env;
 use std::str::FromStr;
 
 use crate::stats::{export_stats, run_stats};
 use erc20_payment_lib::runtime::{
-    get_token_balance, mint_golem_token, remove_last_unsent_transactions, remove_transaction_force,
-    PaymentRuntimeArgs,
+    deposit_funds, get_token_balance, mint_golem_token, remove_last_unsent_transactions,
+    remove_transaction_force, PaymentRuntimeArgs,
 };
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::{import_erc20_txs, ImportErc20TxsArgs};
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 
+use erc20_payment_lib::eth::check_allowance;
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
-use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt};
+use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use erc20_payment_lib_common::model::{ScanDao, TokenTransferDao};
 use erc20_rpc_pool::{Web3RpcParams, Web3RpcPool};
 use rust_decimal::Decimal;
@@ -44,6 +37,7 @@ use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::ethabi::ethereum_types::Address;
+use web3::types::U256;
 
 fn check_address_name(n: &str) -> String {
     match n {
@@ -361,6 +355,98 @@ async fn main_internal() -> Result<(), PaymentError> {
                 chain_cfg.token.address,
                 chain_cfg.mint_contract.clone().map(|c| c.address),
                 true,
+            )
+            .await?;
+        }
+        PaymentCommands::DepositTokens {
+            deposit_tokens_options,
+        } => {
+            log::info!("Generating test tokens...");
+            let public_addr = public_addrs.get(0).expect("No public address found");
+            let chain_cfg =
+                config
+                    .chain
+                    .get(&deposit_tokens_options.chain_name)
+                    .ok_or(err_custom_create!(
+                        "Chain {} not found in config file",
+                        deposit_tokens_options.chain_name
+                    ))?;
+
+            let payment_setup = PaymentSetup::new_empty(&config)?;
+            let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
+
+            if !deposit_tokens_options.skip_allowance {
+                let allowance = check_allowance(
+                    web3.clone(),
+                    deposit_tokens_options.from.unwrap_or(*public_addr),
+                    chain_cfg.token.address,
+                    chain_cfg
+                        .lock_contract
+                        .clone()
+                        .map(|c| c.address)
+                        .expect("No mint contract"),
+                ).await?;
+
+                let amount = if let Some(amount) = deposit_tokens_options.amount {
+                    amount
+                } else if deposit_tokens_options.deposit_all {
+                    let payment_setup = PaymentSetup::new_empty(&config)?;
+                    get_token_balance(
+                        payment_setup.get_provider(chain_cfg.chain_id)?,
+                        chain_cfg.token.address,
+                        *public_addr,
+                    )
+                    .await?.to_eth_saturate()
+                } else {
+                    return Err(err_custom_create!("No amount specified"));
+                };
+
+
+
+                if amount.to_u256_from_eth().map_err(err_from!())? > allowance {
+                    let allowance_request = AllowanceRequest {
+                        owner: format!("{:#x}", deposit_tokens_options.from.unwrap_or(*public_addr)),
+                        token_addr: format!("{:#x}", chain_cfg.token.address),
+                        spender_addr: format!(
+                            "{:#x}",
+                            chain_cfg
+                                .lock_contract
+                                .clone()
+                                .map(|c| c.address)
+                                .expect("No mint contract")
+                        ),
+                        chain_id: chain_cfg.chain_id,
+                        amount: U256::MAX,
+                    };
+
+                    let _ = process_allowance(
+                        &conn,
+                        &payment_setup,
+                        &allowance_request,
+                        &signer,
+                    ).await;
+                        /*return Err(err_custom_create!(
+                        "Not enough allowance, required: {}, available: {}",
+                        deposit_tokens_options.amount.unwrap(),
+                        allowance
+                    ));*/
+                }
+            }
+
+            deposit_funds(
+                web3,
+                &conn,
+                chain_cfg.chain_id as u64,
+                deposit_tokens_options.from.unwrap_or(*public_addr),
+                chain_cfg.token.address,
+                chain_cfg
+                    .lock_contract
+                    .clone()
+                    .map(|c| c.address)
+                    .expect("No mint contract"),
+                true,
+                deposit_tokens_options.amount,
+                deposit_tokens_options.deposit_all,
             )
             .await?;
         }
