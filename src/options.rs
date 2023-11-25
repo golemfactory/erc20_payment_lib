@@ -125,7 +125,6 @@ pub struct DepositTokensOptions {
 
     #[structopt(long = "skip-allowance", help = "Skip allowance check")]
     pub skip_allowance: bool,
-
 }
 
 #[derive(StructOpt)]

@@ -7,12 +7,21 @@ use actix_web::{web, App, HttpServer};
 use csv::ReaderBuilder;
 use erc20_payment_lib::config::{AdditionalOptions, RpcSettings};
 use erc20_payment_lib::db::create_sqlite_connection;
-use erc20_payment_lib::db::ops::{delete_scan_info, get_next_transactions_to_process, get_scan_info, insert_token_transfer, update_token_transfer, upsert_scan_info};
+use erc20_payment_lib::db::ops::{
+    delete_scan_info, get_next_transactions_to_process, get_scan_info, insert_token_transfer,
+    update_token_transfer, upsert_scan_info,
+};
 use erc20_payment_lib::server::*;
 use erc20_payment_lib::signer::PrivateKeySigner;
 use std::collections::HashSet;
 
-use erc20_payment_lib::{config, err_custom_create, err_from, error::*, misc::{display_private_keys, load_private_keys}, process_allowance, runtime::PaymentRuntime};
+use erc20_payment_lib::{
+    config, err_custom_create, err_from,
+    error::*,
+    misc::{display_private_keys, load_private_keys},
+    process_allowance,
+    runtime::PaymentRuntime,
+};
 use std::env;
 use std::str::FromStr;
 
@@ -385,7 +394,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                         .clone()
                         .map(|c| c.address)
                         .expect("No mint contract"),
-                ).await?;
+                )
+                .await?;
 
                 let amount = if let Some(amount) = deposit_tokens_options.amount {
                     amount
@@ -396,16 +406,18 @@ async fn main_internal() -> Result<(), PaymentError> {
                         chain_cfg.token.address,
                         *public_addr,
                     )
-                    .await?.to_eth_saturate()
+                    .await?
+                    .to_eth_saturate()
                 } else {
                     return Err(err_custom_create!("No amount specified"));
                 };
 
-
-
                 if amount.to_u256_from_eth().map_err(err_from!())? > allowance {
                     let allowance_request = AllowanceRequest {
-                        owner: format!("{:#x}", deposit_tokens_options.from.unwrap_or(*public_addr)),
+                        owner: format!(
+                            "{:#x}",
+                            deposit_tokens_options.from.unwrap_or(*public_addr)
+                        ),
                         token_addr: format!("{:#x}", chain_cfg.token.address),
                         spender_addr: format!(
                             "{:#x}",
@@ -419,13 +431,9 @@ async fn main_internal() -> Result<(), PaymentError> {
                         amount: U256::MAX,
                     };
 
-                    let _ = process_allowance(
-                        &conn,
-                        &payment_setup,
-                        &allowance_request,
-                        &signer,
-                    ).await;
-                        /*return Err(err_custom_create!(
+                    let _ =
+                        process_allowance(&conn, &payment_setup, &allowance_request, &signer).await;
+                    /*return Err(err_custom_create!(
                         "Not enough allowance, required: {}, available: {}",
                         deposit_tokens_options.amount.unwrap(),
                         allowance
