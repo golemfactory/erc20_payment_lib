@@ -132,7 +132,6 @@ pub fn create_token_transfer(
     }
 }
 
-#[allow(dead_code)]
 pub fn create_eth_transfer(
     from: Address,
     to: Address,
@@ -141,82 +140,13 @@ pub fn create_eth_transfer(
     amount: U256,
 ) -> TxDao {
     TxDao {
-        id: 0,
         method: "transfer".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{to:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        max_fee_per_gas: None,
-        priority_fee: None,
         val: amount.to_string(),
-        nonce: None,
-        processing: 1,
-        call_data: None,
-        signed_raw_data: None,
-        created_date: chrono::Utc::now(),
-        first_processed: None,
-        signed_date: None,
-        broadcast_date: None,
-        broadcast_count: 0,
-        first_stuck_date: None,
-        tx_hash: None,
-        confirm_date: None,
-        blockchain_date: None,
-        gas_used: None,
-        block_number: None,
-        chain_status: None,
-        block_gas_price: None,
-        effective_gas_price: None,
-        fee_paid: None,
-        error: None,
-        engine_message: None,
-        engine_error: None,
-        orig_tx_id: None,
-    }
-}
-
-#[allow(dead_code)]
-pub fn create_eth_transfer_str(
-    from_addr: String,
-    to_addr: String,
-    chain_id: u64,
-    gas_limit: Option<u64>,
-    amount: String,
-) -> TxDao {
-    TxDao {
-        id: 0,
-        method: "transfer".to_string(),
-        from_addr,
-        to_addr,
-        chain_id: chain_id as i64,
-        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        max_fee_per_gas: None,
-        priority_fee: None,
-        val: amount,
-        nonce: None,
-        processing: 1,
-        call_data: None,
-        signed_raw_data: None,
-        created_date: chrono::Utc::now(),
-        first_processed: None,
-        signed_date: None,
-        broadcast_date: None,
-        broadcast_count: 0,
-        first_stuck_date: None,
-        tx_hash: None,
-        confirm_date: None,
-        blockchain_date: None,
-        gas_used: None,
-        block_number: None,
-        chain_status: None,
-        block_gas_price: None,
-        effective_gas_price: None,
-        fee_paid: None,
-        error: None,
-        engine_message: None,
-        engine_error: None,
-        orig_tx_id: None,
+        ..Default::default()
     }
 }
 
@@ -229,40 +159,15 @@ pub fn create_erc20_transfer(
     gas_limit: Option<u64>,
 ) -> Result<TxDao, PaymentError> {
     Ok(TxDao {
-        id: 0,
         method: "ERC20.transfer".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{token:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        max_fee_per_gas: None,
-        priority_fee: None,
-        val: "0".to_string(),
-        nonce: None,
-        processing: 1,
         call_data: Some(hex::encode(
             encode_erc20_transfer(erc20_to, erc20_amount).map_err(err_from!())?,
         )),
-        signed_raw_data: None,
-        created_date: chrono::Utc::now(),
-        first_processed: None,
-        signed_date: None,
-        broadcast_date: None,
-        broadcast_count: 0,
-        first_stuck_date: None,
-        tx_hash: None,
-        confirm_date: None,
-        blockchain_date: None,
-        gas_used: None,
-        block_number: None,
-        chain_status: None,
-        block_gas_price: None,
-        effective_gas_price: None,
-        fee_paid: None,
-        error: None,
-        engine_message: None,
-        engine_error: None,
-        orig_tx_id: None,
+        ..Default::default()
     })
 }
 
@@ -311,38 +216,13 @@ pub fn create_erc20_transfer_multi(multi_args: MultiTransferArgs) -> Result<TxDa
     };
 
     Ok(TxDao {
-        id: 0,
         method: method_str,
         from_addr: format!("{:#x}", multi_args.from),
         to_addr: format!("{:#x}", multi_args.contract),
         chain_id: multi_args.chain_id as i64,
         gas_limit: multi_args.gas_limit.map(|gas_limit| gas_limit as i64),
-        max_fee_per_gas: None,
-        priority_fee: None,
-        val: "0".to_string(),
-        nonce: None,
-        processing: 1,
         call_data: Some(hex::encode(data)),
-        signed_raw_data: None,
-        created_date: chrono::Utc::now(),
-        first_processed: None,
-        signed_date: None,
-        broadcast_date: None,
-        broadcast_count: 0,
-        first_stuck_date: None,
-        tx_hash: None,
-        confirm_date: None,
-        blockchain_date: None,
-        gas_used: None,
-        block_number: None,
-        chain_status: None,
-        block_gas_price: None,
-        effective_gas_price: None,
-        fee_paid: None,
-        error: None,
-        engine_message: None,
-        engine_error: None,
-        orig_tx_id: None,
+        ..Default::default()
     })
 }
 
@@ -353,38 +233,13 @@ pub fn create_faucet_mint(
     gas_limit: Option<u64>,
 ) -> Result<TxDao, PaymentError> {
     Ok(TxDao {
-        id: 0,
         method: "FAUCET.create".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{faucet_address:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        max_fee_per_gas: None,
-        priority_fee: None,
-        val: "0".to_string(),
-        nonce: None,
-        processing: 1,
         call_data: Some(hex::encode(encode_faucet_create().map_err(err_from!())?)),
-        signed_raw_data: None,
-        created_date: chrono::Utc::now(),
-        first_processed: None,
-        signed_date: None,
-        broadcast_date: None,
-        broadcast_count: 0,
-        first_stuck_date: None,
-        tx_hash: None,
-        confirm_date: None,
-        blockchain_date: None,
-        gas_used: None,
-        block_number: None,
-        chain_status: None,
-        block_gas_price: None,
-        effective_gas_price: None,
-        fee_paid: None,
-        error: None,
-        engine_message: None,
-        engine_error: None,
-        orig_tx_id: None,
+        ..Default::default()
     })
 }
 
@@ -396,40 +251,15 @@ pub fn create_lock_deposit(
     amount: U256,
 ) -> Result<TxDao, PaymentError> {
     Ok(TxDao {
-        id: 0,
         method: "LOCK.deposit".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        max_fee_per_gas: None,
-        priority_fee: None,
-        val: "0".to_string(),
-        nonce: None,
-        processing: 1,
         call_data: Some(hex::encode(
             encode_deposit_to_lock(amount).map_err(err_from!())?,
         )),
-        signed_raw_data: None,
-        created_date: chrono::Utc::now(),
-        first_processed: None,
-        signed_date: None,
-        broadcast_date: None,
-        broadcast_count: 0,
-        first_stuck_date: None,
-        tx_hash: None,
-        confirm_date: None,
-        blockchain_date: None,
-        gas_used: None,
-        block_number: None,
-        chain_status: None,
-        block_gas_price: None,
-        effective_gas_price: None,
-        fee_paid: None,
-        error: None,
-        engine_message: None,
-        engine_error: None,
-        orig_tx_id: None,
+        ..Default::default()
     })
 }
 
@@ -438,43 +268,28 @@ pub fn create_lock_withdraw(
     lock_address: Address,
     chain_id: u64,
     gas_limit: Option<u64>,
-    amount: U256,
+    amount: Option<U256>,
 ) -> Result<TxDao, PaymentError> {
+    let method = if amount.is_some() {
+        "LOCK.withdraw".to_string()
+    } else {
+        "LOCK.withdrawAll".to_string()
+    };
+    let call_data = if let Some(amount) = amount {
+        Some(hex::encode(
+            withdraw_from_lock(amount).map_err(err_from!())?,
+        ))
+    } else {
+        Some(hex::encode(withdraw_all_from_lock().map_err(err_from!())?))
+    };
     Ok(TxDao {
-        id: 0,
-        method: "LOCK.withdraw".to_string(),
+        method,
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        max_fee_per_gas: None,
-        priority_fee: None,
-        val: "0".to_string(),
-        nonce: None,
-        processing: 1,
-        call_data: Some(hex::encode(
-            withdraw_from_lock(amount).map_err(err_from!())?,
-        )),
-        signed_raw_data: None,
-        created_date: chrono::Utc::now(),
-        first_processed: None,
-        signed_date: None,
-        broadcast_date: None,
-        broadcast_count: 0,
-        first_stuck_date: None,
-        tx_hash: None,
-        confirm_date: None,
-        blockchain_date: None,
-        gas_used: None,
-        block_number: None,
-        chain_status: None,
-        block_gas_price: None,
-        effective_gas_price: None,
-        fee_paid: None,
-        error: None,
-        engine_message: None,
-        engine_error: None,
-        orig_tx_id: None,
+        call_data,
+        ..Default::default()
     })
 }
 
@@ -485,38 +300,13 @@ pub fn create_lock_withdraw_all(
     gas_limit: Option<u64>,
 ) -> Result<TxDao, PaymentError> {
     Ok(TxDao {
-        id: 0,
         method: "LOCK.withdraw".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        max_fee_per_gas: None,
-        priority_fee: None,
-        val: "0".to_string(),
-        nonce: None,
-        processing: 1,
         call_data: Some(hex::encode(withdraw_all_from_lock().map_err(err_from!())?)),
-        signed_raw_data: None,
-        created_date: chrono::Utc::now(),
-        first_processed: None,
-        signed_date: None,
-        broadcast_date: None,
-        broadcast_count: 0,
-        first_stuck_date: None,
-        tx_hash: None,
-        confirm_date: None,
-        blockchain_date: None,
-        gas_used: None,
-        block_number: None,
-        chain_status: None,
-        block_gas_price: None,
-        effective_gas_price: None,
-        fee_paid: None,
-        error: None,
-        engine_message: None,
-        engine_error: None,
-        orig_tx_id: None,
+        ..Default::default()
     })
 }
 
@@ -528,40 +318,15 @@ pub fn create_erc20_approve(
     gas_limit: Option<u64>,
 ) -> Result<TxDao, PaymentError> {
     Ok(TxDao {
-        id: 0,
         method: "ERC20.approve".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{token:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        max_fee_per_gas: None,
-        priority_fee: None,
-        val: "0".to_string(),
-        nonce: None,
-        processing: 1,
         call_data: Some(hex::encode(
             encode_erc20_approve(contract_to_approve, U256::max_value()).map_err(err_from!())?,
         )),
-        signed_raw_data: None,
-        created_date: chrono::Utc::now(),
-        first_processed: None,
-        signed_date: None,
-        broadcast_date: None,
-        broadcast_count: 0,
-        first_stuck_date: None,
-        tx_hash: None,
-        confirm_date: None,
-        blockchain_date: None,
-        gas_used: None,
-        block_number: None,
-        chain_status: None,
-        block_gas_price: None,
-        effective_gas_price: None,
-        fee_paid: None,
-        error: None,
-        engine_message: None,
-        engine_error: None,
-        orig_tx_id: None,
+        ..Default::default()
     })
 }
 

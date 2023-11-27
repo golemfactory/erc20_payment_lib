@@ -54,7 +54,6 @@ where
         .and_then(|function| function.encode_input(&params.into_tokens()))
 }
 
-#[allow(dead_code)]
 pub fn encode_erc20_balance_of(address: Address) -> Result<Vec<u8>, web3::ethabi::Error> {
     contract_encode(&ERC20_CONTRACT_TEMPLATE, "balanceOf", (address,))
 }
@@ -134,5 +133,9 @@ pub fn withdraw_from_lock(amount: U256) -> Result<Vec<u8>, web3::ethabi::Error> 
 }
 
 pub fn withdraw_all_from_lock() -> Result<Vec<u8>, web3::ethabi::Error> {
-    contract_encode(&LOCK_CONTRACT_TEMPLATE, "withdraw_all", ())
+    contract_encode(&LOCK_CONTRACT_TEMPLATE, "withdrawAll", ())
+}
+
+pub fn encode_balance_of_lock(address: Address) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(&LOCK_CONTRACT_TEMPLATE, "funds", (address,))
 }

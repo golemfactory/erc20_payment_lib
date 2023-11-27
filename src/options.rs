@@ -120,11 +120,37 @@ pub struct DepositTokensOptions {
     )]
     pub amount: Option<rust_decimal::Decimal>,
 
-    #[structopt(long = "deposit-all", help = "Deposit all available tokens")]
+    #[structopt(long = "all", help = "Deposit all available tokens")]
     pub deposit_all: bool,
 
     #[structopt(long = "skip-allowance", help = "Skip allowance check")]
     pub skip_allowance: bool,
+
+    #[structopt(long = "skip-balance", help = "Skip balance check")]
+    pub skip_balance_check: bool,
+}
+
+#[derive(StructOpt)]
+#[structopt(about = "Withdraw token options")]
+pub struct WithdrawTokensOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    pub chain_name: String,
+
+    #[structopt(long = "from", help = "From (has to have private key)")]
+    pub from: Option<Address>,
+
+    #[structopt(
+        short = "a",
+        long = "amount",
+        help = "Amount (decimal, full precision, i.e. 0.01)"
+    )]
+    pub amount: Option<rust_decimal::Decimal>,
+
+    #[structopt(long = "all", help = "Withdraw all available tokens")]
+    pub withdraw_all: bool,
+
+    #[structopt(long = "skip-balance", help = "Skip balance check")]
+    pub skip_balance_check: bool,
 }
 
 #[derive(StructOpt)]
@@ -323,9 +349,13 @@ pub enum PaymentCommands {
         #[structopt(flatten)]
         mint_test_tokens_options: MintTestTokensOptions,
     },
-    DepositTokens {
+    Deposit {
         #[structopt(flatten)]
         deposit_tokens_options: DepositTokensOptions,
+    },
+    Withdraw {
+        #[structopt(flatten)]
+        withdraw_tokens_options: WithdrawTokensOptions,
     },
     Transfer {
         #[structopt(flatten)]

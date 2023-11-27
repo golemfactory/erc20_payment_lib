@@ -6,7 +6,8 @@ use crate::db::ops::{
 };
 use crate::signer::Signer;
 use crate::transaction::{
-    create_faucet_mint, create_lock_deposit, create_token_transfer, find_receipt_extended,
+    create_faucet_mint, create_lock_deposit, create_lock_withdraw, create_token_transfer,
+    find_receipt_extended,
 };
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
@@ -25,6 +26,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
+use crate::eth::get_deposit_balance;
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
@@ -541,7 +543,7 @@ impl PaymentRuntime {
 
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
-        let balance_result = crate::eth::get_balance(web3, None, address, true).await?;
+        let balance_result = crate::eth::get_balance(web3, None, None, address, true).await?;
 
         let gas_balance = balance_result
             .gas_balance
@@ -761,6 +763,62 @@ pub async fn mint_golem_token(
 }
 
 #[allow(clippy::too_many_arguments)]
+pub async fn withdraw_funds(
+    web3: Arc<Web3RpcPool>,
+    conn: &SqlitePool,
+    chain_id: u64,
+    from: Address,
+    lock_contract_address: Address,
+    amount: Option<Decimal>,
+    withdraw_all: bool,
+    skip_check: bool,
+) -> Result<(), PaymentError> {
+    let amount = if let Some(amount) = amount {
+        Some(amount.to_u256_from_eth().map_err(err_from!())?)
+    } else if withdraw_all {
+        None
+    } else {
+        return Err(err_custom_create!(
+            "Amount not specified. Use --amount or --all"
+        ));
+    };
+    let current_amount = get_deposit_balance(web3.clone(), lock_contract_address, from).await?;
+
+    if !skip_check {
+        if let Some(amount) = amount {
+            if amount > current_amount {
+                return Err(err_custom_create!(
+                    "You don't have enough: {} tGLM on network with chain id: {} and account {:#x} Lock contract: {:#x}",
+                    current_amount,
+                    chain_id,
+                    from,
+                    lock_contract_address
+                ));
+            }
+        } else if current_amount == U256::default() {
+            return Err(err_custom_create!(
+                    "You don't have any deposited tGLM on network with chain id: {} and account {:#x} Lock contract: {:#x}",
+                    chain_id,
+                    from,
+                    lock_contract_address
+                ));
+        }
+    }
+
+    let withdraw_tx = create_lock_withdraw(from, lock_contract_address, chain_id, None, amount)?;
+
+    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
+
+    let withdraw_tx = insert_tx(&mut *db_transaction, &withdraw_tx)
+        .await
+        .map_err(err_from!())?;
+    db_transaction.commit().await.map_err(err_from!())?;
+
+    log::info!("Deposit transaction added to queue: {}", withdraw_tx.id);
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
 pub async fn deposit_funds(
     web3: Arc<Web3RpcPool>,
     conn: &SqlitePool,
@@ -781,7 +839,7 @@ pub async fn deposit_funds(
             .map_err(err_from!())?
     } else {
         return Err(err_custom_create!(
-            "Amount not specified. Use --amount or --deposit-all"
+            "Amount not specified. Use --amount or --all"
         ));
     };
 
@@ -837,7 +895,8 @@ pub async fn get_token_balance(
     token_address: Address,
     address: Address,
 ) -> Result<U256, PaymentError> {
-    let balance_result = crate::eth::get_balance(web3, Some(token_address), address, true).await?;
+    let balance_result =
+        crate::eth::get_balance(web3, Some(token_address), None, address, true).await?;
 
     let token_balance = balance_result
         .token_balance
