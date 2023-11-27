@@ -29,6 +29,7 @@ automatic-recover = false
 # set to true to not respect deadlines attached to payments
 ignore-deadlines = false
 
+
 [chain.ethereum]
 chain-name = "Ethereum"
 chain-id = 1
@@ -42,61 +43,27 @@ confirmation-blocks = 1
 block-explorer-url = "https://etherscan.io"
 
 [[chain.ethereum.rpc-endpoints]]
-name = "eth.llamarpc.com"
-endpoint = "https://eth.llamarpc.com"
+names = """
+    virginia.rpc.blxrbdn.com,
+    public.blastapi.io,
+    rpc.ankr.com/eth,rpc.flashbots.net,
+    cloudflare-eth.com,
+    ethereum.publicnode.com,
+    rpc.payload.de
+    """
+endpoints = """
+    https://virginia.rpc.blxrbdn.com,
+    https://eth-mainnet.public.blastapi.io,
+    https://rpc.ankr.com/eth,
+    https://rpc.flashbots.net,
+    https://cloudflare-eth.com,
+    https://ethereum.publicnode.com,
+    https://rpc.payload.de
+    """
 priority = 0
 max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
-
-[[chain.ethereum.rpc-endpoints]]
-name = "public.blastapi.io"
-endpoint = "https://eth-mainnet.public.blastapi.io"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.ethereum.rpc-endpoints]]
-name = "rpc.ankr.com/eth"
-endpoint = "https://rpc.ankr.com/eth"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.ethereum.rpc-endpoints]]
-name = "rpc.flashbots.net"
-endpoint = "https://rpc.flashbots.net"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.ethereum.rpc-endpoints]]
-name = "cloudflare-eth.com"
-endpoint = "https://cloudflare-eth.com/"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.ethereum.rpc-endpoints]]
-name = "ethereum.publicnode.com"
-endpoint = "https://ethereum.publicnode.com"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.ethereum.rpc-endpoints]]
-name = "chainstack"
-endpoint = "https://chainstack.com/"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
 
 
 [chain.goerli]
@@ -115,108 +82,41 @@ confirmation-blocks = 0
 block-explorer-url = "https://goerli.etherscan.io"
 
 [[chain.goerli.rpc-endpoints]]
-name = "eth-goerli.g.alchemy.com"
-endpoint = "https://eth-goerli.g.alchemy.com/v2/demo"
+names = """
+eth-goerli.g.alchemy.com/v2/demo,
+eth-goerli.public.blastapi.io,
+eth-goerli.api.onfinality.io/public,
+rpc.goerli.mudit.blog,
+endpoints.omniatech.io/v1/eth/goerli/public,
+rpc.goerli.eth.gateway.fm,
+goerli.blockpi.network/v1/rpc/public,
+goerli.infura.io/v3/9aa,
+rpc.ankr.com/eth_goerli,
+ethereum-goerli-rpc.allthatnode.com,
+rpc.slock.it/goerli,
+www.ethercluster.com/goerli,
+rpc.ankr.com/eth_goerli,
+"""
+endpoints = """
+https://eth-goerli.g.alchemy.com/v2/demo,
+https://eth-goerli.public.blastapi.io,
+https://eth-goerli.api.onfinality.io/public,
+https://rpc.goerli.mudit.blog,
+https://endpoints.omniatech.io/v1/eth/goerli/public,
+https://rpc.goerli.eth.gateway.fm,
+https://goerli.blockpi.network/v1/rpc/public,
+https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161,
+https://rpc.ankr.com/eth_goerli,
+https://ethereum-goerli-rpc.allthatnode.com,
+https://rpc.slock.it/goerli,
+https://www.ethercluster.com/goerli,
+https://rpc.ankr.com/eth_goerli,
+"""
 priority = 0
 max-timeout-ms = 5000
 verify-interval-secs = 60
-allowed-head-behind-secs = 120
+allowed-head-behind-secs = 60
 
-[[chain.goerli.rpc-endpoints]]
-name = "eth-goerli.public.blastapi.io"
-endpoint = "https://eth-goerli.public.blastapi.io"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "eth-goerli.api.onfinality.io/public"
-endpoint = "https://eth-goerli.api.onfinality.io/public"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "rpc.goerli.mudit.blog"
-endpoint = "https://rpc.goerli.mudit.blog"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "endpoints.omniatech.io/v1/eth/goerli/public"
-endpoint = "https://endpoints.omniatech.io/v1/eth/goerli/public"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "rpc.goerli.eth.gateway.fm"
-endpoint = "https://rpc.goerli.eth.gateway.fm"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "goerli.blockpi.network/v1/rpc/public"
-endpoint = "https://goerli.blockpi.network/v1/rpc/public"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"
-endpoint = "https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "rpc.ankr.com/eth_goerli"
-endpoint = "https://rpc.ankr.com/eth_goerli"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "ethereum-goerli-rpc.allthatnode.com"
-endpoint = "https://ethereum-goerli-rpc.allthatnode.com"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "rpc.slock.it/goerli"
-endpoint = "https://rpc.slock.it/goerli"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "www.ethercluster.com/goerli"
-endpoint = "https://www.ethercluster.com/goerli"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.goerli.rpc-endpoints]]
-name = "rpc.ankr.com/eth_goerli"
-endpoint = "https://rpc.ankr.com/eth_goerli"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
 
 [chain.holesky]
 chain-name = "Holesky"
@@ -234,64 +134,28 @@ faucet-client = { max-eth-allowed = 0.009, faucet-srv = "_eth-faucet._tcp", fauc
 confirmation-blocks = 0
 block-explorer-url = "https://holesky.etherscan.io"
 
-
-
 [[chain.holesky.rpc-endpoints]]
-name = "holesky.publicnode.com"
-endpoint = "https://ethereum-holesky.publicnode.com"
+names = """
+    holesky.publicnode.com,
+    1rpc.io/holesky,
+    rpc.ankr.com/eth_holesky,
+    eth-holesky.public.blastapi.io,
+    holesky.drpc.org,
+    holesky.rpc.thirdweb.com
+"""
+
+endpoints = """
+    https://holesky.publicnode.com,
+    https://1rpc.io/holesky,
+    https://rpc.ankr.com/eth_holesky,
+    https://eth-holesky.public.blastapi.io,
+    https://holesky.drpc.org,
+    https://holesky.rpc.thirdweb.com
+"""
 priority = 0
 max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
-
-[[chain.holesky.rpc-endpoints]]
-name = "1rpc.io/holesky"
-endpoint = "https://1rpc.io/holesky"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.holesky.rpc-endpoints]]
-name = "rpc.ankr.com/eth_holesky"
-endpoint = "https://rpc.ankr.com/eth_holesky"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.holesky.rpc-endpoints]]
-name = "holesky.public.blastapi.io"
-endpoint = "https://eth-holesky.public.blastapi.io"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.holesky.rpc-endpoints]]
-name = "holesky.drpc.org"
-endpoint = "https://holesky.drpc.org"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.holesky.rpc-endpoints]]
-name = "gateway.tenderly.co"
-endpoint = "https://holesky.gateway.tenderly.co"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.holesky.rpc-endpoints]]
-name = "holesky.rpc.thirdweb.com"
-endpoint = "https://holesky.rpc.thirdweb.com"
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
 
 
 [chain.mumbai]
@@ -308,88 +172,34 @@ confirmation-blocks = 1
 block-explorer-url = "https://mumbai.polygonscan.com"
 
 [[chain.mumbai.rpc-endpoints]]
-name = "g.alchemy.com/v2/demo"
-endpoint = "https://polygon-mumbai.g.alchemy.com/v2/demo"
+names = """
+polygon-mumbai.g.alchemy.com/v2/demo,
+polygon-testnet.public.blastapi.io,
+endpoints.omniatech.io/v1/matic/mumbai/public,
+rpc-mumbai.maticvigil.com,
+polygontestapi.terminet.io/rpc,
+matic-mumbai.chainstacklabs.com,
+matic-testnet-archive-rpc.bwarelabs.com,
+rpc.ankr.com/polygon_mumbai,
+polygon-testnet-archive.allthatnode.com:8545,
+polygon-testnet-rpc.allthatnode.com:8545,
+"""
+endpoints = """
+https://polygon-mumbai.g.alchemy.com/v2/demo,
+https://polygon-testnet.public.blastapi.io,
+https://endpoints.omniatech.io/v1/matic/mumbai/public,
+https://rpc-mumbai.maticvigil.com,
+https://polygontestapi.terminet.io/rpc,
+https://matic-mumbai.chainstacklabs.com,
+https://matic-testnet-archive-rpc.bwarelabs.com,
+https://rpc.ankr.com/polygon_mumbai,
+https://polygon-testnet-archive.allthatnode.com:8545,
+https://polygon-testnet-rpc.allthatnode.com:8545,
+"""
 priority = 0
 max-timeout-ms = 5000
 allowed-head-behind-secs = 60
 
-[[chain.mumbai.rpc-endpoints]]
-name = "blockpi.network/v1/rpc/public"
-endpoint = "https://polygon-mumbai.blockpi.network/v1/rpc/public"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 60
-
-[[chain.mumbai.rpc-endpoints]]
-name = "public.blastapi.io/public"
-endpoint = "https://polygon-testnet.public.blastapi.io"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 60
-
-[[chain.mumbai.rpc-endpoints]]
-name = "omniatech.io/mumbai/public"
-endpoint = "https://endpoints.omniatech.io/v1/matic/mumbai/public"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 60
-
-[[chain.mumbai.rpc-endpoints]]
-name = "maticvigil.com/public"
-endpoint = "https://rpc-mumbai.maticvigil.com"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 60
-
-[[chain.mumbai.rpc-endpoints]]
-name = "terminet.io/public"
-endpoint = "https://polygontestapi.terminet.io/rpc"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 60
-
-[[chain.mumbai.rpc-endpoints]]
-name = "chainstacklabs.com/public"
-endpoint = "https://matic-mumbai.chainstacklabs.com"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 60
-
-[[chain.mumbai.rpc-endpoints]]
-name = "archive-rpc.bwarelabs/public"
-endpoint = "https://matic-testnet-archive-rpc.bwarelabs.com"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 60
-
-[[chain.mumbai.rpc-endpoints]]
-name = "rpc.ankr.com/public"
-endpoint = "https://rpc.ankr.com/polygon_mumbai"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 60
-
-[[chain.mumbai.rpc-endpoints]]
-name = "lavanet.xyz"
-endpoint = "https://g.w.lavanet.xyz:443/gateway/polygon1t/rpc-http/f7ee0000000000000000000000000000"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 60
-
-[[chain.mumbai.rpc-endpoints]]
-name = "archive.allthatnode.com"
-endpoint = "https://polygon-testnet-archive.allthatnode.com:8545"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 120
-
-[[chain.mumbai.rpc-endpoints]]
-name = "rpc.allthatnode.com"
-endpoint = "https://polygon-testnet-rpc.allthatnode.com:8545"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 120
 
 
 [chain.polygon]
@@ -406,46 +216,26 @@ confirmation-blocks = 1
 block-explorer-url = "https://polygonscan.com"
 
 [[chain.polygon.rpc-endpoints]]
-name = "polygon-rpc.com"
-endpoint = "https://polygon-rpc.com"
+names = """
+polygon-rpc.com,
+rpc-mainnet.maticvigil.com,
+rpc-mainnet.matic.quiknode.pro,
+bor.golem.network,
+polygon-mainnet-archive.allthatnode.com:8545,
+polygon-mainnet-rpc.allthatnode.com:8545,
+"""
+endpoints = """
+https://polygon-rpc.com,
+https://rpc-mainnet.maticvigil.com,
+https://rpc-mainnet.matic.quiknode.pro,
+https://bor.golem.network,
+https://polygon-mainnet-archive.allthatnode.com:8545,
+https://polygon-mainnet-rpc.allthatnode.com:8545,
+"""
 priority = 0
 max-timeout-ms = 5000
 allowed-head-behind-secs = 120
 
-[[chain.polygon.rpc-endpoints]]
-name = "maticvigil.com"
-endpoint = "https://rpc-mainnet.maticvigil.com"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 120
-
-[[chain.polygon.rpc-endpoints]]
-name = "quiknode.pro"
-endpoint = "https://rpc-mainnet.matic.quiknode.pro"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 120
-
-[[chain.polygon.rpc-endpoints]]
-name = "golem.network"
-endpoint = "https://bor.golem.network"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 120
-
-[[chain.polygon.rpc-endpoints]]
-name = "allthatnode.com-archive"
-endpoint = "https://polygon-mainnet-archive.allthatnode.com:8545"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 120
-
-[[chain.polygon.rpc-endpoints]]
-name = "allthatnode.com-norm"
-endpoint = "https://polygon-mainnet-rpc.allthatnode.com:8545"
-priority = 0
-max-timeout-ms = 5000
-allowed-head-behind-secs = 120
 
 
 

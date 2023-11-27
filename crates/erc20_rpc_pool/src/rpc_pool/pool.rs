@@ -1,6 +1,6 @@
-use crate::rpc_pool::verify::{verify_endpoint, ReqStats};
+use crate::rpc_pool::verify::{verify_endpoint, ReqStats, Web3RpcSingleParams};
 use crate::rpc_pool::VerifyEndpointResult;
-use crate::{Web3RpcInfo, Web3RpcParams};
+use crate::Web3RpcInfo;
 use chrono::Utc;
 use erc20_payment_lib_common::DriverEvent;
 use futures::future;
@@ -15,7 +15,7 @@ use web3::Web3;
 pub struct Web3RpcEndpoint {
     #[serde(skip)]
     pub web3: Web3<Http>,
-    pub web3_rpc_params: Web3RpcParams,
+    pub web3_rpc_params: Web3RpcSingleParams,
     pub web3_rpc_info: Web3RpcInfo,
 }
 
@@ -58,7 +58,7 @@ pub struct Web3RpcPool {
 impl Web3RpcPool {
     pub fn new(
         chain_id: u64,
-        endpoints: Vec<Web3RpcParams>,
+        endpoints: Vec<Web3RpcSingleParams>,
         events: Option<tokio::sync::mpsc::WeakSender<DriverEvent>>,
     ) -> Self {
         let mut web3_endpoints = Arena::new();
@@ -93,7 +93,7 @@ impl Web3RpcPool {
     pub fn new_from_urls(chain_id: u64, endpoints: Vec<String>) -> Self {
         let params = endpoints
             .iter()
-            .map(|endpoint| Web3RpcParams {
+            .map(|endpoint| Web3RpcSingleParams {
                 chain_id,
                 name: endpoint.clone(),
                 endpoint: endpoint.clone(),
@@ -339,7 +339,7 @@ impl Web3RpcPool {
         } // stats lock is released here
     }
 
-    pub fn get_endpoints_info(&self) -> Vec<(Index, Web3RpcParams, Web3RpcInfo)> {
+    pub fn get_endpoints_info(&self) -> Vec<(Index, Web3RpcSingleParams, Web3RpcInfo)> {
         self.endpoints
             .iter()
             .map(|(idx, w)| {

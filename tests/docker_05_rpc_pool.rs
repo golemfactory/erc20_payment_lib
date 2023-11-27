@@ -68,8 +68,8 @@ async fn test_rpc_pool() -> Result<(), anyhow::Error> {
 
     config.chain.get_mut("dev").unwrap().rpc_endpoints = vec![
         RpcSettings {
-            name: format!("{}/web3/{}", proxy_url_base, "endp1"),
-            endpoint: format!("{}/web3/{}", proxy_url_base, "endp1"),
+            names: Some(format!("{}/web3/{},{}/web3/{},{}/web3/{}", proxy_url_base, "endp1", proxy_url_base, "endp2", proxy_url_base, "endp3")),
+            endpoints: Some(format!("{}/web3/{},{}/web3/{},{}/web3/{}", proxy_url_base, "endp1", proxy_url_base, "endp2", proxy_url_base, "endp3")),
             backup_level: None,
             skip_validation: None,
             verify_interval_secs: Some(10),
@@ -77,28 +77,7 @@ async fn test_rpc_pool() -> Result<(), anyhow::Error> {
             max_timeout_ms: None,
             allowed_head_behind_secs: None,
             max_consecutive_errors: None,
-        },
-        RpcSettings {
-            name: format!("{}/web3/{}", proxy_url_base, "endp2"),
-            endpoint: format!("{}/web3/{}", proxy_url_base, "endp2"),
-            backup_level: None,
-            skip_validation: None,
-            verify_interval_secs: Some(10),
-            min_interval_ms: None,
-            max_timeout_ms: None,
-            allowed_head_behind_secs: None,
-            max_consecutive_errors: None,
-        },
-        RpcSettings {
-            name: format!("{}/web3/{}", proxy_url_base, "endp3"),
-            endpoint: format!("{}/web3/{}", proxy_url_base, "endp3"),
-            backup_level: None,
-            skip_validation: None,
-            verify_interval_secs: Some(10),
-            min_interval_ms: None,
-            max_timeout_ms: None,
-            allowed_head_behind_secs: None,
-            max_consecutive_errors: None,
+            dns_source: None,
         },
     ];
 

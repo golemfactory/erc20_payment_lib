@@ -80,8 +80,8 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
 
         config.chain.get_mut("dev").unwrap().rpc_endpoints = vec![
             RpcSettings {
-                name: format!("{}/web3/{}", proxy_url_base, proxy_key),
-                endpoint: format!("{}/web3/{}", proxy_url_base, proxy_key),
+                names: Some(format!("{}/web3/{}", proxy_url_base, proxy_key)),
+                endpoints: Some(format!("{}/web3/{}", proxy_url_base, proxy_key)),
                 backup_level: None,
                 skip_validation: Some(true),
                 verify_interval_secs: Some(10),
@@ -89,6 +89,7 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
                 max_timeout_ms: None,
                 allowed_head_behind_secs: None,
                 max_consecutive_errors: None,
+                dns_source: None,
             }];
 
         set_error_probability( &proxy_url_base, proxy_key ,error_probability).await;

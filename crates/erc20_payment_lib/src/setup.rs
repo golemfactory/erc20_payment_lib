@@ -5,7 +5,7 @@ use crate::error::PaymentError;
 use crate::utils::DecimalConvExt;
 use crate::{err_custom_create, err_from};
 use erc20_payment_lib_common::DriverEvent;
-use erc20_rpc_pool::{Web3RpcEndpoint, Web3RpcParams, Web3RpcPool};
+use erc20_rpc_pool::{Web3RpcEndpoint, Web3RpcPool, Web3RpcSingleParams};
 use rust_decimal::Decimal;
 use secp256k1::SecretKey;
 use serde::Serialize;
@@ -96,6 +96,15 @@ pub struct PaymentSetup {
 
 const MARK_AS_UNRECOVERABLE_AFTER_SECONDS: u64 = 300;
 
+fn split_string_by_coma(s: &Option<String>) -> Option<Vec<String>> {
+    s.as_ref().map(|s| {
+        s.split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
+    })
+}
+
 impl PaymentSetup {
     pub fn new(
         config: &Config,
@@ -138,27 +147,37 @@ impl PaymentSetup {
             use_transfer_for_single_payment: true,
         };
         for chain_config in &config.chain {
+            let mut single_endpoints = Vec::with_capacity(100);
+            for rpc_settings in &chain_config.1.rpc_endpoints {
+                let endpoint_names = split_string_by_coma(&rpc_settings.names).unwrap_or_default();
+                if let Some(endpoints) = split_string_by_coma(&rpc_settings.endpoints) {
+                    for (idx, endpoint) in endpoints.iter().enumerate() {
+                        let endpoint = Web3RpcSingleParams {
+                            chain_id: chain_config.1.chain_id as u64,
+                            backup_level: rpc_settings.backup_level.unwrap_or(0),
+                            skip_validation: rpc_settings.skip_validation.unwrap_or(false),
+                            endpoint: endpoint.clone(),
+                            name: endpoint_names.get(idx).unwrap_or(&endpoint.clone()).clone(),
+                            verify_interval_secs: rpc_settings.verify_interval_secs.unwrap_or(120),
+                            max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
+                            max_head_behind_secs: Some(
+                                rpc_settings.allowed_head_behind_secs.unwrap_or(120),
+                            ),
+                            max_number_of_consecutive_errors: rpc_settings
+                                .max_consecutive_errors
+                                .unwrap_or(5),
+                            min_interval_requests_ms: rpc_settings.min_interval_ms,
+                        };
+                        single_endpoints.push(endpoint);
+                    }
+                }
+            }
             let web3_pool = Arc::new(Web3RpcPool::new(
                 chain_config.1.chain_id as u64,
-                chain_config
-                    .1
-                    .rpc_endpoints
-                    .iter()
-                    .map(|rpc| Web3RpcParams {
-                        chain_id: chain_config.1.chain_id as u64,
-                        backup_level: rpc.backup_level.unwrap_or(0),
-                        skip_validation: rpc.skip_validation.unwrap_or(false),
-                        endpoint: rpc.endpoint.clone(),
-                        name: rpc.name.clone(),
-                        verify_interval_secs: rpc.verify_interval_secs.unwrap_or(120),
-                        max_response_time_ms: rpc.max_timeout_ms.unwrap_or(10000),
-                        max_head_behind_secs: Some(rpc.allowed_head_behind_secs.unwrap_or(120)),
-                        max_number_of_consecutive_errors: rpc.max_consecutive_errors.unwrap_or(5),
-                        min_interval_requests_ms: rpc.min_interval_ms,
-                    })
-                    .collect(),
+                single_endpoints,
                 mpsc_sender.as_ref().map(|s| s.downgrade()),
             ));
+
             web3_rpc_pool_info.insert(chain_config.1.chain_id, web3_pool.endpoints.clone());
 
             let faucet_eth_amount = match &chain_config.1.faucet_eth_amount {

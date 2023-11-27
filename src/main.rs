@@ -40,7 +40,7 @@ use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use erc20_payment_lib_common::model::{ScanDao, TokenTransferDao};
-use erc20_rpc_pool::{Web3RpcParams, Web3RpcPool};
+use erc20_rpc_pool::{Web3RpcPool, Web3RpcSingleParams};
 use rust_decimal::Decimal;
 use std::sync::Arc;
 use structopt::StructOpt;
@@ -59,6 +59,15 @@ fn check_address_name(n: &str) -> String {
         ),
         _ => n.to_string(),
     }
+}
+
+fn split_string_by_coma(s: &Option<String>) -> Option<Vec<String>> {
+    s.as_ref().map(|s| {
+        s.split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
+    })
 }
 
 async fn main_internal() -> Result<(), PaymentError> {
@@ -102,8 +111,8 @@ async fn main_internal() -> Result<(), PaymentError> {
             let rpcs = strs
                 .iter()
                 .map(|s| RpcSettings {
-                    name: "ENV_RPC".to_string(),
-                    endpoint: s.clone(),
+                    names: Some("ENV_RPC".to_string()),
+                    endpoints: Some(s.clone()),
                     skip_validation: None,
                     verify_interval_secs: None,
                     min_interval_ms: None,
@@ -111,6 +120,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     allowed_head_behind_secs: None,
                     backup_level: None,
                     max_consecutive_errors: None,
+                    dns_source: None,
                 })
                 .collect();
             config.change_rpc_endpoints(f.1, rpcs).await?;
@@ -249,25 +259,35 @@ async fn main_internal() -> Result<(), PaymentError> {
                         "Chain {} not found in config file",
                         check_web3_rpc_options.chain_name
                     ))?;
-
+            println!("{:?}", chain_cfg);
+            let mut single_endpoints = Vec::with_capacity(100);
+            for rpc_settings in &chain_cfg.rpc_endpoints {
+                let endpoint_names = split_string_by_coma(&rpc_settings.names).unwrap_or_default();
+                if let Some(endpoints) = split_string_by_coma(&rpc_settings.endpoints) {
+                    for (idx, endpoint) in endpoints.iter().enumerate() {
+                        let endpoint = Web3RpcSingleParams {
+                            chain_id: chain_cfg.chain_id as u64,
+                            backup_level: rpc_settings.backup_level.unwrap_or(0),
+                            skip_validation: rpc_settings.skip_validation.unwrap_or(false),
+                            endpoint: endpoint.clone(),
+                            name: endpoint_names.get(idx).unwrap_or(&endpoint.clone()).clone(),
+                            verify_interval_secs: rpc_settings.verify_interval_secs.unwrap_or(120),
+                            max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
+                            max_head_behind_secs: Some(
+                                rpc_settings.allowed_head_behind_secs.unwrap_or(120),
+                            ),
+                            max_number_of_consecutive_errors: rpc_settings
+                                .max_consecutive_errors
+                                .unwrap_or(5),
+                            min_interval_requests_ms: rpc_settings.min_interval_ms,
+                        };
+                        single_endpoints.push(endpoint);
+                    }
+                }
+            }
             let web3_pool = Arc::new(Web3RpcPool::new(
                 chain_cfg.chain_id as u64,
-                chain_cfg
-                    .rpc_endpoints
-                    .iter()
-                    .map(|rpc| Web3RpcParams {
-                        chain_id: chain_cfg.chain_id as u64,
-                        endpoint: rpc.endpoint.clone(),
-                        backup_level: 0,
-                        skip_validation: rpc.skip_validation.unwrap_or(false),
-                        name: rpc.name.clone(),
-                        verify_interval_secs: rpc.verify_interval_secs.unwrap_or(120),
-                        max_response_time_ms: rpc.max_timeout_ms.unwrap_or(10000),
-                        max_head_behind_secs: rpc.allowed_head_behind_secs,
-                        max_number_of_consecutive_errors: 0,
-                        min_interval_requests_ms: None,
-                    })
-                    .collect(),
+                single_endpoints,
                 None,
             ));
 

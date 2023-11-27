@@ -100,8 +100,9 @@ pub struct FaucetClientSettings {
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct RpcSettings {
-    pub name: String,
-    pub endpoint: String,
+    pub names: Option<String>,
+    pub endpoints: Option<String>,
+    pub dns_source: Option<String>,
     pub skip_validation: Option<bool>,
     pub backup_level: Option<i64>,
     pub verify_interval_secs: Option<u64>,
