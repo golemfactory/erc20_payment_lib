@@ -28,6 +28,9 @@ pub enum StatusProperty {
         chain_id: i64,
         error: String,
     },
+    TxStuck {
+        chain_id: i64,
+    },
 }
 
 #[derive(Debug, Clone, Serialize)]

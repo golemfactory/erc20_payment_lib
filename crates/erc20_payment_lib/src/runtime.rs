@@ -115,13 +115,12 @@ impl StatusTracker {
         for old_property in status_props.iter_mut() {
             use StatusProperty::*;
             match (old_property, &new_property) {
-                // InvalidChainId instances can be simply deduplicated by id
                 (InvalidChainId { chain_id: id1 }, InvalidChainId { chain_id: id2 })
                     if id1 == id2 =>
                 {
                     return false;
                 }
-                // Cant sign can be deduplicated by id and address
+
                 (
                     CantSign {
                         chain_id: id1,
@@ -134,7 +133,7 @@ impl StatusTracker {
                 ) if id1 == id2 && addr1 == addr2 => {
                     return false;
                 }
-                // NoGas statuses add up
+
                 (
                     NoGas {
                         chain_id: id1,
@@ -150,7 +149,7 @@ impl StatusTracker {
                     *old_missing = *new_missing;
                     return true;
                 }
-                // NoToken statuses add up
+
                 (
                     NoToken {
                         chain_id: id1,
@@ -180,6 +179,10 @@ impl StatusTracker {
                     err1.clear();
                     err1.push_str(err2);
                     return true;
+                }
+
+                (TxStuck { chain_id: id1 }, TxStuck { chain_id: id2 }) if id1 == id2 => {
+                    return false;
                 }
                 _ => {}
             }
@@ -256,6 +259,14 @@ impl StatusTracker {
                             },
                         )
                     }
+                    DriverEventContent::TransactionStuck(TransactionStuckReason::GasPriceLow(
+                        details,
+                    )) => Self::update(
+                        status.lock().await.deref_mut(),
+                        StatusProperty::TxStuck {
+                            chain_id: details.tx.chain_id,
+                        },
+                    ),
                     DriverEventContent::TransferFinished(transaction_finished_info) => {
                         Self::clear_issues(
                             status.lock().await.deref_mut(),
