@@ -1,6 +1,0 @@
-https://holesky.publicnode.com,
-https://1rpc.io/holesky,
-https://rpc.ankr.com/eth_holesky,
-https://eth-holesky.public.blastapi.io,
-https://holesky.drpc.org,
-https://holesky.rpc.thirdweb.com

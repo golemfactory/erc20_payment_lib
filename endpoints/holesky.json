@@ -1,0 +1,19 @@
+{
+    "chainId": 17000,
+    "names": [
+        "holesky.publicnode.com",
+        "1rpc.io/holesky",
+        "rpc.ankr.com/eth_holesky",
+        "eth-holesky.public.blastapi.io",
+        "holesky.drpc.org",
+        "holesky.rpc.thirdweb.com"
+    ],
+    "urls": [
+        "https://holesky.publicnode.com",
+        "https://1rpc.io/holesky",
+        "https://rpc.ankr.com/eth_holesky",
+        "https://eth-holesky.public.blastapi.io",
+        "https://holesky.drpc.org",
+        "https://holesky.rpc.thirdweb.com"
+    ]
+}
