@@ -26,6 +26,9 @@ use std::env;
 use std::str::FromStr;
 
 use crate::stats::{export_stats, run_stats};
+use erc20_payment_lib::eth::check_allowance;
+use erc20_payment_lib::faucet_client::faucet_donate;
+use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::runtime::{
     deposit_funds, get_token_balance, mint_golem_token, remove_last_unsent_transactions,
     remove_transaction_force, withdraw_funds, PaymentRuntimeArgs,
@@ -33,13 +36,10 @@ use erc20_payment_lib::runtime::{
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::{import_erc20_txs, ImportErc20TxsArgs};
-use erc20_payment_lib_extra::{account_balance, generate_test_payments};
-
-use erc20_payment_lib::eth::check_allowance;
-use erc20_payment_lib::faucet_client::faucet_donate;
-use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use erc20_payment_lib_common::model::{ScanDao, TokenTransferDao};
+use erc20_payment_lib_extra::{account_balance, generate_test_payments};
+use erc20_rpc_pool::{Web3EndpointParams, Web3ExternalEndpointList};
 use erc20_rpc_pool::{Web3RpcPool, Web3RpcSingleParams};
 use rust_decimal::Decimal;
 use std::sync::Arc;
@@ -267,29 +267,111 @@ async fn main_internal() -> Result<(), PaymentError> {
                     for (idx, endpoint) in endpoints.iter().enumerate() {
                         let endpoint = Web3RpcSingleParams {
                             chain_id: chain_cfg.chain_id as u64,
-                            backup_level: rpc_settings.backup_level.unwrap_or(0),
-                            skip_validation: rpc_settings.skip_validation.unwrap_or(false),
+
                             endpoint: endpoint.clone(),
                             name: endpoint_names.get(idx).unwrap_or(&endpoint.clone()).clone(),
-                            verify_interval_secs: rpc_settings.verify_interval_secs.unwrap_or(120),
-                            max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
-                            max_head_behind_secs: Some(
-                                rpc_settings.allowed_head_behind_secs.unwrap_or(120),
-                            ),
-                            max_number_of_consecutive_errors: rpc_settings
-                                .max_consecutive_errors
-                                .unwrap_or(5),
-                            min_interval_requests_ms: rpc_settings.min_interval_ms,
+                            web3_endpoint_params: Web3EndpointParams {
+                                backup_level: rpc_settings.backup_level.unwrap_or(0),
+                                skip_validation: rpc_settings.skip_validation.unwrap_or(false),
+                                verify_interval_secs: rpc_settings
+                                    .verify_interval_secs
+                                    .unwrap_or(120),
+                                max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
+                                max_head_behind_secs: Some(
+                                    rpc_settings.allowed_head_behind_secs.unwrap_or(120),
+                                ),
+                                max_number_of_consecutive_errors: rpc_settings
+                                    .max_consecutive_errors
+                                    .unwrap_or(5),
+                                min_interval_requests_ms: rpc_settings.min_interval_ms,
+                            },
                         };
                         single_endpoints.push(endpoint);
                     }
-                }
+                } else if rpc_settings.dns_source.is_some() {
+                    //process later
+                } else {
+                    panic!(
+                        "Endpoint has to have endpoints or dns_source {}",
+                        check_web3_rpc_options.chain_name,
+                    );
+                };
             }
-            let web3_pool = Arc::new(Web3RpcPool::new(
+            let web3_pool = Web3RpcPool::new(
                 chain_cfg.chain_id as u64,
                 single_endpoints,
+                Vec::new(),
                 None,
-            ));
+            );
+            for rpc_settings in &chain_cfg.rpc_endpoints {
+                if split_string_by_coma(&rpc_settings.endpoints).is_some() {
+                    //already processed above
+                } else if let Some(dns_source) = &rpc_settings.dns_source {
+                    let client = awc::Client::builder()
+                        .timeout(std::time::Duration::from_secs(120))
+                        .finish();
+
+                    let response = client
+                        .get(dns_source)
+                        .send()
+                        .await
+                        .map_err(|e| {
+                            err_custom_create!("Error getting response from faucet {}", e)
+                        })?
+                        .body()
+                        .await
+                        .map_err(|e| {
+                            err_custom_create!("Error getting payload from faucet {}", e)
+                        })?;
+
+                    let res: Web3ExternalEndpointList = serde_json::from_slice(response.as_ref())
+                        .map_err(|e| {
+                        err_custom_create!(
+                            "Error parsing json: {} {}",
+                            e,
+                            String::from_utf8_lossy(&response)
+                        )
+                    })?;
+                    if res.names.len() != res.urls.len() {
+                        return Err(err_custom_create!(
+                            "Endpoint names and endpoints have to have same length {} != {}",
+                            res.names.len(),
+                            res.urls.len()
+                        ));
+                    }
+
+                    for (url, name) in res.urls.iter().zip(res.names) {
+                        println!("{}: {}", name, url);
+
+                        web3_pool.clone().add_endpoint(Web3RpcSingleParams {
+                            chain_id: chain_cfg.chain_id as u64,
+
+                            endpoint: url.clone(),
+                            name: name.clone(),
+                            web3_endpoint_params: Web3EndpointParams {
+                                backup_level: rpc_settings.backup_level.unwrap_or(0),
+                                skip_validation: rpc_settings.skip_validation.unwrap_or(false),
+                                verify_interval_secs: rpc_settings
+                                    .verify_interval_secs
+                                    .unwrap_or(120),
+                                max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
+                                max_head_behind_secs: Some(
+                                    rpc_settings.allowed_head_behind_secs.unwrap_or(120),
+                                ),
+                                max_number_of_consecutive_errors: rpc_settings
+                                    .max_consecutive_errors
+                                    .unwrap_or(5),
+                                min_interval_requests_ms: rpc_settings.min_interval_ms,
+                            },
+                        });
+                    }
+                } else {
+                    panic!(
+                        "Endpoint has to have endpoints or dns_source {}",
+                        check_web3_rpc_options.chain_name,
+                    );
+                };
+            }
 
             let task = tokio::task::spawn(web3_pool.clone().verify_unverified_endpoints());
             let mut idx_set_completed = HashSet::new();

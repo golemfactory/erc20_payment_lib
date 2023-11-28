@@ -75,7 +75,7 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
 
     if let Some(last_verified) = web3_rpc_info.last_verified {
         if Utc::now() - last_verified
-            < Duration::seconds(web3_rpc_params.verify_interval_secs as i64)
+            < Duration::seconds(web3_rpc_params.web3_endpoint_params.verify_interval_secs as i64)
         {
             log::debug!("Verification skipped {}", last_verified);
             return;
@@ -86,8 +86,8 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
         &web3,
         VerifyEndpointParams {
             chain_id,
-            allow_max_head_behind_secs: web3_rpc_params.max_head_behind_secs,
-            allow_max_response_time_ms: web3_rpc_params.max_response_time_ms,
+            allow_max_head_behind_secs: web3_rpc_params.web3_endpoint_params.max_head_behind_secs,
+            allow_max_response_time_ms: web3_rpc_params.web3_endpoint_params.max_response_time_ms,
         },
     )
     .await;

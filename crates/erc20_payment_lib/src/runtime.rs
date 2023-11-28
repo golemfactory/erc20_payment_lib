@@ -356,7 +356,8 @@ impl PaymentRuntime {
         signer: impl Signer + Send + Sync + 'static,
     ) -> Result<PaymentRuntime, PaymentError> {
         let options = payment_runtime_args.options.unwrap_or_default();
-        let mut web3_rpc_pool_info = BTreeMap::<i64, Arena<Arc<RwLock<Web3RpcEndpoint>>>>::new();
+        let mut web3_rpc_pool_info =
+            BTreeMap::<i64, Arc<std::sync::Mutex<Arena<Arc<RwLock<Web3RpcEndpoint>>>>>>::new();
 
         let mut payment_setup = PaymentSetup::new(
             &payment_runtime_args.config,
@@ -389,7 +390,16 @@ impl PaymentRuntime {
         // Convert BTreeMap of Arenas to BTreeMap of Vec because serde can't serialize Arena
         let web3_rpc_pool_info = web3_rpc_pool_info
             .iter()
-            .map(|(k, v)| (*k, v.iter().map(|pair| pair.1.clone()).collect::<Vec<_>>()))
+            .map(|(k, v)| {
+                (
+                    *k,
+                    v.lock()
+                        .unwrap()
+                        .iter()
+                        .map(|pair| pair.1.clone())
+                        .collect::<Vec<_>>(),
+                )
+            })
             .collect::<BTreeMap<_, _>>();
 
         let shared_state = Arc::new(Mutex::new(SharedState {

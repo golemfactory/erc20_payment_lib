@@ -26,12 +26,7 @@ pub enum VerifyEndpointResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Web3RpcSingleParams {
-    /// If chain id is different than expected endpoint will be marked as critical
-    pub chain_id: u64,
-    pub name: String,
-    pub endpoint: String,
-
+pub struct Web3EndpointParams {
     /// Always treat endpoint as valid
     pub skip_validation: bool,
     /// priority level, when no more endpoints found on priority level 0, endpoints from priority level 1 will be used
@@ -49,19 +44,23 @@ pub struct Web3RpcSingleParams {
     pub max_response_time_ms: u64,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Web3RpcSingleParams {
+    /// If chain id is different than expected endpoint will be marked as critical
+    pub chain_id: u64,
+    pub name: String,
+    pub endpoint: String,
+
+    pub web3_endpoint_params: Web3EndpointParams,
+}
+
 impl Web3RpcSingleParams {
     pub fn from_params(params: Web3RpcParams, name: String, endpoint: String) -> Self {
         Self {
             chain_id: params.chain_id,
             name,
             endpoint,
-            skip_validation: params.skip_validation,
-            backup_level: params.backup_level,
-            max_number_of_consecutive_errors: params.max_number_of_consecutive_errors,
-            verify_interval_secs: params.verify_interval_secs,
-            min_interval_requests_ms: params.min_interval_requests_ms,
-            max_head_behind_secs: params.max_head_behind_secs,
-            max_response_time_ms: params.max_response_time_ms,
+            web3_endpoint_params: params.web3_endpoint_params,
         }
     }
 }
@@ -74,21 +73,7 @@ pub struct Web3RpcParams {
     pub endpoints: Option<String>,
     pub dns_source: Option<String>,
 
-    /// Always treat endpoint as valid
-    pub skip_validation: bool,
-    /// priority level, when no more endpoints found on priority level 0, endpoints from priority level 1 will be used
-    /// Useful when setting up backup paid endpoints (first public endpoints will be used until they will be marked unavailable)
-    pub backup_level: i64,
-    /// If endpoint generates so many errors in the row it will be marked as critical
-    pub max_number_of_consecutive_errors: u64,
-    /// After this time revalidate endpoint
-    pub verify_interval_secs: u64,
-    /// rate limit endpoint
-    pub min_interval_requests_ms: Option<u64>,
-    /// if head is behind this time mark endpoint as not available
-    pub max_head_behind_secs: Option<u64>,
-    /// limit response timeout
-    pub max_response_time_ms: u64,
+    pub web3_endpoint_params: Web3EndpointParams,
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
