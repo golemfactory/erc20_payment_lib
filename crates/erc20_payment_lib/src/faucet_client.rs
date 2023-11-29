@@ -33,12 +33,14 @@ async fn resolve_faucet_url(
 ) -> Result<String, PaymentError> {
     let faucet_host = resolve_yagna_srv_record(default_lookup_domain, faucet_srv_prefix)
         .await
-        .unwrap_or_else(|_| default_faucet_host.to_string());
+        .unwrap_or_else(|_| format!("{}:{}", default_faucet_host, port));
 
-    Ok(format!("http://{faucet_host}:{port}/donate"))
+    println!("resolve_faucet_url: {}", faucet_host);
+    Ok(format!("http://{faucet_host}/donate"))
 }
 
 pub async fn resolve_srv_record(record: &str) -> std::io::Result<String> {
+    println!("resolve_srv_record: {}", record);
     let resolver: TokioAsyncResolver =
         TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default())?;
     let lookup = resolver.srv_lookup(record).await?;
@@ -51,9 +53,22 @@ pub async fn resolve_srv_record(record: &str) -> std::io::Result<String> {
         srv.target().to_string().trim_end_matches('.'),
         srv.port()
     );
+    println!("resolve_srv_record: {}", addr);
 
     log::debug!("Resolved address: {}", addr);
     Ok(addr)
+}
+
+pub async fn resolve_txt_record(record: &str) -> std::io::Result<String> {
+    let resolver: TokioAsyncResolver =
+        TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default())?;
+    let lookup = resolver.txt_lookup(record).await?;
+    let txt = lookup
+        .iter()
+        .next()
+        .ok_or_else(|| IoError::from(IoErrorKind::NotFound))?;
+
+    Ok(txt.to_string())
 }
 
 /// Replace domain name in URL with resolved IP address

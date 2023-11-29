@@ -1199,6 +1199,7 @@ dependencies = [
  "thunderdome",
  "tokio",
  "toml",
+ "trust-dns-resolver",
  "uuid 1.5.0",
  "web3",
 ]

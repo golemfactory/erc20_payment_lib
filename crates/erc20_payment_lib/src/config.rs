@@ -103,6 +103,7 @@ pub struct RpcSettings {
     pub names: Option<String>,
     pub endpoints: Option<String>,
     pub dns_source: Option<String>,
+    pub json_source: Option<String>,
     pub skip_validation: Option<bool>,
     pub backup_level: Option<i64>,
     pub verify_interval_secs: Option<u64>,

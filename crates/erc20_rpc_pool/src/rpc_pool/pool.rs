@@ -1,16 +1,19 @@
 use crate::rpc_pool::verify::{verify_endpoint, ReqStats, Web3EndpointParams, Web3RpcSingleParams};
 use crate::rpc_pool::VerifyEndpointResult;
 use crate::Web3RpcInfo;
-use chrono::{Utc};
+use chrono::Utc;
 use erc20_payment_lib_common::DriverEvent;
 use futures::future;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
+use std::error::Error;
 use std::sync::{Arc, Mutex, RwLock};
 use thunderdome::{Arena, Index};
+use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
+use trust_dns_resolver::TokioAsyncResolver;
 use web3::transports::Http;
 use web3::Web3;
-use crate::rpc_pool::external::external_check_job;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -24,6 +27,13 @@ pub struct Web3ExternalEndpointList {
 pub struct Web3ExternalJsonSource {
     pub chain_id: u64,
     pub url: String,
+    pub endpoint_params: Web3EndpointParams,
+}
+
+#[derive(Debug)]
+pub struct Web3ExternalDnsSource {
+    pub chain_id: u64,
+    pub dns_url: String,
     pub endpoint_params: Web3EndpointParams,
 }
 
@@ -61,6 +71,20 @@ impl Web3RpcEndpoint {
     }
 }
 
+async fn get_awc_response(url: &str) -> Result<Web3ExternalEndpointList, Box<dyn Error>> {
+    let client = Client::new();
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("Error getting response from faucet {}", e))?
+        .text()
+        .await
+        .map_err(|e| format!("Error getting response from faucet {}", e))?;
+    Ok(serde_json::from_str::<Web3ExternalEndpointList>(&response)
+        .map_err(|e| format!("Error parsing json: {} {}", e, &response))?)
+}
+
 pub type Web3PoolType = Arc<Mutex<Arena<Arc<RwLock<Web3RpcEndpoint>>>>>;
 
 #[derive(Debug)]
@@ -72,7 +96,29 @@ pub struct Web3RpcPool {
     pub last_success_endpoints: Arc<Mutex<VecDeque<Index>>>,
     pub event_sender: Option<tokio::sync::mpsc::WeakSender<DriverEvent>>,
     pub external_json_sources: Vec<Web3ExternalJsonSource>,
+    pub external_dns_sources: Vec<Web3ExternalDnsSource>,
     pub last_external_check: Arc<Mutex<Option<std::time::Instant>>>,
+}
+
+#[allow(clippy::ptr_arg)]
+fn split_string_by_whitespace(s: &String) -> Vec<String> {
+    s.split_whitespace()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+
+
+pub async fn resolve_txt_record(record: &str) -> std::io::Result<String> {
+    let resolver: TokioAsyncResolver =
+        TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default())?;
+    let lookup = resolver.txt_lookup(record).await?;
+    let txt = lookup
+        .iter()
+        .next()
+        .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::NotFound))?;
+
+    Ok(txt.to_string())
 }
 
 impl Web3RpcPool {
@@ -80,6 +126,7 @@ impl Web3RpcPool {
         chain_id: u64,
         endpoints: Vec<Web3RpcSingleParams>,
         json_sources: Vec<Web3ExternalJsonSource>,
+        dns_sources: Vec<Web3ExternalDnsSource>,
         events: Option<tokio::sync::mpsc::WeakSender<DriverEvent>>,
     ) -> Arc<Self> {
         let mut web3_endpoints = Arena::new();
@@ -109,10 +156,11 @@ impl Web3RpcPool {
             last_success_endpoints: Arc::new(Mutex::new(VecDeque::new())),
             event_sender: events,
             external_json_sources: json_sources,
+            external_dns_sources: dns_sources,
             last_external_check: Arc::new(Mutex::new(None)),
         });
         if !s.external_json_sources.is_empty() {
-            tokio::task::spawn_local(external_check_job(s.clone()));
+            tokio::task::spawn(s.clone().resolve_external_addresses());
         }
         s
     }
@@ -135,7 +183,7 @@ impl Web3RpcPool {
                 },
             })
             .collect();
-        Self::new(chain_id, params, Vec::new(), None)
+        Self::new(chain_id, params, Vec::new(), Vec::new(), None)
     }
 
     pub fn add_endpoint(self: Arc<Self>, endpoint: Web3RpcSingleParams) {
@@ -150,7 +198,7 @@ impl Web3RpcPool {
         }
         for (_idx, el) in endpoints_locked.iter() {
             if el.read().unwrap().web3_rpc_params.endpoint == endpoint.endpoint {
-                log::error!("Endpoint {} already exists", endpoint.endpoint);
+                log::debug!("Endpoint {} already exists", endpoint.endpoint);
                 return;
             }
         }
@@ -219,11 +267,72 @@ impl Web3RpcPool {
         (extra_score_idx, extra_score)
     }
 
-    pub async fn resolve_external_addresses(self: Arc<Self>) {}
+    pub async fn resolve_external_addresses(self: Arc<Self>) {
+        {
+            let mut last_external_check = self.last_external_check.lock().unwrap();
+            if let Some(last_external_check) = last_external_check.as_ref() {
+                if last_external_check.elapsed().as_secs() < 300 {
+                    log::error!("Last external check was less than 5 minutes ago");
+                    return;
+                }
+            }
+            last_external_check.replace(std::time::Instant::now());
+        }
+
+        let dns_jobs = &self.external_dns_sources;
+        for dns_source in dns_jobs {
+            let record = match resolve_txt_record(&dns_source.dns_url).await {
+                Ok(record) => record,
+                Err(e) => {
+                    log::error!("Error resolving dns entry {}: {}", &dns_source.dns_url, e);
+                    continue;
+                }
+            };
+
+            let urls = split_string_by_whitespace(&record);
+            let names = urls.clone();
+
+            for (url, name) in urls.iter().zip(names) {
+                self.clone().add_endpoint(Web3RpcSingleParams {
+                    chain_id: self.chain_id,
+                    endpoint: url.clone(),
+                    name: name.clone(),
+                    web3_endpoint_params: dns_source.endpoint_params.clone(),
+                });
+            }
+        }
+        let jobs = &self.external_json_sources;
+
+        for json_source in jobs {
+            let res = match get_awc_response(&json_source.url).await {
+                Ok(res) => res,
+                Err(e) => {
+                    log::error!("Error getting response: {}", e);
+                    continue;
+                }
+            };
+
+            if res.names.len() != res.urls.len() {
+                log::error!(
+                    "Endpoint names and endpoints have to have same length {} != {}",
+                    res.names.len(),
+                    res.urls.len()
+                );
+            }
+
+            for (url, name) in res.urls.iter().zip(res.names) {
+                self.clone().add_endpoint(Web3RpcSingleParams {
+                    chain_id: self.chain_id,
+                    endpoint: url.clone(),
+                    name: name.clone(),
+                    web3_endpoint_params: json_source.endpoint_params.clone(),
+                });
+            }
+        }
+    }
 
     pub async fn choose_best_endpoints(self: Arc<Self>) -> Vec<Index> {
-        //to do wybrać z dnsa/urla rzeczy
-        external_check_job(self.clone()).await;
+        tokio::task::spawn(self.clone().resolve_external_addresses());
 
         let endpoints_copy = self.endpoints.lock().unwrap().clone();
         let (extra_score_idx, extra_score) = self.clone().extra_score_from_last_chosen();

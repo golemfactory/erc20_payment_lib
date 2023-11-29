@@ -9,7 +9,6 @@ mod eth_send_raw_transaction;
 mod eth_transaction;
 mod eth_transaction_count;
 mod eth_transaction_receipt;
-mod external;
 mod pool;
 mod utils;
 mod verify;

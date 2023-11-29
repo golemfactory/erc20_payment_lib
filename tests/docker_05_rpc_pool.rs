@@ -77,6 +77,7 @@ async fn test_rpc_pool() -> Result<(), anyhow::Error> {
             allowed_head_behind_secs: None,
             max_consecutive_errors: None,
             dns_source: None,
+            json_source: None,
         },
     ];
 

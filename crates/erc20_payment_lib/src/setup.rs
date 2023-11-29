@@ -5,9 +5,7 @@ use crate::error::PaymentError;
 use crate::utils::DecimalConvExt;
 use crate::{err_custom_create, err_from};
 use erc20_payment_lib_common::DriverEvent;
-use erc20_rpc_pool::{
-    Web3EndpointParams, Web3ExternalJsonSource, Web3PoolType, Web3RpcPool, Web3RpcSingleParams,
-};
+use erc20_rpc_pool::{Web3EndpointParams, Web3ExternalDnsSource, Web3ExternalJsonSource, Web3PoolType, Web3RpcPool, Web3RpcSingleParams};
 use rust_decimal::Decimal;
 use secp256k1::SecretKey;
 use serde::Serialize;
@@ -150,6 +148,7 @@ impl PaymentSetup {
         for chain_config in &config.chain {
             let mut single_endpoints = Vec::new();
             let mut json_sources = Vec::new();
+            let mut dns_sources = Vec::new();
             for rpc_settings in &chain_config.1.rpc_endpoints {
                 let endpoint_names = split_string_by_coma(&rpc_settings.names).unwrap_or_default();
                 if let Some(endpoints) = split_string_by_coma(&rpc_settings.endpoints) {
@@ -177,9 +176,27 @@ impl PaymentSetup {
                         single_endpoints.push(endpoint);
                     }
                 } else if let Some(dns_source) = &rpc_settings.dns_source {
+                    dns_sources.push(Web3ExternalDnsSource {
+                        chain_id: chain_config.1.chain_id as u64,
+                        dns_url: dns_source.clone(),
+                        endpoint_params: Web3EndpointParams {
+                            backup_level: rpc_settings.backup_level.unwrap_or(0),
+                            skip_validation: rpc_settings.skip_validation.unwrap_or(false),
+                            verify_interval_secs: rpc_settings.verify_interval_secs.unwrap_or(120),
+                            max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
+                            max_head_behind_secs: Some(
+                                rpc_settings.allowed_head_behind_secs.unwrap_or(120),
+                            ),
+                            max_number_of_consecutive_errors: rpc_settings
+                                .max_consecutive_errors
+                                .unwrap_or(5),
+                            min_interval_requests_ms: rpc_settings.min_interval_ms,
+                        },
+                    });
+                } else if let Some(json_source) = &rpc_settings.json_source {
                     json_sources.push(Web3ExternalJsonSource {
                         chain_id: chain_config.1.chain_id as u64,
-                        url: dns_source.clone(),
+                        url: json_source.clone(),
                         endpoint_params: Web3EndpointParams {
                             backup_level: rpc_settings.backup_level.unwrap_or(0),
                             skip_validation: rpc_settings.skip_validation.unwrap_or(false),
@@ -200,6 +217,7 @@ impl PaymentSetup {
                 chain_config.1.chain_id as u64,
                 single_endpoints,
                 json_sources,
+                dns_sources,
                 mpsc_sender.as_ref().map(|s| s.downgrade()),
             );
 

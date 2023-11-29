@@ -90,6 +90,7 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
                 allowed_head_behind_secs: None,
                 max_consecutive_errors: None,
                 dns_source: None,
+                json_source: None,
             }];
 
         set_error_probability( &proxy_url_base, proxy_key ,error_probability).await;

@@ -30,94 +30,6 @@ automatic-recover = false
 ignore-deadlines = false
 
 
-[chain.ethereum]
-chain-name = "Ethereum"
-chain-id = 1
-currency-symbol = "ETH"
-priority-fee = 1.01
-max-fee-per-gas = 40.0
-gas-left-warning-limit = 1000000
-transaction-timeout = 100
-token = { address = "0x7DD9c5Cba05E151C895FDe1CF355C9A1D5DA6429", symbol = "GLM" }
-confirmation-blocks = 1
-block-explorer-url = "https://etherscan.io"
-
-[[chain.ethereum.rpc-endpoints]]
-names = """
-    virginia.rpc.blxrbdn.com,
-    public.blastapi.io,
-    rpc.ankr.com/eth,rpc.flashbots.net,
-    cloudflare-eth.com,
-    ethereum.publicnode.com,
-    rpc.payload.de
-    """
-endpoints = """
-    https://virginia.rpc.blxrbdn.com,
-    https://eth-mainnet.public.blastapi.io,
-    https://rpc.ankr.com/eth,
-    https://rpc.flashbots.net,
-    https://cloudflare-eth.com,
-    https://ethereum.publicnode.com,
-    https://rpc.payload.de
-    """
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-
-[chain.goerli]
-chain-name = "Goerli"
-chain-id = 5
-currency-symbol = "tETH"
-priority-fee = 0.000001
-max-fee-per-gas = 10.0
-gas-left-warning-limit = 1000000
-transaction-timeout = 100
-token = { address = "0x33af15c79d64b85ba14aaffaa4577949104b22e8", symbol = "tGLM" }
-multi-contract = { address = "0x7777784f803a7bf1d7f115f849d29ce5706da64a", max-at-once = 10 }
-faucet-client = { max-eth-allowed = 0.009, faucet-srv = "_eth-faucet._tcp", faucet-host = "faucet.testnet.golem.network", faucet-lookup-domain = "dev.golem.network", faucet-srv-port = 4001 }
-mint-contract = { address = "0xCCA41b09C1F50320bFB41BD6822BD0cdBDC7d85C", max-glm-allowed = 400 }
-confirmation-blocks = 0
-block-explorer-url = "https://goerli.etherscan.io"
-
-[[chain.goerli.rpc-endpoints]]
-names = """
-    eth-goerli.g.alchemy.com/v2/demo,
-    eth-goerli.public.blastapi.io,
-    eth-goerli.api.onfinality.io/public,
-    rpc.goerli.mudit.blog,
-    endpoints.omniatech.io/v1/eth/goerli/public,
-    rpc.goerli.eth.gateway.fm,
-    goerli.blockpi.network/v1/rpc/public,
-    goerli.infura.io/v3/9aa,
-    rpc.ankr.com/eth_goerli,
-    ethereum-goerli-rpc.allthatnode.com,
-    rpc.slock.it/goerli,
-    www.ethercluster.com/goerli,
-    rpc.ankr.com/eth_goerli,
-"""
-endpoints = """
-    https://eth-goerli.g.alchemy.com/v2/demo,
-    https://eth-goerli.public.blastapi.io,
-    https://eth-goerli.api.onfinality.io/public,
-    https://rpc.goerli.mudit.blog,
-    https://endpoints.omniatech.io/v1/eth/goerli/public,
-    https://rpc.goerli.eth.gateway.fm,
-    https://goerli.blockpi.network/v1/rpc/public,
-    https://goerli.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161,
-    https://rpc.ankr.com/eth_goerli,
-    https://ethereum-goerli-rpc.allthatnode.com,
-    https://rpc.slock.it/goerli,
-    https://www.ethercluster.com/goerli,
-    https://rpc.ankr.com/eth_goerli,
-"""
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 60
-
-
 [chain.holesky]
 chain-name = "Holesky"
 chain-id = 17000
@@ -154,88 +66,11 @@ priority = 0
 max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
-dns-source = "https://raw.githubusercontent.com/golemfactory/erc20_payment_lib/scx1332/dns_suport/endpoints/holesky.json"
+json-source = "https://raw.githubusercontent.com/golemfactory/erc20_payment_lib/scx1332/dns_suport/endpoints/holesky.json"
 
-
-[chain.mumbai]
-chain-name = "Mumbai testnet"
-chain-id = 80001
-currency-symbol = "tMATIC"
-priority-fee = 1.0
-max-fee-per-gas = 14.0
-gas-left-warning-limit = 1000000
-transaction-timeout = 60
-token = { address = "0x2036807B0B3aaf5b1858EE822D0e111fDdac7018", symbol = "tGLM" }
-multi-contract = { address = "0x800010D7d0d315DCA795110ecCf0127cBd76b89f", max-at-once = 10 }
-confirmation-blocks = 1
-block-explorer-url = "https://mumbai.polygonscan.com"
-
-[[chain.mumbai.rpc-endpoints]]
-names = """
-    polygon-mumbai.g.alchemy.com/v2/demo,
-    polygon-testnet.public.blastapi.io,
-    endpoints.omniatech.io/v1/matic/mumbai/public,
-    rpc-mumbai.maticvigil.com,
-    polygontestapi.terminet.io/rpc,
-    matic-mumbai.chainstacklabs.com,
-    matic-testnet-archive-rpc.bwarelabs.com,
-    rpc.ankr.com/polygon_mumbai,
-    polygon-testnet-archive.allthatnode.com:8545,
-    polygon-testnet-rpc.allthatnode.com:8545,
-"""
-endpoints = """
-    https://polygon-mumbai.g.alchemy.com/v2/demo,
-    https://polygon-testnet.public.blastapi.io,
-    https://endpoints.omniatech.io/v1/matic/mumbai/public,
-    https://rpc-mumbai.maticvigil.com,
-    https://polygontestapi.terminet.io/rpc,
-    https://matic-mumbai.chainstacklabs.com,
-    https://matic-testnet-archive-rpc.bwarelabs.com,
-    https://rpc.ankr.com/polygon_mumbai,
-    https://polygon-testnet-archive.allthatnode.com:8545,
-    https://polygon-testnet-rpc.allthatnode.com:8545,
-"""
+[[chain.holesky.rpc-endpoints]]
 priority = 0
 max-timeout-ms = 5000
-allowed-head-behind-secs = 60
-
-
-
-[chain.polygon]
-chain-name = "Polygon mainnet"
-chain-id = 137
-currency-symbol = "MATIC"
-priority-fee = 30.111
-max-fee-per-gas = 500.0
-gas-left-warning-limit = 1000000
-transaction-timeout = 100
-token = { address = "0x0B220b82F3eA3B7F6d9A1D8ab58930C064A2b5Bf", symbol = "GLM" }
-# multi-contract = { address = "0x50100d4faf5f3b09987dea36dc2eddd57a3e561b", max-at-once = 10 }
-confirmation-blocks = 1
-block-explorer-url = "https://polygonscan.com"
-
-[[chain.polygon.rpc-endpoints]]
-names = """
-    polygon-rpc.com,
-    rpc-mainnet.maticvigil.com,
-    rpc-mainnet.matic.quiknode.pro,
-    bor.golem.network,
-    polygon-mainnet-archive.allthatnode.com:8545,
-    polygon-mainnet-rpc.allthatnode.com:8545,
-"""
-endpoints = """
-    https://polygon-rpc.com,
-    https://rpc-mainnet.maticvigil.com,
-    https://rpc-mainnet.matic.quiknode.pro,
-    https://bor.golem.network,
-    https://polygon-mainnet-archive.allthatnode.com:8545,
-    https://polygon-mainnet-rpc.allthatnode.com:8545,
-"""
-priority = 0
-max-timeout-ms = 5000
+verify-interval-secs = 60
 allowed-head-behind-secs = 120
-
-
-
-
-
+dns-source = "holesky.rpc-node.dev.golem.network."

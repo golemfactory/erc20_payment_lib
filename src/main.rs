@@ -27,7 +27,7 @@ use std::str::FromStr;
 
 use crate::stats::{export_stats, run_stats};
 use erc20_payment_lib::eth::check_allowance;
-use erc20_payment_lib::faucet_client::faucet_donate;
+use erc20_payment_lib::faucet_client::{faucet_donate, resolve_txt_record};
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::runtime::{
     deposit_funds, get_token_balance, mint_golem_token, remove_last_unsent_transactions,
@@ -69,6 +69,17 @@ fn split_string_by_coma(s: &Option<String>) -> Option<Vec<String>> {
             .collect()
     })
 }
+
+#[allow(clippy::ptr_arg)]
+fn split_string_by_whitespace(s: &String) -> Vec<String> {
+    s.split_whitespace()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+
+
+
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -121,6 +132,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     backup_level: None,
                     max_consecutive_errors: None,
                     dns_source: None,
+                    json_source: None,
                 })
                 .collect();
             config.change_rpc_endpoints(f.1, rpcs).await?;
@@ -288,11 +300,11 @@ async fn main_internal() -> Result<(), PaymentError> {
                         };
                         single_endpoints.push(endpoint);
                     }
-                } else if rpc_settings.dns_source.is_some() {
+                } else if rpc_settings.dns_source.is_some() || rpc_settings.json_source.is_some() {
                     //process later
                 } else {
                     panic!(
-                        "Endpoint has to have endpoints or dns_source {}",
+                        "Endpoint has to have endpoints or dns_source or json_source {}",
                         check_web3_rpc_options.chain_name,
                     );
                 };
@@ -301,18 +313,51 @@ async fn main_internal() -> Result<(), PaymentError> {
                 chain_cfg.chain_id as u64,
                 single_endpoints,
                 Vec::new(),
+                Vec::new(),
                 None,
             );
             for rpc_settings in &chain_cfg.rpc_endpoints {
                 if split_string_by_coma(&rpc_settings.endpoints).is_some() {
                     //already processed above
                 } else if let Some(dns_source) = &rpc_settings.dns_source {
+                    let record = resolve_txt_record(dns_source).await.map_err(|e| {
+                        err_custom_create!("Error resolving dns entry {}: {}", dns_source, e)
+                    })?;
+
+                    let urls = split_string_by_whitespace(&record);
+                    let names = urls.clone();
+
+                    for (url, name) in urls.iter().zip(names) {
+                        log::info!("Imported from dns source: {}", name);
+                        web3_pool.clone().add_endpoint(Web3RpcSingleParams {
+                            chain_id: chain_cfg.chain_id as u64,
+
+                            endpoint: url.clone(),
+                            name: name.clone(),
+                            web3_endpoint_params: Web3EndpointParams {
+                                backup_level: rpc_settings.backup_level.unwrap_or(0),
+                                skip_validation: rpc_settings.skip_validation.unwrap_or(false),
+                                verify_interval_secs: rpc_settings
+                                    .verify_interval_secs
+                                    .unwrap_or(120),
+                                max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
+                                max_head_behind_secs: Some(
+                                    rpc_settings.allowed_head_behind_secs.unwrap_or(120),
+                                ),
+                                max_number_of_consecutive_errors: rpc_settings
+                                    .max_consecutive_errors
+                                    .unwrap_or(5),
+                                min_interval_requests_ms: rpc_settings.min_interval_ms,
+                            },
+                        });
+                    }
+                } else if let Some(json_source) = &rpc_settings.json_source {
                     let client = awc::Client::builder()
                         .timeout(std::time::Duration::from_secs(120))
                         .finish();
 
                     let response = client
-                        .get(dns_source)
+                        .get(json_source)
                         .send()
                         .await
                         .map_err(|e| {
@@ -341,7 +386,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     }
 
                     for (url, name) in res.urls.iter().zip(res.names) {
-                        println!("{}: {}", name, url);
+                        log::info!("Imported from json source: {}", name);
 
                         web3_pool.clone().add_endpoint(Web3RpcSingleParams {
                             chain_id: chain_cfg.chain_id as u64,

@@ -35,6 +35,7 @@ actix-web = { workspace = true }
 actix-files = { workspace = true }
 serde_json = { workspace = true }
 thunderdome = { workspace = true }
+trust-dns-resolver = { workspace = true }
 uuid = { workspace = true }
 env_logger = { workspace = true }
 reqwest = "0.11.22"
