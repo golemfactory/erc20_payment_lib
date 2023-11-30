@@ -112,7 +112,7 @@ impl PaymentSetup {
         config: &Config,
         secret_keys: Vec<SecretKey>,
         options: &AdditionalOptions,
-        web3_rpc_pool_info: &mut BTreeMap<i64, Web3PoolType>,
+        web3_rpc_pool_info: Arc<std::sync::Mutex<BTreeMap<i64, Web3PoolType>>>,
         mpsc_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     ) -> Result<Self, PaymentError> {
         let mut ps = PaymentSetup {
@@ -224,7 +224,7 @@ impl PaymentSetup {
                 mpsc_sender.as_ref().map(|s| s.downgrade()),
             );
 
-            web3_rpc_pool_info.insert(chain_config.1.chain_id, web3_pool.endpoints.clone());
+            web3_rpc_pool_info.lock().unwrap().insert(chain_config.1.chain_id, web3_pool.endpoints.clone());
 
             let faucet_eth_amount = match &chain_config.1.faucet_eth_amount {
                 Some(f) => Some((*f).to_u256_from_eth().map_err(err_from!())?),
@@ -317,7 +317,7 @@ impl PaymentSetup {
             config,
             vec![],
             &AdditionalOptions::default(),
-            &mut BTreeMap::new(),
+            Arc::new(std::sync::Mutex::new(BTreeMap::new())),
             None,
         )
     }

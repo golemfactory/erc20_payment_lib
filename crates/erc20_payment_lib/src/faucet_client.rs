@@ -59,19 +59,6 @@ pub async fn resolve_srv_record(record: &str) -> std::io::Result<String> {
     Ok(addr)
 }
 
-pub async fn resolve_txt_record_to_string_array(record: &str) -> std::io::Result<Vec<String>> {
-    let resolver: TokioAsyncResolver =
-        TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default())?;
-
-    Ok(resolver
-        .txt_lookup(record)
-        .await?
-        .iter()
-        .map(|entry| entry.to_string().trim().to_string())
-        .filter(|entry| !entry.is_empty())
-        .map(|entry| entry.to_string())
-        .collect::<Vec<_>>())
-}
 
 /// Replace domain name in URL with resolved IP address
 /// Hack required on windows to bypass failing resolution on Windows 10

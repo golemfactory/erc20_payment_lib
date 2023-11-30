@@ -1,10 +1,10 @@
 services:
   looper:
-    image: ghcr.io/golemfactory/erc20_processor:v0.3.9-build18
+    image: ghcr.io/golemfactory/erc20_processor:v0.3.9-build21
     command: erc20_processor run --http-addr 0.0.0.0 --http-port 9350 --http --keep-running --balance-check-loop 0
     working_dir: /looper
     volumes:
-      - ../config-payments-holesky.toml:/looper/config-payments-local.toml
+      - ../config-payments-holesky.toml:/looper/config-payments.toml
   prometheus:
     image: prom/prometheus
     volumes:

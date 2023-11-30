@@ -111,9 +111,22 @@ pub async fn rpc_pool(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Re
             })
             .collect::<Vec<(Web3RpcParams, Web3RpcInfo)>>(),
     );*/
-
+    // Convert BTreeMap of Arenas to BTreeMap of Vec because serde can't serialize Arena
+    let web3_rpc_pool_info = my_data.web3_pool_ref.lock().unwrap()
+         .iter()
+         .map(|(k, v)| {
+             (
+                 *k,
+                 v.lock()
+                     .unwrap()
+                     .iter()
+                     .map(|pair| pair.1.clone())
+                     .collect::<Vec<_>>(),
+             )
+         })
+         .collect::<BTreeMap<_, _>>();
     web::Json(json!({
-        "rpc_pool": my_data.web3_pool_ref,
+        "rpc_pool": web3_rpc_pool_info,
     }))
 }
 
@@ -129,7 +142,7 @@ struct Metric {
 }
 
 pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Responder {
-    let pool_ref = data.shared_state.lock().await.web3_pool_ref.clone();
+    let pool_ref = data.shared_state.lock().await.web3_pool_ref.lock().unwrap().clone();
 
     let mut metrics = Vec::with_capacity(100);
 
@@ -168,7 +181,7 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
     });
 
     for (_idx, vec) in pool_ref {
-        for (_idx, endpoint) in vec.iter().enumerate() {
+        for (_idx, endpoint) in vec.lock().unwrap().iter() {
             let endpoint = endpoint.read().unwrap();
             let params = vec![
                 (

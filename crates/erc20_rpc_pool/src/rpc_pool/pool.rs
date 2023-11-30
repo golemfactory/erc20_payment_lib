@@ -100,24 +100,18 @@ pub struct Web3RpcPool {
     pub last_external_check: Arc<Mutex<Option<std::time::Instant>>>,
 }
 
-#[allow(clippy::ptr_arg)]
-fn split_string_by_whitespace(s: &String) -> Vec<String> {
-    s.split_whitespace()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect()
-}
-
-pub async fn resolve_txt_record(record: &str) -> std::io::Result<String> {
+pub async fn resolve_txt_record_to_string_array(record: &str) -> std::io::Result<Vec<String>> {
     let resolver: TokioAsyncResolver =
         TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default())?;
-    let lookup = resolver.txt_lookup(record).await?;
-    let txt = lookup
-        .iter()
-        .next()
-        .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::NotFound))?;
 
-    Ok(txt.to_string())
+    Ok(resolver
+        .txt_lookup(record)
+        .await?
+        .iter()
+        .map(|entry| entry.to_string().trim().to_string())
+        .filter(|entry| !entry.is_empty())
+        .map(|entry| entry.to_string())
+        .collect::<Vec<_>>())
 }
 
 impl Web3RpcPool {
@@ -158,7 +152,7 @@ impl Web3RpcPool {
             external_dns_sources: dns_sources,
             last_external_check: Arc::new(Mutex::new(None)),
         });
-        if !s.external_json_sources.is_empty() {
+        if !s.external_json_sources.is_empty() || !s.external_dns_sources.is_empty() {
             tokio::task::spawn(s.clone().resolve_external_addresses());
         }
         s
@@ -280,15 +274,13 @@ impl Web3RpcPool {
 
         let dns_jobs = &self.external_dns_sources;
         for dns_source in dns_jobs {
-            let record = match resolve_txt_record(&dns_source.dns_url).await {
+            let urls = match resolve_txt_record_to_string_array(&dns_source.dns_url).await {
                 Ok(record) => record,
                 Err(e) => {
                     log::error!("Error resolving dns entry {}: {}", &dns_source.dns_url, e);
                     continue;
                 }
             };
-
-            let urls = split_string_by_whitespace(&record);
             let names = urls.clone();
 
             for (url, name) in urls.iter().zip(names) {

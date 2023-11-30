@@ -34,12 +34,11 @@ use erc20_payment_lib_common::{
     DriverEvent, DriverEventContent, FaucetData, SharedInfoTx, StatusProperty,
     TransactionFailedReason, TransactionStuckReason, Web3RpcPoolContent,
 };
-use erc20_rpc_pool::{Web3RpcEndpoint, Web3RpcPool};
+use erc20_rpc_pool::{Web3PoolType, Web3RpcPool};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
-use std::sync::{Arc, RwLock};
-use thunderdome::Arena;
+use std::sync::{Arc};
 use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
 use web3::types::{Address, H256, U256};
@@ -48,7 +47,8 @@ use web3::types::{Address, H256, U256};
 pub struct SharedState {
     pub current_tx_info: BTreeMap<i64, SharedInfoTx>,
     //pub web3_rpc_pool: BTreeMap<i64, Vec<(Web3RpcParams, Web3RpcInfo)>>,
-    pub web3_pool_ref: BTreeMap<i64, Vec<Arc<RwLock<Web3RpcEndpoint>>>>,
+    #[serde(skip)]
+    pub web3_pool_ref: Arc<std::sync::Mutex<BTreeMap<i64, Web3PoolType>>>,
 
     pub faucet: Option<FaucetData>,
     pub inserted: usize,
@@ -356,14 +356,14 @@ impl PaymentRuntime {
         signer: impl Signer + Send + Sync + 'static,
     ) -> Result<PaymentRuntime, PaymentError> {
         let options = payment_runtime_args.options.unwrap_or_default();
-        let mut web3_rpc_pool_info =
-            BTreeMap::<i64, Arc<std::sync::Mutex<Arena<Arc<RwLock<Web3RpcEndpoint>>>>>>::new();
+        let web3_rpc_pool_info =
+            Arc::new(std::sync::Mutex::new(BTreeMap::<i64, Web3PoolType>::new()));
 
         let mut payment_setup = PaymentSetup::new(
             &payment_runtime_args.config,
             payment_runtime_args.secret_keys.to_vec(),
             &options,
-            &mut web3_rpc_pool_info,
+            web3_rpc_pool_info.clone(),
             payment_runtime_args.event_sender.clone(),
         )?;
         payment_setup.use_transfer_for_single_payment = options.use_transfer_for_single_payment;
@@ -388,7 +388,7 @@ impl PaymentRuntime {
         let ps = payment_setup.clone();
 
         // Convert BTreeMap of Arenas to BTreeMap of Vec because serde can't serialize Arena
-        let web3_rpc_pool_info = web3_rpc_pool_info
+       /* let web3_rpc_pool_info = web3_rpc_pool_info
             .iter()
             .map(|(k, v)| {
                 (
@@ -400,7 +400,7 @@ impl PaymentRuntime {
                         .collect::<Vec<_>>(),
                 )
             })
-            .collect::<BTreeMap<_, _>>();
+            .collect::<BTreeMap<_, _>>();*/
 
         let shared_state = Arc::new(Mutex::new(SharedState {
             inserted: 0,
@@ -408,7 +408,7 @@ impl PaymentRuntime {
             current_tx_info: BTreeMap::new(),
             faucet: None,
             external_gather_time: None,
-            web3_pool_ref: web3_rpc_pool_info,
+            web3_pool_ref: web3_rpc_pool_info.clone(),
         }));
 
         let shared_state_clone = shared_state.clone();
