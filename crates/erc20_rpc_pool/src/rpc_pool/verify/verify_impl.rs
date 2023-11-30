@@ -16,12 +16,12 @@ async fn verify_endpoint_int(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
         let chain_id = match web3.eth().chain_id().await {
             Ok(chain_id) => chain_id,
             Err(err) => {
-                log::warn!("Verify endpoint error {}", err);
+                log::debug!("Verify endpoint error {}", err);
                 return VerifyEndpointResult::OtherNetworkError(err.to_string());
             }
         };
         if U256::from(vep.chain_id) != chain_id {
-            log::warn!(
+            log::debug!(
                 "Verify endpoint error - Chain id mismatch {} vs {}",
                 vep.chain_id,
                 chain_id
