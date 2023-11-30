@@ -66,6 +66,13 @@ max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
 
+[[chain.ethereum.rpc-endpoints]]
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+dns-source = "ethereum.rpc-node.dev.golem.network."
+
 
 [chain.goerli]
 chain-name = "Goerli"
@@ -119,6 +126,13 @@ max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 60
 
+[[chain.goerli.rpc-endpoints]]
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+dns-source = "goerli.rpc-node.dev.golem.network."
+
 
 [chain.holesky]
 chain-name = "Holesky"
@@ -159,13 +173,6 @@ priority = 0
 max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
-
-[[chain.holesky.rpc-endpoints]]
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-json-source = "https://raw.githubusercontent.com/golemfactory/erc20_payment_lib/scx1332/dns_suport/endpoints/holesky.json"
 
 [[chain.holesky.rpc-endpoints]]
 priority = 0
@@ -218,6 +225,12 @@ priority = 0
 max-timeout-ms = 5000
 allowed-head-behind-secs = 60
 
+[[chain.mumbai.rpc-endpoints]]
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+dns-source = "mumbai.rpc-node.dev.golem.network."
 
 [chain.polygon]
 chain-name = "Polygon mainnet"
@@ -254,6 +267,12 @@ priority = 0
 max-timeout-ms = 5000
 allowed-head-behind-secs = 120
 
+[[chain.polygon.rpc-endpoints]]
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+dns-source = "polygon.rpc-node.dev.golem.network."
 
 
 

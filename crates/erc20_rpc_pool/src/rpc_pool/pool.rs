@@ -276,7 +276,9 @@ impl Web3RpcPool {
             let mut last_external_check = self.last_external_check.lock().unwrap();
             if let Some(last_external_check) = last_external_check.as_ref() {
                 if last_external_check.elapsed() < self.check_external_sources_interval {
-                    log::debug!("Last external check was less than check_external_sources_interval ago");
+                    log::debug!(
+                        "Last external check was less than check_external_sources_interval ago"
+                    );
                     return;
                 }
             }
@@ -285,7 +287,11 @@ impl Web3RpcPool {
 
         let dns_jobs = &self.external_dns_sources;
         for dns_source in dns_jobs {
-            log::info!("Chain id: {} Checking external dns source: {}", self.chain_id, dns_source.dns_url);
+            log::info!(
+                "Chain id: {} Checking external dns source: {}",
+                self.chain_id,
+                dns_source.dns_url
+            );
             let urls = match resolve_txt_record_to_string_array(&dns_source.dns_url).await {
                 Ok(record) => record,
                 Err(e) => {
@@ -307,7 +313,11 @@ impl Web3RpcPool {
         let jobs = &self.external_json_sources;
 
         for json_source in jobs {
-            log::info!("Chain id: {} Checking external json source: {}", self.chain_id, json_source.url);
+            log::info!(
+                "Chain id: {} Checking external json source: {}",
+                self.chain_id,
+                json_source.url
+            );
             let res = match get_awc_response(&json_source.url).await {
                 Ok(res) => res,
                 Err(e) => {
