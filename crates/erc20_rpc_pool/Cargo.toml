@@ -8,6 +8,7 @@ license = "MIT"
 
 [dependencies]
 anyhow = { workspace = true }
+awc = { workspace = true }
 bollard = { workspace = true }
 async-trait = { workspace = true }
 web3 = { workspace = true }
@@ -34,6 +35,8 @@ actix-web = { workspace = true }
 actix-files = { workspace = true }
 serde_json = { workspace = true }
 thunderdome = { workspace = true }
+trust-dns-resolver = { workspace = true }
 uuid = { workspace = true }
 env_logger = { workspace = true }
+reqwest = { workspace = true }
 erc20_payment_lib_common = { path = "../erc20_payment_lib_common", version = "0.3.7" }

@@ -19,31 +19,37 @@ use erc20_payment_lib::{
     config, err_custom_create, err_from,
     error::*,
     misc::{display_private_keys, load_private_keys},
+    process_allowance,
     runtime::PaymentRuntime,
 };
 use std::env;
 use std::str::FromStr;
 
 use crate::stats::{export_stats, run_stats};
+use erc20_payment_lib::eth::check_allowance;
+use erc20_payment_lib::faucet_client::faucet_donate;
+use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::runtime::{
-    get_token_balance, mint_golem_token, remove_last_unsent_transactions, remove_transaction_force,
-    PaymentRuntimeArgs,
+    deposit_funds, get_token_balance, mint_golem_token, remove_last_unsent_transactions,
+    remove_transaction_force, withdraw_funds, PaymentRuntimeArgs,
 };
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::{import_erc20_txs, ImportErc20TxsArgs};
-use erc20_payment_lib_extra::{account_balance, generate_test_payments};
-
-use erc20_payment_lib::faucet_client::faucet_donate;
-use erc20_payment_lib::misc::gen_private_keys;
-use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt};
+use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use erc20_payment_lib_common::model::{ScanDao, TokenTransferDao};
-use erc20_rpc_pool::{Web3RpcParams, Web3RpcPool};
+use erc20_payment_lib_extra::{account_balance, generate_test_payments};
+use erc20_rpc_pool::{
+    resolve_txt_record_to_string_array, Web3EndpointParams, Web3ExternalEndpointList,
+};
+use erc20_rpc_pool::{Web3RpcPool, Web3RpcSingleParams};
 use rust_decimal::Decimal;
 use std::sync::Arc;
+use std::time::Duration;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::ethabi::ethereum_types::Address;
+use web3::types::U256;
 
 fn check_address_name(n: &str) -> String {
     match n {
@@ -56,6 +62,15 @@ fn check_address_name(n: &str) -> String {
         ),
         _ => n.to_string(),
     }
+}
+
+fn split_string_by_coma(s: &Option<String>) -> Option<Vec<String>> {
+    s.as_ref().map(|s| {
+        s.split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
+    })
 }
 
 async fn main_internal() -> Result<(), PaymentError> {
@@ -99,8 +114,8 @@ async fn main_internal() -> Result<(), PaymentError> {
             let rpcs = strs
                 .iter()
                 .map(|s| RpcSettings {
-                    name: "ENV_RPC".to_string(),
-                    endpoint: s.clone(),
+                    names: Some("ENV_RPC".to_string()),
+                    endpoints: Some(s.clone()),
                     skip_validation: None,
                     verify_interval_secs: None,
                     min_interval_ms: None,
@@ -108,6 +123,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                     allowed_head_behind_secs: None,
                     backup_level: None,
                     max_consecutive_errors: None,
+                    dns_source: None,
+                    json_source: None,
                 })
                 .collect();
             config.change_rpc_endpoints(f.1, rpcs).await?;
@@ -246,27 +263,154 @@ async fn main_internal() -> Result<(), PaymentError> {
                         "Chain {} not found in config file",
                         check_web3_rpc_options.chain_name
                     ))?;
+            println!("{:?}", chain_cfg);
+            let mut single_endpoints = Vec::with_capacity(100);
+            for rpc_settings in &chain_cfg.rpc_endpoints {
+                let endpoint_names = split_string_by_coma(&rpc_settings.names).unwrap_or_default();
+                if let Some(endpoints) = split_string_by_coma(&rpc_settings.endpoints) {
+                    for (idx, endpoint) in endpoints.iter().enumerate() {
+                        let endpoint = Web3RpcSingleParams {
+                            chain_id: chain_cfg.chain_id as u64,
 
-            let web3_pool = Arc::new(Web3RpcPool::new(
+                            endpoint: endpoint.clone(),
+                            name: endpoint_names.get(idx).unwrap_or(&endpoint.clone()).clone(),
+                            web3_endpoint_params: Web3EndpointParams {
+                                backup_level: rpc_settings.backup_level.unwrap_or(0),
+                                skip_validation: rpc_settings.skip_validation.unwrap_or(false),
+                                verify_interval_secs: rpc_settings
+                                    .verify_interval_secs
+                                    .unwrap_or(120),
+                                max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
+                                max_head_behind_secs: Some(
+                                    rpc_settings.allowed_head_behind_secs.unwrap_or(120),
+                                ),
+                                max_number_of_consecutive_errors: rpc_settings
+                                    .max_consecutive_errors
+                                    .unwrap_or(5),
+                                min_interval_requests_ms: rpc_settings.min_interval_ms,
+                            },
+                        };
+                        single_endpoints.push(endpoint);
+                    }
+                } else if rpc_settings.dns_source.is_some() || rpc_settings.json_source.is_some() {
+                    //process later
+                } else {
+                    panic!(
+                        "Endpoint has to have endpoints or dns_source or json_source {}",
+                        check_web3_rpc_options.chain_name,
+                    );
+                };
+            }
+            let web3_pool = Web3RpcPool::new(
                 chain_cfg.chain_id as u64,
-                chain_cfg
-                    .rpc_endpoints
-                    .iter()
-                    .map(|rpc| Web3RpcParams {
-                        chain_id: chain_cfg.chain_id as u64,
-                        endpoint: rpc.endpoint.clone(),
-                        backup_level: 0,
-                        skip_validation: rpc.skip_validation.unwrap_or(false),
-                        name: rpc.name.clone(),
-                        verify_interval_secs: rpc.verify_interval_secs.unwrap_or(120),
-                        max_response_time_ms: rpc.max_timeout_ms.unwrap_or(10000),
-                        max_head_behind_secs: rpc.allowed_head_behind_secs,
-                        max_number_of_consecutive_errors: 0,
-                        min_interval_requests_ms: None,
-                    })
-                    .collect(),
+                single_endpoints,
+                Vec::new(),
+                Vec::new(),
                 None,
-            ));
+                Duration::from_secs(300),
+            );
+            for rpc_settings in &chain_cfg.rpc_endpoints {
+                if split_string_by_coma(&rpc_settings.endpoints).is_some() {
+                    //already processed above
+                } else if let Some(dns_source) = &rpc_settings.dns_source {
+                    let urls = resolve_txt_record_to_string_array(dns_source)
+                        .await
+                        .map_err(|e| {
+                            err_custom_create!("Error resolving dns entry {}: {}", dns_source, e)
+                        })?;
+
+                    let names = urls.clone();
+
+                    for (url, name) in urls.iter().zip(names) {
+                        log::info!("Imported from dns source: {}", name);
+                        web3_pool.clone().add_endpoint(Web3RpcSingleParams {
+                            chain_id: chain_cfg.chain_id as u64,
+
+                            endpoint: url.clone(),
+                            name: name.clone(),
+                            web3_endpoint_params: Web3EndpointParams {
+                                backup_level: rpc_settings.backup_level.unwrap_or(0),
+                                skip_validation: rpc_settings.skip_validation.unwrap_or(false),
+                                verify_interval_secs: rpc_settings
+                                    .verify_interval_secs
+                                    .unwrap_or(120),
+                                max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
+                                max_head_behind_secs: Some(
+                                    rpc_settings.allowed_head_behind_secs.unwrap_or(120),
+                                ),
+                                max_number_of_consecutive_errors: rpc_settings
+                                    .max_consecutive_errors
+                                    .unwrap_or(5),
+                                min_interval_requests_ms: rpc_settings.min_interval_ms,
+                            },
+                        });
+                    }
+                } else if let Some(json_source) = &rpc_settings.json_source {
+                    let client = awc::Client::builder()
+                        .timeout(std::time::Duration::from_secs(120))
+                        .finish();
+
+                    let response = client
+                        .get(json_source)
+                        .send()
+                        .await
+                        .map_err(|e| {
+                            err_custom_create!("Error getting response from faucet {}", e)
+                        })?
+                        .body()
+                        .await
+                        .map_err(|e| {
+                            err_custom_create!("Error getting payload from faucet {}", e)
+                        })?;
+
+                    let res: Web3ExternalEndpointList = serde_json::from_slice(response.as_ref())
+                        .map_err(|e| {
+                        err_custom_create!(
+                            "Error parsing json: {} {}",
+                            e,
+                            String::from_utf8_lossy(&response)
+                        )
+                    })?;
+                    if res.names.len() != res.urls.len() {
+                        return Err(err_custom_create!(
+                            "Endpoint names and endpoints have to have same length {} != {}",
+                            res.names.len(),
+                            res.urls.len()
+                        ));
+                    }
+
+                    for (url, name) in res.urls.iter().zip(res.names) {
+                        log::info!("Imported from json source: {}", name);
+
+                        web3_pool.clone().add_endpoint(Web3RpcSingleParams {
+                            chain_id: chain_cfg.chain_id as u64,
+
+                            endpoint: url.clone(),
+                            name: name.clone(),
+                            web3_endpoint_params: Web3EndpointParams {
+                                backup_level: rpc_settings.backup_level.unwrap_or(0),
+                                skip_validation: rpc_settings.skip_validation.unwrap_or(false),
+                                verify_interval_secs: rpc_settings
+                                    .verify_interval_secs
+                                    .unwrap_or(120),
+                                max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
+                                max_head_behind_secs: Some(
+                                    rpc_settings.allowed_head_behind_secs.unwrap_or(120),
+                                ),
+                                max_number_of_consecutive_errors: rpc_settings
+                                    .max_consecutive_errors
+                                    .unwrap_or(5),
+                                min_interval_requests_ms: rpc_settings.min_interval_ms,
+                            },
+                        });
+                    }
+                } else {
+                    panic!(
+                        "Endpoint has to have endpoints or dns_source {}",
+                        check_web3_rpc_options.chain_name,
+                    );
+                };
+            }
 
             let task = tokio::task::spawn(web3_pool.clone().verify_unverified_endpoints());
             let mut idx_set_completed = HashSet::new();
@@ -361,6 +505,129 @@ async fn main_internal() -> Result<(), PaymentError> {
                 chain_cfg.token.address,
                 chain_cfg.mint_contract.clone().map(|c| c.address),
                 true,
+            )
+            .await?;
+        }
+        PaymentCommands::Withdraw {
+            withdraw_tokens_options,
+        } => {
+            log::info!("Withdrawing tokens...");
+            let public_addr = public_addrs.get(0).expect("No public address found");
+            let chain_cfg = config
+                .chain
+                .get(&withdraw_tokens_options.chain_name)
+                .ok_or(err_custom_create!(
+                    "Chain {} not found in config file",
+                    withdraw_tokens_options.chain_name
+                ))?;
+
+            let payment_setup = PaymentSetup::new_empty(&config)?;
+            let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
+
+            withdraw_funds(
+                web3,
+                &conn,
+                chain_cfg.chain_id as u64,
+                withdraw_tokens_options.from.unwrap_or(*public_addr),
+                chain_cfg
+                    .lock_contract
+                    .clone()
+                    .map(|c| c.address)
+                    .expect("No lock contract found"),
+                withdraw_tokens_options.amount,
+                withdraw_tokens_options.withdraw_all,
+                withdraw_tokens_options.skip_balance_check,
+            )
+            .await?;
+        }
+        PaymentCommands::Deposit {
+            deposit_tokens_options,
+        } => {
+            log::info!("Generating test tokens...");
+            let public_addr = public_addrs.get(0).expect("No public address found");
+            let chain_cfg =
+                config
+                    .chain
+                    .get(&deposit_tokens_options.chain_name)
+                    .ok_or(err_custom_create!(
+                        "Chain {} not found in config file",
+                        deposit_tokens_options.chain_name
+                    ))?;
+
+            let payment_setup = PaymentSetup::new_empty(&config)?;
+            let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
+
+            if !deposit_tokens_options.skip_allowance {
+                let allowance = check_allowance(
+                    web3.clone(),
+                    deposit_tokens_options.from.unwrap_or(*public_addr),
+                    chain_cfg.token.address,
+                    chain_cfg
+                        .lock_contract
+                        .clone()
+                        .map(|c| c.address)
+                        .expect("No mint contract"),
+                )
+                .await?;
+
+                let amount = if let Some(amount) = deposit_tokens_options.amount {
+                    amount
+                } else if deposit_tokens_options.deposit_all {
+                    let payment_setup = PaymentSetup::new_empty(&config)?;
+                    get_token_balance(
+                        payment_setup.get_provider(chain_cfg.chain_id)?,
+                        chain_cfg.token.address,
+                        *public_addr,
+                    )
+                    .await?
+                    .to_eth_saturate()
+                } else {
+                    return Err(err_custom_create!("No amount specified"));
+                };
+
+                if amount.to_u256_from_eth().map_err(err_from!())? > allowance {
+                    let allowance_request = AllowanceRequest {
+                        owner: format!(
+                            "{:#x}",
+                            deposit_tokens_options.from.unwrap_or(*public_addr)
+                        ),
+                        token_addr: format!("{:#x}", chain_cfg.token.address),
+                        spender_addr: format!(
+                            "{:#x}",
+                            chain_cfg
+                                .lock_contract
+                                .clone()
+                                .map(|c| c.address)
+                                .expect("No mint contract")
+                        ),
+                        chain_id: chain_cfg.chain_id,
+                        amount: U256::MAX,
+                    };
+
+                    let _ =
+                        process_allowance(&conn, &payment_setup, &allowance_request, &signer).await;
+                    /*return Err(err_custom_create!(
+                        "Not enough allowance, required: {}, available: {}",
+                        deposit_tokens_options.amount.unwrap(),
+                        allowance
+                    ));*/
+                }
+            }
+
+            deposit_funds(
+                web3,
+                &conn,
+                chain_cfg.chain_id as u64,
+                deposit_tokens_options.from.unwrap_or(*public_addr),
+                chain_cfg.token.address,
+                chain_cfg
+                    .lock_contract
+                    .clone()
+                    .map(|c| c.address)
+                    .expect("No mint contract"),
+                true,
+                deposit_tokens_options.amount,
+                deposit_tokens_options.deposit_all,
             )
             .await?;
         }

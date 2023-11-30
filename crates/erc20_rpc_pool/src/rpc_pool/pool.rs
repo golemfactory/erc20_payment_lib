@@ -1,21 +1,48 @@
-use crate::rpc_pool::verify::{verify_endpoint, ReqStats};
+use crate::rpc_pool::verify::{verify_endpoint, ReqStats, Web3EndpointParams, Web3RpcSingleParams};
 use crate::rpc_pool::VerifyEndpointResult;
-use crate::{Web3RpcInfo, Web3RpcParams};
+use crate::Web3RpcInfo;
 use chrono::Utc;
 use erc20_payment_lib_common::DriverEvent;
 use futures::future;
-use serde::Serialize;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
+use std::error::Error;
 use std::sync::{Arc, Mutex, RwLock};
+use std::time::Duration;
 use thunderdome::{Arena, Index};
+use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
+use trust_dns_resolver::TokioAsyncResolver;
 use web3::transports::Http;
 use web3::Web3;
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Web3ExternalEndpointList {
+    pub chain_id: u64,
+    pub names: Vec<String>,
+    pub urls: Vec<String>,
+}
+
+#[derive(Debug)]
+pub struct Web3ExternalJsonSource {
+    pub chain_id: u64,
+    pub url: String,
+    pub endpoint_params: Web3EndpointParams,
+}
+
+#[derive(Debug)]
+pub struct Web3ExternalDnsSource {
+    pub chain_id: u64,
+    pub dns_url: String,
+    pub endpoint_params: Web3EndpointParams,
+}
 
 #[derive(Debug, Serialize)]
 pub struct Web3RpcEndpoint {
     #[serde(skip)]
     pub web3: Web3<Http>,
-    pub web3_rpc_params: Web3RpcParams,
+    pub web3_rpc_params: Web3RpcSingleParams,
     pub web3_rpc_info: Web3RpcInfo,
 }
 
@@ -45,22 +72,59 @@ impl Web3RpcEndpoint {
     }
 }
 
+async fn get_awc_response(url: &str) -> Result<Web3ExternalEndpointList, Box<dyn Error>> {
+    let client = Client::new();
+    let response = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("Error getting response from faucet {}", e))?
+        .text()
+        .await
+        .map_err(|e| format!("Error getting response from faucet {}", e))?;
+    Ok(serde_json::from_str::<Web3ExternalEndpointList>(&response)
+        .map_err(|e| format!("Error parsing json: {} {}", e, &response))?)
+}
+
+pub type Web3PoolType = Arc<Mutex<Arena<Arc<RwLock<Web3RpcEndpoint>>>>>;
+
 #[derive(Debug)]
 pub struct Web3RpcPool {
     pub chain_id: u64,
     //last_verified: Option<DateTime<Utc>>,
-    pub endpoints: Arena<Arc<RwLock<Web3RpcEndpoint>>>,
+    pub endpoints: Web3PoolType,
     pub verify_mutex: tokio::sync::Mutex<()>,
     pub last_success_endpoints: Arc<Mutex<VecDeque<Index>>>,
     pub event_sender: Option<tokio::sync::mpsc::WeakSender<DriverEvent>>,
+    pub external_json_sources: Vec<Web3ExternalJsonSource>,
+    pub external_dns_sources: Vec<Web3ExternalDnsSource>,
+    pub last_external_check: Arc<Mutex<Option<std::time::Instant>>>,
+    pub check_external_sources_interval: Duration,
+}
+
+pub async fn resolve_txt_record_to_string_array(record: &str) -> std::io::Result<Vec<String>> {
+    let resolver: TokioAsyncResolver =
+        TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default())?;
+
+    Ok(resolver
+        .txt_lookup(record)
+        .await?
+        .iter()
+        .map(|entry| entry.to_string().trim().to_string())
+        .filter(|entry| !entry.is_empty())
+        .map(|entry| entry.to_string())
+        .collect::<Vec<_>>())
 }
 
 impl Web3RpcPool {
     pub fn new(
         chain_id: u64,
-        endpoints: Vec<Web3RpcParams>,
+        endpoints: Vec<Web3RpcSingleParams>,
+        json_sources: Vec<Web3ExternalJsonSource>,
+        dns_sources: Vec<Web3ExternalDnsSource>,
         events: Option<tokio::sync::mpsc::WeakSender<DriverEvent>>,
-    ) -> Self {
+        external_sources_interval_check: Duration,
+    ) -> Arc<Self> {
         let mut web3_endpoints = Arena::new();
         for endpoint_params in endpoints {
             if endpoint_params.chain_id != chain_id {
@@ -81,32 +145,76 @@ impl Web3RpcPool {
             log::debug!("Added endpoint {:?}", endpoint);
             web3_endpoints.insert(Arc::new(RwLock::new(endpoint)));
         }
-        Self {
+        let s = Arc::new(Self {
             chain_id,
-            endpoints: web3_endpoints,
+            endpoints: Arc::new(Mutex::new(web3_endpoints)),
             verify_mutex: tokio::sync::Mutex::new(()),
             last_success_endpoints: Arc::new(Mutex::new(VecDeque::new())),
             event_sender: events,
+            external_json_sources: json_sources,
+            external_dns_sources: dns_sources,
+            last_external_check: Arc::new(Mutex::new(None)),
+            check_external_sources_interval: external_sources_interval_check,
+        });
+        if !s.external_json_sources.is_empty() || !s.external_dns_sources.is_empty() {
+            tokio::task::spawn(s.clone().resolve_external_addresses());
         }
+        s
     }
 
-    pub fn new_from_urls(chain_id: u64, endpoints: Vec<String>) -> Self {
+    pub fn new_from_urls(chain_id: u64, endpoints: Vec<String>) -> Arc<Self> {
         let params = endpoints
             .iter()
-            .map(|endpoint| Web3RpcParams {
+            .map(|endpoint| Web3RpcSingleParams {
                 chain_id,
                 name: endpoint.clone(),
                 endpoint: endpoint.clone(),
-                backup_level: 0,
-                skip_validation: false,
-                max_number_of_consecutive_errors: 5,
-                verify_interval_secs: 120,
-                min_interval_requests_ms: None,
-                max_head_behind_secs: Some(120),
-                max_response_time_ms: 5000,
+                web3_endpoint_params: Web3EndpointParams {
+                    backup_level: 0,
+                    skip_validation: false,
+                    max_number_of_consecutive_errors: 5,
+                    verify_interval_secs: 120,
+                    min_interval_requests_ms: None,
+                    max_head_behind_secs: Some(120),
+                    max_response_time_ms: 5000,
+                },
             })
             .collect();
-        Self::new(chain_id, params, None)
+        Self::new(
+            chain_id,
+            params,
+            Vec::new(),
+            Vec::new(),
+            None,
+            Duration::from_secs(300),
+        )
+    }
+
+    pub fn add_endpoint(self: Arc<Self>, endpoint: Web3RpcSingleParams) {
+        let mut endpoints_locked = self.endpoints.lock().unwrap();
+        if endpoint.chain_id != self.chain_id {
+            log::error!(
+                "Chain id mismatch {} vs {}",
+                endpoint.chain_id,
+                self.chain_id
+            );
+            return;
+        }
+        for (_idx, el) in endpoints_locked.iter() {
+            if el.read().unwrap().web3_rpc_params.endpoint == endpoint.endpoint {
+                log::debug!("Endpoint {} already exists", endpoint.endpoint);
+                return;
+            }
+        }
+        let http = Http::new(&endpoint.endpoint).unwrap();
+        let web3 = Web3::new(http);
+        let endpoint = Web3RpcEndpoint {
+            web3,
+            web3_rpc_params: endpoint,
+            web3_rpc_info: Default::default(),
+        };
+        log::debug!("Added endpoint {:?}", endpoint);
+        endpoints_locked.insert(Arc::new(RwLock::new(endpoint)));
     }
 
     pub fn get_chain_id(self) -> u64 {
@@ -115,8 +223,9 @@ impl Web3RpcPool {
 
     pub async fn verify_unverified_endpoints(self: Arc<Self>) {
         let _guard = self.verify_mutex.lock().await;
+        let endpoints_copy = self.endpoints.lock().unwrap().clone();
         future::join_all(
-            self.endpoints
+            endpoints_copy
                 .iter()
                 .map(|s| verify_endpoint(self.chain_id, s.1.clone())),
         )
@@ -162,9 +271,86 @@ impl Web3RpcPool {
         (extra_score_idx, extra_score)
     }
 
+    pub async fn resolve_external_addresses(self: Arc<Self>) {
+        {
+            let mut last_external_check = self.last_external_check.lock().unwrap();
+            if let Some(last_external_check) = last_external_check.as_ref() {
+                if last_external_check.elapsed() < self.check_external_sources_interval {
+                    log::debug!(
+                        "Last external check was less than check_external_sources_interval ago"
+                    );
+                    return;
+                }
+            }
+            last_external_check.replace(std::time::Instant::now());
+        }
+
+        let dns_jobs = &self.external_dns_sources;
+        for dns_source in dns_jobs {
+            log::info!(
+                "Chain id: {} Checking external dns source: {}",
+                self.chain_id,
+                dns_source.dns_url
+            );
+            let urls = match resolve_txt_record_to_string_array(&dns_source.dns_url).await {
+                Ok(record) => record,
+                Err(e) => {
+                    log::error!("Error resolving dns entry {}: {}", &dns_source.dns_url, e);
+                    continue;
+                }
+            };
+            let names = urls.clone();
+
+            for (url, name) in urls.iter().zip(names) {
+                self.clone().add_endpoint(Web3RpcSingleParams {
+                    chain_id: self.chain_id,
+                    endpoint: url.clone(),
+                    name: name.clone(),
+                    web3_endpoint_params: dns_source.endpoint_params.clone(),
+                });
+            }
+        }
+        let jobs = &self.external_json_sources;
+
+        for json_source in jobs {
+            log::info!(
+                "Chain id: {} Checking external json source: {}",
+                self.chain_id,
+                json_source.url
+            );
+            let res = match get_awc_response(&json_source.url).await {
+                Ok(res) => res,
+                Err(e) => {
+                    log::error!("Error getting response: {}", e);
+                    continue;
+                }
+            };
+
+            if res.names.len() != res.urls.len() {
+                log::error!(
+                    "Endpoint names and endpoints have to have same length {} != {}",
+                    res.names.len(),
+                    res.urls.len()
+                );
+            }
+
+            for (url, name) in res.urls.iter().zip(res.names) {
+                self.clone().add_endpoint(Web3RpcSingleParams {
+                    chain_id: self.chain_id,
+                    endpoint: url.clone(),
+                    name: name.clone(),
+                    web3_endpoint_params: json_source.endpoint_params.clone(),
+                });
+            }
+        }
+    }
+
     pub async fn choose_best_endpoints(self: Arc<Self>) -> Vec<Index> {
+        tokio::task::spawn(self.clone().resolve_external_addresses());
+
+        let endpoints_copy = self.endpoints.lock().unwrap().clone();
         let (extra_score_idx, extra_score) = self.clone().extra_score_from_last_chosen();
-        for (idx, el) in self.endpoints.iter() {
+        for (idx, el) in endpoints_copy.iter() {
             el.write().unwrap().web3_rpc_info.bonus_from_last_chosen =
                 if Some(idx) == extra_score_idx {
                     extra_score
@@ -173,11 +359,15 @@ impl Web3RpcPool {
                 };
         }
 
-        let mut allowed_endpoints = self
-            .endpoints
+        let mut allowed_endpoints = endpoints_copy
             .iter()
             .filter(|(_idx, element)| {
-                element.read().unwrap().web3_rpc_params.skip_validation
+                element
+                    .read()
+                    .unwrap()
+                    .web3_rpc_params
+                    .web3_endpoint_params
+                    .skip_validation
                     || element.read().unwrap().web3_rpc_info.is_allowed
             })
             //.max_by_key(|(_idx, element)| (element.read().unwrap().get_score() * 1000.0) as i64)
@@ -185,7 +375,7 @@ impl Web3RpcPool {
             .collect::<Vec<Index>>();
 
         allowed_endpoints
-            .sort_by_key(|idx| (self.endpoints[*idx].read().unwrap().get_score() * 1000.0) as i64);
+            .sort_by_key(|idx| (endpoints_copy[*idx].read().unwrap().get_score() * 1000.0) as i64);
         allowed_endpoints.reverse();
 
         if !allowed_endpoints.is_empty() {
@@ -201,11 +391,15 @@ impl Web3RpcPool {
             loop {
                 let is_finished = verify_task.is_finished();
 
-                if let Some(el) = self
-                    .endpoints
+                if let Some(el) = endpoints_copy
                     .iter()
                     .filter(|(_idx, element)| {
-                        element.read().unwrap().web3_rpc_params.skip_validation
+                        element
+                            .read()
+                            .unwrap()
+                            .web3_rpc_params
+                            .web3_endpoint_params
+                            .skip_validation
                             || element.read().unwrap().web3_rpc_info.is_allowed
                     })
                     .max_by_key(|(_idx, element)| {
@@ -228,6 +422,8 @@ impl Web3RpcPool {
 
     pub fn get_web3(&self, idx: Index) -> Web3<Http> {
         self.endpoints
+            .lock()
+            .unwrap()
             .get(idx)
             .unwrap()
             .read()
@@ -238,6 +434,8 @@ impl Web3RpcPool {
 
     pub fn get_name(&self, idx: Index) -> String {
         self.endpoints
+            .lock()
+            .unwrap()
             .get(idx)
             .unwrap()
             .read()
@@ -250,23 +448,21 @@ impl Web3RpcPool {
     pub fn get_max_timeout(&self, idx: Index) -> std::time::Duration {
         std::time::Duration::from_millis(
             self.endpoints
+                .lock()
+                .unwrap()
                 .get(idx)
                 .unwrap()
                 .read()
                 .unwrap()
                 .web3_rpc_params
+                .web3_endpoint_params
                 .max_response_time_ms,
         )
     }
 
     pub fn mark_rpc_success(&self, idx: Index, method: String) {
-        let stats = &mut self
-            .endpoints
-            .get(idx)
-            .unwrap()
-            .write()
-            .unwrap()
-            .web3_rpc_info;
+        let endpoints = self.endpoints.lock().unwrap();
+        let stats = &mut endpoints.get(idx).unwrap().write().unwrap().web3_rpc_info;
 
         self.last_success_endpoints.lock().unwrap().push_front(idx);
 
@@ -295,6 +491,8 @@ impl Web3RpcPool {
         // use read lock before write lock to avoid deadlock
         let params = self
             .endpoints
+            .lock()
+            .unwrap()
             .get(idx)
             .unwrap()
             .read()
@@ -304,13 +502,8 @@ impl Web3RpcPool {
 
         {
             // lock stats for writing, do not use read lock here
-            let stats = &mut self
-                .endpoints
-                .get(idx)
-                .unwrap()
-                .write()
-                .unwrap()
-                .web3_rpc_info;
+            let endpoints = self.endpoints.lock().unwrap();
+            let stats = &mut endpoints.get(idx).unwrap().write().unwrap().web3_rpc_info;
             let el = if let Some(entry) = stats.web3_rpc_stats.request_stats.get_mut(&method) {
                 entry
             } else {
@@ -333,14 +526,18 @@ impl Web3RpcPool {
             stats.verify_result = Some(verify_result);
             stats.endpoint_consecutive_errors += 1;
             stats.penalty_from_last_critical_error += 10;
-            if stats.endpoint_consecutive_errors > params.max_number_of_consecutive_errors {
+            if stats.endpoint_consecutive_errors
+                > params.web3_endpoint_params.max_number_of_consecutive_errors
+            {
                 //stats.is_allowed = false;
             }
         } // stats lock is released here
     }
 
-    pub fn get_endpoints_info(&self) -> Vec<(Index, Web3RpcParams, Web3RpcInfo)> {
+    pub fn get_endpoints_info(&self) -> Vec<(Index, Web3RpcSingleParams, Web3RpcInfo)> {
         self.endpoints
+            .lock()
+            .unwrap()
             .iter()
             .map(|(idx, w)| {
                 (

@@ -16,8 +16,10 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
         chain_name: "dev".to_string(),
         chain_id: 987789,
         rpc_endpoints: vec![RpcSettings {
-            name: format!("{}/web3/{}", proxy_url_base, proxy_key),
-            endpoint: format!("{}/web3/{}", proxy_url_base, proxy_key),
+            names: Some(format!("{}/web3/{}", proxy_url_base, proxy_key)),
+            endpoints: Some(format!("{}/web3/{}", proxy_url_base, proxy_key)),
+            dns_source: None,
+            json_source: None,
             skip_validation: None,
             backup_level: None,
             verify_interval_secs: None,
@@ -40,6 +42,7 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
             max_at_once: 10,
         }),
         mint_contract: None,
+        lock_contract: None,
         faucet_client: None,
         transaction_timeout: 25,
         confirmation_blocks: 1,
@@ -47,6 +50,7 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
         faucet_glm_amount: Some(Decimal::from_f64(20.0).unwrap()),
         block_explorer_url: Some("http://127.0.0.1:4000".to_string()),
         replacement_timeout: Some(1.0),
+        external_source_check_interval: None,
     };
     let mut chain_map = BTreeMap::new();
     chain_map.insert("dev".to_string(), chain);

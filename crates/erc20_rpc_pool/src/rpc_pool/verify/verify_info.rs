@@ -26,12 +26,7 @@ pub enum VerifyEndpointResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Web3RpcParams {
-    /// If chain id is different than expected endpoint will be marked as critical
-    pub chain_id: u64,
-    pub name: String,
-    pub endpoint: String,
-
+pub struct Web3EndpointParams {
     /// Always treat endpoint as valid
     pub skip_validation: bool,
     /// priority level, when no more endpoints found on priority level 0, endpoints from priority level 1 will be used
@@ -47,6 +42,38 @@ pub struct Web3RpcParams {
     pub max_head_behind_secs: Option<u64>,
     /// limit response timeout
     pub max_response_time_ms: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Web3RpcSingleParams {
+    /// If chain id is different than expected endpoint will be marked as critical
+    pub chain_id: u64,
+    pub name: String,
+    pub endpoint: String,
+
+    pub web3_endpoint_params: Web3EndpointParams,
+}
+
+impl Web3RpcSingleParams {
+    pub fn from_params(params: Web3RpcParams, name: String, endpoint: String) -> Self {
+        Self {
+            chain_id: params.chain_id,
+            name,
+            endpoint,
+            web3_endpoint_params: params.web3_endpoint_params,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Web3RpcParams {
+    /// If chain id is different than expected endpoint will be marked as critical
+    pub chain_id: u64,
+    pub names: Option<String>,
+    pub endpoints: Option<String>,
+    pub dns_source: Option<String>,
+
+    pub web3_endpoint_params: Web3EndpointParams,
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]

@@ -1,4 +1,4 @@
-use crate::contracts::{encode_erc20_allowance, encode_erc20_balance_of};
+use crate::contracts::{encode_balance_of_lock, encode_erc20_allowance, encode_erc20_balance_of};
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
 use erc20_rpc_pool::Web3RpcPool;
@@ -14,11 +14,53 @@ use web3::types::{Address, Bytes, CallRequest, U256};
 pub struct GetBalanceResult {
     pub gas_balance: Option<U256>,
     pub token_balance: Option<U256>,
+    pub deposit_balance: Option<U256>,
+}
+
+pub async fn get_deposit_balance(
+    web3: Arc<Web3RpcPool>,
+    lock_address: Address,
+    address: Address,
+) -> Result<U256, PaymentError> {
+    log::debug!(
+        "Checking deposit balance for address {:#x}, lock address: {:#x}",
+        address,
+        lock_address,
+    );
+
+    let call_data = encode_balance_of_lock(address).map_err(err_from!())?;
+    let res = web3
+        .clone()
+        .eth_call(
+            CallRequest {
+                from: None,
+                to: Some(lock_address),
+                gas: None,
+                gas_price: None,
+                value: None,
+                data: Some(Bytes::from(call_data)),
+                transaction_type: None,
+                access_list: None,
+                max_fee_per_gas: None,
+                max_priority_fee_per_gas: None,
+            },
+            None,
+        )
+        .await
+        .map_err(err_from!())?;
+    if res.0.len() != 32 {
+        return Err(err_create!(TransactionFailedError::new(&format!(
+            "Invalid balance response: {:?}. Probably not a valid lock payments contract {:#x}",
+            res.0, lock_address
+        ))));
+    };
+    Ok(U256::from_big_endian(&res.0))
 }
 
 pub async fn get_balance(
     web3: Arc<Web3RpcPool>,
     token_address: Option<Address>,
+    lock_contract_address: Option<Address>,
     address: Address,
     check_gas: bool,
 ) -> Result<GetBalanceResult, PaymentError> {
@@ -35,6 +77,14 @@ pub async fn get_balance(
                 .await
                 .map_err(err_from!())?,
         )
+    } else {
+        None
+    };
+
+    let deposit_balance = if let Some(lock_contract) = lock_contract_address {
+        get_deposit_balance(web3.clone(), lock_contract, address)
+            .await
+            .map(Some)?
     } else {
         None
     };
@@ -73,6 +123,7 @@ pub async fn get_balance(
     Ok(GetBalanceResult {
         gas_balance,
         token_balance,
+        deposit_balance,
     })
 }
 

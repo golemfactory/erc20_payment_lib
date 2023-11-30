@@ -5,14 +5,16 @@ use crate::error::PaymentError;
 use crate::utils::DecimalConvExt;
 use crate::{err_custom_create, err_from};
 use erc20_payment_lib_common::DriverEvent;
-use erc20_rpc_pool::{Web3RpcEndpoint, Web3RpcParams, Web3RpcPool};
+use erc20_rpc_pool::{
+    Web3EndpointParams, Web3ExternalDnsSource, Web3ExternalJsonSource, Web3PoolType, Web3RpcPool,
+    Web3RpcSingleParams,
+};
 use rust_decimal::Decimal;
 use secp256k1::SecretKey;
 use serde::Serialize;
 use std::collections::BTreeMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::time::Duration;
-use thunderdome::Arena;
 use web3::types::{Address, U256};
 
 #[derive(Clone, Debug)]
@@ -57,6 +59,7 @@ pub struct ChainSetup {
     pub faucet_glm_amount: Option<U256>,
     pub block_explorer_url: Option<String>,
     pub replacement_timeout: Option<f64>,
+    pub external_source_check_interval: Option<u64>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -96,12 +99,21 @@ pub struct PaymentSetup {
 
 const MARK_AS_UNRECOVERABLE_AFTER_SECONDS: u64 = 300;
 
+fn split_string_by_coma(s: &Option<String>) -> Option<Vec<String>> {
+    s.as_ref().map(|s| {
+        s.split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect()
+    })
+}
+
 impl PaymentSetup {
     pub fn new(
         config: &Config,
         secret_keys: Vec<SecretKey>,
         options: &AdditionalOptions,
-        web3_rpc_pool_info: &mut BTreeMap<i64, Arena<Arc<RwLock<Web3RpcEndpoint>>>>,
+        web3_rpc_pool_info: Arc<std::sync::Mutex<BTreeMap<i64, Web3PoolType>>>,
         mpsc_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     ) -> Result<Self, PaymentError> {
         let mut ps = PaymentSetup {
@@ -138,28 +150,86 @@ impl PaymentSetup {
             use_transfer_for_single_payment: true,
         };
         for chain_config in &config.chain {
-            let web3_pool = Arc::new(Web3RpcPool::new(
-                chain_config.1.chain_id as u64,
-                chain_config
-                    .1
-                    .rpc_endpoints
-                    .iter()
-                    .map(|rpc| Web3RpcParams {
+            let mut single_endpoints = Vec::new();
+            let mut json_sources = Vec::new();
+            let mut dns_sources = Vec::new();
+            for rpc_settings in &chain_config.1.rpc_endpoints {
+                let endpoint_names = split_string_by_coma(&rpc_settings.names).unwrap_or_default();
+                if let Some(endpoints) = split_string_by_coma(&rpc_settings.endpoints) {
+                    for (idx, endpoint) in endpoints.iter().enumerate() {
+                        let endpoint = Web3RpcSingleParams {
+                            chain_id: chain_config.1.chain_id as u64,
+                            endpoint: endpoint.clone(),
+                            name: endpoint_names.get(idx).unwrap_or(&endpoint.clone()).clone(),
+                            web3_endpoint_params: Web3EndpointParams {
+                                backup_level: rpc_settings.backup_level.unwrap_or(0),
+                                skip_validation: rpc_settings.skip_validation.unwrap_or(false),
+                                verify_interval_secs: rpc_settings
+                                    .verify_interval_secs
+                                    .unwrap_or(120),
+                                max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
+                                max_head_behind_secs: Some(
+                                    rpc_settings.allowed_head_behind_secs.unwrap_or(120),
+                                ),
+                                max_number_of_consecutive_errors: rpc_settings
+                                    .max_consecutive_errors
+                                    .unwrap_or(5),
+                                min_interval_requests_ms: rpc_settings.min_interval_ms,
+                            },
+                        };
+                        single_endpoints.push(endpoint);
+                    }
+                } else if let Some(dns_source) = &rpc_settings.dns_source {
+                    dns_sources.push(Web3ExternalDnsSource {
                         chain_id: chain_config.1.chain_id as u64,
-                        backup_level: rpc.backup_level.unwrap_or(0),
-                        skip_validation: rpc.skip_validation.unwrap_or(false),
-                        endpoint: rpc.endpoint.clone(),
-                        name: rpc.name.clone(),
-                        verify_interval_secs: rpc.verify_interval_secs.unwrap_or(120),
-                        max_response_time_ms: rpc.max_timeout_ms.unwrap_or(10000),
-                        max_head_behind_secs: Some(rpc.allowed_head_behind_secs.unwrap_or(120)),
-                        max_number_of_consecutive_errors: rpc.max_consecutive_errors.unwrap_or(5),
-                        min_interval_requests_ms: rpc.min_interval_ms,
-                    })
-                    .collect(),
+                        dns_url: dns_source.clone(),
+                        endpoint_params: Web3EndpointParams {
+                            backup_level: rpc_settings.backup_level.unwrap_or(0),
+                            skip_validation: rpc_settings.skip_validation.unwrap_or(false),
+                            verify_interval_secs: rpc_settings.verify_interval_secs.unwrap_or(120),
+                            max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
+                            max_head_behind_secs: Some(
+                                rpc_settings.allowed_head_behind_secs.unwrap_or(120),
+                            ),
+                            max_number_of_consecutive_errors: rpc_settings
+                                .max_consecutive_errors
+                                .unwrap_or(5),
+                            min_interval_requests_ms: rpc_settings.min_interval_ms,
+                        },
+                    });
+                } else if let Some(json_source) = &rpc_settings.json_source {
+                    json_sources.push(Web3ExternalJsonSource {
+                        chain_id: chain_config.1.chain_id as u64,
+                        url: json_source.clone(),
+                        endpoint_params: Web3EndpointParams {
+                            backup_level: rpc_settings.backup_level.unwrap_or(0),
+                            skip_validation: rpc_settings.skip_validation.unwrap_or(false),
+                            verify_interval_secs: rpc_settings.verify_interval_secs.unwrap_or(120),
+                            max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
+                            max_head_behind_secs: Some(
+                                rpc_settings.allowed_head_behind_secs.unwrap_or(120),
+                            ),
+                            max_number_of_consecutive_errors: rpc_settings
+                                .max_consecutive_errors
+                                .unwrap_or(5),
+                            min_interval_requests_ms: rpc_settings.min_interval_ms,
+                        },
+                    });
+                }
+            }
+            let web3_pool = Web3RpcPool::new(
+                chain_config.1.chain_id as u64,
+                single_endpoints,
+                json_sources,
+                dns_sources,
                 mpsc_sender.as_ref().map(|s| s.downgrade()),
-            ));
-            web3_rpc_pool_info.insert(chain_config.1.chain_id, web3_pool.endpoints.clone());
+                Duration::from_secs(chain_config.1.external_source_check_interval.unwrap_or(300)),
+            );
+
+            web3_rpc_pool_info
+                .lock()
+                .unwrap()
+                .insert(chain_config.1.chain_id, web3_pool.endpoints.clone());
 
             let faucet_eth_amount = match &chain_config.1.faucet_eth_amount {
                 Some(f) => Some((*f).to_u256_from_eth().map_err(err_from!())?),
@@ -241,6 +311,7 @@ impl PaymentSetup {
                     block_explorer_url: chain_config.1.block_explorer_url.clone(),
                     chain_id: chain_config.1.chain_id,
                     replacement_timeout: chain_config.1.replacement_timeout,
+                    external_source_check_interval: chain_config.1.external_source_check_interval,
                 },
             );
         }
@@ -252,7 +323,7 @@ impl PaymentSetup {
             config,
             vec![],
             &AdditionalOptions::default(),
-            &mut BTreeMap::new(),
+            Arc::new(std::sync::Mutex::new(BTreeMap::new())),
             None,
         )
     }

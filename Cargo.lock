@@ -1173,6 +1173,7 @@ dependencies = [
  "actix-web",
  "anyhow",
  "async-trait",
+ "awc",
  "bollard",
  "chrono",
  "dotenv",
@@ -1186,6 +1187,7 @@ dependencies = [
  "lazy_static",
  "log",
  "rand",
+ "reqwest",
  "rust_decimal",
  "rustc-hex",
  "secp256k1",
@@ -1197,6 +1199,7 @@ dependencies = [
  "thunderdome",
  "tokio",
  "toml",
+ "trust-dns-resolver",
  "uuid 1.5.0",
  "web3",
 ]

@@ -83,6 +83,12 @@ pub struct MintContractSettings {
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
+pub struct LockContractSettings {
+    pub address: Address,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct FaucetClientSettings {
     pub max_eth_allowed: Decimal,
     pub faucet_srv: String,
@@ -94,8 +100,10 @@ pub struct FaucetClientSettings {
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct RpcSettings {
-    pub name: String,
-    pub endpoint: String,
+    pub names: Option<String>,
+    pub endpoints: Option<String>,
+    pub dns_source: Option<String>,
+    pub json_source: Option<String>,
     pub skip_validation: Option<bool>,
     pub backup_level: Option<i64>,
     pub verify_interval_secs: Option<u64>,
@@ -118,6 +126,7 @@ pub struct Chain {
     pub token: Token,
     pub multi_contract: Option<MultiContractSettings>,
     pub mint_contract: Option<MintContractSettings>,
+    pub lock_contract: Option<LockContractSettings>,
     pub faucet_client: Option<FaucetClientSettings>,
     pub transaction_timeout: u64,
     pub confirmation_blocks: u64,
@@ -125,6 +134,7 @@ pub struct Chain {
     pub faucet_glm_amount: Option<Decimal>,
     pub block_explorer_url: Option<String>,
     pub replacement_timeout: Option<f64>,
+    pub external_source_check_interval: Option<u64>,
 }
 
 #[derive(Deserialize, Debug, Clone)]

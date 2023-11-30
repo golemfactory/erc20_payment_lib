@@ -12,7 +12,6 @@ use erc20_payment_lib_test::*;
 use erc20_rpc_pool::Web3RpcPool;
 use rust_decimal::prelude::ToPrimitive;
 use std::str::FromStr;
-use std::sync::Arc;
 use std::time::Duration;
 use web3::types::{Address, H256, U256};
 use web3_test_proxy_client::{list_transactions_human, set_error_probability};
@@ -68,8 +67,8 @@ async fn test_rpc_pool() -> Result<(), anyhow::Error> {
 
     config.chain.get_mut("dev").unwrap().rpc_endpoints = vec![
         RpcSettings {
-            name: format!("{}/web3/{}", proxy_url_base, "endp1"),
-            endpoint: format!("{}/web3/{}", proxy_url_base, "endp1"),
+            names: Some(format!("{}/web3/{},{}/web3/{},{}/web3/{}", proxy_url_base, "endp1", proxy_url_base, "endp2", proxy_url_base, "endp3")),
+            endpoints: Some(format!("{}/web3/{},{}/web3/{},{}/web3/{}", proxy_url_base, "endp1", proxy_url_base, "endp2", proxy_url_base, "endp3")),
             backup_level: None,
             skip_validation: None,
             verify_interval_secs: Some(10),
@@ -77,28 +76,8 @@ async fn test_rpc_pool() -> Result<(), anyhow::Error> {
             max_timeout_ms: None,
             allowed_head_behind_secs: None,
             max_consecutive_errors: None,
-        },
-        RpcSettings {
-            name: format!("{}/web3/{}", proxy_url_base, "endp2"),
-            endpoint: format!("{}/web3/{}", proxy_url_base, "endp2"),
-            backup_level: None,
-            skip_validation: None,
-            verify_interval_secs: Some(10),
-            min_interval_ms: None,
-            max_timeout_ms: None,
-            allowed_head_behind_secs: None,
-            max_consecutive_errors: None,
-        },
-        RpcSettings {
-            name: format!("{}/web3/{}", proxy_url_base, "endp3"),
-            endpoint: format!("{}/web3/{}", proxy_url_base, "endp3"),
-            backup_level: None,
-            skip_validation: None,
-            verify_interval_secs: Some(10),
-            min_interval_ms: None,
-            max_timeout_ms: None,
-            allowed_head_behind_secs: None,
-            max_consecutive_errors: None,
+            dns_source: None,
+            json_source: None,
         },
     ];
 
@@ -175,7 +154,7 @@ async fn test_rpc_pool() -> Result<(), anyhow::Error> {
 
         set_error_probability(&proxy_url_base, "endp1", 0.0).await;
         set_error_probability(&proxy_url_base, "endp2", 0.0).await;
-        let web3 = Arc::new(Web3RpcPool::new_from_urls(987789, vec![format!("{}/web3/{}", proxy_url_base, "check")]));
+        let web3 = Web3RpcPool::new_from_urls(987789, vec![format!("{}/web3/{}", proxy_url_base, "check")]);
         assert_eq!(verify_transaction(web3.clone(), 987789, tx_hash,fr_str,to_str,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified(), true);
         assert_eq!(verify_transaction(web3.clone(), 987789, tx_hash,fr_str,to_str_wrong,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified(), false);
         assert_eq!(verify_transaction(web3.clone(), 987789, tx_hash,fr_str_wrong,to_str,U256::from(2222000000000000222_u128), token_address).await.unwrap().verified(), false);

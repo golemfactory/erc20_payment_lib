@@ -5,7 +5,10 @@ use crate::db::ops::{
     insert_tx,
 };
 use crate::signer::Signer;
-use crate::transaction::{create_faucet_mint, create_token_transfer, find_receipt_extended};
+use crate::transaction::{
+    create_faucet_mint, create_lock_deposit, create_lock_withdraw, create_token_transfer,
+    find_receipt_extended,
+};
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
 use std::ops::DerefMut;
@@ -23,19 +26,19 @@ use tokio::sync::mpsc::Sender;
 
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
+use crate::eth::get_deposit_balance;
 use crate::sender::service_loop;
-use crate::utils::{StringConvExt, U256ConvExt};
+use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
 use erc20_payment_lib_common::{
     DriverEvent, DriverEventContent, FaucetData, SharedInfoTx, StatusProperty,
     TransactionFailedReason, TransactionStuckReason, Web3RpcPoolContent,
 };
-use erc20_rpc_pool::{Web3RpcEndpoint, Web3RpcPool};
+use erc20_rpc_pool::{Web3PoolType, Web3RpcPool};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
-use std::sync::{Arc, RwLock};
-use thunderdome::Arena;
+use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
 use web3::types::{Address, H256, U256};
@@ -44,7 +47,8 @@ use web3::types::{Address, H256, U256};
 pub struct SharedState {
     pub current_tx_info: BTreeMap<i64, SharedInfoTx>,
     //pub web3_rpc_pool: BTreeMap<i64, Vec<(Web3RpcParams, Web3RpcInfo)>>,
-    pub web3_pool_ref: BTreeMap<i64, Vec<Arc<RwLock<Web3RpcEndpoint>>>>,
+    #[serde(skip)]
+    pub web3_pool_ref: Arc<std::sync::Mutex<BTreeMap<i64, Web3PoolType>>>,
 
     pub faucet: Option<FaucetData>,
     pub inserted: usize,
@@ -363,13 +367,14 @@ impl PaymentRuntime {
         signer: impl Signer + Send + Sync + 'static,
     ) -> Result<PaymentRuntime, PaymentError> {
         let options = payment_runtime_args.options.unwrap_or_default();
-        let mut web3_rpc_pool_info = BTreeMap::<i64, Arena<Arc<RwLock<Web3RpcEndpoint>>>>::new();
+        let web3_rpc_pool_info =
+            Arc::new(std::sync::Mutex::new(BTreeMap::<i64, Web3PoolType>::new()));
 
         let mut payment_setup = PaymentSetup::new(
             &payment_runtime_args.config,
             payment_runtime_args.secret_keys.to_vec(),
             &options,
-            &mut web3_rpc_pool_info,
+            web3_rpc_pool_info.clone(),
             payment_runtime_args.event_sender.clone(),
         )?;
         payment_setup.use_transfer_for_single_payment = options.use_transfer_for_single_payment;
@@ -394,10 +399,19 @@ impl PaymentRuntime {
         let ps = payment_setup.clone();
 
         // Convert BTreeMap of Arenas to BTreeMap of Vec because serde can't serialize Arena
-        let web3_rpc_pool_info = web3_rpc_pool_info
-            .iter()
-            .map(|(k, v)| (*k, v.iter().map(|pair| pair.1.clone()).collect::<Vec<_>>()))
-            .collect::<BTreeMap<_, _>>();
+        /* let web3_rpc_pool_info = web3_rpc_pool_info
+        .iter()
+        .map(|(k, v)| {
+            (
+                *k,
+                v.lock()
+                    .unwrap()
+                    .iter()
+                    .map(|pair| pair.1.clone())
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();*/
 
         let shared_state = Arc::new(Mutex::new(SharedState {
             inserted: 0,
@@ -405,7 +419,7 @@ impl PaymentRuntime {
             current_tx_info: BTreeMap::new(),
             faucet: None,
             external_gather_time: None,
-            web3_pool_ref: web3_rpc_pool_info,
+            web3_pool_ref: web3_rpc_pool_info.clone(),
         }));
 
         let shared_state_clone = shared_state.clone();
@@ -550,7 +564,7 @@ impl PaymentRuntime {
 
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
-        let balance_result = crate::eth::get_balance(web3, None, address, true).await?;
+        let balance_result = crate::eth::get_balance(web3, None, None, address, true).await?;
 
         let gas_balance = balance_result
             .gas_balance
@@ -769,12 +783,141 @@ pub async fn mint_golem_token(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
+pub async fn withdraw_funds(
+    web3: Arc<Web3RpcPool>,
+    conn: &SqlitePool,
+    chain_id: u64,
+    from: Address,
+    lock_contract_address: Address,
+    amount: Option<Decimal>,
+    withdraw_all: bool,
+    skip_check: bool,
+) -> Result<(), PaymentError> {
+    let amount = if let Some(amount) = amount {
+        Some(amount.to_u256_from_eth().map_err(err_from!())?)
+    } else if withdraw_all {
+        None
+    } else {
+        return Err(err_custom_create!(
+            "Amount not specified. Use --amount or --all"
+        ));
+    };
+    let current_amount = get_deposit_balance(web3.clone(), lock_contract_address, from).await?;
+
+    if !skip_check {
+        if let Some(amount) = amount {
+            if amount > current_amount {
+                return Err(err_custom_create!(
+                    "You don't have enough: {} tGLM on network with chain id: {} and account {:#x} Lock contract: {:#x}",
+                    current_amount,
+                    chain_id,
+                    from,
+                    lock_contract_address
+                ));
+            }
+        } else if current_amount == U256::default() {
+            return Err(err_custom_create!(
+                    "You don't have any deposited tGLM on network with chain id: {} and account {:#x} Lock contract: {:#x}",
+                    chain_id,
+                    from,
+                    lock_contract_address
+                ));
+        }
+    }
+
+    let withdraw_tx = create_lock_withdraw(from, lock_contract_address, chain_id, None, amount)?;
+
+    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
+
+    let withdraw_tx = insert_tx(&mut *db_transaction, &withdraw_tx)
+        .await
+        .map_err(err_from!())?;
+    db_transaction.commit().await.map_err(err_from!())?;
+
+    log::info!("Deposit transaction added to queue: {}", withdraw_tx.id);
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn deposit_funds(
+    web3: Arc<Web3RpcPool>,
+    conn: &SqlitePool,
+    chain_id: u64,
+    from: Address,
+    glm_address: Address,
+    lock_contract_address: Address,
+    skip_balance_check: bool,
+    amount: Option<Decimal>,
+    deposit_all: bool,
+) -> Result<(), PaymentError> {
+    let amount = if let Some(amount) = amount {
+        amount
+    } else if deposit_all {
+        get_token_balance(web3.clone(), glm_address, from)
+            .await?
+            .to_eth()
+            .map_err(err_from!())?
+    } else {
+        return Err(err_custom_create!(
+            "Amount not specified. Use --amount or --all"
+        ));
+    };
+
+    if !skip_balance_check {
+        let token_balance = get_token_balance(web3.clone(), glm_address, from)
+            .await?
+            .to_eth_saturate();
+
+        if token_balance < amount {
+            return Err(err_custom_create!(
+                "You don't have enough: {} tGLM on network with chain id: {} and account {:#x} ",
+                token_balance,
+                chain_id,
+                from
+            ));
+        };
+    }
+
+    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
+    let filter = format!(
+        "from_addr=\"{:#x}\" AND method=\"LOCK.deposit\" AND fee_paid is NULL",
+        from
+    );
+    let tx_existing = get_transactions(&mut *db_transaction, Some(&filter), None, None)
+        .await
+        .map_err(err_from!())?;
+
+    if let Some(tx) = tx_existing.first() {
+        return Err(err_custom_create!(
+            "You already have a pending deposit transaction with id: {}",
+            tx.id
+        ));
+    }
+
+    let deposit_tx = create_lock_deposit(
+        from,
+        lock_contract_address,
+        chain_id,
+        None,
+        amount.to_u256_from_eth().map_err(err_from!())?,
+    )?;
+    let deposit_tx = insert_tx(&mut *db_transaction, &deposit_tx)
+        .await
+        .map_err(err_from!())?;
+    db_transaction.commit().await.map_err(err_from!())?;
+
+    log::info!("Deposit transaction added to queue: {}", deposit_tx.id);
+    Ok(())
+}
+
 pub async fn get_token_balance(
     web3: Arc<Web3RpcPool>,
     token_address: Address,
     address: Address,
 ) -> Result<U256, PaymentError> {
-    let balance_result = crate::eth::get_balance(web3, Some(token_address), address, true).await?;
+    let balance_result =
+        crate::eth::get_balance(web3, Some(token_address), None, address, true).await?;
 
     let token_balance = balance_result
         .token_balance
