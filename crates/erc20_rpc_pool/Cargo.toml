@@ -38,5 +38,5 @@ thunderdome = { workspace = true }
 trust-dns-resolver = { workspace = true }
 uuid = { workspace = true }
 env_logger = { workspace = true }
-reqwest = "0.11.22"
+reqwest = { workspace = true }
 erc20_payment_lib_common = { path = "../erc20_payment_lib_common", version = "0.3.7" }

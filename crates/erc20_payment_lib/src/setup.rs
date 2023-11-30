@@ -5,7 +5,10 @@ use crate::error::PaymentError;
 use crate::utils::DecimalConvExt;
 use crate::{err_custom_create, err_from};
 use erc20_payment_lib_common::DriverEvent;
-use erc20_rpc_pool::{Web3EndpointParams, Web3ExternalDnsSource, Web3ExternalJsonSource, Web3PoolType, Web3RpcPool, Web3RpcSingleParams};
+use erc20_rpc_pool::{
+    Web3EndpointParams, Web3ExternalDnsSource, Web3ExternalJsonSource, Web3PoolType, Web3RpcPool,
+    Web3RpcSingleParams,
+};
 use rust_decimal::Decimal;
 use secp256k1::SecretKey;
 use serde::Serialize;

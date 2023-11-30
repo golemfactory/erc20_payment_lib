@@ -59,16 +59,18 @@ pub async fn resolve_srv_record(record: &str) -> std::io::Result<String> {
     Ok(addr)
 }
 
-pub async fn resolve_txt_record(record: &str) -> std::io::Result<String> {
+pub async fn resolve_txt_record_to_string_array(record: &str) -> std::io::Result<Vec<String>> {
     let resolver: TokioAsyncResolver =
         TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default())?;
-    let lookup = resolver.txt_lookup(record).await?;
-    let txt = lookup
-        .iter()
-        .next()
-        .ok_or_else(|| IoError::from(IoErrorKind::NotFound))?;
 
-    Ok(txt.to_string())
+    Ok(resolver
+        .txt_lookup(record)
+        .await?
+        .iter()
+        .map(|entry| entry.to_string().trim().to_string())
+        .filter(|entry| !entry.is_empty())
+        .map(|entry| entry.to_string())
+        .collect::<Vec<_>>())
 }
 
 /// Replace domain name in URL with resolved IP address

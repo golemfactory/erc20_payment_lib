@@ -27,7 +27,7 @@ use std::str::FromStr;
 
 use crate::stats::{export_stats, run_stats};
 use erc20_payment_lib::eth::check_allowance;
-use erc20_payment_lib::faucet_client::{faucet_donate, resolve_txt_record};
+use erc20_payment_lib::faucet_client::{faucet_donate, resolve_txt_record_to_string_array};
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::runtime::{
     deposit_funds, get_token_balance, mint_golem_token, remove_last_unsent_transactions,
@@ -69,17 +69,6 @@ fn split_string_by_coma(s: &Option<String>) -> Option<Vec<String>> {
             .collect()
     })
 }
-
-#[allow(clippy::ptr_arg)]
-fn split_string_by_whitespace(s: &String) -> Vec<String> {
-    s.split_whitespace()
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .collect()
-}
-
-
-
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -320,11 +309,12 @@ async fn main_internal() -> Result<(), PaymentError> {
                 if split_string_by_coma(&rpc_settings.endpoints).is_some() {
                     //already processed above
                 } else if let Some(dns_source) = &rpc_settings.dns_source {
-                    let record = resolve_txt_record(dns_source).await.map_err(|e| {
-                        err_custom_create!("Error resolving dns entry {}: {}", dns_source, e)
-                    })?;
+                    let urls = resolve_txt_record_to_string_array(dns_source)
+                        .await
+                        .map_err(|e| {
+                            err_custom_create!("Error resolving dns entry {}: {}", dns_source, e)
+                        })?;
 
-                    let urls = split_string_by_whitespace(&record);
                     let names = urls.clone();
 
                     for (url, name) in urls.iter().zip(names) {

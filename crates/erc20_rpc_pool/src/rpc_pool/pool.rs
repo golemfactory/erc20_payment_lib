@@ -108,7 +108,6 @@ fn split_string_by_whitespace(s: &String) -> Vec<String> {
         .collect()
 }
 
-
 pub async fn resolve_txt_record(record: &str) -> std::io::Result<String> {
     let resolver: TokioAsyncResolver =
         TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default())?;
