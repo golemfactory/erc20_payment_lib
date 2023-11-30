@@ -27,7 +27,7 @@ use std::str::FromStr;
 
 use crate::stats::{export_stats, run_stats};
 use erc20_payment_lib::eth::check_allowance;
-use erc20_payment_lib::faucet_client::{faucet_donate};
+use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::runtime::{
     deposit_funds, get_token_balance, mint_golem_token, remove_last_unsent_transactions,
@@ -39,10 +39,13 @@ use erc20_payment_lib::transaction::{import_erc20_txs, ImportErc20TxsArgs};
 use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use erc20_payment_lib_common::model::{ScanDao, TokenTransferDao};
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
-use erc20_rpc_pool::{resolve_txt_record_to_string_array, Web3EndpointParams, Web3ExternalEndpointList};
+use erc20_rpc_pool::{
+    resolve_txt_record_to_string_array, Web3EndpointParams, Web3ExternalEndpointList,
+};
 use erc20_rpc_pool::{Web3RpcPool, Web3RpcSingleParams};
 use rust_decimal::Decimal;
 use std::sync::Arc;
+use std::time::Duration;
 use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::ethabi::ethereum_types::Address;
@@ -304,6 +307,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 Vec::new(),
                 Vec::new(),
                 None,
+                Duration::from_secs(300),
             );
             for rpc_settings in &chain_cfg.rpc_endpoints {
                 if split_string_by_coma(&rpc_settings.endpoints).is_some() {

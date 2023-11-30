@@ -45,6 +45,7 @@ lock-contract = { address = "0xCE78e3fe557E3754781Cc89eB7B01e940733e3F1" }
 faucet-client = { max-eth-allowed = 0.009, faucet-srv = "_holesky-faucet._tcp", faucet-host = "faucet.testnet.golem.network", faucet-lookup-domain = "dev.golem.network", faucet-srv-port = 4002 }
 confirmation-blocks = 0
 block-explorer-url = "https://holesky.etherscan.io"
+external-source-check-interval = 60
 
 [[chain.holesky.rpc-endpoints]]
 names = """

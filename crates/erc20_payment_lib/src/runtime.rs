@@ -38,7 +38,7 @@ use erc20_rpc_pool::{Web3PoolType, Web3RpcPool};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
-use std::sync::{Arc};
+use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
 use tokio::task::JoinHandle;
 use web3::types::{Address, H256, U256};
@@ -388,19 +388,19 @@ impl PaymentRuntime {
         let ps = payment_setup.clone();
 
         // Convert BTreeMap of Arenas to BTreeMap of Vec because serde can't serialize Arena
-       /* let web3_rpc_pool_info = web3_rpc_pool_info
-            .iter()
-            .map(|(k, v)| {
-                (
-                    *k,
-                    v.lock()
-                        .unwrap()
-                        .iter()
-                        .map(|pair| pair.1.clone())
-                        .collect::<Vec<_>>(),
-                )
-            })
-            .collect::<BTreeMap<_, _>>();*/
+        /* let web3_rpc_pool_info = web3_rpc_pool_info
+        .iter()
+        .map(|(k, v)| {
+            (
+                *k,
+                v.lock()
+                    .unwrap()
+                    .iter()
+                    .map(|pair| pair.1.clone())
+                    .collect::<Vec<_>>(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();*/
 
         let shared_state = Arc::new(Mutex::new(SharedState {
             inserted: 0,

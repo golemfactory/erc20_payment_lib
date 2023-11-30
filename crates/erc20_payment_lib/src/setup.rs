@@ -59,6 +59,7 @@ pub struct ChainSetup {
     pub faucet_glm_amount: Option<U256>,
     pub block_explorer_url: Option<String>,
     pub replacement_timeout: Option<f64>,
+    pub external_source_check_interval: Option<u64>,
 }
 
 #[derive(Serialize, Clone, Debug)]
@@ -222,9 +223,13 @@ impl PaymentSetup {
                 json_sources,
                 dns_sources,
                 mpsc_sender.as_ref().map(|s| s.downgrade()),
+                Duration::from_secs(chain_config.1.external_source_check_interval.unwrap_or(300)),
             );
 
-            web3_rpc_pool_info.lock().unwrap().insert(chain_config.1.chain_id, web3_pool.endpoints.clone());
+            web3_rpc_pool_info
+                .lock()
+                .unwrap()
+                .insert(chain_config.1.chain_id, web3_pool.endpoints.clone());
 
             let faucet_eth_amount = match &chain_config.1.faucet_eth_amount {
                 Some(f) => Some((*f).to_u256_from_eth().map_err(err_from!())?),
@@ -306,6 +311,7 @@ impl PaymentSetup {
                     block_explorer_url: chain_config.1.block_explorer_url.clone(),
                     chain_id: chain_config.1.chain_id,
                     replacement_timeout: chain_config.1.replacement_timeout,
+                    external_source_check_interval: chain_config.1.external_source_check_interval,
                 },
             );
         }

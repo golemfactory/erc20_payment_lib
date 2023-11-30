@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::error::Error;
 use std::sync::{Arc, Mutex, RwLock};
+use std::time::Duration;
 use thunderdome::{Arena, Index};
 use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
 use trust_dns_resolver::TokioAsyncResolver;
@@ -98,6 +99,7 @@ pub struct Web3RpcPool {
     pub external_json_sources: Vec<Web3ExternalJsonSource>,
     pub external_dns_sources: Vec<Web3ExternalDnsSource>,
     pub last_external_check: Arc<Mutex<Option<std::time::Instant>>>,
+    pub check_external_sources_interval: Duration,
 }
 
 pub async fn resolve_txt_record_to_string_array(record: &str) -> std::io::Result<Vec<String>> {
@@ -121,6 +123,7 @@ impl Web3RpcPool {
         json_sources: Vec<Web3ExternalJsonSource>,
         dns_sources: Vec<Web3ExternalDnsSource>,
         events: Option<tokio::sync::mpsc::WeakSender<DriverEvent>>,
+        external_sources_interval_check: Duration,
     ) -> Arc<Self> {
         let mut web3_endpoints = Arena::new();
         for endpoint_params in endpoints {
@@ -151,6 +154,7 @@ impl Web3RpcPool {
             external_json_sources: json_sources,
             external_dns_sources: dns_sources,
             last_external_check: Arc::new(Mutex::new(None)),
+            check_external_sources_interval: external_sources_interval_check,
         });
         if !s.external_json_sources.is_empty() || !s.external_dns_sources.is_empty() {
             tokio::task::spawn(s.clone().resolve_external_addresses());
@@ -176,7 +180,14 @@ impl Web3RpcPool {
                 },
             })
             .collect();
-        Self::new(chain_id, params, Vec::new(), Vec::new(), None)
+        Self::new(
+            chain_id,
+            params,
+            Vec::new(),
+            Vec::new(),
+            None,
+            Duration::from_secs(300),
+        )
     }
 
     pub fn add_endpoint(self: Arc<Self>, endpoint: Web3RpcSingleParams) {
@@ -265,7 +276,7 @@ impl Web3RpcPool {
             let mut last_external_check = self.last_external_check.lock().unwrap();
             if let Some(last_external_check) = last_external_check.as_ref() {
                 if last_external_check.elapsed().as_secs() < 300 {
-                    log::error!("Last external check was less than 5 minutes ago");
+                    log::debug!("Last external check was less than 5 minutes ago");
                     return;
                 }
             }

@@ -41,6 +41,7 @@ transaction-timeout = 100
 token = { address = "0x7DD9c5Cba05E151C895FDe1CF355C9A1D5DA6429", symbol = "GLM" }
 confirmation-blocks = 1
 block-explorer-url = "https://etherscan.io"
+external-source-check-interval = 300
 
 [[chain.ethereum.rpc-endpoints]]
 names = """
@@ -80,6 +81,7 @@ faucet-client = { max-eth-allowed = 0.009, faucet-srv = "_goerli-faucet._tcp", f
 mint-contract = { address = "0xCCA41b09C1F50320bFB41BD6822BD0cdBDC7d85C", max-glm-allowed = 400 }
 confirmation-blocks = 0
 block-explorer-url = "https://goerli.etherscan.io"
+external-source-check-interval = 300
 
 [[chain.goerli.rpc-endpoints]]
 names = """
@@ -133,6 +135,7 @@ lock-contract = { address = "0xCE78e3fe557E3754781Cc89eB7B01e940733e3F1" }
 faucet-client = { max-eth-allowed = 0.009, faucet-srv = "_holesky-faucet._tcp", faucet-host = "faucet.testnet.golem.network", faucet-lookup-domain = "dev.golem.network", faucet-srv-port = 4002 }
 confirmation-blocks = 0
 block-explorer-url = "https://holesky.etherscan.io"
+external-source-check-interval = 300
 
 [[chain.holesky.rpc-endpoints]]
 names = """
@@ -184,6 +187,7 @@ token = { address = "0x2036807B0B3aaf5b1858EE822D0e111fDdac7018", symbol = "tGLM
 multi-contract = { address = "0x800010D7d0d315DCA795110ecCf0127cBd76b89f", max-at-once = 10 }
 confirmation-blocks = 1
 block-explorer-url = "https://mumbai.polygonscan.com"
+external-source-check-interval = 300
 
 [[chain.mumbai.rpc-endpoints]]
 names = """
@@ -227,6 +231,7 @@ token = { address = "0x0B220b82F3eA3B7F6d9A1D8ab58930C064A2b5Bf", symbol = "GLM"
 # multi-contract = { address = "0x50100d4faf5f3b09987dea36dc2eddd57a3e561b", max-at-once = 10 }
 confirmation-blocks = 1
 block-explorer-url = "https://polygonscan.com"
+external-source-check-interval = 300
 
 [[chain.polygon.rpc-endpoints]]
 names = """

@@ -59,7 +59,6 @@ pub async fn resolve_srv_record(record: &str) -> std::io::Result<String> {
     Ok(addr)
 }
 
-
 /// Replace domain name in URL with resolved IP address
 /// Hack required on windows to bypass failing resolution on Windows 10
 /// Not needed when https://github.com/actix/actix-web/issues/1047 is resolved

@@ -134,6 +134,7 @@ pub struct Chain {
     pub faucet_glm_amount: Option<Decimal>,
     pub block_explorer_url: Option<String>,
     pub replacement_timeout: Option<f64>,
+    pub external_source_check_interval: Option<u64>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
