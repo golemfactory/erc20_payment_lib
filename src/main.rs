@@ -37,6 +37,7 @@ use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::{import_erc20_txs, ImportErc20TxsArgs};
 use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
+use erc20_payment_lib_common::init_metrics;
 use erc20_payment_lib_common::model::{ScanDao, TokenTransferDao};
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use erc20_rpc_pool::{
@@ -81,6 +82,7 @@ async fn main_internal() -> Result<(), PaymentError> {
     );
 
     env_logger::init();
+    init_metrics();
     let cli: PaymentOptions = PaymentOptions::from_args();
 
     let (private_keys, public_addrs) =
