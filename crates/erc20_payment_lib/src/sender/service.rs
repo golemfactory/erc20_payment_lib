@@ -18,6 +18,7 @@ use erc20_payment_lib_common::model::TxDao;
 use erc20_payment_lib_common::{DriverEvent, DriverEventContent, TransactionFinishedInfo};
 use sqlx::SqlitePool;
 use tokio::select;
+use tokio::time::Instant;
 use web3::types::U256;
 
 pub async fn update_token_transfer_result(
@@ -490,7 +491,7 @@ pub async fn service_loop(
     let metric_label_gather_pre_error = "erc20_payment_lib.service_loop.gather_pre_error";
     let metric_label_gather_post = "erc20_payment_lib.service_loop.gather_post";
     let metric_label_gather_post_error = "erc20_payment_lib.service_loop.gather_post_error";
-
+    //let metric_label_loop_duration = "erc20_payment_lib.service_loop.loop_duration";
     metrics::counter!(metric_label_start, 0);
     metrics::counter!(metric_label_process_allowance, 0);
     metrics::counter!(metric_label_gather_pre, 0);
@@ -499,10 +500,17 @@ pub async fn service_loop(
     metrics::counter!(metric_label_gather_post_error, 0);
 
     let mut process_tx_needed;
+    let mut last_stats_time: Option<Instant> = None;
     loop {
         log::debug!("Sender service loop - start loop");
         metrics::counter!(metric_label_start, 1);
         let current_time = chrono::Utc::now();
+        let current_time_inst = Instant::now();
+        if let Some(_last_stats_time) = last_stats_time {
+            //todo - maybe add some metric here if possible
+            //metrics::timing!(metric_label_loop_duration, last_stats_time, current_time_inst);
+        }
+        last_stats_time = Some(current_time_inst);
 
         if payment_setup.generate_tx_only {
             log::warn!("Skipping processing transactions...");

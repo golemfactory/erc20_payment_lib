@@ -1,33 +1,28 @@
 use lazy_static::lazy_static;
-use metrics_core::{Builder, Drain, Observe, Observer};
+use metrics_core::{Builder, Drain, Observe};
 use metrics_runtime::observers::PrometheusBuilder;
-use metrics_runtime::Controller;
+
 use std::error::Error;
 use std::sync::Arc;
 use std::sync::Mutex;
+use metrics_runtime::Controller;
 
 lazy_static! {
     static ref METRICS: Arc<Mutex<Option<Metrics>>> = Arc::new(Mutex::new(None));
 }
 /// Exports metrics by converting them to a textual representation and logging them.
-pub struct StringExporter<C, B>
-where
-    B: Builder,
+pub struct StringExporter
 {
-    controller: C,
-    builder: B,
+    controller: Controller,
+    builder: PrometheusBuilder,
 }
 
-impl<C, B> StringExporter<C, B>
-where
-    B: Builder,
-    B::Output: Drain<String> + Observer,
-    C: Observe,
+impl StringExporter
 {
     /// Creates a new [`StringExporter`] that logs at the configurable level.
     ///
     /// Observers expose their output by being converted into strings.
-    pub fn new(controller: C, builder: B) -> Self {
+    pub fn new(controller: Controller, builder: PrometheusBuilder) -> Self {
         StringExporter {
             controller,
             builder,
@@ -43,7 +38,7 @@ where
 }
 
 struct Metrics {
-    pub exporter: StringExporter<Controller, PrometheusBuilder>,
+    pub exporter: StringExporter,
 }
 
 impl Metrics {
@@ -82,16 +77,21 @@ pub fn init_metrics() {
 
 //algorith is returning metrics in random order, which is fine for prometheus, but not for human checking metrics
 pub fn sort_metrics_txt(metrics: &str) -> String {
-    let Some(first_line_idx) = metrics.find("\n") else {
+    let Some(first_line_idx) = metrics.find('\n') else {
         return metrics.to_string();
     };
     let (first_line, metrics_content) = metrics.split_at(first_line_idx);
 
     let mut entries = metrics_content
-        .split("\n\n")
-        .map(|s| s.trim().to_string())
+        .split("\n\n") //splitting by double new line to get separate metrics
+        .map(|s| {
+            let trimmed = s.trim();
+            let mut lines = trimmed.split('\n').collect::<Vec<_>>();
+            lines.sort(); //sort by properties
+            lines.join("\n")
+        })
         .collect::<Vec<String>>();
-    entries.sort();
+    entries.sort(); //sort by metric name
 
     first_line.to_string() + "\n" + entries.join("\n\n").as_str()
 }

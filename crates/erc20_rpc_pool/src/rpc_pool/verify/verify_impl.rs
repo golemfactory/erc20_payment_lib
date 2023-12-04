@@ -112,6 +112,8 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
                 web3_rpc_info.penalty_from_ms += status.check_time_ms as i64 / 10;
                 web3_rpc_info.penalty_from_head_behind += status.head_seconds_behind as i64;
                 web3_rpc_info.is_allowed = true;
+                metrics::gauge!("rpc_endpoint_ms", status.check_time_ms as i64, "chain_id" => chain_id.to_string(), "endpoint" => web3_rpc_params.name.clone());
+                metrics::gauge!("rpc_endpoint_block_delay", status.head_seconds_behind as i64, "chain_id" => chain_id.to_string(), "endpoint" => web3_rpc_params.name.clone());
             }
             VerifyEndpointResult::NoBlockInfo => {}
             VerifyEndpointResult::WrongChainId => {}
@@ -122,6 +124,10 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
         }
     }
     m.write().unwrap().web3_rpc_info = web3_rpc_info;
+    metrics::gauge!("rpc_endpoint_score_validation", (m.read().unwrap().get_validation_score() * 1000.0) as i64, "chain_id" => chain_id.to_string(), "endpoint" => web3_rpc_params.name.clone());
+    metrics::gauge!("rpc_endpoint_effective_score", (m.read().unwrap().get_score() * 1000.0) as i64, "chain_id" => chain_id.to_string(), "endpoint" => web3_rpc_params.name.clone());
+    metrics::counter!("web3_rpc_success", 0, "chain_id" => chain_id.to_string(), "endpoint" => web3_rpc_params.name.clone());
+    metrics::counter!("web3_rpc_error", 0, "chain_id" => chain_id.to_string(), "endpoint" => web3_rpc_params.name.clone());
     log::debug!(
         "Verification finished score: {}",
         m.read().unwrap().get_validation_score()

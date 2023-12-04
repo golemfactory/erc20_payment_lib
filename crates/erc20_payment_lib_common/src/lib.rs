@@ -4,4 +4,4 @@ mod metrics;
 
 pub use db::*;
 pub use events::*;
-pub use metrics::*;
+pub use crate::metrics::*;
