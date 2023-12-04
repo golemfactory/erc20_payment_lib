@@ -2,23 +2,21 @@ use lazy_static::lazy_static;
 use metrics_core::{Builder, Drain, Observe};
 use metrics_runtime::observers::PrometheusBuilder;
 
+use metrics_runtime::Controller;
 use std::error::Error;
 use std::sync::Arc;
 use std::sync::Mutex;
-use metrics_runtime::Controller;
 
 lazy_static! {
     static ref METRICS: Arc<Mutex<Option<Metrics>>> = Arc::new(Mutex::new(None));
 }
 /// Exports metrics by converting them to a textual representation and logging them.
-pub struct StringExporter
-{
+pub struct StringExporter {
     controller: Controller,
     builder: PrometheusBuilder,
 }
 
-impl StringExporter
-{
+impl StringExporter {
     /// Creates a new [`StringExporter`] that logs at the configurable level.
     ///
     /// Observers expose their output by being converted into strings.
@@ -99,9 +97,7 @@ pub fn sort_metrics_txt(metrics: &str) -> String {
 pub fn export_metrics_to_prometheus() -> Result<String, Box<dyn Error>> {
     let mut lock = METRICS.lock().expect("Failed to lock metrics");
     match lock.as_mut() {
-        Some(metrics) => {
-            Ok(sort_metrics_txt(&metrics.export()))
-        }
+        Some(metrics) => Ok(sort_metrics_txt(&metrics.export())),
         None => Err("Metric exporter uninitialized".into()),
     }
 }

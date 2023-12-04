@@ -146,7 +146,18 @@ impl Web3RpcPool {
             web3_endpoints.insert(Arc::new(RwLock::new(endpoint)));
         }
 
-        let methods = ["balance", "block", "allowance", "block_number", "estimate_gas", "logs", "send_raw_transaction", "transaction", "transaction_count", "transaction_receipt"];
+        let methods = [
+            "balance",
+            "block",
+            "allowance",
+            "block_number",
+            "estimate_gas",
+            "logs",
+            "send_raw_transaction",
+            "transaction",
+            "transaction_count",
+            "transaction_receipt",
+        ];
         for method in methods {
             metrics::counter!("web3_rpc_success", 0, "chain_id" => chain_id.to_string(), "method" => method);
             metrics::counter!("web3_rpc_error", 0, "chain_id" => chain_id.to_string(), "method" => method);
