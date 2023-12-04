@@ -9,7 +9,7 @@ use actix_web::http::header::HeaderValue;
 use actix_web::http::{header, StatusCode};
 use actix_web::web::Data;
 use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
-use erc20_payment_lib_common::FaucetData;
+use erc20_payment_lib_common::{export_metrics_to_prometheus, FaucetData};
 use erc20_rpc_pool::VerifyEndpointResult;
 use serde_json::json;
 use sqlx::SqlitePool;
@@ -708,6 +708,14 @@ pub async fn redirect_to_slash(req: HttpRequest) -> impl Responder {
         .append_header((header::LOCATION, target))
         .finish()
 }
+
+pub async fn metrics(_req: HttpRequest) -> impl Responder {
+    export_metrics_to_prometheus().unwrap_or_else(|err| {
+        log::error!("Failed to export metrics: {}", err);
+        format!("Failed to export metrics: {}", err)
+    })
+}
+
 pub async fn greet(_req: HttpRequest) -> impl Responder {
     const VERSION: &str = env!("CARGO_PKG_VERSION");
     web::Json(json!({
@@ -873,6 +881,7 @@ pub fn runtime_web_scope(
         .route("/accounts", web::get().to(accounts))
         .route("/account/{account}", web::get().to(account_details))
         .route("/account/{account}/in", web::get().to(account_payments_in))
+        .route("/metrics", web::get().to(metrics))
         .route("/", web::get().to(greet))
         .route("/version", web::get().to(greet));
 

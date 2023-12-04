@@ -145,6 +145,24 @@ impl Web3RpcPool {
             log::debug!("Added endpoint {:?}", endpoint);
             web3_endpoints.insert(Arc::new(RwLock::new(endpoint)));
         }
+
+        let methods = [
+            "balance",
+            "block",
+            "allowance",
+            "block_number",
+            "estimate_gas",
+            "logs",
+            "send_raw_transaction",
+            "transaction",
+            "transaction_count",
+            "transaction_receipt",
+        ];
+        for method in methods {
+            metrics::counter!("web3_rpc_success", 0, "chain_id" => chain_id.to_string(), "method" => method);
+            metrics::counter!("web3_rpc_error", 0, "chain_id" => chain_id.to_string(), "method" => method);
+        }
+
         let s = Arc::new(Self {
             chain_id,
             endpoints: Arc::new(Mutex::new(web3_endpoints)),
@@ -461,6 +479,18 @@ impl Web3RpcPool {
     }
 
     pub fn mark_rpc_success(&self, idx: Index, method: String) {
+        // use read lock before write lock to avoid deadlock
+        let params = self
+            .endpoints
+            .lock()
+            .unwrap()
+            .get(idx)
+            .unwrap()
+            .read()
+            .unwrap()
+            .web3_rpc_params
+            .clone();
+
         let endpoints = self.endpoints.lock().unwrap();
         let stats = &mut endpoints.get(idx).unwrap().write().unwrap().web3_rpc_info;
 
@@ -480,6 +510,9 @@ impl Web3RpcPool {
                 return;
             }
         };
+        metrics::counter!("web3_rpc_success", 1, "chain_id" => self.chain_id.to_string(), "endpoint" => params.name.clone());
+        metrics::counter!("web3_rpc_success", 1, "chain_id" => self.chain_id.to_string(), "method" => method);
+        metrics::counter!("web3_rpc_success", 1, "chain_id" => self.chain_id.to_string());
         el.request_succeeded_count += 1;
         el.last_success_request = Some(Utc::now());
 
@@ -523,6 +556,9 @@ impl Web3RpcPool {
 
             stats.web3_rpc_stats.last_error_request = Some(Utc::now());
             stats.web3_rpc_stats.request_count_total_error += 1;
+            metrics::counter!("web3_rpc_error", 1, "chain_id" => self.chain_id.to_string(), "endpoint" => params.name.clone());
+            metrics::counter!("web3_rpc_error", 1, "chain_id" => self.chain_id.to_string(), "method" => method);
+            metrics::counter!("web3_rpc_error", 1, "chain_id" => self.chain_id.to_string());
             stats.verify_result = Some(verify_result);
             stats.endpoint_consecutive_errors += 1;
             stats.penalty_from_last_critical_error += 10;

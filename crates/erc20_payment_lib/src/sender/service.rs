@@ -18,6 +18,7 @@ use erc20_payment_lib_common::model::TxDao;
 use erc20_payment_lib_common::{DriverEvent, DriverEventContent, TransactionFinishedInfo};
 use sqlx::SqlitePool;
 use tokio::select;
+use tokio::time::Instant;
 use web3::types::U256;
 
 pub async fn update_token_transfer_result(
@@ -484,10 +485,32 @@ pub async fn service_loop(
         chrono::Utc::now()
     };
 
+    let metric_label_start = "erc20_payment_lib.service_loop.start";
+    let metric_label_process_allowance = "erc20_payment_lib.service_loop.process_allowance";
+    let metric_label_gather_pre = "erc20_payment_lib.service_loop.gather_pre";
+    let metric_label_gather_pre_error = "erc20_payment_lib.service_loop.gather_pre_error";
+    let metric_label_gather_post = "erc20_payment_lib.service_loop.gather_post";
+    let metric_label_gather_post_error = "erc20_payment_lib.service_loop.gather_post_error";
+    //let metric_label_loop_duration = "erc20_payment_lib.service_loop.loop_duration";
+    metrics::counter!(metric_label_start, 0);
+    metrics::counter!(metric_label_process_allowance, 0);
+    metrics::counter!(metric_label_gather_pre, 0);
+    metrics::counter!(metric_label_gather_pre_error, 0);
+    metrics::counter!(metric_label_gather_post, 0);
+    metrics::counter!(metric_label_gather_post_error, 0);
+
     let mut process_tx_needed;
+    let mut last_stats_time: Option<Instant> = None;
     loop {
         log::debug!("Sender service loop - start loop");
+        metrics::counter!(metric_label_start, 1);
         let current_time = chrono::Utc::now();
+        let current_time_inst = Instant::now();
+        if let Some(_last_stats_time) = last_stats_time {
+            //todo - maybe add some metric here if possible
+            //metrics::timing!(metric_label_loop_duration, last_stats_time, current_time_inst);
+        }
+        last_stats_time = Some(current_time_inst);
 
         if payment_setup.generate_tx_only {
             log::warn!("Skipping processing transactions...");
@@ -537,11 +560,13 @@ pub async fn service_loop(
                 continue;
             }
         }
+        metrics::counter!(metric_label_gather_pre, 1);
 
         log::debug!("Gathering payments...");
         let mut token_transfer_map = match gather_transactions_pre(conn, payment_setup).await {
             Ok(token_transfer_map) => token_transfer_map,
             Err(e) => {
+                metrics::counter!(metric_label_gather_pre_error, 1);
                 log::error!(
                     "Error in gather transactions, driver will be stuck, Fix DB to continue {:?}",
                     e
@@ -553,6 +578,7 @@ pub async fn service_loop(
                 continue;
             }
         };
+        metrics::counter!(metric_label_gather_post, 1);
 
         match gather_transactions_post(
             event_sender.clone(),
@@ -576,6 +602,8 @@ pub async fn service_loop(
                             allowance_request.token_addr,
                             allowance_request.owner
                         );
+                        metrics::counter!(metric_label_process_allowance, 1);
+
                         match process_allowance(conn, payment_setup, allowance_request, &signer)
                             .await
                         {
@@ -598,6 +626,7 @@ pub async fn service_loop(
                     }
                 }
                 //if error happened, we should check if partial transfers were inserted
+                metrics::counter!(metric_label_gather_post_error, 1);
                 process_tx_needed = true;
                 log::error!("Error in gather transactions: {}", e);
             }
