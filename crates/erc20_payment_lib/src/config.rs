@@ -122,7 +122,6 @@ pub struct Chain {
     pub currency_symbol: String,
     pub priority_fee: Decimal,
     pub max_fee_per_gas: Decimal,
-    pub gas_left_warning_limit: u64,
     pub token: Token,
     pub multi_contract: Option<MultiContractSettings>,
     pub mint_contract: Option<MintContractSettings>,
