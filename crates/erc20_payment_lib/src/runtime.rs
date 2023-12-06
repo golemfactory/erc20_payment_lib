@@ -206,6 +206,11 @@ impl StatusTracker {
         #[allow(clippy::match_like_matches_macro)]
         status_props.retain(|s| match s {
             StatusProperty::InvalidChainId { chain_id } if *chain_id == ok_chain_id => false,
+            StatusProperty::CantSign { chain_id, .. } if *chain_id == ok_chain_id => false,
+            StatusProperty::NoGas { chain_id, .. } if *chain_id == ok_chain_id => false,
+            StatusProperty::NoToken { chain_id, .. } if *chain_id == ok_chain_id => false,
+            StatusProperty::TxStuck { chain_id, .. } if *chain_id == ok_chain_id => false,
+            StatusProperty::Web3RpcError { chain_id, .. } if *chain_id == ok_chain_id => false,
             _ => true,
         });
 
