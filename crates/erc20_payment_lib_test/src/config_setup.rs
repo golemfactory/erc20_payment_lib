@@ -31,7 +31,6 @@ pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) 
         currency_symbol: "tETH".to_string(),
         priority_fee: Decimal::from_f64(1.1).unwrap(),
         max_fee_per_gas: Decimal::from_f64(500.0).unwrap(),
-        gas_left_warning_limit: 1000000,
         token: Token {
             symbol: "tGLM".to_string(),
             address: Address::from_str("0xfff17584d526aba263025eE7fEF517E4A31D4246").unwrap(),
