@@ -31,7 +31,7 @@ ignore-deadlines = false
 
 
 [chain.mainnet]
-chain-name = "Ethereum"
+chain-name = "Mainnet"
 chain-id = 1
 currency-symbol = "ETH"
 priority-fee = 1.01
