@@ -973,7 +973,8 @@ pub async fn verify_transaction(
                 transfer
             );
             if Address::from_str(&transfer.receiver_addr).map_err(err_from!())? == receiver
-                && Address::from_str(&transfer.from_addr).map_err(err_from!())? == sender
+                && (Address::from_str(&transfer.from_addr).map_err(err_from!())? == sender
+                    || Address::from_str(&chain_tx_dao.from_addr).map_err(err_from!())? == sender)
             {
                 let tx_amount = U256::from_dec_str(&transfer.token_amount).map_err(err_from!())?;
                 return if tx_amount >= amount {
