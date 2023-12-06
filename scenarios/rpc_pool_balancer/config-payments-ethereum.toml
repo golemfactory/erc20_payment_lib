@@ -29,7 +29,7 @@ automatic-recover = false
 # set to true to not respect deadlines attached to payments
 ignore-deadlines = false
 
-[chain.ethereum]
+[chain.mainnet]
 chain-name = "Ethereum"
 chain-id = 1
 currency-symbol = "ETH"
@@ -41,7 +41,7 @@ token = { address = "0x7DD9c5Cba05E151C895FDe1CF355C9A1D5DA6429", symbol = "GLM"
 confirmation-blocks = 1
 block-explorer-url = "https://etherscan.io"
 
-[[chain.ethereum.rpc-endpoints]]
+[[chain.mainnet.rpc-endpoints]]
 name = "eth.llamarpc.com"
 endpoint = "https://eth.llamarpc.com"
 priority = 0
@@ -49,7 +49,7 @@ max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
 
-[[chain.ethereum.rpc-endpoints]]
+[[chain.mainnet.rpc-endpoints]]
 name = "public.blastapi.io"
 endpoint = "https://eth-mainnet.public.blastapi.io"
 priority = 0
@@ -57,7 +57,7 @@ max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
 
-[[chain.ethereum.rpc-endpoints]]
+[[chain.mainnet.rpc-endpoints]]
 name = "rpc.ankr.com/eth"
 endpoint = "https://rpc.ankr.com/eth"
 priority = 0
@@ -65,7 +65,7 @@ max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
 
-[[chain.ethereum.rpc-endpoints]]
+[[chain.mainnet.rpc-endpoints]]
 name = "rpc.flashbots.net"
 endpoint = "https://rpc.flashbots.net"
 priority = 0
@@ -73,7 +73,7 @@ max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
 
-[[chain.ethereum.rpc-endpoints]]
+[[chain.mainnet.rpc-endpoints]]
 name = "cloudflare-eth.com"
 endpoint = "https://cloudflare-eth.com/"
 priority = 0
@@ -81,7 +81,7 @@ max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
 
-[[chain.ethereum.rpc-endpoints]]
+[[chain.mainnet.rpc-endpoints]]
 name = "ethereum.publicnode.com"
 endpoint = "https://ethereum.publicnode.com"
 priority = 0
@@ -89,7 +89,7 @@ max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
 
-[[chain.ethereum.rpc-endpoints]]
+[[chain.mainnet.rpc-endpoints]]
 name = "chainstack"
 endpoint = "https://chainstack.com/"
 priority = 0
