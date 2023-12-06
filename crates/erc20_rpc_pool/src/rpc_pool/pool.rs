@@ -313,7 +313,7 @@ impl Web3RpcPool {
             let urls = match resolve_txt_record_to_string_array(&dns_source.dns_url).await {
                 Ok(record) => record,
                 Err(e) => {
-                    log::error!("Error resolving dns entry {}: {}", &dns_source.dns_url, e);
+                    log::warn!("Error resolving dns entry {}: {}", &dns_source.dns_url, e);
                     continue;
                 }
             };

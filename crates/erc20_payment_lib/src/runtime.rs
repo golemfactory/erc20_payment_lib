@@ -244,7 +244,7 @@ impl StatusTracker {
                     DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(
                         details,
                     )) => {
-                        let missing_gas = details.gas_balance - details.gas_needed;
+                        let missing_gas = details.gas_needed - details.gas_balance;
 
                         Self::update(
                             status.lock().await.deref_mut(),
@@ -258,7 +258,7 @@ impl StatusTracker {
                     DriverEventContent::TransactionStuck(TransactionStuckReason::NoToken(
                         details,
                     )) => {
-                        let missing_token = details.token_needed - details.token_balance;
+                        let missing_token = details.token_balance - details.token_needed;
                         Self::update(
                             status.lock().await.deref_mut(),
                             StatusProperty::NoToken {

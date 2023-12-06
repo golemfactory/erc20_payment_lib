@@ -30,8 +30,8 @@ automatic-recover = false
 ignore-deadlines = false
 
 
-[chain.ethereum]
-chain-name = "Ethereum"
+[chain.mainnet]
+chain-name = "Mainnet"
 chain-id = 1
 currency-symbol = "ETH"
 priority-fee = 1.01
@@ -42,7 +42,7 @@ confirmation-blocks = 1
 block-explorer-url = "https://etherscan.io"
 external-source-check-interval = 300
 
-[[chain.ethereum.rpc-endpoints]]
+[[chain.mainnet.rpc-endpoints]]
 names = """
     virginia.rpc.blxrbdn.com,
     public.blastapi.io,
@@ -65,7 +65,7 @@ max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
 
-[[chain.ethereum.rpc-endpoints]]
+[[chain.mainnet.rpc-endpoints]]
 priority = 0
 max-timeout-ms = 5000
 verify-interval-secs = 60
