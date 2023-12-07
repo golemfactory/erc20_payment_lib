@@ -438,44 +438,28 @@ impl Web3RpcPool {
         }
     }
 
-    pub fn get_web3(&self, idx: Index) -> Web3<Http> {
-        self.endpoints
-            .lock()
-            .unwrap()
-            .get(idx)
-            .unwrap()
-            .read()
-            .unwrap()
-            .web3
-            .clone()
+    pub fn get_web3(&self, idx: Index) -> Option<Web3<Http>> {
+        let endpoints = self.endpoints.lock().unwrap();
+        endpoints.get(idx).map(|el| el.read().unwrap().web3.clone())
     }
 
     pub fn get_name(&self, idx: Index) -> String {
-        self.endpoints
-            .lock()
-            .unwrap()
-            .get(idx)
-            .unwrap()
-            .read()
-            .unwrap()
-            .web3_rpc_params
-            .name
-            .clone()
+        let endpoints = self.endpoints.lock().unwrap();
+        if let Some(el) = endpoints.get(idx) {
+            el.read().unwrap().web3_rpc_params.name.clone()
+        } else {
+            "NoIdx".to_string()
+        }
     }
 
     pub fn get_max_timeout(&self, idx: Index) -> std::time::Duration {
-        std::time::Duration::from_millis(
-            self.endpoints
-                .lock()
-                .unwrap()
-                .get(idx)
-                .unwrap()
-                .read()
-                .unwrap()
-                .web3_rpc_params
-                .web3_endpoint_params
-                .max_response_time_ms,
-        )
+        let endpoints = self.endpoints.lock().unwrap();
+        Duration::from_millis(if let Some(el) = endpoints.get(idx) {
+            el.read().unwrap().web3_rpc_params.web3_endpoint_params
+                .max_response_time_ms
+        } else {
+            0
+        })
     }
 
     pub fn mark_rpc_success(&self, idx: Index, method: String) {
@@ -484,12 +468,12 @@ impl Web3RpcPool {
             .endpoints
             .lock()
             .unwrap()
-            .get(idx)
-            .unwrap()
-            .read()
-            .unwrap()
-            .web3_rpc_params
-            .clone();
+            .get(idx).map(|el| el.read().unwrap().web3_rpc_params.clone());
+
+        let Some(params) = params else {
+            log::error!("mark_rpc_success - no params found for given index");
+            return;
+        };
 
         let endpoints = self.endpoints.lock().unwrap();
         let stats = &mut endpoints.get(idx).unwrap().write().unwrap().web3_rpc_info;
