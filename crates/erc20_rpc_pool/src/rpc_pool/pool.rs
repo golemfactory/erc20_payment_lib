@@ -312,7 +312,8 @@ impl Web3RpcPool {
     fn cleanup_sources(self: Arc<Self>) {
         let grace_period = chrono::Duration::seconds(300);
         self.endpoints.lock().unwrap().retain(|_idx, el| {
-            let can_remove = el.read()
+            let can_remove = el
+                .read()
                 .unwrap()
                 .web3_rpc_info
                 .removed_date
@@ -367,8 +368,8 @@ impl Web3RpcPool {
             let mut endpoints_locked = self.endpoints.lock().unwrap();
             for (_idx, el) in endpoints_locked.iter_mut() {
                 let mut el = el.write().unwrap();
-                if el.web3_rpc_info.removed_date.is_none() &&
-                    el.web3_rpc_params.source_id == Some(dns_source.unique_source_id)
+                if el.web3_rpc_info.removed_date.is_none()
+                    && el.web3_rpc_params.source_id == Some(dns_source.unique_source_id)
                     && !urls.contains(&el.web3_rpc_params.endpoint)
                 {
                     el.web3_rpc_info.removed_date = Some(Utc::now());
@@ -413,8 +414,8 @@ impl Web3RpcPool {
             let mut endpoints_locked = self.endpoints.lock().unwrap();
             for (_idx, el) in endpoints_locked.iter_mut() {
                 let mut el = el.write().unwrap();
-                if el.web3_rpc_info.removed_date.is_none() &&
-                    el.web3_rpc_params.source_id == Some(json_source.unique_source_id)
+                if el.web3_rpc_info.removed_date.is_none()
+                    && el.web3_rpc_params.source_id == Some(json_source.unique_source_id)
                     && !res.urls.contains(&el.web3_rpc_params.endpoint)
                 {
                     el.web3_rpc_info.removed_date = Some(Utc::now());
