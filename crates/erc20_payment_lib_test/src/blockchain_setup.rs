@@ -6,6 +6,7 @@ use erc20_payment_lib::utils::get_env_bool_value;
 use futures_util::TryStreamExt;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
+use lazy_static::lazy_static;
 use tokio::runtime::Handle;
 
 pub struct ImageName {
@@ -126,16 +127,29 @@ impl ImageName {
     }
 }
 
+lazy_static!(
+    static ref USED_PORTS: tokio::sync::Mutex<std::collections::HashSet<u16>> = tokio::sync::Mutex::new(std::collections::HashSet::new());
+);
+
 async fn get_available_port_pair() -> Result<(u16, u16), anyhow::Error> {
     let port1 = 8544;
     let port2 = 8545;
 
+
     for _i in 0..100 {
-        let random_skew = rand::random::<u16>() % 1000 * 2;
+        let random_skew = rand::random::<u16>() % 20 * 2;
+        if USED_PORTS.lock().await.contains(&(port1 + random_skew)) {
+            continue;
+        }
+        if USED_PORTS.lock().await.contains(&(port2 + random_skew)) {
+            continue;
+        }
         if let (true, true) = tokio::join!(
             port_is_available(port1 + random_skew),
             port_is_available(port2 + random_skew)
         ) {
+            USED_PORTS.lock().await.insert(port1 + random_skew);
+            USED_PORTS.lock().await.insert(port1 + random_skew);
             return Ok((port1 + random_skew, port2 + random_skew));
         }
     }
