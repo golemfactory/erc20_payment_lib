@@ -6,7 +6,7 @@ use std::path::Path;
 
 use crate::err_custom_create;
 use crate::error::*;
-use erc20_payment_lib_common::{err_create, err_from};
+use erc20_payment_lib_common::err_create;
 use tokio::fs;
 use web3::types::Address;
 
