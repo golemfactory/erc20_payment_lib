@@ -47,28 +47,9 @@ confirmation-blocks = 0
 block-explorer-url = "https://holesky.etherscan.io"
 
 [[chain.holesky.rpc-endpoints]]
-names = """
-    holesky.publicnode.com,
-"""
-
-endpoints = """
-    https://holesky.publicnode.com,
-"""
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-
-[[chain.holesky.rpc-endpoints]]
 priority = 0
 max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
 json-source = "https://raw.githubusercontent.com/golemfactory/erc20_payment_lib/scx1332/dns_suport/endpoints/holesky.json"
 
-[[chain.holesky.rpc-endpoints]]
-priority = 0
-max-timeout-ms = 5000
-verify-interval-secs = 60
-allowed-head-behind-secs = 120
-dns-source = "holesky.rpc-node.dev.golem.network."
