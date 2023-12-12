@@ -130,7 +130,7 @@ impl ImageName {
 lazy_static! {
     static ref USED_PORTS: tokio::sync::Mutex<std::collections::HashSet<u16>> =
         tokio::sync::Mutex::new(std::collections::HashSet::new());
-};
+}
 
 /// Returns available port pair, this is not PRODUCTION code, only for tests
 /// DO NOT USE FOR PRODUCTION. it is not guaranteed to always work

@@ -6,6 +6,7 @@ use std::path::Path;
 
 use crate::err_custom_create;
 use crate::error::*;
+use erc20_payment_lib_common::{err_create, err_from};
 use tokio::fs;
 use web3::types::Address;
 
@@ -164,12 +165,17 @@ impl Config {
 
     pub async fn load<P: AsRef<Path>>(path: P) -> Result<Self, PaymentError> {
         match toml::from_str(&String::from_utf8_lossy(&fs::read(&path).await.map_err(
-            |e| {
-                err_custom_create!(
-                    "Failed to read config file {}. Error {}",
-                    path.as_ref().display(),
-                    e
-                )
+            |e| match e.kind() {
+                std::io::ErrorKind::NotFound => {
+                    err_create!(e)
+                }
+                _ => {
+                    err_custom_create!(
+                        "Failed to read config file {}. Error {}",
+                        path.as_ref().display(),
+                        e
+                    )
+                }
             },
         )?)) {
             Ok(config) => Ok(config),
