@@ -273,7 +273,6 @@ async fn main_internal() -> Result<(), PaymentError> {
                     for (idx, endpoint) in endpoints.iter().enumerate() {
                         let endpoint = Web3RpcSingleParams {
                             chain_id: chain_cfg.chain_id as u64,
-
                             endpoint: endpoint.clone(),
                             name: endpoint_names.get(idx).unwrap_or(&endpoint.clone()).clone(),
                             web3_endpoint_params: Web3EndpointParams {
@@ -291,6 +290,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                                     .unwrap_or(5),
                                 min_interval_requests_ms: rpc_settings.min_interval_ms,
                             },
+                            source_id: None,
                         };
                         single_endpoints.push(endpoint);
                     }
@@ -327,7 +327,6 @@ async fn main_internal() -> Result<(), PaymentError> {
                         log::info!("Imported from dns source: {}", name);
                         web3_pool.clone().add_endpoint(Web3RpcSingleParams {
                             chain_id: chain_cfg.chain_id as u64,
-
                             endpoint: url.clone(),
                             name: name.clone(),
                             web3_endpoint_params: Web3EndpointParams {
@@ -345,6 +344,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                                     .unwrap_or(5),
                                 min_interval_requests_ms: rpc_settings.min_interval_ms,
                             },
+                            source_id: None,
                         });
                     }
                 } else if let Some(json_source) = &rpc_settings.json_source {
@@ -386,7 +386,6 @@ async fn main_internal() -> Result<(), PaymentError> {
 
                         web3_pool.clone().add_endpoint(Web3RpcSingleParams {
                             chain_id: chain_cfg.chain_id as u64,
-
                             endpoint: url.clone(),
                             name: name.clone(),
                             web3_endpoint_params: Web3EndpointParams {
@@ -404,6 +403,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                                     .unwrap_or(5),
                                 min_interval_requests_ms: rpc_settings.min_interval_ms,
                             },
+                            source_id: None,
                         });
                     }
                 } else {

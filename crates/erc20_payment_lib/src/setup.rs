@@ -15,6 +15,7 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
+use uuid::Uuid;
 use web3::types::{Address, U256};
 
 #[derive(Clone, Debug)]
@@ -175,12 +176,14 @@ impl PaymentSetup {
                                     .unwrap_or(5),
                                 min_interval_requests_ms: rpc_settings.min_interval_ms,
                             },
+                            source_id: None,
                         };
                         single_endpoints.push(endpoint);
                     }
                 } else if let Some(dns_source) = &rpc_settings.dns_source {
                     dns_sources.push(Web3ExternalDnsSource {
                         chain_id: chain_config.1.chain_id as u64,
+                        unique_source_id: Uuid::new_v4(),
                         dns_url: dns_source.clone(),
                         endpoint_params: Web3EndpointParams {
                             backup_level: rpc_settings.backup_level.unwrap_or(0),
@@ -199,6 +202,7 @@ impl PaymentSetup {
                 } else if let Some(json_source) = &rpc_settings.json_source {
                     json_sources.push(Web3ExternalJsonSource {
                         chain_id: chain_config.1.chain_id as u64,
+                        unique_source_id: Uuid::new_v4(),
                         url: json_source.clone(),
                         endpoint_params: Web3EndpointParams {
                             backup_level: rpc_settings.backup_level.unwrap_or(0),
