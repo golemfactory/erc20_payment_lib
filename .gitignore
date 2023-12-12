@@ -17,3 +17,4 @@
 /.cargo
 /config-payments-local.toml
 /nodes.json
+/config-payments.toml
