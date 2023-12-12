@@ -163,13 +163,15 @@ impl Config {
     }
 
     pub async fn load<P: AsRef<Path>>(path: P) -> Result<Self, PaymentError> {
-        match toml::from_str(&String::from_utf8_lossy(&fs::read(&path).await.map_err(|e| {
-            err_custom_create!(
-                "Failed to read config file {}. Error {}",
-                path.as_ref().display(),
-                e
-            )
-        })?)) {
+        match toml::from_str(&String::from_utf8_lossy(&fs::read(&path).await.map_err(
+            |e| {
+                err_custom_create!(
+                    "Failed to read config file {}. Error {}",
+                    path.as_ref().display(),
+                    e
+                )
+            },
+        )?)) {
             Ok(config) => Ok(config),
             Err(e) => Err(err_custom_create!(
                 "Failed to parse toml {}: {}",

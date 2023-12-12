@@ -42,12 +42,10 @@ impl Web3RpcPool {
 
             for idx in idx_vec {
                 let res = match self.get_web3(idx) {
-                    Some(web3) => {
-                        tokio::time::timeout(
-                            self.get_max_timeout(idx),
-                            EthMethodCall::do_call(web3.eth(), args.clone()),
-                        )
-                    }
+                    Some(web3) => tokio::time::timeout(
+                        self.get_max_timeout(idx),
+                        EthMethodCall::do_call(web3.eth(), args.clone()),
+                    ),
                     None => {
                         //this case is possible if endpoint is removed from pool, just skip it and try next one
                         log::warn!("No web3 instance found on specified index");

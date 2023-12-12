@@ -104,7 +104,7 @@ pub struct Web3RpcPool {
 
 pub async fn resolve_txt_record_to_string_array(record: &str) -> std::io::Result<Vec<String>> {
     let resolver: TokioAsyncResolver =
-        TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default())?;
+        TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default());
 
     Ok(resolver
         .txt_lookup(record)
@@ -455,7 +455,10 @@ impl Web3RpcPool {
     pub fn get_max_timeout(&self, idx: Index) -> std::time::Duration {
         let endpoints = self.endpoints.lock().unwrap();
         Duration::from_millis(if let Some(el) = endpoints.get(idx) {
-            el.read().unwrap().web3_rpc_params.web3_endpoint_params
+            el.read()
+                .unwrap()
+                .web3_rpc_params
+                .web3_endpoint_params
                 .max_response_time_ms
         } else {
             0
@@ -468,7 +471,8 @@ impl Web3RpcPool {
             .endpoints
             .lock()
             .unwrap()
-            .get(idx).map(|el| el.read().unwrap().web3_rpc_params.clone());
+            .get(idx)
+            .map(|el| el.read().unwrap().web3_rpc_params.clone());
 
         let Some(params) = params else {
             log::error!("mark_rpc_success - no params found for given index");
