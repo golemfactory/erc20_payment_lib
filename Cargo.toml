@@ -65,8 +65,8 @@ structopt = "0.3.26"
 thiserror = "1.0.37"
 thunderdome = "0.6.1"
 tokio = { version = "^1.21", features = ["macros", "rt-multi-thread"] }
-toml = "0.5.9" # need some refactor to update
-trust-dns-resolver = "0.22"
+toml = "0.8.8" # need some refactor to update
+trust-dns-resolver = "0.23.2"
 url = "2.4.1"
 uuid = { version = "1.2.2", features = ["serde", "v4"] }
 web3 = { version = "0.19.0", default-features = false, features = [

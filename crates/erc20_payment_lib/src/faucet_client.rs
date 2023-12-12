@@ -42,7 +42,7 @@ async fn resolve_faucet_url(
 pub async fn resolve_srv_record(record: &str) -> std::io::Result<String> {
     println!("resolve_srv_record: {}", record);
     let resolver: TokioAsyncResolver =
-        TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default())?;
+        TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default());
     let lookup = resolver.srv_lookup(record).await?;
     let srv = lookup
         .iter()
@@ -74,8 +74,7 @@ pub async fn resolve_dns_record(request_url: &str) -> Result<String, PaymentErro
 }
 
 pub async fn resolve_dns_record_host(host: &str) -> Result<String, PaymentError> {
-    let resolver = TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default())
-        .map_err(|err| err_custom_create!("Error when creating resolver {}", err))?;
+    let resolver = TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default());
 
     let response = resolver
         .lookup_ip(host)
