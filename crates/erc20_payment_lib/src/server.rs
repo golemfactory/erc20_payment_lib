@@ -1,5 +1,5 @@
 use crate::db::ops::*;
-use crate::eth::get_eth_addr_from_secret;
+use crate::eth::{get_balance, get_eth_addr_from_secret, GetBalanceResult};
 use crate::runtime::SharedState;
 use crate::setup::{ChainSetup, PaymentSetup};
 use crate::transaction::create_token_transfer;
@@ -11,6 +11,7 @@ use actix_web::web::Data;
 use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
 use erc20_payment_lib_common::{export_metrics_to_prometheus, FaucetData};
 use erc20_rpc_pool::VerifyEndpointResult;
+use serde::Serialize;
 use serde_json::json;
 use sqlx::SqlitePool;
 use std::collections::BTreeMap;
@@ -586,6 +587,58 @@ pub async fn transfers(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Re
     }))
 }
 
+#[derive(Serialize)]
+struct AccountBalanceResponse {
+    network_id: i64,
+    account: String,
+    balance: GetBalanceResult,
+}
+
+async fn account_balance(
+    data: Data<Box<ServerData>>,
+    req: HttpRequest,
+) -> actix_web::Result<actix_web::web::Json<AccountBalanceResponse>> {
+    let account = Address::from_str(
+        req.match_info()
+            .get("account")
+            .ok_or(actix_web::error::ErrorBadRequest("account not found"))?,
+    )
+    .map_err(|err| {
+        actix_web::error::ErrorBadRequest(format!("account has to be valid address {err}"))
+    })?;
+    let network_id = i64::from_str(
+        req.match_info()
+            .get("chain")
+            .ok_or(actix_web::error::ErrorBadRequest("chain-id not found"))?,
+    )
+    .map_err(|err| actix_web::error::ErrorBadRequest(format!("chain-id has to be int {err}")))?;
+
+    let config = data.payment_setup.clone();
+
+    let chain = config
+        .chain_setup
+        .get(&network_id)
+        .ok_or(actix_web::error::ErrorBadRequest("No config found"))?;
+
+    let balance = get_balance(
+        chain.provider.clone(),
+        Some(chain.glm_address),
+        chain.lock_contract_address,
+        account,
+        true,
+    )
+    .await
+    .map_err(|err| {
+        actix_web::error::ErrorInternalServerError(format!("Failed to get balance {err}"))
+    })?;
+
+    Ok(web::Json(AccountBalanceResponse {
+        network_id: network_id,
+        account: format!("{:#x}", account),
+        balance: balance,
+    }))
+}
+
 pub async fn accounts(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Responder {
     //let name = req.match_info().get("name").unwrap_or("World");
     //let mut my_data = data.shared_state.lock().await;
@@ -851,6 +904,7 @@ pub fn runtime_web_scope(
     let mut api_scope = api_scope
         .app_data(server_data)
         .route("/allowances", web::get().to(allowances))
+        .route("/balance/{account}/{chain}", web::get().to(account_balance))
         .route("/rpc_pool", web::get().to(rpc_pool))
         .route("/rpc_pool/metrics", web::get().to(rpc_pool_metrics))
         .route("/config", web::get().to(config_endpoint))

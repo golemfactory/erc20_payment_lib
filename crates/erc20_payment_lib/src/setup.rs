@@ -50,6 +50,7 @@ pub struct ChainSetup {
     pub priority_fee: U256,
     pub glm_address: Address,
     pub multi_contract_address: Option<Address>,
+    pub lock_contract_address: Option<Address>,
     pub faucet_setup: FaucetSetup,
     pub multi_contract_max_at_once: usize,
     pub transaction_timeout: u64,
@@ -302,6 +303,7 @@ impl PaymentSetup {
                         .clone()
                         .map(|m| m.max_at_once)
                         .unwrap_or(1),
+                    lock_contract_address: chain_config.1.lock_contract.clone().map(|m| m.address),
                     faucet_setup,
 
                     transaction_timeout: chain_config.1.transaction_timeout,
