@@ -1,6 +1,6 @@
 use crate::db::ops::*;
-use crate::eth::{get_balance, get_eth_addr_from_secret, GetBalanceResult};
-use crate::runtime::SharedState;
+use crate::eth::{get_balance, get_eth_addr_from_secret};
+use crate::runtime::{PaymentRuntime, SharedState, TransferArgs, TransferType};
 use crate::setup::{ChainSetup, PaymentSetup};
 use crate::transaction::create_token_transfer;
 use actix_files::NamedFile;
@@ -11,19 +11,21 @@ use actix_web::web::Data;
 use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
 use erc20_payment_lib_common::{export_metrics_to_prometheus, FaucetData};
 use erc20_rpc_pool::VerifyEndpointResult;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use web3::types::Address;
+use web3::types::{Address, U256};
+use crate::service::{add_glm_request, add_payment_request_2};
 
 pub struct ServerData {
     pub shared_state: Arc<Mutex<SharedState>>,
     pub db_connection: Arc<Mutex<SqlitePool>>,
     pub payment_setup: PaymentSetup,
+    pub payment_runtime: PaymentRuntime,
 }
 
 macro_rules! return_on_error {
@@ -533,6 +535,46 @@ pub async fn transactions_feed(data: Data<Box<ServerData>>, req: HttpRequest) ->
     }))
 }
 
+#[derive(Debug, Deserialize)]
+struct TransactionRequest {
+    from: String,
+    to: String,
+    token: Option<String>,
+    amount: String,
+    chain: i64,
+}
+
+async fn new_transfer(data: Data<Box<ServerData>>, req: HttpRequest, new_transfer: web::Json<TransactionRequest>) -> actix_web::Result<String> {
+    println!("new_transfer: {:?}", new_transfer);
+
+    let chain = data.payment_setup
+        .chain_setup
+        .get(&new_transfer.chain)
+        .ok_or(actix_web::error::ErrorBadRequest("No config found"))?.clone();
+
+    let tx_type = if let Some(token) = &new_transfer.token {
+        TransferType::Token
+    } else {
+        TransferType::Gas
+    };
+
+    if let Err(err) = data.payment_runtime.transfer(
+        TransferArgs {
+            chain_name: chain.network,
+            from: Address::from_str(&new_transfer.from).unwrap(),
+            receiver: Address::from_str(&new_transfer.to).unwrap(),
+            tx_type,
+            amount: U256::from_dec_str(&new_transfer.amount).unwrap(),
+            payment_id: uuid::Uuid::new_v4().to_string(),
+            deadline: None,
+        }
+    ).await {
+        return Err(actix_web::error::ErrorInternalServerError(format!("Failed to create transfer: {}", err)))
+    };
+
+    Ok("success".to_string())
+}
+
 pub async fn transfers(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Responder {
     let tx_id = req
         .match_info()
@@ -588,16 +630,19 @@ pub async fn transfers(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Re
 }
 
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct AccountBalanceResponse {
     network_id: i64,
     account: String,
-    balance: GetBalanceResult,
+    gas_balance: String,
+    token_balance: String,
+    deposit_balance: Option<String>,
 }
 
 async fn account_balance(
     data: Data<Box<ServerData>>,
     req: HttpRequest,
-) -> actix_web::Result<actix_web::web::Json<AccountBalanceResponse>> {
+) -> actix_web::Result<web::Json<AccountBalanceResponse>> {
     let account = Address::from_str(
         req.match_info()
             .get("account")
@@ -613,9 +658,7 @@ async fn account_balance(
     )
     .map_err(|err| actix_web::error::ErrorBadRequest(format!("chain-id has to be int {err}")))?;
 
-    let config = data.payment_setup.clone();
-
-    let chain = config
+    let chain = data.payment_setup
         .chain_setup
         .get(&network_id)
         .ok_or(actix_web::error::ErrorBadRequest("No config found"))?;
@@ -633,9 +676,14 @@ async fn account_balance(
     })?;
 
     Ok(web::Json(AccountBalanceResponse {
-        network_id: network_id,
+        network_id,
         account: format!("{:#x}", account),
-        balance: balance,
+        gas_balance: balance.gas_balance.map(|b| b.to_string()).unwrap_or("0".to_string()),
+        token_balance: balance
+            .token_balance
+            .map(|b| b.to_string())
+            .unwrap_or("0".to_string()),
+        deposit_balance: balance.deposit_balance.map(|b| b.to_string()),
     }))
 }
 
@@ -897,6 +945,7 @@ pub fn runtime_web_scope(
     scope: Scope,
     server_data: Data<Box<ServerData>>,
     enable_faucet: bool,
+    enable_transfers: bool,
     debug: bool,
     frontend: bool,
 ) -> Scope {
@@ -932,6 +981,7 @@ pub fn runtime_web_scope(
         .route("/tx/{tx_id}", web::get().to(tx_details))
         .route("/transfers", web::get().to(transfers))
         .route("/transfers/{tx_id}", web::get().to(transfers))
+
         .route("/accounts", web::get().to(accounts))
         .route("/account/{account}", web::get().to(account_details))
         .route("/account/{account}/in", web::get().to(account_payments_in))
@@ -939,6 +989,9 @@ pub fn runtime_web_scope(
         .route("/", web::get().to(greet))
         .route("/version", web::get().to(greet));
 
+    if enable_transfers {
+        api_scope = api_scope.route("/transfers/new", web::post().to(new_transfer))
+    }
     if enable_faucet {
         log::info!("Faucet endpoints enabled");
         api_scope = api_scope.route("/faucet", web::get().to(faucet));

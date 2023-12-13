@@ -217,13 +217,15 @@ async fn main_internal() -> Result<(), PaymentError> {
             )
             .await?;
 
-            let server_data = web::Data::new(Box::new(ServerData {
-                shared_state: sp.shared_state.clone(),
-                db_connection: Arc::new(Mutex::new(conn.clone())),
-                payment_setup: sp.setup.clone(),
-            }));
 
             if run_options.http {
+                let server_data = web::Data::new(Box::new(ServerData {
+                    shared_state: sp.shared_state.clone(),
+                    db_connection: Arc::new(Mutex::new(conn.clone())),
+                    payment_setup: sp.setup.clone(),
+                    payment_runtime: sp,
+                }));
+
                 let server = HttpServer::new(move || {
                     let cors = actix_cors::Cors::default()
                         .allow_any_origin()
@@ -235,6 +237,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                         Scope::new("erc20"),
                         server_data.clone(),
                         run_options.faucet,
+                        run_options.transfers,
                         run_options.debug,
                         run_options.frontend,
                     );
