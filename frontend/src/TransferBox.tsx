@@ -3,6 +3,7 @@ import "./TransferBox.css";
 import ContractDetails from "./ContractDetails";
 import { fromWei } from "./common/Web3Utils";
 import TokenTransfer from "./model/TokenTransfer";
+import {ethers} from "ethers";
 
 interface TransferBoxProps {
     transfer: TokenTransfer;
@@ -24,7 +25,7 @@ const TransferBox = (props: TransferBoxProps) => {
                 />
             </div>
             <div className={"transfer-token"} title={"Tokens transferred"}>
-                {fromWei(transfer.tokenAmount)} {props.tokenSymbol}
+                {ethers.utils.formatUnits(transfer.tokenAmount, 18)} {props.tokenSymbol}
             </div>
         </div>
     );

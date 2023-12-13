@@ -217,7 +217,6 @@ async fn main_internal() -> Result<(), PaymentError> {
             )
             .await?;
 
-
             if run_options.http {
                 let server_data = web::Data::new(Box::new(ServerData {
                     shared_state: sp.shared_state.clone(),

@@ -1,6 +1,7 @@
 use crate::db::ops::*;
 use crate::eth::{get_balance, get_eth_addr_from_secret};
 use crate::runtime::{PaymentRuntime, SharedState, TransferArgs, TransferType};
+use crate::service::{add_glm_request, add_payment_request_2};
 use crate::setup::{ChainSetup, PaymentSetup};
 use crate::transaction::create_token_transfer;
 use actix_files::NamedFile;
@@ -19,7 +20,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use web3::types::{Address, U256};
-use crate::service::{add_glm_request, add_payment_request_2};
 
 pub struct ServerData {
     pub shared_state: Arc<Mutex<SharedState>>,
@@ -544,13 +544,19 @@ struct TransactionRequest {
     chain: i64,
 }
 
-async fn new_transfer(data: Data<Box<ServerData>>, req: HttpRequest, new_transfer: web::Json<TransactionRequest>) -> actix_web::Result<String> {
+async fn new_transfer(
+    data: Data<Box<ServerData>>,
+    req: HttpRequest,
+    new_transfer: web::Json<TransactionRequest>,
+) -> actix_web::Result<String> {
     println!("new_transfer: {:?}", new_transfer);
 
-    let chain = data.payment_setup
+    let chain = data
+        .payment_setup
         .chain_setup
         .get(&new_transfer.chain)
-        .ok_or(actix_web::error::ErrorBadRequest("No config found"))?.clone();
+        .ok_or(actix_web::error::ErrorBadRequest("No config found"))?
+        .clone();
 
     let tx_type = if let Some(token) = &new_transfer.token {
         TransferType::Token
@@ -558,8 +564,9 @@ async fn new_transfer(data: Data<Box<ServerData>>, req: HttpRequest, new_transfe
         TransferType::Gas
     };
 
-    if let Err(err) = data.payment_runtime.transfer(
-        TransferArgs {
+    if let Err(err) = data
+        .payment_runtime
+        .transfer(TransferArgs {
             chain_name: chain.network,
             from: Address::from_str(&new_transfer.from).unwrap(),
             receiver: Address::from_str(&new_transfer.to).unwrap(),
@@ -567,9 +574,13 @@ async fn new_transfer(data: Data<Box<ServerData>>, req: HttpRequest, new_transfe
             amount: U256::from_dec_str(&new_transfer.amount).unwrap(),
             payment_id: uuid::Uuid::new_v4().to_string(),
             deadline: None,
-        }
-    ).await {
-        return Err(actix_web::error::ErrorInternalServerError(format!("Failed to create transfer: {}", err)))
+        })
+        .await
+    {
+        return Err(actix_web::error::ErrorInternalServerError(format!(
+            "Failed to create transfer: {}",
+            err
+        )));
     };
 
     Ok("success".to_string())
@@ -658,7 +669,8 @@ async fn account_balance(
     )
     .map_err(|err| actix_web::error::ErrorBadRequest(format!("chain-id has to be int {err}")))?;
 
-    let chain = data.payment_setup
+    let chain = data
+        .payment_setup
         .chain_setup
         .get(&network_id)
         .ok_or(actix_web::error::ErrorBadRequest("No config found"))?;
@@ -678,7 +690,10 @@ async fn account_balance(
     Ok(web::Json(AccountBalanceResponse {
         network_id,
         account: format!("{:#x}", account),
-        gas_balance: balance.gas_balance.map(|b| b.to_string()).unwrap_or("0".to_string()),
+        gas_balance: balance
+            .gas_balance
+            .map(|b| b.to_string())
+            .unwrap_or("0".to_string()),
         token_balance: balance
             .token_balance
             .map(|b| b.to_string())
@@ -981,7 +996,6 @@ pub fn runtime_web_scope(
         .route("/tx/{tx_id}", web::get().to(tx_details))
         .route("/transfers", web::get().to(transfers))
         .route("/transfers/{tx_id}", web::get().to(transfers))
-
         .route("/accounts", web::get().to(accounts))
         .route("/account/{account}", web::get().to(account_details))
         .route("/account/{account}/in", web::get().to(account_payments_in))

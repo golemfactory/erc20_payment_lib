@@ -49,7 +49,12 @@ const Accounts = () => {
     const [inputToValid, setInputToValid] = React.useState<boolean>(false);
     const [inputAmountValid, setInputAmountValid] = React.useState<boolean>(false);
     const [inputAmountBigInt, setInputAmountBigInt] = React.useState<bigint>(BigInt(0));
-    const [inputUseGas, setInputUseGas] = React.useState<boolean>(false);
+    const [inputUseGas, setInputUseGas] = React.useState<string>("token");
+
+    const setInputToRandom = useCallback(() => {
+        const bytes = ethers.utils.randomBytes(20);
+        setInputTo(ethers.utils.getAddress(ethers.utils.hexlify(bytes)));
+    }, []);
 
     useEffect(() => {
         setInputToValid(ethers.utils.isAddress(inputTo));
@@ -118,12 +123,13 @@ const Accounts = () => {
                         <input type="text" placeholder="To (address)" onChange={e => setInputTo(e.target.value)}
                                value={inputTo}/>
                         {inputToValid ? inputTo : "Invalid address"}
+                        <button onClick={e => setInputToRandom()}>Random</button>
                         <input type="text" placeholder="Amount" onChange={e => setInputAmount(e.target.value)}
                                value={inputAmount}/>
                         {inputAmountValid ? inputAmountBigInt.toString() : "Invalid amount"}
-                        <select>
-                            <option selected={inputUseGas} onSelect={e => setInputUseGas(true)}>Gas</option>
-                            <option selected={!inputUseGas} onSelect={e => setInputUseGas(false)}>GLM token
+                        <select onChange={e => setInputUseGas(e.target.value)}>
+                            <option selected={inputUseGas == "gas"} value="gas">Gas</option>
+                            <option selected={inputUseGas == "token"} value="token">GLM token
                                 ({selectedChain ? config.chainSetup[parseInt(selectedChain)].glmAddress : ""})
                             </option>
                         </select>
