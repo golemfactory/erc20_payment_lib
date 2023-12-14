@@ -51,6 +51,9 @@ const CreateTransferBox = (props: CreateTransferBoxProps) => {
                 Create transfer
             </h4>
             <div>
+                from: {props.selectedAccount}
+            </div>
+            <div>
                 <input type="text" placeholder="To (address)" onChange={e => setInputTo(e.target.value)}
                        value={inputTo}/>
                 {inputToValid ? inputTo : "Invalid address"}
