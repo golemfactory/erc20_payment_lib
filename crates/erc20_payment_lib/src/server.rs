@@ -1,7 +1,6 @@
 use crate::db::ops::*;
 use crate::eth::{get_balance, get_eth_addr_from_secret};
 use crate::runtime::{PaymentRuntime, SharedState, TransferArgs, TransferType};
-use crate::service::{add_glm_request, add_payment_request_2};
 use crate::setup::{ChainSetup, PaymentSetup};
 use crate::transaction::create_token_transfer;
 use actix_files::NamedFile;
@@ -542,6 +541,8 @@ struct TransactionRequest {
     token: Option<String>,
     amount: String,
     chain: i64,
+    due_date: Option<String>,
+    payment_id: Option<String>,
 }
 
 async fn new_transfer(
@@ -564,6 +565,20 @@ async fn new_transfer(
         TransferType::Gas
     };
 
+    let due_date = if let Some(due_date) = &new_transfer.due_date {
+        Some(chrono::DateTime::parse_from_rfc3339(due_date).map_err(|err| {
+            actix_web::error::ErrorBadRequest(format!("Invalid due_date: {}", err))
+        })?.naive_utc().and_utc())
+    } else {
+        None
+    };
+
+    let payment_id = if let Some(payment_id) = &new_transfer.payment_id {
+        payment_id.clone()
+    } else {
+        uuid::Uuid::new_v4().to_string()
+    };
+
     if let Err(err) = data
         .payment_runtime
         .transfer(TransferArgs {
@@ -572,8 +587,8 @@ async fn new_transfer(
             receiver: Address::from_str(&new_transfer.to).unwrap(),
             tx_type,
             amount: U256::from_dec_str(&new_transfer.amount).unwrap(),
-            payment_id: uuid::Uuid::new_v4().to_string(),
-            deadline: None,
+            payment_id,
+            deadline: due_date,
         })
         .await
     {

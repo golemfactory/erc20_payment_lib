@@ -1,8 +1,12 @@
-import React, {useCallback, useContext} from "react";
+import React, {useCallback, useContext, useEffect} from "react";
+import "./CreateTransferBox.css";
+
 import {ethers} from "ethers";
 import {backendFetch} from "./common/BackendCall";
 import {BackendSettingsContext} from "./BackendSettingsProvider";
 import {useConfig} from "./ConfigProvider";
+import ContractDetails from "./ContractDetails";
+import {DateTime} from "luxon";
 
 
 interface CreateTransferBoxProps {
@@ -18,17 +22,48 @@ const CreateTransferBox = (props: CreateTransferBoxProps) => {
     const [inputAmount, setInputAmount] = React.useState<string>("");
     const [inputToValid, setInputToValid] = React.useState<boolean>(false);
     const [inputAmountValid, setInputAmountValid] = React.useState<boolean>(false);
-    const [inputAmountBigInt, setInputAmountBigInt] = React.useState<bigint>(BigInt(0));
+    const [inputAmountBigInt, setInputAmountBigInt] = React.useState<ethers.BigNumber>(ethers.BigNumber.from(0));
     const [inputUseGas, setInputUseGas] = React.useState<string>("token");
+    const [inputClearData, setInputClearData] = React.useState<boolean>(true);
+    const [isSending, setIsSending] = React.useState<boolean>(false);
+    const [dueDateString, setDueDateString] = React.useState<string>("");
+    const [paymentID, setPaymentID] = React.useState<string>("");
+
+    const clearData = useCallback(() => {
+        setInputTo("");
+        setInputAmount("");
+        setInputUseGas("token");
+    }, []);
 
     const setInputToRandom = useCallback(() => {
         const bytes = ethers.utils.randomBytes(20);
         setInputTo(ethers.utils.getAddress(ethers.utils.hexlify(bytes)));
     }, []);
 
+    useEffect(() => {
+        setInputToValid(ethers.utils.isAddress(inputTo));
+    }, [inputTo]);
+    useEffect(() => {
+        try {
+            if (inputAmount == "") {
+                setInputAmountValid(false);
+                return;
+            }
+            const amount = ethers.utils.parseUnits(inputAmount, 18);
+            setInputAmountValid(true);
+            setInputAmountBigInt(amount);
+        } catch (e) {
+            setInputAmountValid(false);
+        }
+    }, [inputAmount]);
+
+    const isTransferValid = useCallback(() => {
+        return inputToValid && inputAmountValid;
+    }, [inputToValid, inputAmountValid]);
+
     const sendTransfer = useCallback(async () => {
         if (inputToValid && props.selectedChain) {
-
+            setIsSending(true);
             const response = await backendFetch(backendSettings, `/transfers/new`, {
                 method: "POST",
                 body: JSON.stringify({
@@ -37,43 +72,114 @@ const CreateTransferBox = (props: CreateTransferBoxProps) => {
                     "amount": inputAmountBigInt.toString(),
                     "chain": parseInt(props.selectedChain),
                     "token": inputUseGas ? null : config.chainSetup[parseInt(props.selectedChain)].glmAddress,
+                    "dueDate": dueDateString ? DateTime.fromISO(dueDateString).toISO() : null
                 }),
             })
+            //sleep for one seconds
+            await new Promise(r => setTimeout(r, 200));
             const response_json = await response.text();
             console.log(response_json)
+            if (inputClearData) {
+                clearData();
+            }
+            setPaymentID(ethers.utils.hexlify(ethers.utils.randomBytes(16)));
+
+            setIsSending(false);
         }
-    }, [props.selectedAccount, inputTo, inputToValid, props.selectedChain, inputAmountBigInt, inputUseGas, config]);
+    }, [props.selectedAccount, inputTo, inputToValid, props.selectedChain, inputAmountBigInt, inputUseGas, config, inputClearData]);
 
-
+    if (props.selectedChain == null) {
+        return <div>Chain not selected</div>
+    }
     return (
-        <div className={"create-transfer-box"} style={{display: "flex", flexDirection: "column", padding: 20}}>
-            <h4>
+        <div className="create-transfer-box">
+            <div className="create-transfer-box-header">
                 Create transfer
-            </h4>
-            <div>
-                from: {props.selectedAccount}
             </div>
             <div>
-                <input type="text" placeholder="To (address)" onChange={e => setInputTo(e.target.value)}
-                       value={inputTo}/>
-                {inputToValid ? inputTo : "Invalid address"}
-                <button onClick={e => setInputToRandom()}>Random</button>
+                from: <ContractDetails
+                contractAddress={props.selectedAccount}
+                chainId={parseInt(props.selectedChain)}
+                isAddress={"Receiver id"}
+            />
             </div>
             <div>
-                <input type="text" placeholder="Amount" onChange={e => setInputAmount(e.target.value)}
-                       value={inputAmount}/>
-                {inputAmountValid ? inputAmountBigInt.toString() : "Invalid amount"}
+                <div className="create-transfer-box-label">
+                    to: {inputToValid ?
+                    <ContractDetails contractAddress={inputTo} chainId={parseInt(props.selectedChain)}
+                                     isAddress={true}/> : "Invalid address"}
+                </div>
+                <div>
+                    <input className="create-transfer-box-address-input" type="text" placeholder="To (address)"
+                           onChange={e => setInputTo(e.target.value)}
+                           value={inputTo}/>
+                    <button onClick={e => setInputToRandom()}>Random</button>
+                </div>
             </div>
             <div>
-                <select onChange={e => setInputUseGas(e.target.value)}>
-                    <option selected={inputUseGas == "gas"} value="gas">Gas</option>
-                    <option selected={inputUseGas == "token"} value="token">GLM token
-                        ({props.selectedChain ? config.chainSetup[parseInt(props.selectedChain)].glmAddress : ""})
-                    </option>
-                </select>
+                <div className="create-transfer-box-label">
+                    value:
+                    {inputAmountValid ? ethers.utils.formatEther(inputAmountBigInt.toString()) : "Invalid amount "}
+                    {inputUseGas == "token" ? config.chainSetup[parseInt(props.selectedChain)].currencyGlmSymbol : config.chainSetup[parseInt(props.selectedChain)].currencyGasSymbol}
+                </div>
+                <div>
+                    <input type="text" placeholder="Amount" onChange={e => setInputAmount(e.target.value)}
+                           value={inputAmount}/>
+                    <button onClick={e => setInputAmount("0.000000000000000001")}>1 wei</button>
+                    <button onClick={e => setInputAmount("0.000000001")}>1 Gwei</button>
+                    <button onClick={e => setInputAmount("0.001")}>1 mETH</button>
+                </div>
             </div>
             <div>
-                <button onClick={e => sendTransfer()}>Send</button>
+                <div className="create-transfer-box-label">
+                    token: {inputUseGas == "token" ?
+                    <ContractDetails contractAddress={config.chainSetup[parseInt(props.selectedChain)].glmAddress}
+                                     chainId={parseInt(props.selectedChain)} isAddress={true}/> : "Native token"}
+                </div>
+                <div>
+                    <select onChange={e => setInputUseGas(e.target.value)}>
+                        <option selected={inputUseGas == "gas"} value="gas">Native/gas token
+                            ({config.chainSetup[parseInt(props.selectedChain)].currencyGasSymbol})
+                        </option>
+                        <option selected={inputUseGas == "token"} value="token">ERC20 token
+                            ({props.selectedChain ? config.chainSetup[parseInt(props.selectedChain)].currencyGlmSymbol : ""})
+                        </option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <div className="create-transfer-box-label">
+                    Due
+                    date: {dueDateString ? DateTime.fromISO(dueDateString).toISO() : "No due date"}
+                </div>
+                <div>
+                    <input className="create-transfer-box-due-date-input" type="text" placeholder="Due date" onChange={e => setDueDateString(e.target.value)}
+                           value={dueDateString}></input>
+                    <button onClick={e => setDueDateString(DateTime.now().toISO() ?? "")}>Current</button>
+                    <button onClick={e => setDueDateString(DateTime.now().plus({minute: 1}).toISO() ?? "")}>curr. +1 min</button>
+                    <button onClick={e => setDueDateString(DateTime.now().plus({minute: 5}).toISO() ?? "")}>curr. +5 min</button>
+                </div>
+            </div>
+            <div>
+                <div className="create-transfer-box-label">
+                </div>
+                <div>
+                    <input className="create-uuid-box-uuid-input" type="text" placeholder="Payment id" onChange={e => setPaymentID(e.target.value)}
+                           value={paymentID}></input>
+                    <button onClick={e => setPaymentID(ethers.utils.hexlify(ethers.utils.randomBytes(16)))}>Random</button>
+
+
+
+                </div>
+
+            </div>
+            <div>
+                <input id="cbClearData" type="checkbox" checked={inputClearData}
+                       onChange={e => setInputClearData(!inputClearData)}/><label htmlFor="cbClearData">Clear data after
+                send</label>
+            </div>
+            <div>
+                <button disabled={isSending || !isTransferValid()} onClick={e => sendTransfer()}>Send</button>
             </div>
         </div>
     );
