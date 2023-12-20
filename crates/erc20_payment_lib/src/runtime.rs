@@ -356,6 +356,7 @@ pub struct PaymentRuntimeArgs {
     pub extra_testing: Option<ExtraOptionsForTesting>,
 }
 
+#[derive(Debug, Clone)]
 pub struct TransferArgs {
     pub chain_name: String,
     pub from: Address,
@@ -569,7 +570,7 @@ impl PaymentRuntime {
 
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
-        let balance_result = crate::eth::get_balance(web3, None, None, address, true).await?;
+        let balance_result = crate::eth::get_balance(web3, None, None, address, true, None).await?;
 
         let gas_balance = balance_result
             .gas_balance
@@ -808,7 +809,8 @@ pub async fn withdraw_funds(
             "Amount not specified. Use --amount or --all"
         ));
     };
-    let current_amount = get_deposit_balance(web3.clone(), lock_contract_address, from).await?;
+    let current_amount =
+        get_deposit_balance(web3.clone(), lock_contract_address, from, None).await?;
 
     if !skip_check {
         if let Some(amount) = amount {
@@ -922,7 +924,7 @@ pub async fn get_token_balance(
     address: Address,
 ) -> Result<U256, PaymentError> {
     let balance_result =
-        crate::eth::get_balance(web3, Some(token_address), None, address, true).await?;
+        crate::eth::get_balance(web3, Some(token_address), None, address, true, None).await?;
 
     let token_balance = balance_result
         .token_balance

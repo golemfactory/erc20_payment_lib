@@ -14,6 +14,22 @@ interface CreateTransferBoxProps {
     selectedAccount: string | null;
 }
 
+function random_id(length: number) {
+    let result = '';
+    const start_characters = 'abcdefghijklmnopqrstuvwxyz';
+    const characters = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let counter = 0;
+    while (counter < length) {
+        if (counter == 0) {
+            result += start_characters.charAt(Math.floor(Math.random() * start_characters.length));
+        } else {
+            result += characters.charAt(Math.floor(Math.random() * characters.length));
+        }
+        counter += 1;
+    }
+    return result;
+}
+
 const CreateTransferBox = (props: CreateTransferBoxProps) => {
     const {backendSettings} = useContext(BackendSettingsContext);
     const config = useConfig();
@@ -71,7 +87,7 @@ const CreateTransferBox = (props: CreateTransferBoxProps) => {
                     "to": inputTo,
                     "amount": inputAmountBigInt.toString(),
                     "chain": parseInt(props.selectedChain),
-                    "token": inputUseGas ? null : config.chainSetup[parseInt(props.selectedChain)].glmAddress,
+                    "token": (inputUseGas == "gas") ? null : config.chainSetup[parseInt(props.selectedChain)].glmAddress,
                     "dueDate": dueDateString ? DateTime.fromISO(dueDateString).toISO() : null
                 }),
             })
@@ -82,7 +98,7 @@ const CreateTransferBox = (props: CreateTransferBoxProps) => {
             if (inputClearData) {
                 clearData();
             }
-            setPaymentID(ethers.utils.hexlify(ethers.utils.randomBytes(16)));
+            setPaymentID(random_id(10));
 
             setIsSending(false);
         }
@@ -162,11 +178,12 @@ const CreateTransferBox = (props: CreateTransferBoxProps) => {
             </div>
             <div>
                 <div className="create-transfer-box-label">
+                    Payment id (should be unique): {paymentID}
                 </div>
                 <div>
                     <input className="create-uuid-box-uuid-input" type="text" placeholder="Payment id" onChange={e => setPaymentID(e.target.value)}
                            value={paymentID}></input>
-                    <button onClick={e => setPaymentID(ethers.utils.hexlify(ethers.utils.randomBytes(16)))}>Random</button>
+                    <button onClick={e => setPaymentID(random_id(10))}>Random</button>
 
 
 

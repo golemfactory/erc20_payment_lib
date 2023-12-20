@@ -18,7 +18,8 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use web3::types::{Address, U256};
+use web3::types::{Address, BlockId, BlockNumber, U256};
+use erc20_payment_lib_common::utils::datetime_from_u256_timestamp;
 
 pub struct ServerData {
     pub shared_state: Arc<Mutex<SharedState>>,
@@ -535,6 +536,7 @@ pub async fn transactions_feed(data: Data<Box<ServerData>>, req: HttpRequest) ->
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct TransactionRequest {
     from: String,
     to: String,
@@ -547,10 +549,10 @@ struct TransactionRequest {
 
 async fn new_transfer(
     data: Data<Box<ServerData>>,
-    req: HttpRequest,
+    _req: HttpRequest,
     new_transfer: web::Json<TransactionRequest>,
 ) -> actix_web::Result<String> {
-    println!("new_transfer: {:?}", new_transfer);
+    //println!("new_transfer: {:?}", new_transfer);
 
     let chain = data
         .payment_setup
@@ -559,16 +561,21 @@ async fn new_transfer(
         .ok_or(actix_web::error::ErrorBadRequest("No config found"))?
         .clone();
 
-    let tx_type = if let Some(token) = &new_transfer.token {
+    let tx_type = if let Some(_token) = &new_transfer.token {
         TransferType::Token
     } else {
         TransferType::Gas
     };
 
     let due_date = if let Some(due_date) = &new_transfer.due_date {
-        Some(chrono::DateTime::parse_from_rfc3339(due_date).map_err(|err| {
-            actix_web::error::ErrorBadRequest(format!("Invalid due_date: {}", err))
-        })?.naive_utc().and_utc())
+        Some(
+            chrono::DateTime::parse_from_rfc3339(due_date)
+                .map_err(|err| {
+                    actix_web::error::ErrorBadRequest(format!("Invalid due_date: {}", err))
+                })?
+                .naive_utc()
+                .and_utc(),
+        )
     } else {
         None
     };
@@ -579,24 +586,23 @@ async fn new_transfer(
         uuid::Uuid::new_v4().to_string()
     };
 
-    if let Err(err) = data
-        .payment_runtime
-        .transfer(TransferArgs {
-            chain_name: chain.network,
-            from: Address::from_str(&new_transfer.from).unwrap(),
-            receiver: Address::from_str(&new_transfer.to).unwrap(),
-            tx_type,
-            amount: U256::from_dec_str(&new_transfer.amount).unwrap(),
-            payment_id,
-            deadline: due_date,
-        })
-        .await
-    {
+    let transfer_args = TransferArgs {
+        chain_name: chain.network,
+        from: Address::from_str(&new_transfer.from).unwrap(),
+        receiver: Address::from_str(&new_transfer.to).unwrap(),
+        tx_type,
+        amount: U256::from_dec_str(&new_transfer.amount).unwrap(),
+        payment_id,
+        deadline: due_date,
+    };
+
+    if let Err(err) = data.payment_runtime.transfer(transfer_args.clone()).await {
         return Err(actix_web::error::ErrorInternalServerError(format!(
             "Failed to create transfer: {}",
             err
         )));
     };
+    log::warn!("Created transfer: {:?}", transfer_args);
 
     Ok("success".to_string())
 }
@@ -663,6 +669,8 @@ struct AccountBalanceResponse {
     gas_balance: String,
     token_balance: String,
     deposit_balance: Option<String>,
+    block_number: u64,
+    block_date: chrono::DateTime<chrono::Utc>
 }
 
 async fn account_balance(
@@ -690,12 +698,28 @@ async fn account_balance(
         .get(&network_id)
         .ok_or(actix_web::error::ErrorBadRequest("No config found"))?;
 
+
+    let block_info = chain.provider.clone()
+        .eth_block(BlockId::Number(BlockNumber::Latest))
+        .await
+        .map_err(|err| actix_web::error::ErrorInternalServerError(format!("Failed to get latest block {err}")))?
+        .ok_or(actix_web::error::ErrorInternalServerError("Failed to found block info"))?;
+
+    let block_number = block_info.number.ok_or(
+        actix_web::error::ErrorInternalServerError("Failed to found block number in block info"),
+    )?;
+
+    let block_date = datetime_from_u256_timestamp(block_info.timestamp).ok_or(
+        actix_web::error::ErrorInternalServerError("Failed to found block date in block info"),
+    )?;
+
     let balance = get_balance(
         chain.provider.clone(),
         Some(chain.glm_address),
         chain.lock_contract_address,
         account,
         true,
+        Some(block_number.as_u64()),
     )
     .await
     .map_err(|err| {
@@ -714,6 +738,8 @@ async fn account_balance(
             .map(|b| b.to_string())
             .unwrap_or("0".to_string()),
         deposit_balance: balance.deposit_balance.map(|b| b.to_string()),
+        block_number: block_number.as_u64(),
+        block_date,
     }))
 }
 

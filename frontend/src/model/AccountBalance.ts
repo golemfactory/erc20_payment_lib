@@ -4,6 +4,8 @@ interface AccountBalance {
     gasBalance: string;
     tokenBalance: string;
     depositBalance: string | null;
+    blockNumber: number;
+    blockDate: string;
 }
 
 export default AccountBalance;

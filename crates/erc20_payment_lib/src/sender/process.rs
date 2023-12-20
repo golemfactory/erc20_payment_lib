@@ -527,10 +527,10 @@ pub async fn process_transaction(
                         .await
                         .map_err(err_from!())?;
                     db_transaction.commit().await.map_err(err_from!())?;
-                    shared_state.lock().await.set_tx_message(
-                        web3_tx_dao.id,
-                        "".to_string(),
-                    );
+                    shared_state
+                        .lock()
+                        .await
+                        .set_tx_message(web3_tx_dao.id, "".to_string());
 
                     return Ok((current_tx.clone(), ProcessTransactionResult::Confirmed));
                 } else {

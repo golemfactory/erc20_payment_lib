@@ -7,13 +7,14 @@ import {useConfig} from "./ConfigProvider";
 import AccountBalance from "./model/AccountBalance";
 import {ethers} from "ethers";
 import CreateTransferBox from "./CreateTransferBox";
+import CurrentBalanceBox from "./CurrentBalanceBox";
+import DateBox from "./DateBox";
 
 const Accounts = () => {
     const [accounts, setAccounts] = React.useState<SenderAccounts | null>(null);
     const {backendSettings} = useContext(BackendSettingsContext);
     const [selectedAccount, setSelectedAccount] = React.useState<string | null>(null);
     const [selectedChain, setSelectedChain] = React.useState<string | null>("17000");
-    const [accountBalance, setAccountBalance] = React.useState<AccountBalance | null>(null);
     const config = useConfig();
 
     const loadTxCount = useCallback(async () => {
@@ -23,15 +24,6 @@ const Accounts = () => {
         setSelectedAccount(response_json.publicAddr[0])
     }, []);
 
-    const loadBalance = useCallback(async () => {
-        if (!selectedAccount || !selectedChain) {
-            return
-        }
-        const response = await backendFetch(backendSettings, `/balance/${selectedAccount}/${selectedChain}`)
-        const response_json = await response.json();
-        setAccountBalance(response_json)
-    }, [selectedAccount, selectedChain]);
-
 
     function row(account: string, i: number) {
         return <AccountBox key={i} account={account}/>;
@@ -40,9 +32,6 @@ const Accounts = () => {
     useEffect(() => {
         loadTxCount().then();
     }, [loadTxCount]);
-    useEffect(() => {
-        loadBalance().then();
-    }, [loadBalance, selectedAccount, selectedChain]);
 
 
 
@@ -65,12 +54,9 @@ const Accounts = () => {
                 </div>
                 <div>
                     Selected account: {selectedAccount}
-                    <div>
-                        Gas balance: {accountBalance?.gasBalance}
-                    </div>
-                    <div>
-                        Token balance: {accountBalance?.tokenBalance}
-                    </div>
+
+
+                    <CurrentBalanceBox selectedChain={selectedChain} selectedAccount={selectedAccount}/>
 
                     Create transfer:
 
