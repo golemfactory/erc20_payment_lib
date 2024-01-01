@@ -9,6 +9,7 @@ import {ethers} from "ethers";
 import CreateTransferBox from "./CreateTransferBox";
 import CurrentBalanceBox from "./CurrentBalanceBox";
 import DateBox from "./DateBox";
+import EventBox from "./EventBox";
 
 const Accounts = () => {
     const [accounts, setAccounts] = React.useState<SenderAccounts | null>(null);
@@ -38,6 +39,10 @@ const Accounts = () => {
     return (
         <div>
             <h1>Accounts</h1>
+            <div>
+                <EventBox selectedChain={null}></EventBox>
+            </div>
+            
             <div style={{padding: 10}}>
                 <select onChange={e => setSelectedAccount(e.target.value)}>
                     {accounts?.publicAddr.map((account) => (

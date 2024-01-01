@@ -6,6 +6,7 @@ import {BackendSettingsContext} from "./BackendSettingsProvider";
 import DateBox from "./DateBox";
 import {ethers} from "ethers";
 import {useConfig} from "./ConfigProvider";
+import useWebSocket from 'react-use-websocket';
 
 
 interface CurrentBalanceBoxProps {
@@ -15,6 +16,7 @@ interface CurrentBalanceBoxProps {
 
 
 const CurrentBalanceBox = (props: CurrentBalanceBoxProps) => {
+
     const {backendSettings} = useContext(BackendSettingsContext);
     const [accountBalance, setAccountBalance] = React.useState<AccountBalance | null>(null);
     const config = useConfig();

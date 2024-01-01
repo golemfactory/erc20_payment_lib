@@ -3,13 +3,16 @@ use crate::eth::{get_balance, get_eth_addr_from_secret};
 use crate::runtime::{PaymentRuntime, SharedState, TransferArgs, TransferType};
 use crate::setup::{ChainSetup, PaymentSetup};
 use crate::transaction::create_token_transfer;
+use actix::{Actor, ActorContext, StreamHandler};
 use actix_files::NamedFile;
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::http::header::HeaderValue;
 use actix_web::http::{header, StatusCode};
 use actix_web::web::Data;
-use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
-use erc20_payment_lib_common::{export_metrics_to_prometheus, FaucetData};
+use actix_web::{web, Error, HttpRequest, HttpResponse, Responder, Scope};
+use actix_web_actors::ws;
+use erc20_payment_lib_common::utils::datetime_from_u256_timestamp;
+use erc20_payment_lib_common::{export_metrics_to_prometheus, DriverEvent, FaucetData};
 use erc20_rpc_pool::VerifyEndpointResult;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -17,9 +20,8 @@ use sqlx::SqlitePool;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{broadcast, Mutex};
 use web3::types::{Address, BlockId, BlockNumber, U256};
-use erc20_payment_lib_common::utils::datetime_from_u256_timestamp;
 
 pub struct ServerData {
     pub shared_state: Arc<Mutex<SharedState>>,
@@ -670,7 +672,7 @@ struct AccountBalanceResponse {
     token_balance: String,
     deposit_balance: Option<String>,
     block_number: u64,
-    block_date: chrono::DateTime<chrono::Utc>
+    block_date: chrono::DateTime<chrono::Utc>,
 }
 
 async fn account_balance(
@@ -698,16 +700,23 @@ async fn account_balance(
         .get(&network_id)
         .ok_or(actix_web::error::ErrorBadRequest("No config found"))?;
 
-
-    let block_info = chain.provider.clone()
+    let block_info = chain
+        .provider
+        .clone()
         .eth_block(BlockId::Number(BlockNumber::Latest))
         .await
-        .map_err(|err| actix_web::error::ErrorInternalServerError(format!("Failed to get latest block {err}")))?
-        .ok_or(actix_web::error::ErrorInternalServerError("Failed to found block info"))?;
+        .map_err(|err| {
+            actix_web::error::ErrorInternalServerError(format!("Failed to get latest block {err}"))
+        })?
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "Failed to found block info",
+        ))?;
 
-    let block_number = block_info.number.ok_or(
-        actix_web::error::ErrorInternalServerError("Failed to found block number in block info"),
-    )?;
+    let block_number = block_info
+        .number
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "Failed to found block number in block info",
+        ))?;
 
     let block_date = datetime_from_u256_timestamp(block_info.timestamp).ok_or(
         actix_web::error::ErrorInternalServerError("Failed to found block date in block info"),
@@ -758,6 +767,60 @@ pub async fn accounts(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Re
         "publicAddr": public_addr.collect::<Vec<String>>()
     }))
 }
+
+/// Define HTTP actor
+struct MyWs {
+    _rx: broadcast::Receiver<DriverEvent>,
+}
+
+impl Actor for MyWs {
+    type Context = ws::WebsocketContext<Self>;
+}
+
+/// Handler for ws::Message message
+impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWs {
+    fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
+        match msg {
+            Ok(ws::Message::Ping(msg)) => ctx.pong(&msg),
+            Ok(ws::Message::Text(text)) => ctx.text(text),
+            Ok(ws::Message::Binary(bin)) => ctx.binary(bin),
+            _ => (),
+        }
+    }
+
+    fn started(&mut self, _ctx: &mut Self::Context) {
+        log::warn!("Websocket started");
+    }
+
+    fn finished(&mut self, ctx: &mut Self::Context) {
+        log::warn!("Websocket finished");
+        ctx.stop();
+    }
+}
+
+impl StreamHandler<String> for MyWs {
+    fn handle(&mut self, msg: String, ctx: &mut Self::Context) {
+        ctx.text(msg);
+    }
+}
+
+async fn event_stream(
+    data: Data<Box<ServerData>>,
+    req: HttpRequest,
+    stream: web::Payload,
+) -> Result<HttpResponse, Error> {
+    let actor = MyWs {
+        _rx: data.payment_runtime.receiver.resubscribe(),
+    };
+
+    let resp = ws::start(actor, &req, stream);
+
+    //actor.add_stream();
+
+    println!("{:?}", resp);
+    resp
+}
+
 pub async fn account_payments_in(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Responder {
     let account = return_on_error!(req.match_info().get("account").ok_or("No account provided"));
     let web3_account = return_on_error!(Address::from_str(account));
@@ -1042,6 +1105,7 @@ pub fn runtime_web_scope(
         .route("/account/{account}/in", web::get().to(account_payments_in))
         .route("/metrics", web::get().to(metrics))
         .route("/", web::get().to(greet))
+        .route("/event_stream", web::get().to(event_stream))
         .route("/version", web::get().to(greet));
 
     if enable_transfers {

@@ -360,7 +360,7 @@ pub async fn get_no_token_details(
 }
 
 pub async fn check_transaction(
-    event_sender: &Option<tokio::sync::mpsc::Sender<DriverEvent>>,
+    event_sender: &Option<tokio::sync::broadcast::Sender<DriverEvent>>,
     conn: &SqlitePool,
     glm_token: Address,
     web3: Arc<Web3RpcPool>,
@@ -478,7 +478,7 @@ pub async fn sign_transaction_deprecated(
 }
 
 pub async fn sign_transaction_with_callback(
-    event_sender: &Option<tokio::sync::mpsc::Sender<DriverEvent>>,
+    event_sender: &Option<tokio::sync::broadcast::Sender<DriverEvent>>,
     web3_tx_dao: &mut TxDao,
     signer_pub_address: H160,
     signer: &impl Signer,
@@ -514,7 +514,7 @@ pub async fn sign_transaction_with_callback(
 pub async fn send_transaction(
     conn: &SqlitePool,
     glm_token: Address,
-    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
+    event_sender: Option<tokio::sync::broadcast::Sender<DriverEvent>>,
     web3: Arc<Web3RpcPool>,
     web3_tx_dao: &mut TxDao,
 ) -> Result<(), PaymentError> {

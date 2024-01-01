@@ -39,7 +39,8 @@ use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
 use std::sync::Arc;
-use tokio::sync::{Mutex, Notify};
+use tokio::sync::broadcast::Receiver;
+use tokio::sync::{broadcast, Mutex, Notify};
 use tokio::task::JoinHandle;
 use web3::types::{Address, H256, U256};
 
@@ -217,14 +218,13 @@ impl StatusTracker {
         status_props.len() != old_len
     }
 
-    fn new(mut sender: Option<Sender<DriverEvent>>) -> (Self, Sender<DriverEvent>) {
-        let (status_tx, mut status_rx) = tokio::sync::mpsc::channel::<DriverEvent>(1);
+    fn new(mut sender: Option<Sender<DriverEvent>>, mut status_rx: Receiver<DriverEvent>) -> Self {
         let status = Arc::new(Mutex::new(Vec::new()));
         let status_ = Arc::clone(&status);
 
         tokio::spawn(async move {
             let status = status_;
-            while let Some(ev) = status_rx.recv().await {
+            while let Ok(ev) = status_rx.recv().await {
                 let emit_changed = match &ev.content {
                     DriverEventContent::TransactionFailed(
                         TransactionFailedReason::InvalidChainId(chain_id),
@@ -322,7 +322,7 @@ impl StatusTracker {
             }
         });
 
-        (StatusTracker { status }, status_tx)
+        StatusTracker { status }
     }
 
     async fn get_status(&self) -> Vec<StatusProperty> {
@@ -341,6 +341,7 @@ pub struct PaymentRuntime {
     pub setup: PaymentSetup,
     pub shared_state: Arc<Mutex<SharedState>>,
     pub wake: Arc<Notify>,
+    pub receiver: Receiver<DriverEvent>,
     conn: SqlitePool,
     status_tracker: StatusTracker,
     config: Config,
@@ -400,24 +401,12 @@ impl PaymentRuntime {
                 .await?
         };
 
-        let (status_tracker, event_sender) = StatusTracker::new(payment_runtime_args.event_sender);
+        let (event_sender, status_rx) = tokio::sync::broadcast::channel::<DriverEvent>(1);
+
+        let status_tracker =
+            StatusTracker::new(payment_runtime_args.event_sender, status_rx.resubscribe());
 
         let ps = payment_setup.clone();
-
-        // Convert BTreeMap of Arenas to BTreeMap of Vec because serde can't serialize Arena
-        /* let web3_rpc_pool_info = web3_rpc_pool_info
-        .iter()
-        .map(|(k, v)| {
-            (
-                *k,
-                v.lock()
-                    .unwrap()
-                    .iter()
-                    .map(|pair| pair.1.clone())
-                    .collect::<Vec<_>>(),
-            )
-        })
-        .collect::<BTreeMap<_, _>>();*/
 
         let shared_state = Arc::new(Mutex::new(SharedState {
             inserted: 0,
@@ -507,6 +496,7 @@ impl PaymentRuntime {
             wake: notify,
             conn,
             status_tracker,
+            receiver: status_rx,
             config: payment_runtime_args.config,
         })
     }
@@ -1077,12 +1067,12 @@ pub async fn remove_last_unsent_transactions(
     }
 }
 pub async fn send_driver_event(
-    event_sender: &Option<Sender<DriverEvent>>,
+    event_sender: &Option<broadcast::Sender<DriverEvent>>,
     event: DriverEventContent,
 ) {
     if let Some(event_sender) = event_sender {
         let event = DriverEvent::now(event);
-        if let Err(e) = event_sender.send(event).await {
+        if let Err(e) = event_sender.send(event) {
             log::error!("Error sending event: {}", e);
         }
     }

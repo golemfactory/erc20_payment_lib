@@ -267,7 +267,7 @@ pub async fn gather_transactions_batch_multi(
 }
 
 pub async fn gather_transactions_batch(
-    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
+    event_sender: Option<tokio::sync::broadcast::Sender<DriverEvent>>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
     token_transfers: &mut [TokenTransferDao],
@@ -330,7 +330,7 @@ pub async fn gather_transactions_batch(
 }
 
 pub async fn gather_transactions_post(
-    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
+    event_sender: Option<tokio::sync::broadcast::Sender<DriverEvent>>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
     token_transfer_map: &mut TokenTransferMap,
