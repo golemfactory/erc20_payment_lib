@@ -3,16 +3,15 @@ use crate::eth::{get_balance, get_eth_addr_from_secret};
 use crate::runtime::{PaymentRuntime, SharedState, TransferArgs, TransferType};
 use crate::setup::{ChainSetup, PaymentSetup};
 use crate::transaction::create_token_transfer;
-use actix::{Actor, ActorContext, StreamHandler};
+use crate::ws::event_stream_websocket_endpoint;
 use actix_files::NamedFile;
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::http::header::HeaderValue;
 use actix_web::http::{header, StatusCode};
 use actix_web::web::Data;
-use actix_web::{web, Error, HttpRequest, HttpResponse, Responder, Scope};
-use actix_web_actors::ws;
+use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
 use erc20_payment_lib_common::utils::datetime_from_u256_timestamp;
-use erc20_payment_lib_common::{export_metrics_to_prometheus, DriverEvent, FaucetData};
+use erc20_payment_lib_common::{export_metrics_to_prometheus, FaucetData};
 use erc20_rpc_pool::VerifyEndpointResult;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -20,7 +19,7 @@ use sqlx::SqlitePool;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 use std::sync::Arc;
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::Mutex;
 use web3::types::{Address, BlockId, BlockNumber, U256};
 
 pub struct ServerData {
@@ -37,8 +36,8 @@ macro_rules! return_on_error {
             Err(err) => {
                 return web::Json(json!({
                     "error": err.to_string()
-                }))
-            },
+                }));
+            }
         }
     }
 }
@@ -143,6 +142,7 @@ struct MetricGroup {
     metric_type: String,
     metrics: Vec<Metric>,
 }
+
 struct Metric {
     name: String,
     params: Vec<(String, String)>,
@@ -626,7 +626,7 @@ pub async fn transfers(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Re
                 Err(err) => {
                     return web::Json(json!({
                         "error": err.to_string()
-                    }))
+                    }));
                 }
             }
         } else {
@@ -635,7 +635,7 @@ pub async fn transfers(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Re
                 Err(err) => {
                     return web::Json(json!({
                         "error": err.to_string()
-                    }))
+                    }));
                 }
             }
         }
@@ -768,59 +768,6 @@ pub async fn accounts(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Re
     }))
 }
 
-/// Define HTTP actor
-struct MyWs {
-    _rx: broadcast::Receiver<DriverEvent>,
-}
-
-impl Actor for MyWs {
-    type Context = ws::WebsocketContext<Self>;
-}
-
-/// Handler for ws::Message message
-impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWs {
-    fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
-        match msg {
-            Ok(ws::Message::Ping(msg)) => ctx.pong(&msg),
-            Ok(ws::Message::Text(text)) => ctx.text(text),
-            Ok(ws::Message::Binary(bin)) => ctx.binary(bin),
-            _ => (),
-        }
-    }
-
-    fn started(&mut self, _ctx: &mut Self::Context) {
-        log::warn!("Websocket started");
-    }
-
-    fn finished(&mut self, ctx: &mut Self::Context) {
-        log::warn!("Websocket finished");
-        ctx.stop();
-    }
-}
-
-impl StreamHandler<String> for MyWs {
-    fn handle(&mut self, msg: String, ctx: &mut Self::Context) {
-        ctx.text(msg);
-    }
-}
-
-async fn event_stream(
-    data: Data<Box<ServerData>>,
-    req: HttpRequest,
-    stream: web::Payload,
-) -> Result<HttpResponse, Error> {
-    let actor = MyWs {
-        _rx: data.payment_runtime.receiver.resubscribe(),
-    };
-
-    let resp = ws::start(actor, &req, stream);
-
-    //actor.add_stream();
-
-    println!("{:?}", resp);
-    resp
-}
-
 pub async fn account_payments_in(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Responder {
     let account = return_on_error!(req.match_info().get("account").ok_or("No account provided"));
     let web3_account = return_on_error!(Address::from_str(account));
@@ -914,12 +861,13 @@ pub async fn account_details(data: Data<Box<ServerData>>, req: HttpRequest) -> i
         "receivedTransfers": received_transfer_count,
     }))
 }
+
 pub async fn redirect_to_slash(req: HttpRequest) -> impl Responder {
     let mut response = HttpResponse::Ok();
     let target = match HeaderValue::from_str(&(req.uri().to_string() + "/")) {
         Ok(target) => target,
         Err(_err) => {
-            return HttpResponse::InternalServerError().body("Failed to create redirect target")
+            return HttpResponse::InternalServerError().body("Failed to create redirect target");
         }
     };
 
@@ -1105,7 +1053,10 @@ pub fn runtime_web_scope(
         .route("/account/{account}/in", web::get().to(account_payments_in))
         .route("/metrics", web::get().to(metrics))
         .route("/", web::get().to(greet))
-        .route("/event_stream", web::get().to(event_stream))
+        .route(
+            "/event_stream",
+            web::get().to(event_stream_websocket_endpoint),
+        )
         .route("/version", web::get().to(greet));
 
     if enable_transfers {

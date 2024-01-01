@@ -35,6 +35,7 @@ sqlx = { workspace = true }
 structopt = { workspace = true }
 thunderdome = { workspace = true }
 tokio = { workspace = true }
+tokio-stream = { workspace = true }
 toml = { workspace = true }
 trust-dns-resolver = { workspace = true }
 url = { workspace = true }

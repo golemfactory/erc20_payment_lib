@@ -1187,6 +1187,7 @@ dependencies = [
  "structopt",
  "thunderdome",
  "tokio",
+ "tokio-stream",
  "toml 0.8.8",
  "trust-dns-resolver",
  "url",
@@ -1198,6 +1199,7 @@ dependencies = [
 name = "erc20_payment_lib_common"
 version = "0.3.14"
 dependencies = [
+ "actix",
  "actix-files",
  "actix-web",
  "async-trait",
@@ -3945,6 +3947,7 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
