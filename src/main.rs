@@ -11,7 +11,6 @@ use erc20_payment_lib::db::ops::{
     delete_scan_info, get_next_transactions_to_process, get_scan_info, insert_token_transfer,
     update_token_transfer, upsert_scan_info,
 };
-use erc20_payment_lib::server::*;
 use erc20_payment_lib::signer::PrivateKeySigner;
 use std::collections::HashSet;
 
@@ -51,6 +50,7 @@ use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::ethabi::ethereum_types::Address;
 use web3::types::U256;
+use erc20_payment_lib::server::web::{runtime_web_scope, ServerData};
 
 fn check_address_name(n: &str) -> String {
     match n {

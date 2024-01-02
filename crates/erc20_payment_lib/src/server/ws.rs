@@ -1,4 +1,4 @@
-use crate::server::ServerData;
+use super::web::ServerData;
 use actix::{Actor, ActorContext, Addr, AsyncContext, Context, Handler, Message, StreamHandler};
 use actix_web::web::Data;
 use actix_web::{web, Error, HttpRequest, HttpResponse};

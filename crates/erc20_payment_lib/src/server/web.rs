@@ -3,7 +3,7 @@ use crate::eth::{get_balance, get_eth_addr_from_secret};
 use crate::runtime::{PaymentRuntime, SharedState, TransferArgs, TransferType};
 use crate::setup::{ChainSetup, PaymentSetup};
 use crate::transaction::create_token_transfer;
-use crate::ws::event_stream_websocket_endpoint;
+use crate::server::ws::event_stream_websocket_endpoint;
 use actix_files::NamedFile;
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::http::header::HeaderValue;
