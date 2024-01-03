@@ -1,5 +1,4 @@
 use crate::model::{AllowanceDao, TokenTransferDao, TxDao};
-use actix::Message;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::Serialize;
@@ -124,10 +123,6 @@ pub enum DriverEventContent {
 pub struct DriverEvent {
     pub create_date: DateTime<Utc>,
     pub content: DriverEventContent,
-}
-
-impl Message for DriverEvent {
-    type Result = ();
 }
 
 impl DriverEvent {

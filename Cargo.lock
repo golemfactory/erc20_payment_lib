@@ -1199,7 +1199,6 @@ dependencies = [
 name = "erc20_payment_lib_common"
 version = "0.3.14"
 dependencies = [
- "actix",
  "actix-files",
  "actix-web",
  "async-trait",
