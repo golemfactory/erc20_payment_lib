@@ -6,7 +6,7 @@ import { fromWei } from "./common/Web3Utils";
 import TokenTransfer from "./model/TokenTransfer";
 import { BackendSettingsContext } from "./BackendSettingsProvider";
 import { backendFetch } from "./common/BackendCall";
-import {ethers} from "ethers";
+import { ethers } from "ethers";
 
 interface TransfersBoxProps {
     tx_id: number | null;

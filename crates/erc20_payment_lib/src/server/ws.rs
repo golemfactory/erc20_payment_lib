@@ -14,9 +14,7 @@ struct MainWebsocketActor {
 
 impl MainWebsocketActor {
     pub fn new(rec: broadcast::Receiver<DriverEvent>) -> Self {
-        Self {
-            rx: Some(rec),
-        }
+        Self { rx: Some(rec) }
     }
 }
 
@@ -25,7 +23,7 @@ impl Actor for MainWebsocketActor {
 }
 
 impl StreamHandler<Result<DriverEvent, BroadcastStreamRecvError>> for MainWebsocketActor {
-fn handle(
+    fn handle(
         &mut self,
         msg: Result<DriverEvent, BroadcastStreamRecvError>,
         ctx: &mut Self::Context,
@@ -43,7 +41,6 @@ fn handle(
             }
         }
     }
-
 }
 
 /// Handler for ws::Message message
@@ -62,8 +59,12 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MainWebsocketActo
     }
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        let stream_wrapper: BroadcastStream<DriverEvent> = BroadcastStream::new(self.rx.take().unwrap());
-        <Self as StreamHandler::<Result<DriverEvent, BroadcastStreamRecvError>>>::add_stream(stream_wrapper, ctx);
+        let stream_wrapper: BroadcastStream<DriverEvent> =
+            BroadcastStream::new(self.rx.take().unwrap());
+        <Self as StreamHandler<Result<DriverEvent, BroadcastStreamRecvError>>>::add_stream(
+            stream_wrapper,
+            ctx,
+        );
     }
 }
 

@@ -1,13 +1,12 @@
-import React, {useCallback, useContext, useEffect} from "react";
+import React, { useCallback, useContext, useEffect } from "react";
 import "./CreateTransferBox.css";
 
-import {ethers} from "ethers";
-import {backendFetch} from "./common/BackendCall";
-import {BackendSettingsContext} from "./BackendSettingsProvider";
-import {useConfig} from "./ConfigProvider";
+import { ethers } from "ethers";
+import { backendFetch } from "./common/BackendCall";
+import { BackendSettingsContext } from "./BackendSettingsProvider";
+import { useConfig } from "./ConfigProvider";
 import ContractDetails from "./ContractDetails";
-import {DateTime} from "luxon";
-
+import { DateTime } from "luxon";
 
 interface CreateTransferBoxProps {
     selectedChain: string | null;
@@ -15,9 +14,9 @@ interface CreateTransferBoxProps {
 }
 
 function random_id(length: number) {
-    let result = '';
-    const start_characters = 'abcdefghijklmnopqrstuvwxyz';
-    const characters = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let result = "";
+    const start_characters = "abcdefghijklmnopqrstuvwxyz";
+    const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
     let counter = 0;
     while (counter < length) {
         if (counter == 0) {
@@ -31,7 +30,7 @@ function random_id(length: number) {
 }
 
 const CreateTransferBox = (props: CreateTransferBoxProps) => {
-    const {backendSettings} = useContext(BackendSettingsContext);
+    const { backendSettings } = useContext(BackendSettingsContext);
     const config = useConfig();
 
     const [inputTo, setInputTo] = React.useState<string>("");
@@ -83,18 +82,18 @@ const CreateTransferBox = (props: CreateTransferBoxProps) => {
             const response = await backendFetch(backendSettings, `/transfers/new`, {
                 method: "POST",
                 body: JSON.stringify({
-                    "from": props.selectedAccount,
-                    "to": inputTo,
-                    "amount": inputAmountBigInt.toString(),
-                    "chain": parseInt(props.selectedChain),
-                    "token": (inputUseGas == "gas") ? null : config.chainSetup[parseInt(props.selectedChain)].glmAddress,
-                    "dueDate": dueDateString ? DateTime.fromISO(dueDateString).toISO() : null
+                    from: props.selectedAccount,
+                    to: inputTo,
+                    amount: inputAmountBigInt.toString(),
+                    chain: parseInt(props.selectedChain),
+                    token: inputUseGas == "gas" ? null : config.chainSetup[parseInt(props.selectedChain)].glmAddress,
+                    dueDate: dueDateString ? DateTime.fromISO(dueDateString).toISO() : null,
                 }),
-            })
+            });
             //sleep for one seconds
-            await new Promise(r => setTimeout(r, 200));
+            await new Promise((r) => setTimeout(r, 200));
             const response_json = await response.text();
-            console.log(response_json)
+            console.log(response_json);
             if (inputClearData) {
                 clearData();
             }
@@ -102,104 +101,153 @@ const CreateTransferBox = (props: CreateTransferBoxProps) => {
 
             setIsSending(false);
         }
-    }, [props.selectedAccount, inputTo, inputToValid, props.selectedChain, inputAmountBigInt, inputUseGas, config, inputClearData]);
+    }, [
+        props.selectedAccount,
+        inputTo,
+        inputToValid,
+        props.selectedChain,
+        inputAmountBigInt,
+        inputUseGas,
+        config,
+        inputClearData,
+    ]);
 
     if (props.selectedChain == null) {
-        return <div>Chain not selected</div>
+        return <div>Chain not selected</div>;
     }
     return (
         <div className="create-transfer-box">
-            <div className="create-transfer-box-header">
-                Create transfer
-            </div>
+            <div className="create-transfer-box-header">Create transfer</div>
             <div>
-                from: <ContractDetails
-                contractAddress={props.selectedAccount}
-                chainId={parseInt(props.selectedChain)}
-                isAddress={"Receiver id"}
-            />
+                from:{" "}
+                <ContractDetails
+                    contractAddress={props.selectedAccount}
+                    chainId={parseInt(props.selectedChain)}
+                    isAddress={"Receiver id"}
+                />
             </div>
             <div>
                 <div className="create-transfer-box-label">
-                    to: {inputToValid ?
-                    <ContractDetails contractAddress={inputTo} chainId={parseInt(props.selectedChain)}
-                                     isAddress={true}/> : "Invalid address"}
+                    to:{" "}
+                    {inputToValid ? (
+                        <ContractDetails
+                            contractAddress={inputTo}
+                            chainId={parseInt(props.selectedChain)}
+                            isAddress={true}
+                        />
+                    ) : (
+                        "Invalid address"
+                    )}
                 </div>
                 <div>
-                    <input className="create-transfer-box-address-input" type="text" placeholder="To (address)"
-                           onChange={e => setInputTo(e.target.value)}
-                           value={inputTo}/>
-                    <button onClick={e => setInputToRandom()}>Random</button>
+                    <input
+                        className="create-transfer-box-address-input"
+                        type="text"
+                        placeholder="To (address)"
+                        onChange={(e) => setInputTo(e.target.value)}
+                        value={inputTo}
+                    />
+                    <button onClick={(e) => setInputToRandom()}>Random</button>
                 </div>
             </div>
             <div>
                 <div className="create-transfer-box-label">
                     value:
                     {inputAmountValid ? ethers.utils.formatEther(inputAmountBigInt.toString()) : "Invalid amount "}
-                    {inputUseGas == "token" ? config.chainSetup[parseInt(props.selectedChain)].currencyGlmSymbol : config.chainSetup[parseInt(props.selectedChain)].currencyGasSymbol}
+                    {inputUseGas == "token"
+                        ? config.chainSetup[parseInt(props.selectedChain)].currencyGlmSymbol
+                        : config.chainSetup[parseInt(props.selectedChain)].currencyGasSymbol}
                 </div>
                 <div>
-                    <input type="text" placeholder="Amount" onChange={e => setInputAmount(e.target.value)}
-                           value={inputAmount}/>
-                    <button onClick={e => setInputAmount("0.000000000000000001")}>1 wei</button>
-                    <button onClick={e => setInputAmount("0.000000001")}>1 Gwei</button>
-                    <button onClick={e => setInputAmount("0.001")}>1 mETH</button>
+                    <input
+                        type="text"
+                        placeholder="Amount"
+                        onChange={(e) => setInputAmount(e.target.value)}
+                        value={inputAmount}
+                    />
+                    <button onClick={(e) => setInputAmount("0.000000000000000001")}>1 wei</button>
+                    <button onClick={(e) => setInputAmount("0.000000001")}>1 Gwei</button>
+                    <button onClick={(e) => setInputAmount("0.001")}>1 mETH</button>
                 </div>
             </div>
             <div>
                 <div className="create-transfer-box-label">
-                    token: {inputUseGas == "token" ?
-                    <ContractDetails contractAddress={config.chainSetup[parseInt(props.selectedChain)].glmAddress}
-                                     chainId={parseInt(props.selectedChain)} isAddress={true}/> : "Native token"}
+                    token:{" "}
+                    {inputUseGas == "token" ? (
+                        <ContractDetails
+                            contractAddress={config.chainSetup[parseInt(props.selectedChain)].glmAddress}
+                            chainId={parseInt(props.selectedChain)}
+                            isAddress={true}
+                        />
+                    ) : (
+                        "Native token"
+                    )}
                 </div>
                 <div>
-                    <select onChange={e => setInputUseGas(e.target.value)}>
-                        <option selected={inputUseGas == "gas"} value="gas">Native/gas token
-                            ({config.chainSetup[parseInt(props.selectedChain)].currencyGasSymbol})
+                    <select onChange={(e) => setInputUseGas(e.target.value)}>
+                        <option selected={inputUseGas == "gas"} value="gas">
+                            Native/gas token ({config.chainSetup[parseInt(props.selectedChain)].currencyGasSymbol})
                         </option>
-                        <option selected={inputUseGas == "token"} value="token">ERC20 token
-                            ({props.selectedChain ? config.chainSetup[parseInt(props.selectedChain)].currencyGlmSymbol : ""})
+                        <option selected={inputUseGas == "token"} value="token">
+                            ERC20 token (
+                            {props.selectedChain
+                                ? config.chainSetup[parseInt(props.selectedChain)].currencyGlmSymbol
+                                : ""}
+                            )
                         </option>
                     </select>
                 </div>
             </div>
             <div>
                 <div className="create-transfer-box-label">
-                    Due
-                    date: {dueDateString ? DateTime.fromISO(dueDateString).toISO() : "No due date"}
+                    Due date: {dueDateString ? DateTime.fromISO(dueDateString).toISO() : "No due date"}
                 </div>
                 <div>
-                    <input className="create-transfer-box-due-date-input" type="text" placeholder="Due date" onChange={e => setDueDateString(e.target.value)}
-                           value={dueDateString}></input>
-                    <button onClick={e => setDueDateString(DateTime.now().toISO() ?? "")}>Current</button>
-                    <button onClick={e => setDueDateString(DateTime.now().plus({minute: 1}).toISO() ?? "")}>curr. +1 min</button>
-                    <button onClick={e => setDueDateString(DateTime.now().plus({minute: 5}).toISO() ?? "")}>curr. +5 min</button>
+                    <input
+                        className="create-transfer-box-due-date-input"
+                        type="text"
+                        placeholder="Due date"
+                        onChange={(e) => setDueDateString(e.target.value)}
+                        value={dueDateString}
+                    ></input>
+                    <button onClick={(e) => setDueDateString(DateTime.now().toISO() ?? "")}>Current</button>
+                    <button onClick={(e) => setDueDateString(DateTime.now().plus({ minute: 1 }).toISO() ?? "")}>
+                        curr. +1 min
+                    </button>
+                    <button onClick={(e) => setDueDateString(DateTime.now().plus({ minute: 5 }).toISO() ?? "")}>
+                        curr. +5 min
+                    </button>
                 </div>
             </div>
             <div>
-                <div className="create-transfer-box-label">
-                    Payment id (should be unique): {paymentID}
-                </div>
+                <div className="create-transfer-box-label">Payment id (should be unique): {paymentID}</div>
                 <div>
-                    <input className="create-uuid-box-uuid-input" type="text" placeholder="Payment id" onChange={e => setPaymentID(e.target.value)}
-                           value={paymentID}></input>
-                    <button onClick={e => setPaymentID(random_id(10))}>Random</button>
-
-
-
+                    <input
+                        className="create-uuid-box-uuid-input"
+                        type="text"
+                        placeholder="Payment id"
+                        onChange={(e) => setPaymentID(e.target.value)}
+                        value={paymentID}
+                    ></input>
+                    <button onClick={(e) => setPaymentID(random_id(10))}>Random</button>
                 </div>
-
             </div>
             <div>
-                <input id="cbClearData" type="checkbox" checked={inputClearData}
-                       onChange={e => setInputClearData(!inputClearData)}/><label htmlFor="cbClearData">Clear data after
-                send</label>
+                <input
+                    id="cbClearData"
+                    type="checkbox"
+                    checked={inputClearData}
+                    onChange={(e) => setInputClearData(!inputClearData)}
+                />
+                <label htmlFor="cbClearData">Clear data after send</label>
             </div>
             <div>
-                <button disabled={isSending || !isTransferValid()} onClick={e => sendTransfer()}>Send</button>
+                <button disabled={isSending || !isTransferValid()} onClick={(e) => sendTransfer()}>
+                    Send
+                </button>
             </div>
         </div>
     );
-}
+};
 
 export default CreateTransferBox;

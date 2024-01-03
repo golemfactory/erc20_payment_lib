@@ -3,7 +3,7 @@ import "./TransferBox.css";
 import ContractDetails from "./ContractDetails";
 import { fromWei } from "./common/Web3Utils";
 import TokenTransfer from "./model/TokenTransfer";
-import {ethers} from "ethers";
+import { ethers } from "ethers";
 
 interface TransferBoxProps {
     transfer: TokenTransfer;

@@ -32,6 +32,7 @@ use erc20_payment_lib::runtime::{
     deposit_funds, get_token_balance, mint_golem_token, remove_last_unsent_transactions,
     remove_transaction_force, withdraw_funds, PaymentRuntimeArgs,
 };
+use erc20_payment_lib::server::web::{runtime_web_scope, ServerData};
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::{import_erc20_txs, ImportErc20TxsArgs};
@@ -50,7 +51,6 @@ use structopt::StructOpt;
 use tokio::sync::Mutex;
 use web3::ethabi::ethereum_types::Address;
 use web3::types::U256;
-use erc20_payment_lib::server::web::{runtime_web_scope, ServerData};
 
 fn check_address_name(n: &str) -> String {
     match n {

@@ -1,4 +1,3 @@
-
 .create-transfer-box {
     border: 1px solid red;
     display: flex;
@@ -28,7 +27,7 @@
 }
 
 .create-transfer-box button {
-    height: 2.0em;
+    height: 2em;
 }
 .create-transfer-box-address-input {
     width: 24em;
