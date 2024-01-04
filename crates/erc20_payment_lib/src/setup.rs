@@ -15,6 +15,7 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::mpsc;
 use uuid::Uuid;
 use web3::types::{Address, U256};
 
@@ -115,7 +116,7 @@ impl PaymentSetup {
         secret_keys: Vec<SecretKey>,
         options: &AdditionalOptions,
         web3_rpc_pool_info: Arc<std::sync::Mutex<BTreeMap<i64, Web3PoolType>>>,
-        mpsc_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
+        mpsc_sender: Option<mpsc::Sender<DriverEvent>>,
     ) -> Result<Self, PaymentError> {
         let mut ps = PaymentSetup {
             chain_setup: BTreeMap::new(),

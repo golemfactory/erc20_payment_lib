@@ -1,5 +1,5 @@
 use super::web::ServerData;
-use actix::{Actor, ActorContext, StreamHandler};
+use actix::{Actor, StreamHandler};
 use actix_web::web::Data;
 use actix_web::{web, Error, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
@@ -30,14 +30,10 @@ impl StreamHandler<Result<DriverEvent, BroadcastStreamRecvError>> for MainWebsoc
     ) {
         match msg {
             Ok(event) => {
-                ctx.text(serde_json::to_string(&event).unwrap_or_else(|_err| {
-                    log::error!("Failed to serialize DriverEvent");
-                    "".to_string()
-                }));
+                ctx.text(serde_json::to_string(&event).expect("Failed to serialize DriverEvent"));
             }
-            Err(err) => {
-                log::error!("MainWebsocketActor handle error: {:?}", err);
-                ctx.stop();
+            Err(BroadcastStreamRecvError::Lagged(n)) => {
+                log::warn!("Websocket actor skipped {} messages", n);
             }
         }
     }
@@ -73,9 +69,15 @@ pub async fn event_stream_websocket_endpoint(
     req: HttpRequest,
     stream: web::Payload,
 ) -> Result<HttpResponse, Error> {
-    ws::start(
-        MainWebsocketActor::new(data.payment_runtime.receiver.resubscribe()),
-        &req,
-        stream,
-    )
+    if let Some(driver_event_sender) = &data.payment_runtime.driver_event_sender {
+        ws::start(
+            MainWebsocketActor::new(driver_event_sender.subscribe()),
+            &req,
+            stream,
+        )
+    } else {
+        Err(actix_web::error::ErrorInternalServerError(
+            "Driver event sender not available",
+        ))
+    }
 }

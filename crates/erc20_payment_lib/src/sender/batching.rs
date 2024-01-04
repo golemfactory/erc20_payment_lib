@@ -12,6 +12,7 @@ use crate::setup::PaymentSetup;
 use crate::{err_create, err_custom_create, err_from};
 
 use sqlx::SqlitePool;
+use tokio::sync::mpsc;
 
 use crate::runtime::send_driver_event;
 use erc20_payment_lib_common::model::TokenTransferDao;
@@ -267,7 +268,7 @@ pub async fn gather_transactions_batch_multi(
 }
 
 pub async fn gather_transactions_batch(
-    event_sender: Option<tokio::sync::broadcast::Sender<DriverEvent>>,
+    event_sender: Option<mpsc::Sender<DriverEvent>>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
     token_transfers: &mut [TokenTransferDao],
@@ -330,7 +331,7 @@ pub async fn gather_transactions_batch(
 }
 
 pub async fn gather_transactions_post(
-    event_sender: Option<tokio::sync::broadcast::Sender<DriverEvent>>,
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
     token_transfer_map: &mut TokenTransferMap,

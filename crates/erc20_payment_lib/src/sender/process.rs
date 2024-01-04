@@ -53,7 +53,7 @@ pub async fn get_provider(url: &str) -> Result<Web3<Http>, PaymentError> {
 }
 
 pub async fn process_transaction(
-    event_sender: Option<tokio::sync::broadcast::Sender<DriverEvent>>,
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     shared_state: Arc<Mutex<SharedState>>,
     conn: &SqlitePool,
     web3_tx_dao: &mut TxDao,

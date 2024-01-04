@@ -22,7 +22,7 @@ use tokio::time::Instant;
 use web3::types::U256;
 
 pub async fn update_token_transfer_result(
-    event_sender: Option<tokio::sync::broadcast::Sender<DriverEvent>>,
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     conn: &SqlitePool,
     tx: &mut TxDao,
     process_t_res: &ProcessTransactionResult,
@@ -153,7 +153,7 @@ pub async fn update_token_transfer_result(
 }
 
 pub async fn update_approve_result(
-    event_sender: Option<tokio::sync::broadcast::Sender<DriverEvent>>,
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     conn: &SqlitePool,
     tx: &mut TxDao,
     process_t_res: &ProcessTransactionResult,
@@ -254,7 +254,7 @@ pub async fn update_tx_result(
 }
 
 pub async fn process_transactions(
-    event_sender: Option<tokio::sync::broadcast::Sender<DriverEvent>>,
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     shared_state: Arc<Mutex<SharedState>>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
@@ -476,7 +476,7 @@ pub async fn service_loop(
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
     signer: impl Signer + Send + Sync + 'static,
-    event_sender: Option<tokio::sync::broadcast::Sender<DriverEvent>>,
+    event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
 ) {
     let gather_transactions_interval = payment_setup.gather_interval as i64;
     let mut last_gather_time = if payment_setup.gather_at_start {
