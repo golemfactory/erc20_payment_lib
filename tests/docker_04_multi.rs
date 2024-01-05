@@ -142,7 +142,8 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
                     use_transfer_for_single_payment: false,
                     ..Default::default()
                 }),
-                event_sender: Some(sender),
+                broadcast_sender: None,
+                mspc_sender: Some(sender),
                 extra_testing: None,
             },
             signer,

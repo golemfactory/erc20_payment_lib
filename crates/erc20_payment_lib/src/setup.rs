@@ -15,6 +15,8 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::mpsc;
+use uuid::Uuid;
 use web3::types::{Address, U256};
 
 #[derive(Clone, Debug)]
@@ -49,6 +51,7 @@ pub struct ChainSetup {
     pub priority_fee: U256,
     pub glm_address: Address,
     pub multi_contract_address: Option<Address>,
+    pub lock_contract_address: Option<Address>,
     pub faucet_setup: FaucetSetup,
     pub multi_contract_max_at_once: usize,
     pub transaction_timeout: u64,
@@ -113,7 +116,7 @@ impl PaymentSetup {
         secret_keys: Vec<SecretKey>,
         options: &AdditionalOptions,
         web3_rpc_pool_info: Arc<std::sync::Mutex<BTreeMap<i64, Web3PoolType>>>,
-        mpsc_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
+        mpsc_sender: Option<mpsc::Sender<DriverEvent>>,
     ) -> Result<Self, PaymentError> {
         let mut ps = PaymentSetup {
             chain_setup: BTreeMap::new(),
@@ -175,12 +178,14 @@ impl PaymentSetup {
                                     .unwrap_or(5),
                                 min_interval_requests_ms: rpc_settings.min_interval_ms,
                             },
+                            source_id: None,
                         };
                         single_endpoints.push(endpoint);
                     }
                 } else if let Some(dns_source) = &rpc_settings.dns_source {
                     dns_sources.push(Web3ExternalDnsSource {
                         chain_id: chain_config.1.chain_id as u64,
+                        unique_source_id: Uuid::new_v4(),
                         dns_url: dns_source.clone(),
                         endpoint_params: Web3EndpointParams {
                             backup_level: rpc_settings.backup_level.unwrap_or(0),
@@ -199,6 +204,7 @@ impl PaymentSetup {
                 } else if let Some(json_source) = &rpc_settings.json_source {
                     json_sources.push(Web3ExternalJsonSource {
                         chain_id: chain_config.1.chain_id as u64,
+                        unique_source_id: Uuid::new_v4(),
                         url: json_source.clone(),
                         endpoint_params: Web3EndpointParams {
                             backup_level: rpc_settings.backup_level.unwrap_or(0),
@@ -298,6 +304,7 @@ impl PaymentSetup {
                         .clone()
                         .map(|m| m.max_at_once)
                         .unwrap_or(1),
+                    lock_contract_address: chain_config.1.lock_contract.clone().map(|m| m.address),
                     faucet_setup,
 
                     transaction_timeout: chain_config.1.transaction_timeout,

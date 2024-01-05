@@ -1,0 +1,16 @@
+.current-balance-box {
+    border: 1px solid blue;
+    display: flex;
+    flex-direction: column;
+    padding: 2em;
+}
+
+.current-balance-box > div {
+    margin: 0.5em;
+}
+
+.current-balance-box-value {
+    font-size: 1.1em;
+    font-weight: bold;
+    font-family: monospace;
+}
