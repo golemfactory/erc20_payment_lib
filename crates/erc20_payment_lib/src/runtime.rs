@@ -227,6 +227,7 @@ impl StatusTracker {
         tokio::spawn(async move {
             let status = status_;
             while let Some(ev) = status_rx.recv().await {
+                let mut pass_raw_message = true;
                 let emit_changed = match &ev.content {
                     DriverEventContent::TransactionFailed(
                         TransactionFailedReason::InvalidChainId(chain_id),
@@ -288,6 +289,7 @@ impl StatusTracker {
                         match &rpc_pool_info.content {
                             Web3RpcPoolContent::Success => {
                                 //Self::clear_issues(status.lock().await.deref_mut(), rpc_pool_info.chain_id)
+                                pass_raw_message = false;
                                 false
                             }
                             Web3RpcPoolContent::Error(err) => Self::update(
@@ -310,31 +312,33 @@ impl StatusTracker {
                     _ => false,
                 };
 
-                if let Some(sender) = &mut mpsc_sender {
-                    if let Err(err) = sender.send(ev.clone()).await {
-                        log::warn!("Error resending driver event: {}", err);
-                    }
-                    if emit_changed {
-                        if let Err(err) = sender
-                            .send(DriverEvent::now(DriverEventContent::StatusChanged(
-                                status.lock().await.clone(),
-                            )))
-                            .await
-                        {
-                            log::warn!("Error resending driver status changed event: {}", err);
+                if pass_raw_message {
+                    if let Some(sender) = &mut mpsc_sender {
+                        if let Err(err) = sender.send(ev.clone()).await {
+                            log::warn!("Error resending driver event: {}", err);
+                        }
+                        if emit_changed {
+                            if let Err(err) = sender
+                                .send(DriverEvent::now(DriverEventContent::StatusChanged(
+                                    status.lock().await.clone(),
+                                )))
+                                .await
+                            {
+                                log::warn!("Error resending driver status changed event: {}", err);
+                            }
                         }
                     }
-                }
 
-                if let Some(sender) = &mut broadcast_sender {
-                    if let Err(err) = sender.send(ev) {
-                        log::warn!("Error resending driver event: {}", err);
-                    }
-                    if emit_changed {
-                        if let Err(err) = sender.send(DriverEvent::now(
-                            DriverEventContent::StatusChanged(status.lock().await.clone()),
-                        )) {
-                            log::warn!("Error resending driver status changed event: {}", err);
+                    if let Some(sender) = &mut broadcast_sender {
+                        if let Err(err) = sender.send(ev) {
+                            log::warn!("Error resending driver event: {}", err);
+                        }
+                        if emit_changed {
+                            if let Err(err) = sender.send(DriverEvent::now(
+                                DriverEventContent::StatusChanged(status.lock().await.clone()),
+                            )) {
+                                log::warn!("Error resending driver status changed event: {}", err);
+                            }
                         }
                     }
                 }
