@@ -405,7 +405,7 @@ impl PaymentRuntime {
             payment_runtime_args.secret_keys.to_vec(),
             &options,
             web3_rpc_pool_info.clone(),
-            None,
+            Some(raw_event_sender.clone()),
         )?;
         payment_setup.use_transfer_for_single_payment = options.use_transfer_for_single_payment;
         payment_setup.extra_options_for_testing = payment_runtime_args.extra_testing.clone();
