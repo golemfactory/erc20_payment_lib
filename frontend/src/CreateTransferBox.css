@@ -1,0 +1,44 @@
+.create-transfer-box {
+    border: 1px solid red;
+    display: flex;
+    flex-direction: column;
+    padding: 2em;
+}
+.create-transfer-box-header {
+    font-size: 1.1em;
+    font-weight: bold;
+}
+.create-transfer-box > div {
+    margin: 0.5em;
+}
+
+.create-transfer-box-address-input {
+    width: 24em;
+    font-family: monospace;
+}
+.create-transfer-box-label {
+    height: 1.7em;
+}
+.create-transfer-box input {
+    height: 1.7em;
+}
+.create-transfer-box select {
+    height: 1.7em;
+}
+
+.create-transfer-box button {
+    height: 2em;
+}
+.create-transfer-box-address-input {
+    width: 24em;
+    font-family: monospace;
+}
+.create-transfer-box-due-date-input {
+    width: 17em;
+    font-family: monospace;
+}
+
+.create-uuid-box-uuid-input {
+    width: 20em;
+    font-family: monospace;
+}

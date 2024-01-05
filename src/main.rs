@@ -11,7 +11,6 @@ use erc20_payment_lib::db::ops::{
     delete_scan_info, get_next_transactions_to_process, get_scan_info, insert_token_transfer,
     update_token_transfer, upsert_scan_info,
 };
-use erc20_payment_lib::server::*;
 use erc20_payment_lib::signer::PrivateKeySigner;
 use std::collections::HashSet;
 
@@ -33,6 +32,7 @@ use erc20_payment_lib::runtime::{
     deposit_funds, get_token_balance, mint_golem_token, remove_last_unsent_transactions,
     remove_transaction_force, withdraw_funds, PaymentRuntimeArgs,
 };
+use erc20_payment_lib::server::web::{runtime_web_scope, ServerData};
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::{import_erc20_txs, ImportErc20TxsArgs};
@@ -48,7 +48,7 @@ use rust_decimal::Decimal;
 use std::sync::Arc;
 use std::time::Duration;
 use structopt::StructOpt;
-use tokio::sync::Mutex;
+use tokio::sync::{broadcast, Mutex};
 use web3::ethabi::ethereum_types::Address;
 use web3::types::U256;
 
@@ -92,10 +92,13 @@ async fn main_internal() -> Result<(), PaymentError> {
 
     let mut config = match config::Config::load("config-payments.toml").await {
         Ok(c) => c,
-        Err(_) => {
-            log::info!("No local config found, using default config");
-            config::Config::default_config()
-        }
+        Err(err) => match err.inner {
+            ErrorBag::IoError(_) => {
+                log::info!("No local config found, using default config");
+                config::Config::default_config()
+            }
+            _ => return Err(err),
+        },
     };
 
     let rpc_endpoints_from_env = [
@@ -200,6 +203,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 }
             });
 
+            let (broadcast_sender, broadcast_receiver) = broadcast::channel(10);
             let sp = PaymentRuntime::new(
                 PaymentRuntimeArgs {
                     secret_keys: private_keys,
@@ -207,20 +211,22 @@ async fn main_internal() -> Result<(), PaymentError> {
                     config,
                     conn: Some(conn.clone()),
                     options: Some(add_opt),
-                    event_sender: None,
+                    mspc_sender: None,
+                    broadcast_sender: Some(broadcast_sender),
                     extra_testing: extra_testing_options,
                 },
                 signer,
             )
             .await?;
 
-            let server_data = web::Data::new(Box::new(ServerData {
-                shared_state: sp.shared_state.clone(),
-                db_connection: Arc::new(Mutex::new(conn.clone())),
-                payment_setup: sp.setup.clone(),
-            }));
-
             if run_options.http {
+                let server_data = web::Data::new(Box::new(ServerData {
+                    shared_state: sp.shared_state.clone(),
+                    db_connection: Arc::new(Mutex::new(conn.clone())),
+                    payment_setup: sp.setup.clone(),
+                    payment_runtime: sp,
+                }));
+
                 let server = HttpServer::new(move || {
                     let cors = actix_cors::Cors::default()
                         .allow_any_origin()
@@ -232,6 +238,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                         Scope::new("erc20"),
                         server_data.clone(),
                         run_options.faucet,
+                        run_options.transfers,
                         run_options.debug,
                         run_options.frontend,
                     );
@@ -253,6 +260,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             } else {
                 sp.runtime_handle.await.unwrap();
             }
+            drop(broadcast_receiver);
         }
         PaymentCommands::CheckRpc {
             check_web3_rpc_options,
@@ -273,7 +281,6 @@ async fn main_internal() -> Result<(), PaymentError> {
                     for (idx, endpoint) in endpoints.iter().enumerate() {
                         let endpoint = Web3RpcSingleParams {
                             chain_id: chain_cfg.chain_id as u64,
-
                             endpoint: endpoint.clone(),
                             name: endpoint_names.get(idx).unwrap_or(&endpoint.clone()).clone(),
                             web3_endpoint_params: Web3EndpointParams {
@@ -291,6 +298,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                                     .unwrap_or(5),
                                 min_interval_requests_ms: rpc_settings.min_interval_ms,
                             },
+                            source_id: None,
                         };
                         single_endpoints.push(endpoint);
                     }
@@ -327,7 +335,6 @@ async fn main_internal() -> Result<(), PaymentError> {
                         log::info!("Imported from dns source: {}", name);
                         web3_pool.clone().add_endpoint(Web3RpcSingleParams {
                             chain_id: chain_cfg.chain_id as u64,
-
                             endpoint: url.clone(),
                             name: name.clone(),
                             web3_endpoint_params: Web3EndpointParams {
@@ -345,6 +352,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                                     .unwrap_or(5),
                                 min_interval_requests_ms: rpc_settings.min_interval_ms,
                             },
+                            source_id: None,
                         });
                     }
                 } else if let Some(json_source) = &rpc_settings.json_source {
@@ -386,7 +394,6 @@ async fn main_internal() -> Result<(), PaymentError> {
 
                         web3_pool.clone().add_endpoint(Web3RpcSingleParams {
                             chain_id: chain_cfg.chain_id as u64,
-
                             endpoint: url.clone(),
                             name: name.clone(),
                             web3_endpoint_params: Web3EndpointParams {
@@ -404,6 +411,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                                     .unwrap_or(5),
                                 min_interval_requests_ms: rpc_settings.min_interval_ms,
                             },
+                            source_id: None,
                         });
                     }
                 } else {

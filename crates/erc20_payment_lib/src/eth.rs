@@ -7,7 +7,7 @@ use serde::Serialize;
 use sha3::Digest;
 use sha3::Keccak256;
 use std::sync::Arc;
-use web3::types::{Address, Bytes, CallRequest, U256};
+use web3::types::{Address, BlockId, BlockNumber, Bytes, CallRequest, U256, U64};
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -15,12 +15,14 @@ pub struct GetBalanceResult {
     pub gas_balance: Option<U256>,
     pub token_balance: Option<U256>,
     pub deposit_balance: Option<U256>,
+    pub block_number: u64,
 }
 
 pub async fn get_deposit_balance(
     web3: Arc<Web3RpcPool>,
     lock_address: Address,
     address: Address,
+    block_number: Option<u64>,
 ) -> Result<U256, PaymentError> {
     log::debug!(
         "Checking deposit balance for address {:#x}, lock address: {:#x}",
@@ -44,7 +46,7 @@ pub async fn get_deposit_balance(
                 max_fee_per_gas: None,
                 max_priority_fee_per_gas: None,
             },
-            None,
+            block_number.map(|bn| BlockId::Number(BlockNumber::Number(U64::from(bn)))),
         )
         .await
         .map_err(err_from!())?;
@@ -63,6 +65,7 @@ pub async fn get_balance(
     lock_contract_address: Option<Address>,
     address: Address,
     check_gas: bool,
+    block_number: Option<u64>,
 ) -> Result<GetBalanceResult, PaymentError> {
     log::debug!(
         "Checking balance for address {:#x}, token address: {:#x}, check_gas {}",
@@ -70,10 +73,21 @@ pub async fn get_balance(
         token_address.unwrap_or_default(),
         check_gas,
     );
+    let block_number = if let Some(block_number) = block_number {
+        log::debug!("Checking balance for block number {}", block_number);
+        block_number
+    } else {
+        web3.clone()
+            .eth_block_number()
+            .await
+            .map_err(err_from!())?
+            .as_u64()
+    };
+
     let gas_balance = if check_gas {
         Some(
             web3.clone()
-                .eth_balance(address, None)
+                .eth_balance(address, Some(BlockNumber::Number(block_number.into())))
                 .await
                 .map_err(err_from!())?,
         )
@@ -82,7 +96,7 @@ pub async fn get_balance(
     };
 
     let deposit_balance = if let Some(lock_contract) = lock_contract_address {
-        get_deposit_balance(web3.clone(), lock_contract, address)
+        get_deposit_balance(web3.clone(), lock_contract, address, Some(block_number))
             .await
             .map(Some)?
     } else {
@@ -106,7 +120,7 @@ pub async fn get_balance(
                     max_fee_per_gas: None,
                     max_priority_fee_per_gas: None,
                 },
-                None,
+                Some(BlockId::Number(BlockNumber::Number(block_number.into()))),
             )
             .await
             .map_err(err_from!())?;
@@ -124,6 +138,7 @@ pub async fn get_balance(
         gas_balance,
         token_balance,
         deposit_balance,
+        block_number,
     })
 }
 

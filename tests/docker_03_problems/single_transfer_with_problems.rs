@@ -124,7 +124,8 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
                     keep_running: false,
                     ..Default::default()
                 }),
-                event_sender: Some(sender),
+                broadcast_sender: None,
+                mspc_sender: Some(sender),
                 extra_testing: None,
             },
             signer,

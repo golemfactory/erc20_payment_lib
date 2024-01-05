@@ -122,7 +122,8 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
                     keep_running: false,
                     ..Default::default()
                 }),
-                event_sender: Some(sender.clone()),
+                broadcast_sender: None,
+                mspc_sender: Some(sender.clone()),
                 extra_testing: None,
             },
             signer,
@@ -150,7 +151,8 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
                     keep_running: false,
                     ..Default::default()
                 }),
-                event_sender: Some(sender.clone()),
+                broadcast_sender: None,
+                mspc_sender: Some(sender.clone()),
                 extra_testing: Some(erc20_payment_lib::setup::ExtraOptionsForTesting {
                     erc20_lib_test_replacement_timeout: Some(extra_time),
                     balance_check_loop: None,
@@ -187,7 +189,8 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
                     keep_running: false,
                     ..Default::default()
                 }),
-                event_sender: Some(sender.clone()),
+                broadcast_sender: None,
+                mspc_sender: Some(sender.clone()),
                 extra_testing: Some(erc20_payment_lib::setup::ExtraOptionsForTesting {
                     erc20_lib_test_replacement_timeout: Some(extra_time),
                     balance_check_loop: None,

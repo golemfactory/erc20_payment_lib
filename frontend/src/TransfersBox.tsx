@@ -6,6 +6,7 @@ import { fromWei } from "./common/Web3Utils";
 import TokenTransfer from "./model/TokenTransfer";
 import { BackendSettingsContext } from "./BackendSettingsProvider";
 import { backendFetch } from "./common/BackendCall";
+import { ethers } from "ethers";
 
 interface TransfersBoxProps {
     tx_id: number | null;
@@ -67,7 +68,9 @@ const TransfersBox = (props: TransfersBoxProps) => {
     } else if (config.chainSetup[chainId].glmAddress === tokenAddr) {
         tokenSymbol = config.chainSetup[chainId].currencyGlmSymbol;
     }
-    const amount = fromWei(sumNum);
+
+    //convert sumNum u256 to decimal
+    const amount = ethers.utils.formatUnits(sumNum, 18);
 
     const row = (transfer: TokenTransfer, i: number) => {
         return <TransferBox key={i} transfer={transfer} tokenSymbol={tokenSymbol} />;

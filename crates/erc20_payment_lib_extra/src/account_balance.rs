@@ -120,6 +120,7 @@ pub async fn account_balance(
                     lock_contract_address,
                     job,
                     !account_balance_options.hide_gas,
+                    None,
                 )
                 .await
                 .unwrap();

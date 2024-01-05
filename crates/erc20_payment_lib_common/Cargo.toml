@@ -40,3 +40,4 @@ trust-dns-resolver = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true }
 web3 = { workspace = true }
+anyhow = "1.0.79"
