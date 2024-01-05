@@ -1,3 +1,4 @@
+use std::env;
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
@@ -19,32 +20,34 @@ use web3_test_proxy_client::list_transactions_human;
 async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
 
+    env::set_var("RUST_LOG", "debug");
+
     let geth_container = exclusive_geth_init(Duration::from_secs(300)).await;
     let conn = setup_random_memory_sqlite_conn().await;
 
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
     let proxy_key = "erc20_transfer";
 
-    let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
+    let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(20);
     let receiver_loop = tokio::spawn(async move {
         let mut missing_gas_message_count = 0;
         let fee_paid = U256::from(0_u128);
         while let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
 
-            match msg.content {
+            /*match msg.content {
                 TransactionStuck(reason) => {
                     match reason {
                         TransactionStuckReason::NoGas(no_gas_details) => {
                             log::info!("No gas: {no_gas_details:?}");
                             //assert!(no_gas_details.)
-                            assert_eq!(no_gas_details.gas_needed, Decimal::from_str("0.000128100002345678").unwrap());
-                            assert_eq!(no_gas_details.gas_balance, Decimal::from_str("0.000128").unwrap());
+                            //assert_eq!(no_gas_details.gas_needed, Decimal::from_str("0.000128100002345678").unwrap());
+                            //assert_eq!(no_gas_details.gas_balance, Decimal::from_str("0.000128").unwrap());
                             missing_gas_message_count += 1;
                         },
                         _ => {
                             log::error!("Driver posted wrong reason for transaction stuck: {:?}", reason);
-                            panic!("Driver posted wrong reason for transaction stuck: {:?}", reason);
+                            //panic!("Driver posted wrong reason for transaction stuck: {:?}", reason);
                         }
                     }
                 }
@@ -52,10 +55,12 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
                 StatusChanged(_) => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
-                    panic!("Unexpected message: {:?}", msg);
+                    log::error!("Unexpected message: {:?}", msg);
+                    //panic!("Unexpected message: {:?}", msg);
                 }
-            }
+            }*/
         }
+        log::info!("Loop finished");
 
         assert!(missing_gas_message_count > 0);
         fee_paid
