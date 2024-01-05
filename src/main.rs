@@ -48,7 +48,7 @@ use rust_decimal::Decimal;
 use std::sync::Arc;
 use std::time::Duration;
 use structopt::StructOpt;
-use tokio::sync::Mutex;
+use tokio::sync::{broadcast, Mutex};
 use web3::ethabi::ethereum_types::Address;
 use web3::types::U256;
 
@@ -203,6 +203,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 }
             });
 
+            let (broadcast_sender, broadcast_receiver) = broadcast::channel(10);
             let sp = PaymentRuntime::new(
                 PaymentRuntimeArgs {
                     secret_keys: private_keys,
@@ -211,7 +212,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     conn: Some(conn.clone()),
                     options: Some(add_opt),
                     mspc_sender: None,
-                    broadcast_sender: None,
+                    broadcast_sender: Some(broadcast_sender),
                     extra_testing: extra_testing_options,
                 },
                 signer,
@@ -259,6 +260,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             } else {
                 sp.runtime_handle.await.unwrap();
             }
+            drop(broadcast_receiver);
         }
         PaymentCommands::CheckRpc {
             check_web3_rpc_options,
