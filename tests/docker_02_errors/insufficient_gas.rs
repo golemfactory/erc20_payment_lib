@@ -25,11 +25,11 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
     let proxy_key = "erc20_transfer";
 
-    let (sender, mut receiver) = tokio::sync::broadcast::channel::<DriverEvent>(1);
+    let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
     let receiver_loop = tokio::spawn(async move {
         let mut missing_gas_message_count = 0;
         let fee_paid = U256::from(0_u128);
-        while let Ok(msg) = receiver.recv().await {
+        while let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
 
             match msg.content {
@@ -94,7 +94,8 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
                     keep_running: false,
                     ..Default::default()
                 }),
-                event_sender: Some(sender),
+                broadcast_sender: None,
+                mspc_sender: Some(sender),
                 extra_testing: None,
             },
             signer,

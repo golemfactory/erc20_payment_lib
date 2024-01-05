@@ -217,8 +217,9 @@ impl StatusTracker {
     }
 
     fn new(
-        mut sender: Option<tokio::sync::broadcast::Sender<DriverEvent>>,
-        mut status_rx: tokio::sync::mpsc::Receiver<DriverEvent>,
+        mut broadcast_sender: Option<broadcast::Sender<DriverEvent>>,
+        mut mpsc_sender: Option<mpsc::Sender<DriverEvent>>,
+        mut status_rx: mpsc::Receiver<DriverEvent>,
     ) -> Self {
         let status = Arc::new(Mutex::new(Vec::new()));
         let status_ = Arc::clone(&status);
@@ -309,14 +310,32 @@ impl StatusTracker {
                     _ => false,
                 };
 
-                if let Some(sender) = &mut sender {
-                    sender.send(ev).ok();
+                if let Some(sender) = &mut mpsc_sender {
+                    if let Err(err) = sender.send(ev.clone()).await {
+                        log::warn!("Error resending driver event: {}", err);
+                    }
                     if emit_changed {
-                        sender
+                        if let Err(err) = sender
                             .send(DriverEvent::now(DriverEventContent::StatusChanged(
                                 status.lock().await.clone(),
                             )))
-                            .ok();
+                            .await
+                        {
+                            log::warn!("Error resending driver status changed event: {}", err);
+                        }
+                    }
+                }
+
+                if let Some(sender) = &mut broadcast_sender {
+                    if let Err(err) = sender.send(ev) {
+                        log::warn!("Error resending driver event: {}", err);
+                    }
+                    if emit_changed {
+                        if let Err(err) = sender.send(DriverEvent::now(
+                            DriverEventContent::StatusChanged(status.lock().await.clone()),
+                        )) {
+                            log::warn!("Error resending driver status changed event: {}", err);
+                        }
                     }
                 }
             }
@@ -341,7 +360,8 @@ pub struct PaymentRuntime {
     pub setup: PaymentSetup,
     pub shared_state: Arc<Mutex<SharedState>>,
     pub wake: Arc<Notify>,
-    pub driver_event_sender: Option<broadcast::Sender<DriverEvent>>,
+    pub driver_broadcast_sender: Option<broadcast::Sender<DriverEvent>>,
+    pub driver_mpsc_sender: Option<mpsc::Sender<DriverEvent>>,
     conn: SqlitePool,
     status_tracker: StatusTracker,
     config: Config,
@@ -353,7 +373,8 @@ pub struct PaymentRuntimeArgs {
     pub config: config::Config,
     pub conn: Option<SqlitePool>,
     pub options: Option<AdditionalOptions>,
-    pub event_sender: Option<tokio::sync::broadcast::Sender<DriverEvent>>,
+    pub broadcast_sender: Option<broadcast::Sender<DriverEvent>>,
+    pub mspc_sender: Option<mpsc::Sender<DriverEvent>>,
     pub extra_testing: Option<ExtraOptionsForTesting>,
 }
 
@@ -384,7 +405,7 @@ impl PaymentRuntime {
             payment_runtime_args.secret_keys.to_vec(),
             &options,
             web3_rpc_pool_info.clone(),
-            Some(raw_event_sender.clone()),
+            None,
         )?;
         payment_setup.use_transfer_for_single_payment = options.use_transfer_for_single_payment;
         payment_setup.extra_options_for_testing = payment_runtime_args.extra_testing.clone();
@@ -403,8 +424,14 @@ impl PaymentRuntime {
                 .await?
         };
 
-        let driver_event_sender = payment_runtime_args.event_sender.clone();
-        let status_tracker = StatusTracker::new(payment_runtime_args.event_sender, status_rx);
+        let driver_broadcast_sender = payment_runtime_args.broadcast_sender.clone();
+        let driver_mpsc_sender = payment_runtime_args.mspc_sender.clone();
+
+        let status_tracker = StatusTracker::new(
+            payment_runtime_args.broadcast_sender,
+            payment_runtime_args.mspc_sender,
+            status_rx,
+        );
 
         let ps = payment_setup.clone();
 
@@ -496,7 +523,8 @@ impl PaymentRuntime {
             wake: notify,
             conn,
             status_tracker,
-            driver_event_sender,
+            driver_broadcast_sender,
+            driver_mpsc_sender,
             config: payment_runtime_args.config,
         })
     }

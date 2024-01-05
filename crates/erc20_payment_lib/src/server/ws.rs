@@ -69,9 +69,9 @@ pub async fn event_stream_websocket_endpoint(
     req: HttpRequest,
     stream: web::Payload,
 ) -> Result<HttpResponse, Error> {
-    if let Some(driver_event_sender) = &data.payment_runtime.driver_event_sender {
+    if let Some(driver_broadcast_sender) = &data.payment_runtime.driver_broadcast_sender {
         ws::start(
-            MainWebsocketActor::new(driver_event_sender.subscribe()),
+            MainWebsocketActor::new(driver_broadcast_sender.subscribe()),
             &req,
             stream,
         )

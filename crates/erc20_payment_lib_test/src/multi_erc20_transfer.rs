@@ -26,7 +26,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
     let proxy_key = "erc20_transfer";
 
-    let (sender, mut receiver) = tokio::sync::broadcast::channel::<DriverEvent>(1);
+    let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
     let receiver_loop = tokio::spawn(async move {
         let mut transfer_finished_message_count = 0;
         let mut approve_contract_message_count = 0;
@@ -34,7 +34,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
         let mut fee_paid = U256::from(0_u128);
         let mut fee_paid_approve = U256::from(0_u128);
 
-        while let Ok(msg) = receiver.recv().await {
+        while let Some(msg) = receiver.recv().await {
             log::debug!("Received message: {:?}", msg);
 
             match msg.content {
@@ -123,7 +123,8 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
                             use_transfer_for_single_payment: false,
                             ..Default::default()
                         }),
-                        event_sender: Some(sender),
+                        broadcast_sender: None,
+                        mspc_sender: Some(sender),
                         extra_testing: None,
                     },
                     signer,

@@ -109,6 +109,7 @@ pub struct Web3RpcPoolInfo {
 #[derive(Debug, Clone, Serialize)]
 #[allow(clippy::large_enum_variant)]
 pub enum DriverEventContent {
+    Alive(),
     TransactionConfirmed(TxDao),
     TransferFinished(TransactionFinishedInfo),
     ApproveFinished(AllowanceDao),
