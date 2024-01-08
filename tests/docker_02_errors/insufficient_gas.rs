@@ -9,7 +9,6 @@ use erc20_payment_lib_common::{DriverEvent, TransactionStuckReason};
 use erc20_payment_lib_test::*;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
-use std::env;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
