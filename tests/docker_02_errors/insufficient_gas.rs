@@ -27,21 +27,20 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
     let proxy_key = "erc20_transfer";
 
-    let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(20);
+    let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
     let receiver_loop = tokio::spawn(async move {
         let mut missing_gas_message_count = 0;
         let fee_paid = U256::from(0_u128);
         while let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
 
-            /*match msg.content {
+            match msg.content {
                 TransactionStuck(reason) => {
                     match reason {
                         TransactionStuckReason::NoGas(no_gas_details) => {
                             log::info!("No gas: {no_gas_details:?}");
-                            //assert!(no_gas_details.)
-                            //assert_eq!(no_gas_details.gas_needed, Decimal::from_str("0.000128100002345678").unwrap());
-                            //assert_eq!(no_gas_details.gas_balance, Decimal::from_str("0.000128").unwrap());
+                            assert_eq!(no_gas_details.gas_needed, Decimal::from_str("0.000128100002345678").unwrap());
+                            assert_eq!(no_gas_details.gas_balance, Decimal::from_str("0.000128").unwrap());
                             missing_gas_message_count += 1;
                         },
                         _ => {
@@ -57,10 +56,8 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
                     log::error!("Unexpected message: {:?}", msg);
                     //panic!("Unexpected message: {:?}", msg);
                 }
-            }*/
+            }
         }
-        log::info!("Loop finished");
-
         assert!(missing_gas_message_count > 0);
         fee_paid
     });
@@ -105,9 +102,7 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
             signer,
         ).await?;
 
-
         tokio::time::sleep(Duration::from_secs(5)).await;
-        log::info!("Aborting runtime");
         if sp.runtime_handle.is_finished() {
             panic!("runtime finished too early");
         }
