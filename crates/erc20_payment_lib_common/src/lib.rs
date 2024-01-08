@@ -1,4 +1,3 @@
-pub mod channels;
 mod db;
 pub mod error;
 mod events;
