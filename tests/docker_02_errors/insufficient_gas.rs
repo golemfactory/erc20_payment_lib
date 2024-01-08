@@ -4,11 +4,12 @@ use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::{PaymentRuntime, PaymentRuntimeArgs};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
-use erc20_payment_lib_common::DriverEventContent::*;
+use erc20_payment_lib_common::DriverEventContent::{Alive, StatusChanged, TransactionStuck, Web3RpcMessage};
 use erc20_payment_lib_common::{DriverEvent, TransactionStuckReason};
 use erc20_payment_lib_test::*;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
+use std::env;
 use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
@@ -37,7 +38,6 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
                     match reason {
                         TransactionStuckReason::NoGas(no_gas_details) => {
                             log::info!("No gas: {no_gas_details:?}");
-                            //assert!(no_gas_details.)
                             assert_eq!(no_gas_details.gas_needed, Decimal::from_str("0.000128100002345678").unwrap());
                             assert_eq!(no_gas_details.gas_balance, Decimal::from_str("0.000128").unwrap());
                             missing_gas_message_count += 1;
@@ -50,13 +50,14 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
                 }
                 Web3RpcMessage(_) => { }
                 StatusChanged(_) => { }
+                Alive() => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
+                    log::error!("Unexpected message: {:?}", msg);
                     panic!("Unexpected message: {:?}", msg);
                 }
             }
         }
-
         assert!(missing_gas_message_count > 0);
         fee_paid
     });
@@ -100,12 +101,13 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
             },
             signer,
         ).await?;
-	    
+
         tokio::time::sleep(Duration::from_secs(5)).await;
         if sp.runtime_handle.is_finished() {
             panic!("runtime finished too early");
         }
         sp.runtime_handle.abort();
+        drop(sp);
         let _ = receiver_loop.await.unwrap();
 
         let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;

@@ -330,19 +330,20 @@ impl StatusTracker {
                     }
 
                     if let Some(sender) = &mut broadcast_sender {
-                        if let Err(err) = sender.send(ev) {
-                            log::warn!("Error resending driver event: {}", err);
+                        if let Err(_err) = sender.send(ev) {
+                            //channel closed - it's normal
                         }
                         if emit_changed {
-                            if let Err(err) = sender.send(DriverEvent::now(
+                            if let Err(_err) = sender.send(DriverEvent::now(
                                 DriverEventContent::StatusChanged(status.lock().await.clone()),
                             )) {
-                                log::warn!("Error resending driver status changed event: {}", err);
+                                //channel closed - it's normal
                             }
                         }
                     }
                 }
             }
+            log::debug!("Status tracker finished");
         });
 
         StatusTracker { status }
