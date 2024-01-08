@@ -20,8 +20,6 @@ use web3_test_proxy_client::list_transactions_human;
 async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
 
-    env::set_var("RUST_LOG", "debug");
-
     let geth_container = exclusive_geth_init(Duration::from_secs(300)).await;
     let conn = setup_random_memory_sqlite_conn().await;
 
