@@ -227,7 +227,6 @@ impl StatusTracker {
         tokio::spawn(async move {
             let status = status_;
             while let Some(ev) = status_rx.recv().await {
-                log::info!("MSG RECEIVED");
                 let mut pass_raw_message = true;
                 let emit_changed = match &ev.content {
                     DriverEventContent::TransactionFailed(
@@ -314,7 +313,6 @@ impl StatusTracker {
                 };
 
                 if pass_raw_message {
-                    log::warn!("SEND START");
                     if let Some(sender) = &mut mpsc_sender {
                         if let Err(err) = sender.send(ev.clone()).await {
                             log::warn!("Error resending driver event: {}", err);
@@ -343,7 +341,6 @@ impl StatusTracker {
                             }
                         }
                     }
-                    log::warn!("SEND END");
                 }
             }
             log::debug!("Status tracker finished");

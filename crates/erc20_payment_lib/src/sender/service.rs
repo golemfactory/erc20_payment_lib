@@ -376,10 +376,7 @@ pub async fn process_transactions(
                 current_wait_time_no_gas_token
             );
 
-            log::error!("START WAIT {}", current_wait_time_no_gas_token);
-
             tokio::time::sleep(Duration::from_secs_f64(current_wait_time_no_gas_token)).await;
-            log::error!("END WAIT");
         } else {
             log::debug!(
                 "Sleeping for {} seconds (process interval)",

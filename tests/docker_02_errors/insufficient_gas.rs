@@ -4,7 +4,7 @@ use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::{PaymentRuntime, PaymentRuntimeArgs};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
-use erc20_payment_lib_common::{DriverEvent};
+use erc20_payment_lib_common::DriverEvent;
 use erc20_payment_lib_test::*;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
@@ -104,12 +104,15 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
             },
             signer,
         ).await?;
-	    
+
+
         tokio::time::sleep(Duration::from_secs(5)).await;
+        log::info!("Aborting runtime");
         if sp.runtime_handle.is_finished() {
             panic!("runtime finished too early");
         }
         sp.runtime_handle.abort();
+        drop(sp);
         let _ = receiver_loop.await.unwrap();
 
         let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;
