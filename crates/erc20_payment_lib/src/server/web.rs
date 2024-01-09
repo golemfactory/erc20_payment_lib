@@ -959,7 +959,7 @@ pub async fn faucet(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Respo
         let from_secret = return_on_error!(data
             .payment_setup
             .secret_keys
-            .get(0)
+            .first()
             .ok_or("No account found"));
         let from = get_eth_addr_from_secret(from_secret);
 
