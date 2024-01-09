@@ -280,7 +280,7 @@ impl Web3RpcPool {
                 last_success_endpoints.pop_back();
             }
 
-            if let Some(last_chosen) = last_success_endpoints.get(0) {
+            if let Some(last_chosen) = last_success_endpoints.front() {
                 extra_score_idx = Some(*last_chosen);
                 extra_score += 10;
             }
