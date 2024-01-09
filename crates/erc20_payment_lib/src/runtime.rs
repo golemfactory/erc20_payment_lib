@@ -22,7 +22,6 @@ use crate::setup::{ChainSetup, ExtraOptionsForTesting, PaymentSetup};
 use crate::config::{self, Config};
 use secp256k1::SecretKey;
 use sqlx::SqlitePool;
-use tokio::sync::mpsc::Sender;
 
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
@@ -39,7 +38,7 @@ use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
 use std::sync::Arc;
-use tokio::sync::{Mutex, Notify};
+use tokio::sync::{broadcast, mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
 use web3::types::{Address, H256, U256};
 
@@ -217,14 +216,18 @@ impl StatusTracker {
         status_props.len() != old_len
     }
 
-    fn new(mut sender: Option<Sender<DriverEvent>>) -> (Self, Sender<DriverEvent>) {
-        let (status_tx, mut status_rx) = tokio::sync::mpsc::channel::<DriverEvent>(1);
+    fn new(
+        mut broadcast_sender: Option<broadcast::Sender<DriverEvent>>,
+        mut mpsc_sender: Option<mpsc::Sender<DriverEvent>>,
+        mut status_rx: mpsc::Receiver<DriverEvent>,
+    ) -> Self {
         let status = Arc::new(Mutex::new(Vec::new()));
         let status_ = Arc::clone(&status);
 
         tokio::spawn(async move {
             let status = status_;
             while let Some(ev) = status_rx.recv().await {
+                let mut pass_raw_message = true;
                 let emit_changed = match &ev.content {
                     DriverEventContent::TransactionFailed(
                         TransactionFailedReason::InvalidChainId(chain_id),
@@ -286,6 +289,7 @@ impl StatusTracker {
                         match &rpc_pool_info.content {
                             Web3RpcPoolContent::Success => {
                                 //Self::clear_issues(status.lock().await.deref_mut(), rpc_pool_info.chain_id)
+                                pass_raw_message = false;
                                 false
                             }
                             Web3RpcPoolContent::Error(err) => Self::update(
@@ -308,21 +312,41 @@ impl StatusTracker {
                     _ => false,
                 };
 
-                if let Some(sender) = &mut sender {
-                    sender.send(ev).await.ok();
-                    if emit_changed {
-                        sender
-                            .send(DriverEvent::now(DriverEventContent::StatusChanged(
-                                status.lock().await.clone(),
-                            )))
-                            .await
-                            .ok();
+                if pass_raw_message {
+                    if let Some(sender) = &mut mpsc_sender {
+                        if let Err(err) = sender.send(ev.clone()).await {
+                            log::warn!("Error resending driver event: {}", err);
+                        }
+                        if emit_changed {
+                            if let Err(err) = sender
+                                .send(DriverEvent::now(DriverEventContent::StatusChanged(
+                                    status.lock().await.clone(),
+                                )))
+                                .await
+                            {
+                                log::warn!("Error resending driver status changed event: {}", err);
+                            }
+                        }
+                    }
+
+                    if let Some(sender) = &mut broadcast_sender {
+                        if let Err(_err) = sender.send(ev) {
+                            //channel closed - it's normal
+                        }
+                        if emit_changed {
+                            if let Err(_err) = sender.send(DriverEvent::now(
+                                DriverEventContent::StatusChanged(status.lock().await.clone()),
+                            )) {
+                                //channel closed - it's normal
+                            }
+                        }
                     }
                 }
             }
+            log::debug!("Status tracker finished");
         });
 
-        (StatusTracker { status }, status_tx)
+        StatusTracker { status }
     }
 
     async fn get_status(&self) -> Vec<StatusProperty> {
@@ -341,6 +365,8 @@ pub struct PaymentRuntime {
     pub setup: PaymentSetup,
     pub shared_state: Arc<Mutex<SharedState>>,
     pub wake: Arc<Notify>,
+    pub driver_broadcast_sender: Option<broadcast::Sender<DriverEvent>>,
+    pub driver_mpsc_sender: Option<mpsc::Sender<DriverEvent>>,
     conn: SqlitePool,
     status_tracker: StatusTracker,
     config: Config,
@@ -352,10 +378,12 @@ pub struct PaymentRuntimeArgs {
     pub config: config::Config,
     pub conn: Option<SqlitePool>,
     pub options: Option<AdditionalOptions>,
-    pub event_sender: Option<Sender<DriverEvent>>,
+    pub broadcast_sender: Option<broadcast::Sender<DriverEvent>>,
+    pub mspc_sender: Option<mpsc::Sender<DriverEvent>>,
     pub extra_testing: Option<ExtraOptionsForTesting>,
 }
 
+#[derive(Debug, Clone)]
 pub struct TransferArgs {
     pub chain_name: String,
     pub from: Address,
@@ -375,12 +403,14 @@ impl PaymentRuntime {
         let web3_rpc_pool_info =
             Arc::new(std::sync::Mutex::new(BTreeMap::<i64, Web3PoolType>::new()));
 
+        let (raw_event_sender, status_rx) = tokio::sync::mpsc::channel::<DriverEvent>(1);
+
         let mut payment_setup = PaymentSetup::new(
             &payment_runtime_args.config,
             payment_runtime_args.secret_keys.to_vec(),
             &options,
             web3_rpc_pool_info.clone(),
-            payment_runtime_args.event_sender.clone(),
+            Some(raw_event_sender.clone()),
         )?;
         payment_setup.use_transfer_for_single_payment = options.use_transfer_for_single_payment;
         payment_setup.extra_options_for_testing = payment_runtime_args.extra_testing.clone();
@@ -399,24 +429,16 @@ impl PaymentRuntime {
                 .await?
         };
 
-        let (status_tracker, event_sender) = StatusTracker::new(payment_runtime_args.event_sender);
+        let driver_broadcast_sender = payment_runtime_args.broadcast_sender.clone();
+        let driver_mpsc_sender = payment_runtime_args.mspc_sender.clone();
+
+        let status_tracker = StatusTracker::new(
+            payment_runtime_args.broadcast_sender,
+            payment_runtime_args.mspc_sender,
+            status_rx,
+        );
 
         let ps = payment_setup.clone();
-
-        // Convert BTreeMap of Arenas to BTreeMap of Vec because serde can't serialize Arena
-        /* let web3_rpc_pool_info = web3_rpc_pool_info
-        .iter()
-        .map(|(k, v)| {
-            (
-                *k,
-                v.lock()
-                    .unwrap()
-                    .iter()
-                    .map(|pair| pair.1.clone())
-                    .collect::<Vec<_>>(),
-            )
-        })
-        .collect::<BTreeMap<_, _>>();*/
 
         let shared_state = Arc::new(Mutex::new(SharedState {
             inserted: 0,
@@ -483,7 +505,7 @@ impl PaymentRuntime {
                     &conn_,
                     &ps,
                     signer,
-                    Some(event_sender),
+                    Some(raw_event_sender),
                 )
                 .await
             }
@@ -506,6 +528,8 @@ impl PaymentRuntime {
             wake: notify,
             conn,
             status_tracker,
+            driver_broadcast_sender,
+            driver_mpsc_sender,
             config: payment_runtime_args.config,
         })
     }
@@ -569,7 +593,7 @@ impl PaymentRuntime {
 
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
-        let balance_result = crate::eth::get_balance(web3, None, None, address, true).await?;
+        let balance_result = crate::eth::get_balance(web3, None, None, address, true, None).await?;
 
         let gas_balance = balance_result
             .gas_balance
@@ -808,7 +832,8 @@ pub async fn withdraw_funds(
             "Amount not specified. Use --amount or --all"
         ));
     };
-    let current_amount = get_deposit_balance(web3.clone(), lock_contract_address, from).await?;
+    let current_amount =
+        get_deposit_balance(web3.clone(), lock_contract_address, from, None).await?;
 
     if !skip_check {
         if let Some(amount) = amount {
@@ -922,7 +947,7 @@ pub async fn get_token_balance(
     address: Address,
 ) -> Result<U256, PaymentError> {
     let balance_result =
-        crate::eth::get_balance(web3, Some(token_address), None, address, true).await?;
+        crate::eth::get_balance(web3, Some(token_address), None, address, true, None).await?;
 
     let token_balance = balance_result
         .token_balance
@@ -1075,7 +1100,7 @@ pub async fn remove_last_unsent_transactions(
     }
 }
 pub async fn send_driver_event(
-    event_sender: &Option<Sender<DriverEvent>>,
+    event_sender: &Option<mpsc::Sender<DriverEvent>>,
     event: DriverEventContent,
 ) {
     if let Some(event_sender) = event_sender {

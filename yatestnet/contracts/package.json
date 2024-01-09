@@ -1,6 +1,7 @@
 {
     "scripts": {
         "compile": "hardhat compile",
+        "check_addr": "hardhat run --network dev scripts/check_address.js",
         "deploy_dev": "hardhat run --network dev scripts/deploy_factory.js",
         "deploy_staker": "hardhat run --network dev scripts/deploy_staker.js"
     },

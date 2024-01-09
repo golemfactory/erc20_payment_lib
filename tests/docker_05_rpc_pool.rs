@@ -116,7 +116,8 @@ async fn test_rpc_pool() -> Result<(), anyhow::Error> {
                     keep_running: false,
                     ..Default::default()
                 }),
-                event_sender: Some(sender),
+                broadcast_sender: None,
+                mspc_sender: Some(sender),
                 extra_testing: None,
             },
             signer,

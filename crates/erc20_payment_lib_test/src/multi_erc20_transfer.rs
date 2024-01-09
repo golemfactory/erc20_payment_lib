@@ -123,7 +123,8 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
                             use_transfer_for_single_payment: false,
                             ..Default::default()
                         }),
-                        event_sender: Some(sender),
+                        broadcast_sender: None,
+                        mspc_sender: Some(sender),
                         extra_testing: None,
                     },
                     signer,

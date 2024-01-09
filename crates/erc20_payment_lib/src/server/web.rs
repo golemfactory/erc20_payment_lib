@@ -1,6 +1,7 @@
 use crate::db::ops::*;
-use crate::eth::get_eth_addr_from_secret;
-use crate::runtime::SharedState;
+use crate::eth::{get_balance, get_eth_addr_from_secret};
+use crate::runtime::{PaymentRuntime, SharedState, TransferArgs, TransferType};
+use crate::server::ws::event_stream_websocket_endpoint;
 use crate::setup::{ChainSetup, PaymentSetup};
 use crate::transaction::create_token_transfer;
 use actix_files::NamedFile;
@@ -9,20 +10,23 @@ use actix_web::http::header::HeaderValue;
 use actix_web::http::{header, StatusCode};
 use actix_web::web::Data;
 use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
+use erc20_payment_lib_common::utils::datetime_from_u256_timestamp;
 use erc20_payment_lib_common::{export_metrics_to_prometheus, FaucetData};
 use erc20_rpc_pool::VerifyEndpointResult;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use web3::types::Address;
+use web3::types::{Address, BlockId, BlockNumber, U256};
 
 pub struct ServerData {
     pub shared_state: Arc<Mutex<SharedState>>,
     pub db_connection: Arc<Mutex<SqlitePool>>,
     pub payment_setup: PaymentSetup,
+    pub payment_runtime: PaymentRuntime,
 }
 
 macro_rules! return_on_error {
@@ -32,8 +36,8 @@ macro_rules! return_on_error {
             Err(err) => {
                 return web::Json(json!({
                     "error": err.to_string()
-                }))
-            },
+                }));
+            }
         }
     }
 }
@@ -138,6 +142,7 @@ struct MetricGroup {
     metric_type: String,
     metrics: Vec<Metric>,
 }
+
 struct Metric {
     name: String,
     params: Vec<(String, String)>,
@@ -532,6 +537,78 @@ pub async fn transactions_feed(data: Data<Box<ServerData>>, req: HttpRequest) ->
     }))
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TransactionRequest {
+    from: String,
+    to: String,
+    token: Option<String>,
+    amount: String,
+    chain: i64,
+    due_date: Option<String>,
+    payment_id: Option<String>,
+}
+
+async fn new_transfer(
+    data: Data<Box<ServerData>>,
+    _req: HttpRequest,
+    new_transfer: web::Json<TransactionRequest>,
+) -> actix_web::Result<String> {
+    //println!("new_transfer: {:?}", new_transfer);
+
+    let chain = data
+        .payment_setup
+        .chain_setup
+        .get(&new_transfer.chain)
+        .ok_or(actix_web::error::ErrorBadRequest("No config found"))?
+        .clone();
+
+    let tx_type = if let Some(_token) = &new_transfer.token {
+        TransferType::Token
+    } else {
+        TransferType::Gas
+    };
+
+    let due_date = if let Some(due_date) = &new_transfer.due_date {
+        Some(
+            chrono::DateTime::parse_from_rfc3339(due_date)
+                .map_err(|err| {
+                    actix_web::error::ErrorBadRequest(format!("Invalid due_date: {}", err))
+                })?
+                .naive_utc()
+                .and_utc(),
+        )
+    } else {
+        None
+    };
+
+    let payment_id = if let Some(payment_id) = &new_transfer.payment_id {
+        payment_id.clone()
+    } else {
+        uuid::Uuid::new_v4().to_string()
+    };
+
+    let transfer_args = TransferArgs {
+        chain_name: chain.network,
+        from: Address::from_str(&new_transfer.from).unwrap(),
+        receiver: Address::from_str(&new_transfer.to).unwrap(),
+        tx_type,
+        amount: U256::from_dec_str(&new_transfer.amount).unwrap(),
+        payment_id,
+        deadline: due_date,
+    };
+
+    if let Err(err) = data.payment_runtime.transfer(transfer_args.clone()).await {
+        return Err(actix_web::error::ErrorInternalServerError(format!(
+            "Failed to create transfer: {}",
+            err
+        )));
+    };
+    log::warn!("Created transfer: {:?}", transfer_args);
+
+    Ok("success".to_string())
+}
+
 pub async fn transfers(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Responder {
     let tx_id = req
         .match_info()
@@ -549,7 +626,7 @@ pub async fn transfers(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Re
                 Err(err) => {
                     return web::Json(json!({
                         "error": err.to_string()
-                    }))
+                    }));
                 }
             }
         } else {
@@ -558,7 +635,7 @@ pub async fn transfers(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Re
                 Err(err) => {
                     return web::Json(json!({
                         "error": err.to_string()
-                    }))
+                    }));
                 }
             }
         }
@@ -586,6 +663,95 @@ pub async fn transfers(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Re
     }))
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AccountBalanceResponse {
+    network_id: i64,
+    account: String,
+    gas_balance: String,
+    token_balance: String,
+    deposit_balance: Option<String>,
+    block_number: u64,
+    block_date: chrono::DateTime<chrono::Utc>,
+}
+
+async fn account_balance(
+    data: Data<Box<ServerData>>,
+    req: HttpRequest,
+) -> actix_web::Result<web::Json<AccountBalanceResponse>> {
+    let account = Address::from_str(
+        req.match_info()
+            .get("account")
+            .ok_or(actix_web::error::ErrorBadRequest("account not found"))?,
+    )
+    .map_err(|err| {
+        actix_web::error::ErrorBadRequest(format!("account has to be valid address {err}"))
+    })?;
+    let network_id = i64::from_str(
+        req.match_info()
+            .get("chain")
+            .ok_or(actix_web::error::ErrorBadRequest("chain-id not found"))?,
+    )
+    .map_err(|err| actix_web::error::ErrorBadRequest(format!("chain-id has to be int {err}")))?;
+
+    let chain = data
+        .payment_setup
+        .chain_setup
+        .get(&network_id)
+        .ok_or(actix_web::error::ErrorBadRequest("No config found"))?;
+
+    let block_info = chain
+        .provider
+        .clone()
+        .eth_block(BlockId::Number(BlockNumber::Latest))
+        .await
+        .map_err(|err| {
+            actix_web::error::ErrorInternalServerError(format!("Failed to get latest block {err}"))
+        })?
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "Failed to found block info",
+        ))?;
+
+    let block_number = block_info
+        .number
+        .ok_or(actix_web::error::ErrorInternalServerError(
+            "Failed to found block number in block info",
+        ))?;
+
+    let block_date = datetime_from_u256_timestamp(block_info.timestamp).ok_or(
+        actix_web::error::ErrorInternalServerError("Failed to found block date in block info"),
+    )?;
+
+    let balance = get_balance(
+        chain.provider.clone(),
+        Some(chain.glm_address),
+        chain.lock_contract_address,
+        account,
+        true,
+        Some(block_number.as_u64()),
+    )
+    .await
+    .map_err(|err| {
+        actix_web::error::ErrorInternalServerError(format!("Failed to get balance {err}"))
+    })?;
+
+    Ok(web::Json(AccountBalanceResponse {
+        network_id,
+        account: format!("{:#x}", account),
+        gas_balance: balance
+            .gas_balance
+            .map(|b| b.to_string())
+            .unwrap_or("0".to_string()),
+        token_balance: balance
+            .token_balance
+            .map(|b| b.to_string())
+            .unwrap_or("0".to_string()),
+        deposit_balance: balance.deposit_balance.map(|b| b.to_string()),
+        block_number: block_number.as_u64(),
+        block_date,
+    }))
+}
+
 pub async fn accounts(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Responder {
     //let name = req.match_info().get("name").unwrap_or("World");
     //let mut my_data = data.shared_state.lock().await;
@@ -601,6 +767,7 @@ pub async fn accounts(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Re
         "publicAddr": public_addr.collect::<Vec<String>>()
     }))
 }
+
 pub async fn account_payments_in(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Responder {
     let account = return_on_error!(req.match_info().get("account").ok_or("No account provided"));
     let web3_account = return_on_error!(Address::from_str(account));
@@ -694,12 +861,13 @@ pub async fn account_details(data: Data<Box<ServerData>>, req: HttpRequest) -> i
         "receivedTransfers": received_transfer_count,
     }))
 }
+
 pub async fn redirect_to_slash(req: HttpRequest) -> impl Responder {
     let mut response = HttpResponse::Ok();
     let target = match HeaderValue::from_str(&(req.uri().to_string() + "/")) {
         Ok(target) => target,
         Err(_err) => {
-            return HttpResponse::InternalServerError().body("Failed to create redirect target")
+            return HttpResponse::InternalServerError().body("Failed to create redirect target");
         }
     };
 
@@ -844,6 +1012,7 @@ pub fn runtime_web_scope(
     scope: Scope,
     server_data: Data<Box<ServerData>>,
     enable_faucet: bool,
+    enable_transfers: bool,
     debug: bool,
     frontend: bool,
 ) -> Scope {
@@ -851,6 +1020,7 @@ pub fn runtime_web_scope(
     let mut api_scope = api_scope
         .app_data(server_data)
         .route("/allowances", web::get().to(allowances))
+        .route("/balance/{account}/{chain}", web::get().to(account_balance))
         .route("/rpc_pool", web::get().to(rpc_pool))
         .route("/rpc_pool/metrics", web::get().to(rpc_pool_metrics))
         .route("/config", web::get().to(config_endpoint))
@@ -883,8 +1053,15 @@ pub fn runtime_web_scope(
         .route("/account/{account}/in", web::get().to(account_payments_in))
         .route("/metrics", web::get().to(metrics))
         .route("/", web::get().to(greet))
+        .route(
+            "/event_stream",
+            web::get().to(event_stream_websocket_endpoint),
+        )
         .route("/version", web::get().to(greet));
 
+    if enable_transfers {
+        api_scope = api_scope.route("/transfers/new", web::post().to(new_transfer))
+    }
     if enable_faucet {
         log::info!("Faucet endpoints enabled");
         api_scope = api_scope.route("/faucet", web::get().to(faucet));

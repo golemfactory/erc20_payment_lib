@@ -121,7 +121,9 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
                             keep_running: false,
                             ..Default::default()
                         }),
-                        event_sender: Some(sender),
+                        broadcast_sender: None,
+                        mspc_sender: Some(sender),
+
                         extra_testing: None,
                     },
                     signer,

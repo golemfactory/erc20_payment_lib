@@ -7,8 +7,10 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
+actix = { workspace = true }
 actix-files = { workspace = true }
 actix-web = { workspace = true }
+actix-web-actors = { workspace = true }
 async-trait = { workspace = true }
 awc = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
@@ -33,6 +35,7 @@ sqlx = { workspace = true }
 structopt = { workspace = true }
 thunderdome = { workspace = true }
 tokio = { workspace = true }
+tokio-stream = { workspace = true }
 toml = { workspace = true }
 trust-dns-resolver = { workspace = true }
 url = { workspace = true }

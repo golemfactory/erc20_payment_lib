@@ -13,6 +13,7 @@ use std::time::Duration;
 use thunderdome::{Arena, Index};
 use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
 use trust_dns_resolver::TokioAsyncResolver;
+use uuid::Uuid;
 use web3::transports::Http;
 use web3::Web3;
 
@@ -27,6 +28,7 @@ pub struct Web3ExternalEndpointList {
 #[derive(Debug)]
 pub struct Web3ExternalJsonSource {
     pub chain_id: u64,
+    pub unique_source_id: Uuid,
     pub url: String,
     pub endpoint_params: Web3EndpointParams,
 }
@@ -34,6 +36,7 @@ pub struct Web3ExternalJsonSource {
 #[derive(Debug)]
 pub struct Web3ExternalDnsSource {
     pub chain_id: u64,
+    pub unique_source_id: Uuid,
     pub dns_url: String,
     pub endpoint_params: Web3EndpointParams,
 }
@@ -48,6 +51,9 @@ pub struct Web3RpcEndpoint {
 
 impl Web3RpcEndpoint {
     pub fn get_score(&self) -> f64 {
+        if self.is_removed() {
+            return 0.0;
+        }
         if !self.web3_rpc_info.is_allowed {
             return 0.0;
         }
@@ -69,6 +75,17 @@ impl Web3RpcEndpoint {
         let negative_score_exp = (-negative_score / 200.0).exp();
 
         negative_score_exp * 100.0
+    }
+
+    pub fn is_allowed(&self) -> bool {
+        if self.web3_rpc_info.removed_date.is_some() {
+            return false;
+        }
+        self.web3_rpc_info.is_allowed || self.web3_rpc_params.web3_endpoint_params.skip_validation
+    }
+
+    pub fn is_removed(&self) -> bool {
+        self.web3_rpc_info.removed_date.is_some()
     }
 }
 
@@ -196,6 +213,7 @@ impl Web3RpcPool {
                     max_head_behind_secs: Some(120),
                     max_response_time_ms: 5000,
                 },
+                source_id: None,
             })
             .collect();
         Self::new(
@@ -208,7 +226,7 @@ impl Web3RpcPool {
         )
     }
 
-    pub fn add_endpoint(self: Arc<Self>, endpoint: Web3RpcSingleParams) {
+    pub fn add_endpoint(&self, endpoint: Web3RpcSingleParams) {
         let mut endpoints_locked = self.endpoints.lock().unwrap();
         if endpoint.chain_id != self.chain_id {
             log::error!(
@@ -219,7 +237,8 @@ impl Web3RpcPool {
             return;
         }
         for (_idx, el) in endpoints_locked.iter() {
-            if el.read().unwrap().web3_rpc_params.endpoint == endpoint.endpoint {
+            let el = el.read().unwrap();
+            if !el.is_removed() && el.web3_rpc_params.endpoint == endpoint.endpoint {
                 log::debug!("Endpoint {} already exists", endpoint.endpoint);
                 return;
             }
@@ -245,12 +264,13 @@ impl Web3RpcPool {
         future::join_all(
             endpoints_copy
                 .iter()
-                .map(|s| verify_endpoint(self.chain_id, s.1.clone())),
+                .filter(|(_idx, el)| !el.read().unwrap().is_removed())
+                .map(|(_idx, el)| verify_endpoint(self.chain_id, el.clone())),
         )
         .await;
     }
 
-    pub fn extra_score_from_last_chosen(self: Arc<Self>) -> (Option<Index>, i64) {
+    pub fn extra_score_from_last_chosen(&self) -> (Option<Index>, i64) {
         let mut extra_score_idx = None;
         let mut extra_score = 0;
 
@@ -289,7 +309,21 @@ impl Web3RpcPool {
         (extra_score_idx, extra_score)
     }
 
-    pub async fn resolve_external_addresses(self: Arc<Self>) {
+    fn cleanup_sources(&self) {
+        let grace_period = chrono::Duration::seconds(300);
+        self.endpoints.lock().unwrap().retain(|_idx, el| {
+            let can_remove = el
+                .read()
+                .unwrap()
+                .web3_rpc_info
+                .removed_date
+                .map(|removed_date| Utc::now() - removed_date > grace_period)
+                .unwrap_or(false);
+            !can_remove
+        });
+    }
+
+    async fn resolve_external_addresses(self: Arc<Self>) {
         {
             let mut last_external_check = self.last_external_check.lock().unwrap();
             if let Some(last_external_check) = last_external_check.as_ref() {
@@ -302,6 +336,7 @@ impl Web3RpcPool {
             }
             last_external_check.replace(std::time::Instant::now());
         }
+        self.cleanup_sources();
 
         let dns_jobs = &self.external_dns_sources;
         for dns_source in dns_jobs {
@@ -320,12 +355,25 @@ impl Web3RpcPool {
             let names = urls.clone();
 
             for (url, name) in urls.iter().zip(names) {
-                self.clone().add_endpoint(Web3RpcSingleParams {
+                self.add_endpoint(Web3RpcSingleParams {
                     chain_id: self.chain_id,
                     endpoint: url.clone(),
                     name: name.clone(),
                     web3_endpoint_params: dns_source.endpoint_params.clone(),
+                    source_id: Some(dns_source.unique_source_id),
                 });
+            }
+
+            //remove endpoints that are not in dns anymore
+            let mut endpoints_locked = self.endpoints.lock().unwrap();
+            for (_idx, el) in endpoints_locked.iter_mut() {
+                let mut el = el.write().unwrap();
+                if el.web3_rpc_info.removed_date.is_none()
+                    && el.web3_rpc_params.source_id == Some(dns_source.unique_source_id)
+                    && !urls.contains(&el.web3_rpc_params.endpoint)
+                {
+                    el.web3_rpc_info.removed_date = Some(Utc::now());
+                }
             }
         }
         let jobs = &self.external_json_sources;
@@ -353,12 +401,25 @@ impl Web3RpcPool {
             }
 
             for (url, name) in res.urls.iter().zip(res.names) {
-                self.clone().add_endpoint(Web3RpcSingleParams {
+                self.add_endpoint(Web3RpcSingleParams {
                     chain_id: self.chain_id,
                     endpoint: url.clone(),
                     name: name.clone(),
                     web3_endpoint_params: json_source.endpoint_params.clone(),
+                    source_id: Some(json_source.unique_source_id),
                 });
+            }
+
+            //remove endpoints that are not in json source anymore
+            let mut endpoints_locked = self.endpoints.lock().unwrap();
+            for (_idx, el) in endpoints_locked.iter_mut() {
+                let mut el = el.write().unwrap();
+                if el.web3_rpc_info.removed_date.is_none()
+                    && el.web3_rpc_params.source_id == Some(json_source.unique_source_id)
+                    && !res.urls.contains(&el.web3_rpc_params.endpoint)
+                {
+                    el.web3_rpc_info.removed_date = Some(Utc::now());
+                }
             }
         }
     }
@@ -367,7 +428,7 @@ impl Web3RpcPool {
         tokio::task::spawn(self.clone().resolve_external_addresses());
 
         let endpoints_copy = self.endpoints.lock().unwrap().clone();
-        let (extra_score_idx, extra_score) = self.clone().extra_score_from_last_chosen();
+        let (extra_score_idx, extra_score) = self.extra_score_from_last_chosen();
         for (idx, el) in endpoints_copy.iter() {
             el.write().unwrap().web3_rpc_info.bonus_from_last_chosen =
                 if Some(idx) == extra_score_idx {
@@ -379,16 +440,7 @@ impl Web3RpcPool {
 
         let mut allowed_endpoints = endpoints_copy
             .iter()
-            .filter(|(_idx, element)| {
-                element
-                    .read()
-                    .unwrap()
-                    .web3_rpc_params
-                    .web3_endpoint_params
-                    .skip_validation
-                    || element.read().unwrap().web3_rpc_info.is_allowed
-            })
-            //.max_by_key(|(_idx, element)| (element.read().unwrap().get_score() * 1000.0) as i64)
+            .filter(|(_idx, element)| element.read().unwrap().is_allowed())
             .map(|(idx, _element)| idx)
             .collect::<Vec<Index>>();
 
@@ -411,15 +463,7 @@ impl Web3RpcPool {
 
                 if let Some(el) = endpoints_copy
                     .iter()
-                    .filter(|(_idx, element)| {
-                        element
-                            .read()
-                            .unwrap()
-                            .web3_rpc_params
-                            .web3_endpoint_params
-                            .skip_validation
-                            || element.read().unwrap().web3_rpc_info.is_allowed
-                    })
+                    .filter(|(_idx, element)| element.read().unwrap().is_allowed())
                     .max_by_key(|(_idx, element)| {
                         (element.read().unwrap().get_score() * 1000.0) as i64
                     })

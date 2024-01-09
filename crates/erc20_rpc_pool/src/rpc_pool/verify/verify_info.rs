@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use uuid::Uuid;
 
 pub struct VerifyEndpointParams {
     pub chain_id: u64,
@@ -52,6 +53,7 @@ pub struct Web3RpcSingleParams {
     pub endpoint: String,
 
     pub web3_endpoint_params: Web3EndpointParams,
+    pub source_id: Option<Uuid>,
 }
 
 impl Web3RpcSingleParams {
@@ -61,6 +63,7 @@ impl Web3RpcSingleParams {
             name,
             endpoint,
             web3_endpoint_params: params.web3_endpoint_params,
+            source_id: None,
         }
     }
 }
@@ -120,6 +123,8 @@ pub struct Web3RpcInfo {
     pub bonus_from_last_chosen: i64,
 
     pub endpoint_consecutive_errors: u64,
+
+    pub removed_date: Option<DateTime<Utc>>,
 }
 
 impl Web3RpcInfo {}
