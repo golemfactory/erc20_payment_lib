@@ -25,7 +25,7 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
     let proxy_key = "erc20_transfer";
 
-    let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
+    let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(10);
     let receiver_loop = tokio::spawn(async move {
         let mut transfer_finished_message_count = 0;
         let mut transaction_stuck_count = 0;
@@ -96,7 +96,8 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
                     keep_running: false,
                     ..Default::default()
                 }),
-                event_sender: Some(sender),
+                broadcast_sender: None,
+                mspc_sender: Some(sender),
                 extra_testing: None,
             },
             signer,

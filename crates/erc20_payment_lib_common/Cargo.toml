@@ -40,3 +40,6 @@ trust-dns-resolver = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true }
 web3 = { workspace = true }
+env_logger = { workspace = true }
+anyhow = { workspace = true }
+

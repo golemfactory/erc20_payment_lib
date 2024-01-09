@@ -61,6 +61,9 @@ pub struct RunOptions {
     #[structopt(long = "debug", help = "Enabled debug endpoint for the server")]
     pub debug: bool,
 
+    #[structopt(long = "transfers", help = "Enabled transfers endpoint for the server")]
+    pub transfers: bool,
+
     #[structopt(long = "frontend", help = "Enabled frontend serving for the server")]
     pub frontend: bool,
 

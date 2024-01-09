@@ -15,6 +15,7 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::mpsc;
 use uuid::Uuid;
 use web3::types::{Address, U256};
 
@@ -50,6 +51,7 @@ pub struct ChainSetup {
     pub priority_fee: U256,
     pub glm_address: Address,
     pub multi_contract_address: Option<Address>,
+    pub lock_contract_address: Option<Address>,
     pub faucet_setup: FaucetSetup,
     pub multi_contract_max_at_once: usize,
     pub transaction_timeout: u64,
@@ -114,7 +116,7 @@ impl PaymentSetup {
         secret_keys: Vec<SecretKey>,
         options: &AdditionalOptions,
         web3_rpc_pool_info: Arc<std::sync::Mutex<BTreeMap<i64, Web3PoolType>>>,
-        mpsc_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
+        mpsc_sender: Option<mpsc::Sender<DriverEvent>>,
     ) -> Result<Self, PaymentError> {
         let mut ps = PaymentSetup {
             chain_setup: BTreeMap::new(),
@@ -302,6 +304,7 @@ impl PaymentSetup {
                         .clone()
                         .map(|m| m.max_at_once)
                         .unwrap_or(1),
+                    lock_contract_address: chain_config.1.lock_contract.clone().map(|m| m.address),
                     faucet_setup,
 
                     transaction_timeout: chain_config.1.transaction_timeout,

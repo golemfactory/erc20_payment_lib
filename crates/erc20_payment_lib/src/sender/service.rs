@@ -269,6 +269,7 @@ pub async fn process_transactions(
             .map_err(err_from!())?;
 
         let Some(tx) = transactions.get_mut(0) else {
+            log::debug!("No transactions to process, breaking from loop");
             break;
         };
 
