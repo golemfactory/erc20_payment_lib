@@ -226,7 +226,7 @@ impl Web3RpcPool {
         )
     }
 
-    pub fn add_endpoint(self: Arc<Self>, endpoint: Web3RpcSingleParams) {
+    pub fn add_endpoint(&self, endpoint: Web3RpcSingleParams) {
         let mut endpoints_locked = self.endpoints.lock().unwrap();
         if endpoint.chain_id != self.chain_id {
             log::error!(
@@ -270,7 +270,7 @@ impl Web3RpcPool {
         .await;
     }
 
-    pub fn extra_score_from_last_chosen(self: Arc<Self>) -> (Option<Index>, i64) {
+    pub fn extra_score_from_last_chosen(&self) -> (Option<Index>, i64) {
         let mut extra_score_idx = None;
         let mut extra_score = 0;
 
@@ -309,7 +309,7 @@ impl Web3RpcPool {
         (extra_score_idx, extra_score)
     }
 
-    fn cleanup_sources(self: Arc<Self>) {
+    fn cleanup_sources(&self) {
         let grace_period = chrono::Duration::seconds(300);
         self.endpoints.lock().unwrap().retain(|_idx, el| {
             let can_remove = el
@@ -336,7 +336,7 @@ impl Web3RpcPool {
             }
             last_external_check.replace(std::time::Instant::now());
         }
-        self.clone().cleanup_sources();
+        self.cleanup_sources();
 
         let dns_jobs = &self.external_dns_sources;
         for dns_source in dns_jobs {
@@ -355,7 +355,7 @@ impl Web3RpcPool {
             let names = urls.clone();
 
             for (url, name) in urls.iter().zip(names) {
-                self.clone().add_endpoint(Web3RpcSingleParams {
+                self.add_endpoint(Web3RpcSingleParams {
                     chain_id: self.chain_id,
                     endpoint: url.clone(),
                     name: name.clone(),
@@ -401,7 +401,7 @@ impl Web3RpcPool {
             }
 
             for (url, name) in res.urls.iter().zip(res.names) {
-                self.clone().add_endpoint(Web3RpcSingleParams {
+                self.add_endpoint(Web3RpcSingleParams {
                     chain_id: self.chain_id,
                     endpoint: url.clone(),
                     name: name.clone(),
@@ -428,7 +428,7 @@ impl Web3RpcPool {
         tokio::task::spawn(self.clone().resolve_external_addresses());
 
         let endpoints_copy = self.endpoints.lock().unwrap().clone();
-        let (extra_score_idx, extra_score) = self.clone().extra_score_from_last_chosen();
+        let (extra_score_idx, extra_score) = self.extra_score_from_last_chosen();
         for (idx, el) in endpoints_copy.iter() {
             el.write().unwrap().web3_rpc_info.bonus_from_last_chosen =
                 if Some(idx) == extra_score_idx {
