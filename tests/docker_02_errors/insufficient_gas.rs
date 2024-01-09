@@ -51,7 +51,7 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
                 }
                 Web3RpcMessage(_) => { }
                 StatusChanged(_) => { }
-                Alive() => { }
+                Alive => { }
                 _ => {
                     //maybe remove this if caused too much hassle to maintain
                     log::error!("Unexpected message: {:?}", msg);
