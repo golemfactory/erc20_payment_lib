@@ -4,11 +4,8 @@ import SenderAccounts from "./model/SenderAccounts";
 import { BackendSettingsContext } from "./BackendSettingsProvider";
 import { backendFetch } from "./common/BackendCall";
 import { useConfig } from "./ConfigProvider";
-import AccountBalance from "./model/AccountBalance";
-import { ethers } from "ethers";
 import CreateTransferBox from "./CreateTransferBox";
 import CurrentBalanceBox from "./CurrentBalanceBox";
-import DateBox from "./DateBox";
 import EventBox from "./EventBox";
 
 const Accounts = () => {

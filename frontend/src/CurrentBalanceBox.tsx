@@ -6,7 +6,6 @@ import { BackendSettingsContext } from "./BackendSettingsProvider";
 import DateBox from "./DateBox";
 import { ethers } from "ethers";
 import { useConfig } from "./ConfigProvider";
-import useWebSocket from "react-use-websocket";
 
 interface CurrentBalanceBoxProps {
     selectedChain: string | null;

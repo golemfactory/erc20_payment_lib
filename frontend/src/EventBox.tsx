@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useEffect } from "react";
+import React, { useContext } from "react";
 import { BackendSettingsContext } from "./BackendSettingsProvider";
 import useWebSocket from "react-use-websocket";
 import "./EventBox.css";
@@ -11,9 +11,9 @@ interface BalanceEvent {
     text: string;
 }
 
-const EventBox = (props: EventBoxProps) => {
+const EventBox = (_props: EventBoxProps) => {
     const { backendSettings } = useContext(BackendSettingsContext);
-    const [events, setEvents] = React.useState<BalanceEvent[]>([]);
+    const [events, _setEvents] = React.useState<BalanceEvent[]>([]);
 
     useWebSocket(backendSettings.backendUrl.replace("http://", "ws://") + "/event_stream", {
         onOpen: () => {

@@ -2,7 +2,6 @@ import React, { useContext, useState } from "react";
 import "./TransfersBox.css";
 import TransferBox from "./TransferBox";
 import { useConfig } from "./ConfigProvider";
-import { fromWei } from "./common/Web3Utils";
 import TokenTransfer from "./model/TokenTransfer";
 import { BackendSettingsContext } from "./BackendSettingsProvider";
 import { backendFetch } from "./common/BackendCall";

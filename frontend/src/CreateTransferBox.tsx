@@ -147,7 +147,7 @@ const CreateTransferBox = (props: CreateTransferBoxProps) => {
                         onChange={(e) => setInputTo(e.target.value)}
                         value={inputTo}
                     />
-                    <button onClick={(e) => setInputToRandom()}>Random</button>
+                    <button onClick={(_e) => setInputToRandom()}>Random</button>
                 </div>
             </div>
             <div>
@@ -165,9 +165,9 @@ const CreateTransferBox = (props: CreateTransferBoxProps) => {
                         onChange={(e) => setInputAmount(e.target.value)}
                         value={inputAmount}
                     />
-                    <button onClick={(e) => setInputAmount("0.000000000000000001")}>1 wei</button>
-                    <button onClick={(e) => setInputAmount("0.000000001")}>1 Gwei</button>
-                    <button onClick={(e) => setInputAmount("0.001")}>1 mETH</button>
+                    <button onClick={(_e) => setInputAmount("0.000000000000000001")}>1 wei</button>
+                    <button onClick={(_e) => setInputAmount("0.000000001")}>1 Gwei</button>
+                    <button onClick={(_e) => setInputAmount("0.001")}>1 mETH</button>
                 </div>
             </div>
             <div>
@@ -210,11 +210,11 @@ const CreateTransferBox = (props: CreateTransferBoxProps) => {
                         onChange={(e) => setDueDateString(e.target.value)}
                         value={dueDateString}
                     ></input>
-                    <button onClick={(e) => setDueDateString(DateTime.now().toISO() ?? "")}>Current</button>
-                    <button onClick={(e) => setDueDateString(DateTime.now().plus({ minute: 1 }).toISO() ?? "")}>
+                    <button onClick={(_e) => setDueDateString(DateTime.now().toISO() ?? "")}>Current</button>
+                    <button onClick={(_e) => setDueDateString(DateTime.now().plus({ minute: 1 }).toISO() ?? "")}>
                         curr. +1 min
                     </button>
-                    <button onClick={(e) => setDueDateString(DateTime.now().plus({ minute: 5 }).toISO() ?? "")}>
+                    <button onClick={(_e) => setDueDateString(DateTime.now().plus({ minute: 5 }).toISO() ?? "")}>
                         curr. +5 min
                     </button>
                 </div>
@@ -229,7 +229,7 @@ const CreateTransferBox = (props: CreateTransferBoxProps) => {
                         onChange={(e) => setPaymentID(e.target.value)}
                         value={paymentID}
                     ></input>
-                    <button onClick={(e) => setPaymentID(random_id(10))}>Random</button>
+                    <button onClick={(_e) => setPaymentID(random_id(10))}>Random</button>
                 </div>
             </div>
             <div>
@@ -237,12 +237,12 @@ const CreateTransferBox = (props: CreateTransferBoxProps) => {
                     id="cbClearData"
                     type="checkbox"
                     checked={inputClearData}
-                    onChange={(e) => setInputClearData(!inputClearData)}
+                    onChange={(_e) => setInputClearData(!inputClearData)}
                 />
                 <label htmlFor="cbClearData">Clear data after send</label>
             </div>
             <div>
-                <button disabled={isSending || !isTransferValid()} onClick={(e) => sendTransfer()}>
+                <button disabled={isSending || !isTransferValid()} onClick={(_e) => sendTransfer()}>
                     Send
                 </button>
             </div>
