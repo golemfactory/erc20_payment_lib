@@ -464,7 +464,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             get_dev_eth_options,
         } => {
             log::info!("Getting funds from faucet...");
-            let public_addr = public_addrs.get(0).expect("No public adss found");
+            let public_addr = public_addrs.first().expect("No public adss found");
             let chain_cfg =
                 config
                     .chain
@@ -495,7 +495,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             mint_test_tokens_options,
         } => {
             log::info!("Generating test tokens...");
-            let public_addr = public_addrs.get(0).expect("No public address found");
+            let public_addr = public_addrs.first().expect("No public address found");
             let chain_cfg = config
                 .chain
                 .get(&mint_test_tokens_options.chain_name)
@@ -522,7 +522,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             withdraw_tokens_options,
         } => {
             log::info!("Withdrawing tokens...");
-            let public_addr = public_addrs.get(0).expect("No public address found");
+            let public_addr = public_addrs.first().expect("No public address found");
             let chain_cfg = config
                 .chain
                 .get(&withdraw_tokens_options.chain_name)
@@ -554,7 +554,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             deposit_tokens_options,
         } => {
             log::info!("Generating test tokens...");
-            let public_addr = public_addrs.get(0).expect("No public address found");
+            let public_addr = public_addrs.first().expect("No public address found");
             let chain_cfg =
                 config
                     .chain
@@ -684,7 +684,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             let recipient =
                 Address::from_str(&check_address_name(&single_transfer_options.recipient)).unwrap();
 
-            let public_addr = public_addrs.get(0).expect("No public address found");
+            let public_addr = public_addrs.first().expect("No public address found");
             let mut db_transaction = conn.begin().await.unwrap();
 
             let amount_str = if let Some(amount) = single_transfer_options.amount {
