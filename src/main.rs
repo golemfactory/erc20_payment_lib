@@ -615,7 +615,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                     };
 
                     let _ =
-                        process_allowance(&conn, &payment_setup, &allowance_request, &signer).await;
+                        process_allowance(&conn, &payment_setup, &allowance_request, &signer, None)
+                            .await;
                     /*return Err(err_custom_create!(
                         "Not enough allowance, required: {}, available: {}",
                         deposit_tokens_options.amount.unwrap(),

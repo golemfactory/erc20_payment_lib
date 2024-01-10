@@ -8,8 +8,8 @@ use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
 use erc20_payment_lib_common::model::TxDao;
 use erc20_payment_lib_common::{
-    DriverEvent, DriverEventContent, GasLowInfo, NoGasDetails, TransactionFailedReason,
-    TransactionStuckReason,
+    CantSignContent, DriverEvent, DriverEventContent, GasLowInfo, NoGasDetails,
+    TransactionFailedReason, TransactionStuckReason,
 };
 use rust_decimal::prelude::Zero;
 use rust_decimal::Decimal;
@@ -86,7 +86,7 @@ pub async fn process_transaction(
     if let Err(err) = signer.check_if_sign_possible(from_addr).await {
         send_driver_event(
             &event_sender,
-            DriverEventContent::CantSign(web3_tx_dao.clone()),
+            DriverEventContent::CantSign(CantSignContent::Tx(web3_tx_dao.clone())),
         )
         .await;
 

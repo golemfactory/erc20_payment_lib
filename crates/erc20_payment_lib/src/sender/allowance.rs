@@ -8,6 +8,7 @@ use crate::transaction::create_erc20_approve;
 use crate::setup::PaymentSetup;
 use crate::{err_create, err_from};
 
+use erc20_payment_lib_common::{CantSignContent, DriverEvent, DriverEventContent};
 use sqlx::SqlitePool;
 
 use crate::error::TransactionFailedError;
@@ -20,6 +21,7 @@ pub async fn process_allowance(
     payment_setup: &PaymentSetup,
     allowance_request: &AllowanceRequest,
     signer: &impl Signer,
+    event_sender: Option<&tokio::sync::mpsc::Sender<DriverEvent>>,
 ) -> Result<u32, PaymentError> {
     let minimum_allowance: U256 = U256::max_value() / U256::from(2);
     let web3 = payment_setup.get_provider(allowance_request.chain_id)?;
@@ -102,10 +104,6 @@ pub async fn process_allowance(
         log::info!("Allowance too low, create new approval tx");
 
         let from_addr = Address::from_str(&allowance_request.owner).map_err(err_from!())?;
-        signer
-            .check_if_sign_possible(from_addr)
-            .await
-            .map_err(|e| err_create!(TransactionFailedError::new(&e.message)))?;
 
         let mut allowance = AllowanceDao {
             id: 0,
@@ -119,6 +117,23 @@ pub async fn process_allowance(
             confirm_date: None,
             error: None,
         };
+
+        if let Err(signer_error) = signer.check_if_sign_possible(from_addr).await {
+            if let Some(sender) = event_sender {
+                let send_result = sender
+                    .send(DriverEvent::now(DriverEventContent::CantSign(
+                        CantSignContent::Allowance(allowance.clone()),
+                    )))
+                    .await;
+                if let Err(e) = send_result {
+                    log::warn!("Failed to send event: {e}");
+                }
+            }
+
+            return Err(err_create!(TransactionFailedError::new(
+                &signer_error.message
+            )));
+        }
 
         let approve_tx = create_erc20_approve(
             Address::from_str(&allowance_request.owner).map_err(err_from!())?,

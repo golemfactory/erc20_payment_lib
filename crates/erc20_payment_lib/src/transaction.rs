@@ -10,6 +10,7 @@ use crate::utils::{datetime_from_u256_timestamp, ConversionError, StringConvExt,
 use crate::{err_custom_create, err_from};
 use chrono::Utc;
 use erc20_payment_lib_common::model::{ChainTransferDao, ChainTxDao, TokenTransferDao, TxDao};
+use erc20_payment_lib_common::CantSignContent;
 use erc20_payment_lib_common::{
     DriverEvent, DriverEventContent, NoGasDetails, NoTokenDetails, TransactionStuckReason,
 };
@@ -494,7 +495,7 @@ pub async fn sign_transaction_with_callback(
         Err(e) => {
             send_driver_event(
                 event_sender,
-                DriverEventContent::CantSign(web3_tx_dao.clone()),
+                DriverEventContent::CantSign(CantSignContent::Tx(web3_tx_dao.clone())),
             )
             .await;
 

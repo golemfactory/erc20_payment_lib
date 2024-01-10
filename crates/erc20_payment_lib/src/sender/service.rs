@@ -605,8 +605,14 @@ pub async fn service_loop(
                         );
                         metrics::counter!(metric_label_process_allowance, 1);
 
-                        match process_allowance(conn, payment_setup, allowance_request, &signer)
-                            .await
+                        match process_allowance(
+                            conn,
+                            payment_setup,
+                            allowance_request,
+                            &signer,
+                            event_sender.as_ref(),
+                        )
+                        .await
                         {
                             Ok(_) => {
                                 //process transaction instantly
