@@ -315,7 +315,7 @@ pub async fn web3(
     log::info!(
         "key: {}, method: {:?}",
         key,
-        parsed_request.get(0).map(|x| x.method.clone())
+        parsed_request.first().map(|x| x.method.clone())
     );
 
     //do the long call here
@@ -339,7 +339,7 @@ pub async fn web3(
         response_body_str = Some("simulated 500 error".to_string());
         StatusCode::GATEWAY_TIMEOUT
     } else if parsed_request
-        .get(0)
+        .first()
         .map(|f| f.method == "eth_sendRawTransaction")
         .unwrap_or(false)
         && problems.skip_sending_raw_transaction_chance > 0.0
@@ -355,7 +355,7 @@ pub async fn web3(
 
         response_body_str = Some(
             json!({"jsonrpc": "2.0",
-                "id": parsed_request.get(0).unwrap().id,
+                "id": parsed_request.first().unwrap().id,
                 "result": random_hash})
             .to_string(),
         );
@@ -377,7 +377,7 @@ pub async fn web3(
                         Ok(body_str) => {
                             if problems.send_transaction_but_report_failure_chance > 0.0
                                 && parsed_request
-                                    .get(0)
+                                    .first()
                                     .map(|f| f.method == "eth_sendRawTransaction")
                                     .unwrap_or(false)
                                 && rng.gen_range(0.0..1.0)

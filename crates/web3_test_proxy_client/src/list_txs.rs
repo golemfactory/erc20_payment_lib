@@ -15,7 +15,10 @@ pub async fn list_transactions_human(proxy_url_base: &str, proxy_key: &str) -> V
     calls.calls.sort_by(|a, b| a.date.cmp(&b.date));
     let first_time = calls.calls.first().unwrap().date;
     for (no, call) in calls.calls.into_iter().enumerate() {
-        let c = call.parsed_request.get(0).expect("Expected parsed request");
+        let c = call
+            .parsed_request
+            .first()
+            .expect("Expected parsed request");
         let mut result_int: Option<u64> = None;
         let mut result_balance: Option<U256> = None;
 
