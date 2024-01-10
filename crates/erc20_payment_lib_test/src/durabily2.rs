@@ -91,13 +91,13 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
             quiet: true,
         };
 
-        let local_set = tokio::task::LocalSet::new();
+        //let local_set = tokio::task::LocalSet::new();
 
         let config_ = config.clone();
         let conn_ = conn.clone();
         log::info!("Spawning local task");
 
-        local_set.spawn_local(
+        let tsk = tokio::task::spawn_local(
             async move {
                 log::info!("Generating test payments");
                 generate_test_payments(gtp, &config_, public_keys, Some(conn_)).await?;
@@ -108,7 +108,7 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
 
         // *** TEST RUN ***
         let conn_ = conn.clone();
-        let jh = tokio::spawn(
+        let jh = tokio::task::spawn_local(
             async move {
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 let sp = PaymentRuntime::new(
@@ -133,7 +133,7 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
         );
 
         let conn_ = conn.clone();
-        let _stats = tokio::spawn(async move {
+        let _stats = tokio::task::spawn_local(async move {
             loop {
                 let stats = match get_transfer_stats(&conn_, chain_id, Some(10000)).await {
                     Ok(stats) => stats,
@@ -148,7 +148,7 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
             }
         });
 
-        local_set.await;
+        let _res = tsk.await;
         log::info!("Waiting for local task to finish");
         let _r = jh.await;
     }

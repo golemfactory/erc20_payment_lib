@@ -7,7 +7,6 @@ use futures_util::TryStreamExt;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use tokio::runtime::Handle;
 
 pub struct ImageName {
     pub user: Option<String>,
