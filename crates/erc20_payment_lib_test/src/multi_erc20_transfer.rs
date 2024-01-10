@@ -27,7 +27,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
     let proxy_key = "erc20_transfer";
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
-    let receiver_loop = tokio::spawn(async move {
+    let receiver_loop = tokio::task::spawn_local(async move {
         let mut transfer_finished_message_count = 0;
         let mut approve_contract_message_count = 0;
         let mut tx_confirmed_message_count = 0;
@@ -90,13 +90,11 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
             quiet: true,
         };
 
-        let local_set = tokio::task::LocalSet::new();
-
         let config_ = config.clone();
         let conn_ = conn.clone();
         log::info!("Spawning local task");
 
-        local_set.spawn_local(
+        let tsk = tokio::task::spawn_local(
             async move {
                 log::info!("Generating test payments");
                 generate_test_payments(gtp, &config_, public_keys, Some(conn_)).await?;
@@ -107,7 +105,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
 
         // *** TEST RUN ***
         let conn_ = conn.clone();
-        let jh = tokio::spawn(
+        let jh = tokio::task::spawn_local(
             async move {
                 tokio::time::sleep(Duration::from_secs(1)).await;
                 let signer = PrivateKeySigner::new(private_keys.clone());
@@ -134,7 +132,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
         );
 
         let conn_ = conn.clone();
-        let _stats = tokio::spawn(async move {
+        let _stats = tokio::task::spawn_local(async move {
             loop {
                 let stats = match get_transfer_stats(&conn_, chain_id, Some(10000)).await {
                     Ok(stats) => stats,
@@ -149,7 +147,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
             }
         });
 
-        local_set.await;
+        let _res = tsk.await;
         log::info!("Waiting for local task to finish");
         let _r = jh.await;
     }

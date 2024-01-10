@@ -23,7 +23,7 @@ async fn test_wrong_chain_id() -> Result<(), anyhow::Error> {
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
     let proxy_key = "erc20_transfer";
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
-    let receiver_loop = tokio::spawn(async move {
+    let receiver_loop = tokio::task::spawn_local(async move {
         let mut transfer_finished_message_count = 0;
         let mut tx_confirmed_message_count = 0;
         let mut tx_invalid_chain_id_message_count = 0;

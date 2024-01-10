@@ -23,7 +23,7 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
     let proxy_key = "erc20_transfer";
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
-    let receiver_loop = tokio::spawn(async move {
+    let receiver_loop = tokio::task::spawn_local(async move {
         let mut transfer_finished_message_count = 0;
         let mut tx_confirmed_message_count = 0;
         let mut tx_rpc_problems_message = 0;

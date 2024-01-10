@@ -27,7 +27,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
     let mut tx_dao_return: Option<TxDao> = None;
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
-    let receiver_loop = tokio::spawn(async move {
+    let receiver_loop = tokio::task::spawn_local(async move {
         let mut transfer_finished_message_count = 0;
         let mut approve_contract_message_count = 0;
         let mut tx_confirmed_message_count = 0;

@@ -27,7 +27,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
     let chain_id =config.chain.get("dev").unwrap().chain_id;
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
-    let receiver_loop = tokio::spawn(async move {
+    let receiver_loop = tokio::task::spawn_local(async move {
         if let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
 

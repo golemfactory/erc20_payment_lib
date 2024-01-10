@@ -224,7 +224,7 @@ impl StatusTracker {
         let status = Arc::new(Mutex::new(Vec::new()));
         let status_ = Arc::clone(&status);
 
-        tokio::spawn(async move {
+        tokio::task::spawn_local(async move {
             let status = status_;
             while let Some(ev) = status_rx.recv().await {
                 let mut pass_raw_message = true;
@@ -513,7 +513,7 @@ impl PaymentRuntime {
 
         /* - use this to test notifies
         let notify_ = notify.clone();
-        tokio::spawn(async move {
+        tokio::task::spawn_local(async move {
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(fastrand::u64(1..20))).await;
                 notify_.notify_one();

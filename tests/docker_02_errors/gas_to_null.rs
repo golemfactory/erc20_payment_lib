@@ -24,7 +24,7 @@ async fn transfer_to_null() -> Result<(), anyhow::Error> {
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
 
     // Panic on any message -- transfer to null should be ignored.
-    let receiver_loop = tokio::spawn(async move {
+    let receiver_loop = tokio::task::spawn_local(async move {
         if let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
             //maybe remove this if caused too much hassle to maintain

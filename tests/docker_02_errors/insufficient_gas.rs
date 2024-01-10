@@ -28,7 +28,7 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
     let proxy_key = "erc20_transfer";
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
-    let receiver_loop = tokio::spawn(async move {
+    let receiver_loop = tokio::task::spawn_local(async move {
         let mut missing_gas_message_count = 0;
         let fee_paid = U256::from(0_u128);
         while let Some(msg) = receiver.recv().await {

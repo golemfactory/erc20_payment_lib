@@ -26,7 +26,7 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
     let proxy_key = "erc20_transfer";
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(10);
-    let receiver_loop = tokio::spawn(async move {
+    let receiver_loop = tokio::task::spawn_local(async move {
         let mut transfer_finished_message_count = 0;
         let mut transaction_stuck_count = 0;
         let mut fee_paid = U256::from(0_u128);
