@@ -9,7 +9,7 @@ pub struct SignerError {
     pub message: String,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 pub trait Signer {
     /// Check if signer can sign transaction for given public address
     async fn check_if_sign_possible(&self, pub_address: H160) -> Result<(), SignerError>;
@@ -42,7 +42,7 @@ impl PrivateKeySigner {
             })
     }
 }
-#[async_trait]
+#[async_trait(?Send)]
 impl Signer for PrivateKeySigner {
     async fn check_if_sign_possible(&self, pub_address: H160) -> Result<(), SignerError> {
         self.get_private_key(pub_address)?;
