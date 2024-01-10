@@ -28,10 +28,10 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
     let receiver_loop = tokio::spawn(async move {
-        while let Some(msg) = receiver.recv().await {
+        if let Some(msg) = receiver.recv().await {
             log::info!("Received message: {:?}", msg);
 
-            return match msg.content {
+            match msg.content {
                 CantSign(details) => {
                     log::info!("CantSign event received");
                     if details.address() != "0xbeefbeefbeefbeefbeefbeefbeefbeefbeefbeef" {
@@ -45,9 +45,9 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
                 _ => Err(format!("Unexpected message: {msg:?}"))
                 
             }
+        } else {
+            Err("CantSign event not received".to_string())
         }
-
-        Err("CantSign event not received".to_string())
     });
     
     {
