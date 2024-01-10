@@ -237,11 +237,11 @@ impl StatusTracker {
                             chain_id: *chain_id,
                         },
                     ),
-                    DriverEventContent::CantSign(tx) => Self::update(
+                    DriverEventContent::CantSign(details) => Self::update(
                         status.lock().await.deref_mut(),
                         StatusProperty::CantSign {
-                            chain_id: tx.chain_id,
-                            address: tx.from_addr.clone(),
+                            chain_id: details.chain_id(),
+                            address: details.address().to_string(),
                         },
                     ),
                     DriverEventContent::TransactionStuck(TransactionStuckReason::NoGas(

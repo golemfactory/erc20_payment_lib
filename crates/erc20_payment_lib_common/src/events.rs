@@ -106,6 +106,29 @@ pub struct Web3RpcPoolInfo {
     pub content: Web3RpcPoolContent,
 }
 
+#[allow(clippy::large_enum_variant)]
+#[derive(Debug, Clone, Serialize)]
+pub enum CantSignContent {
+    Tx(TxDao),
+    Allowance(AllowanceDao),
+}
+
+impl CantSignContent {
+    pub fn chain_id(&self) -> i64 {
+        match self {
+            CantSignContent::Tx(tx) => tx.chain_id,
+            CantSignContent::Allowance(allowance) => allowance.chain_id,
+        }
+    }
+
+    pub fn address(&self) -> &str {
+        match self {
+            CantSignContent::Tx(tx) => &tx.from_addr,
+            CantSignContent::Allowance(allowance) => &allowance.owner,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[allow(clippy::large_enum_variant)]
 pub enum DriverEventContent {
@@ -115,7 +138,7 @@ pub enum DriverEventContent {
     ApproveFinished(AllowanceDao),
     TransactionStuck(TransactionStuckReason),
     TransactionFailed(TransactionFailedReason),
-    CantSign(TxDao),
+    CantSign(CantSignContent),
     StatusChanged(Vec<StatusProperty>),
     Web3RpcMessage(Web3RpcPoolInfo),
 }
