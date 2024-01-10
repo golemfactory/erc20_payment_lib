@@ -209,57 +209,57 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[actix_rt::test]
 async fn test_multi_erc20_transfer_2() -> Result<(), anyhow::Error> {
     test_multi_erc20_transfer(2, false, false).await
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[actix_rt::test]
 async fn test_multi_erc20_transfer_5() -> Result<(), anyhow::Error> {
     test_multi_erc20_transfer(5, false, false).await
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[actix_rt::test]
 async fn test_multi_erc20_transfer_1_indirect_packed() -> Result<(), anyhow::Error> {
     test_multi_erc20_transfer(1, false, false).await
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[actix_rt::test]
 async fn test_multi_erc20_transfer_1_direct_unpacked() -> Result<(), anyhow::Error> {
     test_multi_erc20_transfer(1, true, true).await?;
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[actix_rt::test]
 async fn test_multi_erc20_transfer_1_direct_packed() -> Result<(), anyhow::Error> {
     test_multi_erc20_transfer(1, true, false).await?;
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[actix_rt::test]
 async fn test_multi_erc20_transfer_1_indirect_unpacked() -> Result<(), anyhow::Error> {
     test_multi_erc20_transfer(1, false, true).await?;
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[actix_rt::test]
 async fn test_multi_erc20_transfer_10_indirect_packed() -> Result<(), anyhow::Error> {
     test_multi_erc20_transfer(10, false, false).await
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[actix_rt::test]
 async fn test_multi_erc20_transfer_10_direct_unpacked() -> Result<(), anyhow::Error> {
     test_multi_erc20_transfer(10, true, true).await?;
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[actix_rt::test]
 async fn test_multi_erc20_transfer_10_direct_packed() -> Result<(), anyhow::Error> {
     test_multi_erc20_transfer(10, true, false).await?;
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[actix_rt::test]
 async fn test_multi_erc20_transfer_10_indirect_unpacked() -> Result<(), anyhow::Error> {
     test_multi_erc20_transfer(10, false, true).await?;
     Ok(())

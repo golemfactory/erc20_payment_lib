@@ -221,17 +221,17 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[actix_rt::test]
 async fn test_transfer_stuck_1() -> Result<(), anyhow::Error> {
     test_transfer_stuck_and_replaced(Scenarios::LastTransactionDone).await
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[actix_rt::test]
 async fn test_transfer_stuck_2() -> Result<(), anyhow::Error> {
     test_transfer_stuck_and_replaced(Scenarios::PreLastTransactionDone).await
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[actix_rt::test]
 async fn test_transfer_stuck_3() -> Result<(), anyhow::Error> {
     test_transfer_stuck_and_replaced(Scenarios::FirstTransactionDone).await
 }

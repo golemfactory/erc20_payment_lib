@@ -223,13 +223,11 @@ impl Drop for GethContainer {
         // This is async drop - probably good but not sure, need further investigation
         // it work only if multithreaded runtime is used
         if !self.container_stopped {
-            tokio::task::block_in_place(move || {
-                Handle::current().block_on(async move {
-                    docker
-                        .stop_container(container_id.as_str(), Some(StopContainerOptions { t: 0 }))
-                        .await
-                        .unwrap();
-                });
+            tokio::task::spawn_blocking(move || async move {
+                docker
+                    .stop_container(container_id.as_str(), Some(StopContainerOptions { t: 0 }))
+                    .await
+                    .unwrap();
             });
         }
     }

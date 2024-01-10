@@ -10,7 +10,7 @@ use std::str::FromStr;
 use std::time::Duration;
 use web3::types::{Address, U256};
 
-#[tokio::test(flavor = "multi_thread")]
+#[actix_rt::test]
 #[rustfmt::skip]
 async fn transfer_to_null() -> Result<(), anyhow::Error> {
     // *** TEST SETUP ***
