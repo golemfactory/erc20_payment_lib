@@ -2,7 +2,7 @@
 name = "erc20_rpc_pool"
 description = "Rpc pool for web3 library"
 authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
-version = "0.3.19"
+version = "0.3.20"
 edition = "2021"
 license = "MIT"
 
@@ -40,4 +40,4 @@ toml = { workspace = true }
 trust-dns-resolver = { workspace = true }
 uuid = { workspace = true }
 web3 = { workspace = true }
-erc20_payment_lib_common = { path = "../erc20_payment_lib_common", version = "0.3.7" }
+erc20_payment_lib_common = { path = "../erc20_payment_lib_common", version = "0.3.20" }
