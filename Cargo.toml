@@ -33,7 +33,7 @@ anyhow = "1"
 async-trait = "0.1"
 awc = { version = "3.1", features = ["rustls"] }
 base64 = "0.21"
-bollard = "0.15"
+bollard = "0.14"
 chrono = { version = "0.4", features = ["serde"] }
 csv = "1.2"
 dotenv = "0.15"
