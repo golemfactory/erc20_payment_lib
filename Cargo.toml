@@ -23,7 +23,7 @@ license = "MIT"
 
 [workspace.dependencies]
 actix = "0.13"
-actix-cors = "0.7"
+actix-cors = "0.6"
 actix-files = "0.6"
 actix-web = { version = "4", default-features = false, features = [
     "macros",
