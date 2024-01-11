@@ -192,7 +192,7 @@ impl Web3RpcPool {
             check_external_sources_interval: external_sources_interval_check,
         });
         if !s.external_json_sources.is_empty() || !s.external_dns_sources.is_empty() {
-            tokio::task::spawn(s.clone().resolve_external_addresses());
+            tokio::spawn(s.clone().resolve_external_addresses());
         }
         s
     }
@@ -425,7 +425,7 @@ impl Web3RpcPool {
     }
 
     pub async fn choose_best_endpoints(self: Arc<Self>) -> Vec<Index> {
-        tokio::task::spawn(self.clone().resolve_external_addresses());
+        tokio::spawn(self.clone().resolve_external_addresses());
 
         let endpoints_copy = self.endpoints.lock().unwrap().clone();
         let (extra_score_idx, extra_score) = self.extra_score_from_last_chosen();
@@ -452,11 +452,11 @@ impl Web3RpcPool {
             //todo change type system to allow that call
 
             let self_cloned = self.clone();
-            tokio::task::spawn(self_cloned.verify_unverified_endpoints());
+            tokio::spawn(self_cloned.verify_unverified_endpoints());
             allowed_endpoints
         } else {
             let self_cloned = self.clone();
-            let verify_task = tokio::task::spawn(self_cloned.verify_unverified_endpoints());
+            let verify_task = tokio::spawn(self_cloned.verify_unverified_endpoints());
 
             loop {
                 let is_finished = verify_task.is_finished();

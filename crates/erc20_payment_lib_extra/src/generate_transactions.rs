@@ -8,9 +8,7 @@ use erc20_payment_lib::{config, err_create, err_custom_create, err_from};
 use futures_util::StreamExt;
 use futures_util::TryStreamExt;
 use sqlx::SqlitePool;
-use std::cell::RefCell;
 use std::path::PathBuf;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Instant;
 use stream_rate_limiter::{RateLimitOptions, StreamBehavior, StreamRateLimitExt};
@@ -125,7 +123,7 @@ pub async fn generate_test_payments(
     };
 
     match generate_transaction_batch(
-        Rc::new(RefCell::new(rng)),
+        Arc::new(std::sync::Mutex::new(rng)),
         chain_cfg.chain_id,
         &from_addrs,
         Some(chain_cfg.token.address),

@@ -62,7 +62,7 @@ serde = { version = "1.0.147", features = ["derive"] }
 serde_json = { version = "1.0.85" }
 sha3 = "0.10.6"
 sqlx = { version = "0.7", features = ["sqlite", "chrono", "runtime-tokio"] }
-stream-rate-limiter = "0.3"
+stream-rate-limiter = "0.4"
 structopt = "0.3.26"
 thiserror = "1.0.37"
 thunderdome = "0.6.1"
