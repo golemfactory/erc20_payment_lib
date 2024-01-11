@@ -643,7 +643,7 @@ async fn main_internal() -> Result<(), Web3ProxyError> {
 
     #[allow(clippy::manual_map)]
     let fut = if let Some(problem_plan) = cli.problem_plan.clone() {
-        Some(tokio::task::spawn(async move {
+        Some(tokio::spawn(async move {
             let str = std::fs::read(problem_plan).expect("Cannot read problem plan");
             let problem_plan: ProblemProject =
                 serde_json::from_slice(&str).expect("Cannot parse problem plan");

@@ -422,7 +422,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 };
             }
 
-            let task = tokio::task::spawn(web3_pool.clone().verify_unverified_endpoints());
+            let task = tokio::spawn(web3_pool.clone().verify_unverified_endpoints());
             let mut idx_set_completed = HashSet::new();
 
             let enp_info = loop {

@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use web3::types::Address;
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum StatusProperty {
     InvalidChainId {
         chain_id: i64,
@@ -65,6 +66,7 @@ pub struct NoGasDetails {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NoTokenDetails {
     pub tx: TxDao,
     pub sender: Address,
@@ -74,6 +76,7 @@ pub struct NoTokenDetails {
 
 #[derive(Debug, Clone, Serialize)]
 #[allow(clippy::large_enum_variant)]
+#[serde(rename_all = "camelCase")]
 pub enum TransactionStuckReason {
     NoGas(NoGasDetails),
     NoToken(NoTokenDetails),
@@ -82,18 +85,21 @@ pub enum TransactionStuckReason {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum TransactionFailedReason {
     InvalidChainId(i64),
     Unknown,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TransactionFinishedInfo {
     pub token_transfer_dao: TokenTransferDao,
     pub tx_dao: TxDao,
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum Web3RpcPoolContent {
     Success,
     Error(String),
@@ -101,6 +107,7 @@ pub enum Web3RpcPoolContent {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Web3RpcPoolInfo {
     pub chain_id: u64,
     pub content: Web3RpcPoolContent,
@@ -108,6 +115,7 @@ pub struct Web3RpcPoolInfo {
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum CantSignContent {
     Tx(TxDao),
     Allowance(AllowanceDao),
@@ -131,6 +139,7 @@ impl CantSignContent {
 
 #[derive(Debug, Clone, Serialize)]
 #[allow(clippy::large_enum_variant)]
+#[serde(rename_all = "camelCase")]
 pub enum DriverEventContent {
     Alive,
     TransactionConfirmed(TxDao),
@@ -144,6 +153,7 @@ pub enum DriverEventContent {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DriverEvent {
     pub create_date: DateTime<Utc>,
     pub content: DriverEventContent,

@@ -7,13 +7,46 @@ interface EventBoxProps {
     selectedChain: string | null;
 }
 
+interface NoGasDetails {
+    tx: any;
+    gasBalance: string;
+    gasNeeded: string;
+}
+
+interface NoTokenDetails {
+    tx: any;
+    sender: string;
+    tokenBalance: string;
+    tokenNeeded: string;
+}
+
+interface GasLowInfo {
+    tx: any;
+    txMaxFeePerGasGwei: string;
+    blockDate: number;
+    blockNumber: number;
+    blockBaseFeePerGasGwei: string;
+    assumedMinPriorityFeeGwei: string;
+    userFriendlyMessage: string;
+}
+
+interface TransactionStuck {
+    noGas?: NoGasDetails;
+    noToken?: NoTokenDetails;
+    gasPriceLow?: GasLowInfo;
+    rpcEndpointProblems?: string;
+}
+interface BalanceEventContent {
+    transactionStuck?: TransactionStuck;
+}
 interface BalanceEvent {
-    text: string;
+    createDate: string;
+    content: BalanceEventContent;
 }
 
 const EventBox = (_props: EventBoxProps) => {
     const { backendSettings } = useContext(BackendSettingsContext);
-    const [events, _setEvents] = React.useState<BalanceEvent[]>([]);
+    const [events, setEvents] = React.useState<BalanceEvent[]>([]);
 
     useWebSocket(backendSettings.backendUrl.replace("http://", "ws://") + "/event_stream", {
         onOpen: () => {
@@ -21,6 +54,7 @@ const EventBox = (_props: EventBoxProps) => {
         },
         onMessage: (event) => {
             console.log("Received event: ", event);
+            setEvents((events) => [...events, JSON.parse(event.data)]);
         },
         onError: (event) => {
             console.error("WebSocket error: ", event);
@@ -30,14 +64,25 @@ const EventBox = (_props: EventBoxProps) => {
         },
     });
 
+    const row = (tx: BalanceEvent) => {
+        if (tx && tx.content && tx.content.transactionStuck) {
+            if (tx.content.transactionStuck.noToken) {
+                const noToken = tx.content.transactionStuck.noToken;
+
+                return (
+                    <div>
+                        No token: {tx.createDate} sender: {noToken.sender} token balance: {noToken.tokenBalance} needed:{" "}
+                        {noToken.tokenNeeded}
+                    </div>
+                );
+            }
+        }
+        return <div>Unknown event: {tx.createDate}</div>;
+    };
+
     return (
         <div>
-            Event Stream
-            <div>
-                {events.map((event, i) => (
-                    <div key={i}>{event.text}</div>
-                ))}
-            </div>
+            Event Stream 2<div>{events.map(row)}</div>
         </div>
     );
 };

@@ -7,9 +7,8 @@ use erc20_payment_lib_common::model::TokenTransferDao;
 use futures::{stream, Stream, StreamExt};
 use rand::Rng;
 use secp256k1::SecretKey;
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 use web3::types::{Address, U256};
 
 #[allow(unused)]
@@ -59,7 +58,7 @@ pub fn create_test_amount_pool(size: usize) -> Result<Vec<U256>, PaymentError> {
 }
 
 pub fn generate_transaction_batch<'a>(
-    rng: Rc<RefCell<fastrand::Rng>>,
+    rng: Arc<Mutex<fastrand::Rng>>,
     chain_id: i64,
     from_addr_pool: &'a [Address],
     token_addr: Option<Address>,
@@ -72,12 +71,12 @@ pub fn generate_transaction_batch<'a>(
         let rng = rng.clone();
         async move {
             let receiver = if !random_target_addr {
-                addr_pool[rng.borrow_mut().usize(0..addr_pool.len())]
+                addr_pool[rng.lock().unwrap().usize(0..addr_pool.len())]
             } else {
-                generate_unique_random_addr(&mut rng.borrow_mut())
+                generate_unique_random_addr(&mut rng.lock().unwrap())
             };
-            let amount = amount_pool[rng.borrow_mut().usize(0..amount_pool.len())];
-            let from = from_addr_pool[rng.borrow_mut().usize(0..from_addr_pool.len())];
+            let amount = amount_pool[rng.lock().unwrap().usize(0..amount_pool.len())];
+            let from = from_addr_pool[rng.lock().unwrap().usize(0..from_addr_pool.len())];
 
             let payment_id = uuid::Uuid::new_v4().to_string();
             let token_transfer = create_token_transfer(

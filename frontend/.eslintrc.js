@@ -25,8 +25,9 @@ module.exports = {
         // note you must disable the base rule
         // as it can report incorrect errors
         "no-unused-vars": "off",
+        "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/no-unused-vars": [
-            "warn", // or "error"
+            "warn",
             {
                 "argsIgnorePattern": "^_",
                 "varsIgnorePattern": "^_",
