@@ -79,11 +79,12 @@ const Web3EndpointBox = (props: Web3EndpointBoxProps) => {
     return (<div className={"web3-endpoint-box "
         + (props.endpoint.web3RpcInfo.isAllowed ? "web3-endpoint-box-allowed " : "web3-endpoint-box-not-allowed ")
         + (props.endpoint.web3RpcInfo.lastVerified ? "web3-endpoint-box-verified" : "web3-endpoint-box-not-verified")}>
+        <div>{props.endpoint.web3RpcParams.name}</div>
         <div>{props.endpoint.web3RpcParams.endpoint}</div>
-        <div>{props.endpoint.web3RpcInfo.isAllowed ? "Allowed" : "Not allowed"}</div>
+        <div>{props.endpoint.web3RpcParams.sourceId}</div>
         <div style={{"display": "flex"}}>
-            <div><DateBox date={props.endpoint.web3RpcInfo.lastChosen} title={"Last chosen"}/></div>
-            <div><DateBox date={props.endpoint.web3RpcInfo.lastVerified} title={"Last verified"}/></div>
+            <div style={{"display": "flex"}}><DateBox date={props.endpoint.web3RpcInfo.lastChosen} title={"Last chosen"}/></div>
+            <div style={{"margin-left": "1em"}}><DateBox date={props.endpoint.web3RpcInfo.lastVerified} title={"Last verified"}/></div>
         </div>
         <div>{JSON.stringify(props.endpoint.web3RpcInfo.verifyResult)}</div>
     </div>)
