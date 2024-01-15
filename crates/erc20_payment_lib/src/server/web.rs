@@ -132,8 +132,26 @@ pub async fn rpc_pool(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Re
             )
         })
         .collect::<BTreeMap<_, _>>();
+
+    let mut array = Vec::with_capacity(web3_rpc_pool_info.len());
+
+    for (idx, val) in web3_rpc_pool_info {
+        let chain_network = data
+            .payment_setup
+            .chain_setup
+            .get(&idx)
+            .map(|s| s.network.clone())
+            .unwrap_or("unknown".to_string());
+        array.push(json!(
+            {
+                "chainId": idx,
+                "chainNetwork": chain_network,
+                "endpoints": val,
+            }
+        ));
+    }
     web::Json(json!({
-        "rpc_pool": web3_rpc_pool_info,
+        "networks": array,
     }))
 }
 

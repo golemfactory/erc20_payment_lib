@@ -10,6 +10,7 @@ import Allowances from "./Allowances";
 import Balance from "./Balance";
 import BackendSettings from "./BackendSettings";
 import { BackendSettingsContext } from "./BackendSettingsProvider";
+import Web3Status from "./Web3Status";
 
 const Dashboard = () => {
     const config = useConfigOrNull();
@@ -38,6 +39,7 @@ const Dashboard = () => {
                         <Link to="/accounts">Accounts</Link>
                         <Link to="/allowances">Allowances</Link>
                         <Link to="/balance/0x0000000600000006000000060000000600000006">Balance</Link>
+                        <Link to="/web3status">Web3</Link>
                         <Link to="/backend_settings">Settings</Link>
                     </div>
                 </div>
@@ -67,6 +69,7 @@ const Dashboard = () => {
                         <Route path="accounts" element={<Accounts />} />
                         <Route path="allowances" element={<Allowances />} />
                         <Route path="balance/:account" element={<Balance />} />
+                        <Route path="web3status" element={<Web3Status />} />
                         <Route path="design_allowance_box" element={<AllowanceBoxDesignTime />} />
                         <Route path="backend_settings" element={<BackendSettings />} />
                     </Routes>

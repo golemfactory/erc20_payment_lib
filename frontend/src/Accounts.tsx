@@ -7,6 +7,7 @@ import { useConfig } from "./ConfigProvider";
 import CreateTransferBox from "./CreateTransferBox";
 import CurrentBalanceBox from "./CurrentBalanceBox";
 import EventBox from "./EventBox";
+import Web3Box from "./Web3Box";
 
 const Accounts = () => {
     const [accounts, setAccounts] = React.useState<SenderAccounts | null>(null);
@@ -35,6 +36,9 @@ const Accounts = () => {
             <h1>Accounts</h1>
             <div>
                 <EventBox selectedChain={null}></EventBox>
+            </div>
+            <div>
+                <Web3Box selectedChain={selectedChain}></Web3Box>
             </div>
 
             <div style={{ padding: 10 }}>
