@@ -198,6 +198,25 @@ pub struct MakeAllocationOptions {
         help = "Block until block number estimated from now plus given time span"
     )]
     pub block_for: Option<u64>,
+
+    #[structopt(
+        long = "allocation-id",
+        help = "Allocation id to use. If not specified, new allocation id will be generated"
+    )]
+    pub allocation_id: Option<u32>,
+}
+
+#[derive(StructOpt)]
+#[structopt(about = "Allocate funds for use by payer")]
+pub struct CheckAllocationOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    pub chain_name: String,
+
+    #[structopt(
+    long = "allocation-id",
+    help = "Allocation id to use"
+    )]
+    pub allocation_id: u32,
 }
 
 #[derive(StructOpt)]
@@ -407,6 +426,10 @@ pub enum PaymentCommands {
     MakeAllocation {
         #[structopt(flatten)]
         make_allocation_options: MakeAllocationOptions,
+    },
+    CheckAllocation {
+        #[structopt(flatten)]
+        check_allocation_options: CheckAllocationOptions,
     },
     Transfer {
         #[structopt(flatten)]

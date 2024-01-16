@@ -54,6 +54,7 @@ use structopt::StructOpt;
 use tokio::sync::{broadcast, Mutex};
 use web3::ethabi::ethereum_types::Address;
 use web3::types::U256;
+use crate::actions::allocation_details::allocation_details_local;
 
 fn check_address_name(n: &str) -> String {
     match n {
@@ -532,7 +533,17 @@ async fn main_internal() -> Result<(), PaymentError> {
         } => {
             make_allocation_local(conn.clone(), make_allocation_options, config, &public_addrs)
                 .await?;
-            //TODO: implement
+        }
+        PaymentCommands::CheckAllocation {
+            check_allocation_options,
+        } => {
+            allocation_details_local(
+                conn.clone(),
+                check_allocation_options,
+                config,
+                &public_addrs,
+            )
+            .await?;
         }
         PaymentCommands::Deposit {
             deposit_tokens_options,

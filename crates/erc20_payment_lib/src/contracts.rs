@@ -142,6 +142,17 @@ pub fn encode_make_allocation(
     )
 }
 
+
+pub fn encode_get_allocation_details(
+    id: u32,
+) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(
+        &LOCK_CONTRACT_TEMPLATE,
+        "lockedAmounts",
+        (id,),
+    )
+}
+
 pub fn withdraw_from_lock(amount: U256) -> Result<Vec<u8>, web3::ethabi::Error> {
     contract_encode(&LOCK_CONTRACT_TEMPLATE, "withdraw", (amount,))
 }

@@ -265,6 +265,7 @@ pub fn create_lock_deposit(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn create_make_allocation(
     from: Address,
     lock_address: Address,
