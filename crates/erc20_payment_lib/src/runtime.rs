@@ -6,8 +6,8 @@ use crate::db::ops::{
 };
 use crate::signer::Signer;
 use crate::transaction::{
-    create_faucet_mint, create_lock_deposit, create_lock_withdraw, create_token_transfer,
-    find_receipt_extended,
+    create_faucet_mint, create_lock_deposit, create_lock_withdraw, create_make_allocation,
+    create_token_transfer, find_receipt_extended,
 };
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
@@ -866,6 +866,59 @@ pub async fn withdraw_funds(
     db_transaction.commit().await.map_err(err_from!())?;
 
     log::info!("Deposit transaction added to queue: {}", withdraw_tx.id);
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn make_allocation(
+    web3: Arc<Web3RpcPool>,
+    conn: &SqlitePool,
+    chain_id: u64,
+    from: Address,
+    glm_address: Address,
+    lock_contract_address: Address,
+    spender: Address,
+    skip_balance_check: bool,
+    amount: Option<Decimal>,
+    fee_amount: Option<Decimal>,
+    allocate_all: bool,
+) -> Result<(), PaymentError> {
+    let amount = if let Some(amount) = amount {
+        amount.to_u256_from_eth().map_err(err_from!())?
+    } else {
+        return Err(err_custom_create!("Amount not specified. Use --amount"));
+    };
+    let fee_amount = if let Some(fee_amount) = fee_amount {
+        fee_amount.to_u256_from_eth().map_err(err_from!())?
+    } else {
+        return Err(err_custom_create!(
+            "Fee amount not specified. Use --fee-amount"
+        ));
+    };
+
+    let block_no = 1000;
+
+    let allocation_id = 5;
+    let make_allocation_tx = create_make_allocation(
+        from,
+        lock_contract_address,
+        chain_id,
+        None,
+        allocation_id,
+        spender,
+        amount,
+        fee_amount,
+        block_no,
+    )?;
+
+    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
+    let make_allocation_tx = insert_tx(&mut *db_transaction, &make_allocation_tx)
+        .await
+        .map_err(err_from!())?;
+    db_transaction.commit().await.map_err(err_from!())?;
+
+
+    log::info!("Make allocation added to queue: {}", make_allocation_tx.id);
     Ok(())
 }
 

@@ -1,3 +1,4 @@
+mod actions;
 mod options;
 mod stats;
 
@@ -24,13 +25,15 @@ use erc20_payment_lib::{
 use std::env;
 use std::str::FromStr;
 
+use crate::actions::make_allocation::make_allocation_local;
+use crate::actions::withdraw::withdraw_funds_local;
 use crate::stats::{export_stats, run_stats};
 use erc20_payment_lib::eth::check_allowance;
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::runtime::{
     deposit_funds, get_token_balance, mint_golem_token, remove_last_unsent_transactions,
-    remove_transaction_force, withdraw_funds, PaymentRuntimeArgs,
+    remove_transaction_force, PaymentRuntimeArgs,
 };
 use erc20_payment_lib::server::web::{runtime_web_scope, ServerData};
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
@@ -521,34 +524,15 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::Withdraw {
             withdraw_tokens_options,
         } => {
-            log::info!("Withdrawing tokens...");
-            let public_addr = public_addrs.first().expect("No public address found");
-            let chain_cfg = config
-                .chain
-                .get(&withdraw_tokens_options.chain_name)
-                .ok_or(err_custom_create!(
-                    "Chain {} not found in config file",
-                    withdraw_tokens_options.chain_name
-                ))?;
-
-            let payment_setup = PaymentSetup::new_empty(&config)?;
-            let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
-
-            withdraw_funds(
-                web3,
-                &conn,
-                chain_cfg.chain_id as u64,
-                withdraw_tokens_options.from.unwrap_or(*public_addr),
-                chain_cfg
-                    .lock_contract
-                    .clone()
-                    .map(|c| c.address)
-                    .expect("No lock contract found"),
-                withdraw_tokens_options.amount,
-                withdraw_tokens_options.withdraw_all,
-                withdraw_tokens_options.skip_balance_check,
-            )
-            .await?;
+            withdraw_funds_local(conn.clone(), withdraw_tokens_options, config, &public_addrs)
+                .await?;
+        }
+        PaymentCommands::MakeAllocation {
+            make_allocation_options,
+        } => {
+            make_allocation_local(conn.clone(), make_allocation_options, config, &public_addrs)
+                .await?;
+            //TODO: implement
         }
         PaymentCommands::Deposit {
             deposit_tokens_options,
@@ -576,7 +560,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                         .lock_contract
                         .clone()
                         .map(|c| c.address)
-                        .expect("No mint contract"),
+                        .expect("No lock contract found"),
                 )
                 .await?;
 

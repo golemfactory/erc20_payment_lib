@@ -128,6 +128,20 @@ pub fn encode_deposit_to_lock(amount: U256) -> Result<Vec<u8>, web3::ethabi::Err
     contract_encode(&LOCK_CONTRACT_TEMPLATE, "deposit", (amount,))
 }
 
+pub fn encode_make_allocation(
+    id: u32,
+    spender: Address,
+    amount: U256,
+    fee_amount: U256,
+    block_no: u32,
+) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(
+        &LOCK_CONTRACT_TEMPLATE,
+        "createAllocationInternal",
+        (id, spender, amount, fee_amount, block_no),
+    )
+}
+
 pub fn withdraw_from_lock(amount: U256) -> Result<Vec<u8>, web3::ethabi::Error> {
     contract_encode(&LOCK_CONTRACT_TEMPLATE, "withdraw", (amount,))
 }

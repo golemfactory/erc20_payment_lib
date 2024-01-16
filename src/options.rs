@@ -157,6 +157,50 @@ pub struct WithdrawTokensOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Allocate funds for use by payer")]
+pub struct MakeAllocationOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    pub chain_name: String,
+
+    #[structopt(long = "from", help = "From (has to have private key)")]
+    pub from: Option<Address>,
+
+    #[structopt(
+        long = "spender",
+        help = "Specify spender that is allowed to spend allocated tokens"
+    )]
+    pub spender: Address,
+
+    #[structopt(
+        short = "a",
+        long = "amount",
+        help = "Amount (decimal, full precision, i.e. 0.01)"
+    )]
+    pub amount: Option<rust_decimal::Decimal>,
+
+    #[structopt(
+        long = "fee-amount",
+        help = "Fee Amount (decimal, full precision, i.e. 0.01)"
+    )]
+    pub fee_amount: Option<rust_decimal::Decimal>,
+
+    #[structopt(long = "all", help = "Allocate all available tokens")]
+    pub allocate_all: bool,
+
+    #[structopt(long = "skip-balance", help = "Skip balance check")]
+    pub skip_balance_check: bool,
+
+    #[structopt(long = "block-no", help = "Block until specified block number")]
+    pub block_no: Option<u64>,
+
+    #[structopt(
+        long = "block-for",
+        help = "Block until block number estimated from now plus given time span"
+    )]
+    pub block_for: Option<u64>,
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Single transfer options")]
 pub struct TransferOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
@@ -359,6 +403,10 @@ pub enum PaymentCommands {
     Withdraw {
         #[structopt(flatten)]
         withdraw_tokens_options: WithdrawTokensOptions,
+    },
+    MakeAllocation {
+        #[structopt(flatten)]
+        make_allocation_options: MakeAllocationOptions,
     },
     Transfer {
         #[structopt(flatten)]
