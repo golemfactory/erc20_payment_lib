@@ -171,6 +171,7 @@ contract LockPayment {
         Allocation memory allocation = lockedAmounts[id];
         require(msg.sender == allocation.customer, "msg.sender == allocation.customer");
         require(GLM.transferFrom(msg.sender, address(this), amount + extraFee), "transferFrom failed");
+        require(allocation.block_no <= blockNo, "allocation.block_no <= blockNo");
         allocation.amount += amount;
         allocation.feeAmount += extraFee;
         allocation.block_no = blockNo;
@@ -181,6 +182,7 @@ contract LockPayment {
         Allocation memory allocation = lockedAmounts[id];
         require(msg.sender == allocation.customer, "msg.sender == allocation.customer");
         require(funds[msg.sender] >= amount + extraFee, "funds[msg.sender] >= amount + extraFee");
+        require(allocation.block_no <= blockNo, "allocation.block_no <= blockNo");
         funds[msg.sender] -= amount + extraFee;
         allocation.amount += amount;
         allocation.feeAmount += extraFee;
