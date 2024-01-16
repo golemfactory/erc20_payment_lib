@@ -1,6 +1,10 @@
-use crate::contracts::{encode_balance_of_lock, encode_erc20_allowance, encode_erc20_balance_of, encode_get_allocation_details};
+use crate::contracts::{
+    encode_balance_of_lock, encode_erc20_allowance, encode_erc20_balance_of,
+    encode_get_allocation_details,
+};
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
+use erc20_payment_lib_common::utils::U256ConvExt;
 use erc20_rpc_pool::Web3RpcPool;
 use secp256k1::{PublicKey, SecretKey};
 use serde::Serialize;
@@ -8,7 +12,6 @@ use sha3::Digest;
 use sha3::Keccak256;
 use std::sync::Arc;
 use web3::types::{Address, BlockId, BlockNumber, Bytes, CallRequest, U256, U64};
-use erc20_payment_lib_common::utils::U256ConvExt;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -60,7 +63,6 @@ pub async fn get_deposit_balance(
     Ok(U256::from_big_endian(&res.0))
 }
 
-
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AllocationDetails {
@@ -82,8 +84,7 @@ pub async fn get_allocation_details(
     allocation_id: u32,
     lock_contract_address: Address,
     block_number: Option<u64>,
-) -> Result<AllocationDetails, PaymentError>
-{
+) -> Result<AllocationDetails, PaymentError> {
     let block_number = if let Some(block_number) = block_number {
         log::debug!("Checking balance for block number {}", block_number);
         block_number
@@ -95,21 +96,33 @@ pub async fn get_allocation_details(
             .as_u64()
     };
 
-    let res = web3.eth_call(
-        CallRequest {
-            to: Some(lock_contract_address),
-            data: Some(encode_get_allocation_details(allocation_id).unwrap().try_into().unwrap()),
-            ..Default::default()
-        },
-        Some(BlockId::Number(BlockNumber::Number(U64::from(block_number))))
-    ).await.map_err(
-        err_from!()
-    )?;
+    let res = web3
+        .eth_call(
+            CallRequest {
+                to: Some(lock_contract_address),
+                data: Some(
+                    encode_get_allocation_details(allocation_id)
+                        .unwrap()
+                        .try_into()
+                        .unwrap(),
+                ),
+                ..Default::default()
+            },
+            Some(BlockId::Number(BlockNumber::Number(U64::from(
+                block_number,
+            )))),
+        )
+        .await
+        .map_err(err_from!())?;
     if res.0.len() != 5 * 32 {
-        return Err(err_custom_create!("Invalid response length: {}, expected {}", res.0.len(), 5 * 32));
+        return Err(err_custom_create!(
+            "Invalid response length: {}, expected {}",
+            res.0.len(),
+            5 * 32
+        ));
     }
-    let amount_u256 = U256::from(&res.0[(64)..(64+32)]);
-    let fee_amount_u256 = U256::from(&res.0[(64+32)..(64+64)]);
+    let amount_u256 = U256::from(&res.0[(64)..(64 + 32)]);
+    let fee_amount_u256 = U256::from(&res.0[(64 + 32)..(64 + 64)]);
 
     let block_no = U256::from(&res.0[(4 * 32)..(5 * 32)]);
     if block_no > U256::from(u32::MAX) {
@@ -117,7 +130,7 @@ pub async fn get_allocation_details(
     }
     Ok(AllocationDetails {
         customer: Address::from_slice(&res.0[12..32]),
-        spender: Address::from_slice(&res.0[(32+12)..(2 * 32)]),
+        spender: Address::from_slice(&res.0[(32 + 12)..(2 * 32)]),
         amount: amount_u256.to_string(),
         fee_amount: fee_amount_u256.to_string(),
         block_limit: block_no.as_u64(),
@@ -129,7 +142,6 @@ pub async fn get_allocation_details(
         estimated_time_left_str: None,
     })
 }
-
 
 pub async fn get_balance(
     web3: Arc<Web3RpcPool>,

@@ -1,12 +1,12 @@
-use std::alloc::alloc;
 use crate::options::{CheckAllocationOptions, MakeAllocationOptions};
 use erc20_payment_lib::config::Config;
 use erc20_payment_lib::error::PaymentError;
+use erc20_payment_lib::runtime::{allocation_details, make_allocation};
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib_common::err_custom_create;
 use sqlx::SqlitePool;
+use std::alloc::alloc;
 use web3::types::Address;
-use erc20_payment_lib::runtime::{allocation_details, make_allocation};
 
 pub async fn allocation_details_local(
     conn: SqlitePool,
@@ -27,7 +27,6 @@ pub async fn allocation_details_local(
     let payment_setup = PaymentSetup::new_empty(&config)?;
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
 
-
     let details = allocation_details(
         web3,
         check_allocation_options.allocation_id,
@@ -35,8 +34,9 @@ pub async fn allocation_details_local(
             .lock_contract
             .clone()
             .map(|c| c.address)
-            .expect("No lock contract found")
-    ).await?;
+            .expect("No lock contract found"),
+    )
+    .await?;
     println!("{}", serde_json::to_string_pretty(&details).unwrap());
     Ok(())
 }

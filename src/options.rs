@@ -212,10 +212,7 @@ pub struct CheckAllocationOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
-    #[structopt(
-    long = "allocation-id",
-    help = "Allocation id to use"
-    )]
+    #[structopt(long = "allocation-id", help = "Allocation id to use")]
     pub allocation_id: u32,
 }
 

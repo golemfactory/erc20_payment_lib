@@ -25,6 +25,7 @@ use erc20_payment_lib::{
 use std::env;
 use std::str::FromStr;
 
+use crate::actions::allocation_details::allocation_details_local;
 use crate::actions::make_allocation::make_allocation_local;
 use crate::actions::withdraw::withdraw_funds_local;
 use crate::stats::{export_stats, run_stats};
@@ -54,7 +55,6 @@ use structopt::StructOpt;
 use tokio::sync::{broadcast, Mutex};
 use web3::ethabi::ethereum_types::Address;
 use web3::types::U256;
-use crate::actions::allocation_details::allocation_details_local;
 
 fn check_address_name(n: &str) -> String {
     match n {

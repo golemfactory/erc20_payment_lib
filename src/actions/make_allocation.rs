@@ -1,11 +1,11 @@
 use crate::options::MakeAllocationOptions;
 use erc20_payment_lib::config::Config;
 use erc20_payment_lib::error::PaymentError;
+use erc20_payment_lib::runtime::make_allocation;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib_common::err_custom_create;
 use sqlx::SqlitePool;
 use web3::types::Address;
-use erc20_payment_lib::runtime::make_allocation;
 
 pub async fn make_allocation_local(
     conn: SqlitePool,
@@ -26,7 +26,6 @@ pub async fn make_allocation_local(
     let payment_setup = PaymentSetup::new_empty(&config)?;
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
 
-
     make_allocation(
         web3,
         &conn,
@@ -43,5 +42,6 @@ pub async fn make_allocation_local(
         make_allocation_options.amount,
         make_allocation_options.fee_amount,
         make_allocation_options.allocate_all,
-    ).await
+    )
+    .await
 }

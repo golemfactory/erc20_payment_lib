@@ -21,30 +21,30 @@ use crate::error::{ErrorBag, PaymentError};
 use crate::setup::{ChainSetup, ExtraOptionsForTesting, PaymentSetup};
 
 use crate::config::{self, Config};
-use secp256k1::{SecretKey};
+use secp256k1::SecretKey;
 use sqlx::SqlitePool;
 
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
-use crate::eth::{AllocationDetails, get_deposit_balance};
+use crate::contracts::encode_get_allocation_details;
+use crate::eth::{get_deposit_balance, AllocationDetails};
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
+use erc20_payment_lib_common::utils::datetime_from_u256_timestamp;
 use erc20_payment_lib_common::{
     DriverEvent, DriverEventContent, FaucetData, SharedInfoTx, StatusProperty,
     TransactionFailedReason, TransactionStuckReason, Web3RpcPoolContent,
 };
 use erc20_rpc_pool::{Web3PoolType, Web3RpcPool};
+use humantime::Duration;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
 use std::sync::Arc;
-use humantime::Duration;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
 use web3::types::{Address, BlockId, BlockNumber, CallRequest, H256, U256};
-use erc20_payment_lib_common::utils::datetime_from_u256_timestamp;
-use crate::contracts::encode_get_allocation_details;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedState {
@@ -877,22 +877,17 @@ pub async fn allocation_details(
     web3: Arc<Web3RpcPool>,
     allocation_id: u32,
     lock_contract_address: Address,
-) -> Result<AllocationDetails, PaymentError>
-{
+) -> Result<AllocationDetails, PaymentError> {
     let block_info = web3
         .clone()
         .eth_block(BlockId::Number(BlockNumber::Latest))
         .await
-        .map_err(
-            err_from!()
-        )?
+        .map_err(err_from!())?
         .ok_or(err_custom_create!("Cannot found block_info"))?;
 
-    let block_number = block_info
-        .number
-        .ok_or(err_custom_create!(
-            "Failed to found block number in block info",
-        ))?;
+    let block_number = block_info.number.ok_or(err_custom_create!(
+        "Failed to found block number in block info",
+    ))?;
 
     let block_date = datetime_from_u256_timestamp(block_info.timestamp).ok_or(
         err_custom_create!("Failed to found block date in block info"),
@@ -903,20 +898,33 @@ pub async fn allocation_details(
         allocation_id,
         lock_contract_address,
         Some(block_number.as_u64()),
-    ).await?;
+    )
+    .await?;
     result.current_block_datetime = Some(block_date);
     if web3.chain_id == 1 || web3.chain_id == 17000 {
-        result.estimated_time_left = Some((result.block_limit as i64 - result.current_block as i64) * 12);
+        result.estimated_time_left =
+            Some((result.block_limit as i64 - result.current_block as i64) * 12);
     } else if web3.chain_id == 137 || web3.chain_id == 80001 {
-        result.estimated_time_left = Some((result.block_limit as i64 - result.current_block as i64) * 2);
+        result.estimated_time_left =
+            Some((result.block_limit as i64 - result.current_block as i64) * 2);
     } else {
         log::info!("Unknown chain id: {} for estimation", web3.chain_id);
     }
     if let Some(estimated_time_left) = result.estimated_time_left {
         if estimated_time_left <= 0 {
-            result.estimated_time_left_str = Some(format!("{} ago", humantime::format_duration(std::time::Duration::from_secs(estimated_time_left.abs() as u64))));
+            result.estimated_time_left_str = Some(format!(
+                "{} ago",
+                humantime::format_duration(std::time::Duration::from_secs(
+                    estimated_time_left.abs() as u64
+                ))
+            ));
         } else {
-            result.estimated_time_left_str = Some(format!("in {} ", humantime::format_duration(std::time::Duration::from_secs(estimated_time_left.abs() as u64))));
+            result.estimated_time_left_str = Some(format!(
+                "in {} ",
+                humantime::format_duration(std::time::Duration::from_secs(
+                    estimated_time_left.abs() as u64
+                ))
+            ));
         }
     }
     Ok(result)
@@ -969,7 +977,6 @@ pub async fn make_allocation(
         .await
         .map_err(err_from!())?;
     db_transaction.commit().await.map_err(err_from!())?;
-
 
     log::info!("Make allocation added to queue: {}", make_allocation_tx.id);
     Ok(())
