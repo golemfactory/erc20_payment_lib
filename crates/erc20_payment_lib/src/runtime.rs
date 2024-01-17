@@ -888,6 +888,9 @@ pub async fn allocation_details(
     )
     .await?;
     result.current_block_datetime = Some(block_info.block_date);
+    if result.spender.is_zero() && result.customer.is_zero() {
+        return Ok(result);
+    }
     if let Some(average_block_time) = average_block_time(&web3) {
         result.estimated_time_left = Some(
             (result.block_limit as i64 - result.current_block as i64) * average_block_time as i64,

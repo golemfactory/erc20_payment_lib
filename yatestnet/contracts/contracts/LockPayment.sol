@@ -117,6 +117,8 @@ contract LockPayment {
         funds[msg.sender] += amount;
     }
 
+    //to do - add deposit_for (uint128 amount, address recipient) external
+
     function withdraw(uint128 amount) external {
         require(funds[msg.sender] >= amount, "funds[msg.sender] >= amount");
         funds[msg.sender] -= amount;

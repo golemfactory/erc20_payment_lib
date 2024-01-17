@@ -4,14 +4,10 @@ use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::runtime::allocation_details;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib_common::err_custom_create;
-use sqlx::SqlitePool;
-use web3::types::Address;
 
 pub async fn allocation_details_local(
-    conn: SqlitePool,
     check_allocation_options: CheckAllocationOptions,
     config: Config,
-    public_addrs: &[Address],
 ) -> Result<(), PaymentError> {
     log::info!("Withdrawing tokens...");
     //let public_addr = public_addrs.first().expect("No public address found");

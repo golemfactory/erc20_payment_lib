@@ -330,13 +330,7 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::CheckAllocation {
             check_allocation_options,
         } => {
-            allocation_details_local(
-                conn.clone(),
-                check_allocation_options,
-                config,
-                &public_addrs,
-            )
-            .await?;
+            allocation_details_local(check_allocation_options, config).await?;
         }
         PaymentCommands::Deposit {
             deposit_tokens_options,
