@@ -265,17 +265,32 @@ pub fn create_lock_deposit(
     })
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn create_make_allocation(
     from: Address,
     lock_address: Address,
     chain_id: u64,
     gas_limit: Option<u64>,
-    allocation_id: u32,
-    allocation_spender: Address,
-    allocation_amount: U256,
-    allocation_fee_amount: U256,
-    allocation_block_no: u32,
+    allocation_args: CreateAllocationArgs,
+) -> Result<TxDao, PaymentError> {
+    Ok(TxDao {
+        method: "LOCK.createAllocation".to_string(),
+        from_addr: format!("{from:#x}"),
+        to_addr: format!("{lock_address:#x}"),
+        chain_id: chain_id as i64,
+        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
+        call_data: Some(hex::encode(
+            encode_create_allocation(allocation_args).map_err(err_from!())?,
+        )),
+        ..Default::default()
+    })
+}
+
+pub fn create_make_allocation_internal(
+    from: Address,
+    lock_address: Address,
+    chain_id: u64,
+    gas_limit: Option<u64>,
+    allocation_args: CreateAllocationInternalArgs,
 ) -> Result<TxDao, PaymentError> {
     Ok(TxDao {
         method: "LOCK.createAllocationInternal".to_string(),
@@ -284,14 +299,7 @@ pub fn create_make_allocation(
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
         call_data: Some(hex::encode(
-            encode_make_allocation(
-                allocation_id,
-                allocation_spender,
-                allocation_amount,
-                allocation_fee_amount,
-                allocation_block_no,
-            )
-            .map_err(err_from!())?,
+            encode_create_allocation_internal(allocation_args).map_err(err_from!())?,
         )),
         ..Default::default()
     })
@@ -377,6 +385,7 @@ pub async fn get_no_token_details(
             web3,
             glm_token,
             Address::from_str(&web3_tx_dao.from_addr).map_err(err_from!())?,
+            None
         )
         .await?
         .to_eth()
@@ -609,6 +618,7 @@ pub async fn send_transaction(
                                     glm_token,
                                     Address::from_str(&web3_tx_dao.from_addr)
                                         .map_err(err_from!())?,
+                                    None
                                 )
                                 .await?
                                 .to_eth()

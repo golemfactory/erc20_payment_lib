@@ -128,17 +128,51 @@ pub fn encode_deposit_to_lock(amount: U256) -> Result<Vec<u8>, web3::ethabi::Err
     contract_encode(&LOCK_CONTRACT_TEMPLATE, "deposit", (amount,))
 }
 
-pub fn encode_make_allocation(
-    id: u32,
-    spender: Address,
-    amount: U256,
-    fee_amount: U256,
-    block_no: u32,
+pub struct CreateAllocationInternalArgs {
+    pub allocation_id: u32,
+    pub allocation_spender: Address,
+    pub allocation_amount: U256,
+    pub allocation_fee_amount: U256,
+    pub allocation_block_no: u32,
+}
+
+pub fn encode_create_allocation_internal(
+    allocation_args: CreateAllocationInternalArgs,
 ) -> Result<Vec<u8>, web3::ethabi::Error> {
     contract_encode(
         &LOCK_CONTRACT_TEMPLATE,
         "createAllocationInternal",
-        (id, spender, amount, fee_amount, block_no),
+        (
+            allocation_args.allocation_id,
+            allocation_args.allocation_spender,
+            allocation_args.allocation_amount,
+            allocation_args.allocation_fee_amount,
+            allocation_args.allocation_block_no,
+        ),
+    )
+}
+
+pub struct CreateAllocationArgs {
+    pub allocation_id: u32,
+    pub allocation_spender: Address,
+    pub allocation_amount: U256,
+    pub allocation_fee_amount: U256,
+    pub allocation_block_no: u32,
+}
+
+pub fn encode_create_allocation(
+    allocation_args: CreateAllocationArgs,
+) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(
+        &LOCK_CONTRACT_TEMPLATE,
+        "createAllocation",
+        (
+            allocation_args.allocation_id,
+            allocation_args.allocation_spender,
+            allocation_args.allocation_amount,
+            allocation_args.allocation_fee_amount,
+            allocation_args.allocation_block_no,
+        ),
     )
 }
 

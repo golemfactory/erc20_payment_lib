@@ -7,13 +7,12 @@ use crate::db::ops::{
 use crate::signer::Signer;
 use crate::transaction::{
     create_faucet_mint, create_lock_deposit, create_lock_withdraw, create_make_allocation,
-    create_token_transfer, find_receipt_extended,
+    create_make_allocation_internal, create_token_transfer, find_receipt_extended,
 };
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
 use std::ops::DerefMut;
 use std::path::PathBuf;
-use std::result;
 use std::str::FromStr;
 
 use crate::error::{ErrorBag, PaymentError};
@@ -26,25 +25,23 @@ use sqlx::SqlitePool;
 
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
-use crate::contracts::encode_get_allocation_details;
-use crate::eth::{get_deposit_balance, AllocationDetails};
+use crate::contracts::{CreateAllocationArgs, CreateAllocationInternalArgs};
+use crate::eth::{get_deposit_balance, AllocationDetails, get_latest_block_info, average_block_time, Web3BlockInfo};
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
-use erc20_payment_lib_common::utils::datetime_from_u256_timestamp;
 use erc20_payment_lib_common::{
     DriverEvent, DriverEventContent, FaucetData, SharedInfoTx, StatusProperty,
     TransactionFailedReason, TransactionStuckReason, Web3RpcPoolContent,
 };
 use erc20_rpc_pool::{Web3PoolType, Web3RpcPool};
-use humantime::Duration;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify};
 use tokio::task::JoinHandle;
-use web3::types::{Address, BlockId, BlockNumber, CallRequest, H256, U256};
+use web3::types::{Address, H256, U256};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedState {
@@ -578,7 +575,7 @@ impl PaymentRuntime {
 
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
-        get_token_balance(web3, token_address, address).await
+        get_token_balance(web3, token_address, address, None).await
     }
 
     pub async fn get_gas_balance(
@@ -776,7 +773,7 @@ pub async fn mint_golem_token(
         ));
         };
 
-        let token_balance = get_token_balance(web3.clone(), glm_address, from)
+        let token_balance = get_token_balance(web3.clone(), glm_address, from, None)
             .await?
             .to_eth_saturate();
 
@@ -878,35 +875,19 @@ pub async fn allocation_details(
     allocation_id: u32,
     lock_contract_address: Address,
 ) -> Result<AllocationDetails, PaymentError> {
-    let block_info = web3
-        .clone()
-        .eth_block(BlockId::Number(BlockNumber::Latest))
-        .await
-        .map_err(err_from!())?
-        .ok_or(err_custom_create!("Cannot found block_info"))?;
-
-    let block_number = block_info.number.ok_or(err_custom_create!(
-        "Failed to found block number in block info",
-    ))?;
-
-    let block_date = datetime_from_u256_timestamp(block_info.timestamp).ok_or(
-        err_custom_create!("Failed to found block date in block info"),
-    )?;
+    let block_info = get_latest_block_info(web3.clone()).await?;
 
     let mut result = crate::eth::get_allocation_details(
         web3.clone(),
         allocation_id,
         lock_contract_address,
-        Some(block_number.as_u64()),
+        Some(block_info.block_number),
     )
     .await?;
-    result.current_block_datetime = Some(block_date);
-    if web3.chain_id == 1 || web3.chain_id == 17000 {
+    result.current_block_datetime = Some(block_info.block_date);
+    if let Some(average_block_time) = average_block_time(&web3) {
         result.estimated_time_left =
-            Some((result.block_limit as i64 - result.current_block as i64) * 12);
-    } else if web3.chain_id == 137 || web3.chain_id == 80001 {
-        result.estimated_time_left =
-            Some((result.block_limit as i64 - result.current_block as i64) * 2);
+            Some((result.block_limit as i64 - result.current_block as i64) * average_block_time as i64);
     } else {
         log::info!("Unknown chain id: {} for estimation", web3.chain_id);
     }
@@ -915,14 +896,14 @@ pub async fn allocation_details(
             result.estimated_time_left_str = Some(format!(
                 "{} ago",
                 humantime::format_duration(std::time::Duration::from_secs(
-                    estimated_time_left.abs() as u64
+                    estimated_time_left.unsigned_abs()
                 ))
             ));
         } else {
             result.estimated_time_left_str = Some(format!(
                 "in {} ",
                 humantime::format_duration(std::time::Duration::from_secs(
-                    estimated_time_left.abs() as u64
+                    estimated_time_left.unsigned_abs()
                 ))
             ));
         }
@@ -930,26 +911,33 @@ pub async fn allocation_details(
     Ok(result)
 }
 
-#[allow(clippy::too_many_arguments)]
+pub struct MakeAllocationOptionsInt {
+    pub lock_contract_address: Address,
+    pub spender: Address,
+    pub skip_balance_check: bool,
+    pub amount: Option<Decimal>,
+    pub fee_amount: Option<Decimal>,
+    pub allocate_all: bool,
+    pub allocation_id: u32,
+    pub funds_from_internal: bool,
+    pub block_no: Option<u64>,
+    pub block_for: Option<u64>,
+}
+
 pub async fn make_allocation(
     web3: Arc<Web3RpcPool>,
     conn: &SqlitePool,
     chain_id: u64,
     from: Address,
     glm_address: Address,
-    lock_contract_address: Address,
-    spender: Address,
-    skip_balance_check: bool,
-    amount: Option<Decimal>,
-    fee_amount: Option<Decimal>,
-    allocate_all: bool,
+    opt: MakeAllocationOptionsInt,
 ) -> Result<(), PaymentError> {
-    let amount = if let Some(amount) = amount {
+    let amount = if let Some(amount) = opt.amount {
         amount.to_u256_from_eth().map_err(err_from!())?
     } else {
         return Err(err_custom_create!("Amount not specified. Use --amount"));
     };
-    let fee_amount = if let Some(fee_amount) = fee_amount {
+    let fee_amount = if let Some(fee_amount) = opt.fee_amount {
         fee_amount.to_u256_from_eth().map_err(err_from!())?
     } else {
         return Err(err_custom_create!(
@@ -957,20 +945,85 @@ pub async fn make_allocation(
         ));
     };
 
-    let block_no = 1000;
+    let mut block_info: Option<Web3BlockInfo> = None;
+    if !opt.skip_balance_check {
+        block_info = Some(get_latest_block_info(web3.clone()).await?);
+        let block_info = block_info.as_ref().unwrap();
+        if opt.funds_from_internal {
+            let token_balance = get_deposit_balance(web3.clone(), opt.lock_contract_address, from, Some(block_info.block_number))
+                .await?;
 
-    let allocation_id = 5;
-    let make_allocation_tx = create_make_allocation(
-        from,
-        lock_contract_address,
-        chain_id,
-        None,
-        allocation_id,
-        spender,
-        amount,
-        fee_amount,
-        block_no,
-    )?;
+            if token_balance < amount + fee_amount {
+                return Err(err_custom_create!(
+                "You don't have enough: {} GLM on network with chain id: {} and account {:#x}",
+                token_balance,
+                chain_id,
+                from
+            ));
+            };
+        } else {
+            let token_balance = get_token_balance(web3.clone(), glm_address, from, Some(block_info.block_number))
+                .await?;
+
+            if token_balance < amount + fee_amount {
+                return Err(err_custom_create!(
+                "You don't have enough: {} GLM on network with chain id: {} and account {:#x}",
+                token_balance,
+                chain_id,
+                from
+            ));
+            };
+        }
+    }
+
+    let block_no = if let Some(block_no) = opt.block_no {
+        block_no as u32
+    } else if let Some(block_for) = opt.block_for {
+        let block_info = match block_info {
+            Some(block_info) => block_info,
+            None => get_latest_block_info(web3.clone()).await?,
+        };
+        let average_block_time = average_block_time(&web3).unwrap_or_else(||{
+            log::warn!("Unknown chain id: {chain_id} for estimation, assuming block time 1");
+            1});
+        let diff_seconds = (chrono::Utc::now() - block_info.block_date).num_seconds();
+        let target_block = (block_info.block_number as i64 + (diff_seconds + block_for as i64) * average_block_time as i64).unsigned_abs();
+        target_block as u32
+    } else {
+        return Err(err_custom_create!(
+            "Block number not specified. Use --block-no or --block-for"
+        ));
+    };
+
+    let make_allocation_tx = if opt.funds_from_internal {
+        create_make_allocation_internal(
+            from,
+            opt.lock_contract_address,
+            chain_id,
+            None,
+            CreateAllocationInternalArgs {
+                allocation_id: opt.allocation_id,
+                allocation_spender: opt.spender,
+                allocation_amount: amount,
+                allocation_fee_amount: fee_amount,
+                allocation_block_no: block_no,
+            },
+        )?
+    } else {
+        create_make_allocation(
+            from,
+            opt.lock_contract_address,
+            chain_id,
+            None,
+            CreateAllocationArgs {
+                allocation_id: opt.allocation_id,
+                allocation_spender: opt.spender,
+                allocation_amount: amount,
+                allocation_fee_amount: fee_amount,
+                allocation_block_no: block_no,
+            },
+        )?
+    };
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
     let make_allocation_tx = insert_tx(&mut *db_transaction, &make_allocation_tx)
@@ -997,7 +1050,7 @@ pub async fn deposit_funds(
     let amount = if let Some(amount) = amount {
         amount
     } else if deposit_all {
-        get_token_balance(web3.clone(), glm_address, from)
+        get_token_balance(web3.clone(), glm_address, from, None)
             .await?
             .to_eth()
             .map_err(err_from!())?
@@ -1008,7 +1061,7 @@ pub async fn deposit_funds(
     };
 
     if !skip_balance_check {
-        let token_balance = get_token_balance(web3.clone(), glm_address, from)
+        let token_balance = get_token_balance(web3.clone(), glm_address, from, None)
             .await?
             .to_eth_saturate();
 
@@ -1058,9 +1111,10 @@ pub async fn get_token_balance(
     web3: Arc<Web3RpcPool>,
     token_address: Address,
     address: Address,
+    block_number: Option<u64>,
 ) -> Result<U256, PaymentError> {
     let balance_result =
-        crate::eth::get_balance(web3, Some(token_address), None, address, true, None).await?;
+        crate::eth::get_balance(web3, Some(token_address), None, address, true, block_number).await?;
 
     let token_balance = balance_result
         .token_balance

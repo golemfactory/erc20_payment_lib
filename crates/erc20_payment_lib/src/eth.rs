@@ -4,7 +4,7 @@ use crate::contracts::{
 };
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
-use erc20_payment_lib_common::utils::U256ConvExt;
+use erc20_payment_lib_common::utils::{datetime_from_u256_timestamp, U256ConvExt};
 use erc20_rpc_pool::Web3RpcPool;
 use secp256k1::{PublicKey, SecretKey};
 use serde::Serialize;
@@ -121,8 +121,8 @@ pub async fn get_allocation_details(
             5 * 32
         ));
     }
-    let amount_u256 = U256::from(&res.0[(64)..(64 + 32)]);
-    let fee_amount_u256 = U256::from(&res.0[(64 + 32)..(64 + 64)]);
+    let amount_u256 = U256::from(&res.0[(2 * 32)..(3 * 32)]);
+    let fee_amount_u256 = U256::from(&res.0[(3 * 32)..(4 * 32)]);
 
     let block_no = U256::from(&res.0[(4 * 32)..(5 * 32)]);
     if block_no > U256::from(u32::MAX) {
@@ -224,6 +224,44 @@ pub async fn get_balance(
         deposit_balance,
         block_number,
     })
+}
+
+pub struct Web3BlockInfo {
+    pub block_number: u64,
+    pub block_date: chrono::DateTime<chrono::Utc>,
+}
+
+pub async fn get_latest_block_info(web3: Arc<Web3RpcPool>) -> Result<Web3BlockInfo, PaymentError> {
+    let block_info = web3
+        .eth_block(BlockId::Number(BlockNumber::Latest))
+        .await
+        .map_err(err_from!())?
+        .ok_or(err_custom_create!("Cannot found block_info"))?;
+
+    let block_number = block_info.number.ok_or(err_custom_create!(
+        "Failed to found block number in block info",
+    ))?.as_u64();
+
+    let block_date = datetime_from_u256_timestamp(block_info.timestamp).ok_or(
+        err_custom_create!("Failed to found block date in block info"),
+    )?;
+
+    Ok(Web3BlockInfo {
+        block_number,
+        block_date,
+    })
+}
+
+pub fn average_block_time(web3: &Web3RpcPool) -> Option<u32> {
+    if web3.chain_id == 1 || web3.chain_id == 5 || web3.chain_id == 17000 {
+        Some(12)
+    } else if web3.chain_id == 137 || web3.chain_id == 80001 {
+        Some(2)
+    } else if web3.chain_id == 987789 {
+        Some(5)
+    } else {
+        None
+    }
 }
 
 pub async fn get_transaction_count(

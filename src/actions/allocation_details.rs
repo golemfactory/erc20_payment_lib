@@ -1,11 +1,10 @@
-use crate::options::{CheckAllocationOptions, MakeAllocationOptions};
+use crate::options::CheckAllocationOptions;
 use erc20_payment_lib::config::Config;
 use erc20_payment_lib::error::PaymentError;
-use erc20_payment_lib::runtime::{allocation_details, make_allocation};
+use erc20_payment_lib::runtime::{allocation_details};
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib_common::err_custom_create;
 use sqlx::SqlitePool;
-use std::alloc::alloc;
 use web3::types::Address;
 
 pub async fn allocation_details_local(
