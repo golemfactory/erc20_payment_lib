@@ -376,7 +376,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                         payment_setup.get_provider(chain_cfg.chain_id)?,
                         chain_cfg.token.address,
                         *public_addr,
-                        None
+                        None,
                     )
                     .await?
                     .to_eth_saturate()
@@ -487,7 +487,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                             payment_setup.get_provider(chain_cfg.chain_id)?,
                             chain_cfg.token.address,
                             *public_addr,
-                            None
+                            None,
                         )
                         .await?
                         .to_string()

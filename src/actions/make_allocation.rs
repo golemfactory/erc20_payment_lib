@@ -111,5 +111,10 @@ pub async fn make_allocation_local(
             block_for: make_allocation_options.block_for,
         },
     )
-    .await
+    .await?;
+    println!(
+        "make_allocation called successfully allocation_id: {}",
+        allocation_id
+    );
+    Ok(())
 }

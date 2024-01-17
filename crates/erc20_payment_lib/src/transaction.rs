@@ -385,7 +385,7 @@ pub async fn get_no_token_details(
             web3,
             glm_token,
             Address::from_str(&web3_tx_dao.from_addr).map_err(err_from!())?,
-            None
+            None,
         )
         .await?
         .to_eth()
@@ -618,7 +618,7 @@ pub async fn send_transaction(
                                     glm_token,
                                     Address::from_str(&web3_tx_dao.from_addr)
                                         .map_err(err_from!())?,
-                                    None
+                                    None,
                                 )
                                 .await?
                                 .to_eth()

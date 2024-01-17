@@ -26,7 +26,10 @@ use sqlx::SqlitePool;
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
 use crate::contracts::{CreateAllocationArgs, CreateAllocationInternalArgs};
-use crate::eth::{get_deposit_balance, AllocationDetails, get_latest_block_info, average_block_time, Web3BlockInfo};
+use crate::eth::{
+    average_block_time, get_deposit_balance, get_latest_block_info, AllocationDetails,
+    Web3BlockInfo,
+};
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
@@ -886,8 +889,9 @@ pub async fn allocation_details(
     .await?;
     result.current_block_datetime = Some(block_info.block_date);
     if let Some(average_block_time) = average_block_time(&web3) {
-        result.estimated_time_left =
-            Some((result.block_limit as i64 - result.current_block as i64) * average_block_time as i64);
+        result.estimated_time_left = Some(
+            (result.block_limit as i64 - result.current_block as i64) * average_block_time as i64,
+        );
     } else {
         log::info!("Unknown chain id: {} for estimation", web3.chain_id);
     }
@@ -950,28 +954,38 @@ pub async fn make_allocation(
         block_info = Some(get_latest_block_info(web3.clone()).await?);
         let block_info = block_info.as_ref().unwrap();
         if opt.funds_from_internal {
-            let token_balance = get_deposit_balance(web3.clone(), opt.lock_contract_address, from, Some(block_info.block_number))
-                .await?;
+            let token_balance = get_deposit_balance(
+                web3.clone(),
+                opt.lock_contract_address,
+                from,
+                Some(block_info.block_number),
+            )
+            .await?;
 
             if token_balance < amount + fee_amount {
                 return Err(err_custom_create!(
-                "You don't have enough: {} GLM on network with chain id: {} and account {:#x}",
-                token_balance,
-                chain_id,
-                from
-            ));
+                    "You don't have enough: {} GLM on network with chain id: {} and account {:#x}",
+                    token_balance,
+                    chain_id,
+                    from
+                ));
             };
         } else {
-            let token_balance = get_token_balance(web3.clone(), glm_address, from, Some(block_info.block_number))
-                .await?;
+            let token_balance = get_token_balance(
+                web3.clone(),
+                glm_address,
+                from,
+                Some(block_info.block_number),
+            )
+            .await?;
 
             if token_balance < amount + fee_amount {
                 return Err(err_custom_create!(
-                "You don't have enough: {} GLM on network with chain id: {} and account {:#x}",
-                token_balance,
-                chain_id,
-                from
-            ));
+                    "You don't have enough: {} GLM on network with chain id: {} and account {:#x}",
+                    token_balance,
+                    chain_id,
+                    from
+                ));
             };
         }
     }
@@ -983,11 +997,14 @@ pub async fn make_allocation(
             Some(block_info) => block_info,
             None => get_latest_block_info(web3.clone()).await?,
         };
-        let average_block_time = average_block_time(&web3).unwrap_or_else(||{
+        let average_block_time = average_block_time(&web3).unwrap_or_else(|| {
             log::warn!("Unknown chain id: {chain_id} for estimation, assuming block time 1");
-            1});
+            1
+        });
         let diff_seconds = (chrono::Utc::now() - block_info.block_date).num_seconds();
-        let target_block = (block_info.block_number as i64 + (diff_seconds + block_for as i64) * average_block_time as i64).unsigned_abs();
+        let target_block = (block_info.block_number as i64
+            + (diff_seconds + block_for as i64) * average_block_time as i64)
+            .unsigned_abs();
         target_block as u32
     } else {
         return Err(err_custom_create!(
@@ -1114,7 +1131,8 @@ pub async fn get_token_balance(
     block_number: Option<u64>,
 ) -> Result<U256, PaymentError> {
     let balance_result =
-        crate::eth::get_balance(web3, Some(token_address), None, address, true, block_number).await?;
+        crate::eth::get_balance(web3, Some(token_address), None, address, true, block_number)
+            .await?;
 
     let token_balance = balance_result
         .token_balance

@@ -238,9 +238,12 @@ pub async fn get_latest_block_info(web3: Arc<Web3RpcPool>) -> Result<Web3BlockIn
         .map_err(err_from!())?
         .ok_or(err_custom_create!("Cannot found block_info"))?;
 
-    let block_number = block_info.number.ok_or(err_custom_create!(
-        "Failed to found block number in block info",
-    ))?.as_u64();
+    let block_number = block_info
+        .number
+        .ok_or(err_custom_create!(
+            "Failed to found block number in block info",
+        ))?
+        .as_u64();
 
     let block_date = datetime_from_u256_timestamp(block_info.timestamp).ok_or(
         err_custom_create!("Failed to found block date in block info"),
