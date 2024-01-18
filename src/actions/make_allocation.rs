@@ -70,7 +70,7 @@ pub async fn make_allocation_local(
     config: Config,
     public_addrs: &[Address],
 ) -> Result<(), PaymentError> {
-    log::info!("Withdrawing tokens...");
+    log::info!("Making allocation...");
     let public_addr = public_addrs.first().expect("No public address found");
     let chain_cfg = config
         .chain
