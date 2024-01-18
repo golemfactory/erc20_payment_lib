@@ -121,6 +121,8 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
                     Some("test_payment"),
                     Some(config.chain.get("dev").unwrap().token.address),
                     U256::from(*val),
+                    None,
+                    false,
                 )
             ).await?;
         }

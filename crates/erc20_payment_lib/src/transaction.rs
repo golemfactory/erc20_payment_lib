@@ -110,6 +110,7 @@ pub fn dao_to_transaction(web3_tx_dao: &TxDao) -> Result<TransactionParameters, 
 }
 
 // token_addr NULL means standard (non ERC20) transfer of main chain currency (i.e ETH)
+#[allow(clippy::too_many_arguments)]
 pub fn create_token_transfer(
     from: Address,
     receiver: Address,
@@ -117,6 +118,8 @@ pub fn create_token_transfer(
     payment_id: Option<&str>,
     token_addr: Option<Address>,
     token_amount: U256,
+    allocation_id: Option<String>,
+    use_internal: bool,
 ) -> TokenTransferDao {
     TokenTransferDao {
         id: 0,
@@ -126,6 +129,9 @@ pub fn create_token_transfer(
         chain_id,
         token_addr: token_addr.map(|addr| format!("{addr:#x}")),
         token_amount: token_amount.to_string(),
+        allocation_id,
+        /// Information if using internal contract account 0 - false, 1 - true
+        use_internal: if use_internal { 1 } else { 0 },
         create_date: Utc::now(),
         tx_id: None,
         paid_date: None,

@@ -81,6 +81,8 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
                 Some("test_payment"),
                 None,
                 U256::from(0_u128),
+                None,
+                false
             )
         ).await?;
 

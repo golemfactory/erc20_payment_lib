@@ -191,6 +191,12 @@ pub struct TransferOptions {
         help = "Amount (decimal, full precision, i.e. 0.01)"
     )]
     pub amount: Option<rust_decimal::Decimal>,
+
+    #[structopt(long = "allocation-id")]
+    pub allocation_id: Option<String>,
+
+    #[structopt(long = "use-internal")]
+    pub use_internal: bool,
 }
 
 #[derive(StructOpt)]

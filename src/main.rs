@@ -530,6 +530,12 @@ async fn main_internal() -> Result<(), PaymentError> {
                     chain_id: chain_cfg.chain_id,
                     token_addr: token,
                     token_amount: amount_str,
+                    allocation_id: single_transfer_options.allocation_id,
+                    use_internal: if single_transfer_options.use_internal {
+                        1
+                    } else {
+                        0
+                    },
                     create_date: Default::default(),
                     tx_id: None,
                     paid_date: None,

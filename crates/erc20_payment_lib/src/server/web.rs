@@ -565,6 +565,8 @@ struct TransactionRequest {
     chain: i64,
     due_date: Option<String>,
     payment_id: Option<String>,
+    allocation_id: Option<String>,
+    use_internal: bool,
 }
 
 async fn new_transfer(
@@ -614,6 +616,8 @@ async fn new_transfer(
         amount: U256::from_dec_str(&new_transfer.amount).unwrap(),
         payment_id,
         deadline: due_date,
+        allocation_id: new_transfer.allocation_id.clone(),
+        use_internal: new_transfer.use_internal,
     };
 
     if let Err(err) = data.payment_runtime.transfer(transfer_args.clone()).await {
@@ -996,6 +1000,8 @@ pub async fn faucet(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Respo
                 Some(&uuid::Uuid::new_v4().to_string()),
                 None,
                 faucet_eth_amount,
+                None,
+                false,
             );
             let db_conn = data.db_connection.lock().await;
             return_on_error!(insert_token_transfer(&*db_conn, &tt).await)
@@ -1008,6 +1014,8 @@ pub async fn faucet(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Respo
                 Some(&uuid::Uuid::new_v4().to_string()),
                 Some(glm_address),
                 faucet_glm_amount,
+                None,
+                false,
             );
             let db_conn = data.db_connection.lock().await;
             return_on_error!(insert_token_transfer(&*db_conn, &tt).await)
