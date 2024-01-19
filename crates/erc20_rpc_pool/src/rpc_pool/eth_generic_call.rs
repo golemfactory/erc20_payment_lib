@@ -37,7 +37,13 @@ impl Web3RpcPool {
                         })
                         .await;
                 }
-                return Err(web3::Error::Unreachable);
+                if loop_no >= 4 {
+                    log::warn!(
+                        "Seems like all RPC endpoints failed - chain id: {}",
+                        self.chain_id
+                    );
+                    return Err(web3::Error::Unreachable);
+                }
             }
 
             for idx in idx_vec {
