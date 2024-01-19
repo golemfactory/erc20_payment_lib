@@ -157,7 +157,7 @@ impl Web3RpcPool {
                     return Err(err);
                 }
                 // Wait half a second after encountering an error
-                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(800)).await;
                 loop_no += 1;
             }
         }
