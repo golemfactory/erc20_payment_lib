@@ -404,10 +404,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
                 if amount.to_u256_from_eth().map_err(err_from!())? > allowance {
                     let allowance_request = AllowanceRequest {
-                        owner: format!(
-                            "{:#x}",
-                            public_addr
-                        ),
+                        owner: format!("{:#x}", public_addr),
                         token_addr: format!("{:#x}", chain_cfg.token.address),
                         spender_addr: format!(
                             "{:#x}",
@@ -457,7 +454,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             let res = gen_private_keys(generate_key_options.number_of_keys)?;
 
             for key in res.1.iter().enumerate() {
-                println!("# PUBLIC_ADDRESS_{}: {:#x}", key.0, key.1);
+                println!("# ETH_ADDRESS_{}: {:#x}", key.0, key.1);
             }
             println!("ETH_PRIVATE_KEYS={}", res.0.join(","));
         }
@@ -554,10 +551,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 &TokenTransferDao {
                     id: 0,
                     payment_id: None,
-                    from_addr: format!(
-                        "{:#x}",
-                        public_addr
-                    ),
+                    from_addr: format!("{:#x}", public_addr),
                     receiver_addr: format!("{:#x}", recipient),
                     chain_id: chain_cfg.chain_id,
                     token_addr: token,

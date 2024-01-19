@@ -6,7 +6,8 @@ use crate::error::{AllowanceRequest, ErrorBag, PaymentError};
 
 use crate::transaction::{
     create_erc20_allocation_transfer, create_erc20_transfer, create_erc20_transfer_multi,
-    create_eth_transfer, MultiTransferArgs,
+    create_erc20_transfer_multi_allocation, create_eth_transfer, MultiTransferAllocationArgs,
+    MultiTransferArgs,
 };
 
 use crate::setup::PaymentSetup;
@@ -246,6 +247,29 @@ pub async fn gather_transactions_batch_multi(
                         None,
                     )?
                 }
+            } else if let Some(allocation_id) = token_transfer.allocation_id.as_ref() {
+                let lock_contract_address =
+                    chain_setup.lock_contract_address.ok_or(err_custom_create!(
+                        "Lock contract address not set for chain id: {}",
+                        token_transfer.chain_id
+                    ))?;
+                let allocation_id = u32::from_str(allocation_id).map_err(err_from!())?;
+                log::info!(
+                    "Inserting transaction stub for ERC20 multi payment: {:?} for {} distinct transfers, use internal {}",
+                    lock_contract_address,
+                    erc20_to.len(),
+                    token_transfer.use_internal != 0
+                );
+                create_erc20_transfer_multi_allocation(MultiTransferAllocationArgs {
+                    from: Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
+                    lock_contract: lock_contract_address,
+                    erc20_to,
+                    erc20_amount: erc20_amounts,
+                    chain_id: token_transfer.chain_id as u64,
+                    gas_limit: None,
+                    allocation_id,
+                    use_internal: token_transfer.use_internal != 0,
+                })?
             } else if let Some(multi_contract_address) = chain_setup.multi_contract_address {
                 log::info!(
                     "Inserting transaction stub for ERC20 multi transfer contract: {:?} for {} distinct transfers",
