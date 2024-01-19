@@ -83,6 +83,17 @@ pub fn encode_erc20_approve(
     contract_encode(&ERC20_CONTRACT_TEMPLATE, "approve", (spender, amount))
 }
 
+pub fn encode_payout_multiple_internal(
+    allocation_id: u32,
+    packed: Vec<[u8; 32]>,
+) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(
+        &LOCK_CONTRACT_TEMPLATE,
+        "payoutMultipleInternal",
+        (allocation_id, packed),
+    )
+}
+
 pub fn encode_multi_direct(
     recipients: Vec<Address>,
     amounts: Vec<U256>,
@@ -173,6 +184,29 @@ pub fn encode_create_allocation(
             allocation_args.allocation_fee_amount,
             allocation_args.allocation_block_no,
         ),
+    )
+}
+pub fn encode_payout_single(
+    id: u32,
+    recipient: Address,
+    amount: U256,
+) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(
+        &LOCK_CONTRACT_TEMPLATE,
+        "payoutSingle",
+        (id, recipient, amount),
+    )
+}
+
+pub fn encode_payout_single_internal(
+    id: u32,
+    recipient: Address,
+    amount: U256,
+) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(
+        &LOCK_CONTRACT_TEMPLATE,
+        "payoutSingleInternal",
+        (id, recipient, amount),
     )
 }
 

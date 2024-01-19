@@ -188,8 +188,11 @@ pub struct TransferOptions {
     #[structopt(short = "r", long = "recipient", help = "Recipient")]
     pub recipient: String,
 
-    #[structopt(long = "from", help = "From (has to have private key)")]
-    pub from: Option<Address>,
+    #[structopt(long = "address", help = "Address (has to have private key)")]
+    pub address: Option<Address>,
+
+    #[structopt(long = "account-no", help = "Address by index (for convenience)")]
+    pub account_no: Option<usize>,
 
     #[structopt(long = "token", help = "Token", default_value = "glm", possible_values = &["glm", "eth", "matic"])]
     pub token: String,

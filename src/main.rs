@@ -491,7 +491,15 @@ async fn main_internal() -> Result<(), PaymentError> {
             let recipient =
                 Address::from_str(&check_address_name(&single_transfer_options.recipient)).unwrap();
 
-            let public_addr = public_addrs.first().expect("No public address found");
+            let public_addr = if let Some(address) = single_transfer_options.address {
+                address
+            } else if let Some(account_no) = single_transfer_options.account_no {
+                *public_addrs
+                    .get(account_no)
+                    .expect("No public adss found with specified account_no")
+            } else {
+                *public_addrs.first().expect("No public adss found")
+            };
             let mut db_transaction = conn.begin().await.unwrap();
 
             let amount_str = if let Some(amount) = single_transfer_options.amount {
@@ -504,7 +512,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                         get_token_balance(
                             payment_setup.get_provider(chain_cfg.chain_id)?,
                             chain_cfg.token.address,
-                            *public_addr,
+                            public_addr,
                             None,
                         )
                         .await?
@@ -514,7 +522,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     {
                         let val = payment_setup
                             .get_provider(chain_cfg.chain_id)?
-                            .eth_balance(*public_addr, None)
+                            .eth_balance(public_addr, None)
                             .await
                             .map_err(err_from!())?;
                         let gas_val = Decimal::from_str(&chain_cfg.max_fee_per_gas.to_string())
@@ -548,7 +556,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     payment_id: None,
                     from_addr: format!(
                         "{:#x}",
-                        single_transfer_options.from.unwrap_or(*public_addr)
+                        public_addr
                     ),
                     receiver_addr: format!("{:#x}", recipient),
                     chain_id: chain_cfg.chain_id,

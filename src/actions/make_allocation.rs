@@ -14,8 +14,11 @@ pub struct MakeAllocationOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
-    #[structopt(long = "from", help = "From (has to have private key)")]
-    pub from: Option<Address>,
+    #[structopt(long = "address", help = "Address (has to have private key)")]
+    pub address: Option<Address>,
+
+    #[structopt(long = "account-no", help = "Address by index (for convenience)")]
+    pub account_no: Option<usize>,
 
     #[structopt(
         long = "spender",
@@ -71,7 +74,15 @@ pub async fn make_allocation_local(
     public_addrs: &[Address],
 ) -> Result<(), PaymentError> {
     log::info!("Making allocation...");
-    let public_addr = public_addrs.first().expect("No public address found");
+    let public_addr = if let Some(address) = make_allocation_options.address {
+        address
+    } else if let Some(account_no) = make_allocation_options.account_no {
+        *public_addrs
+            .get(account_no)
+            .expect("No public adss found with specified account_no")
+    } else {
+        *public_addrs.first().expect("No public adss found")
+    };
     let chain_cfg = config
         .chain
         .get(&make_allocation_options.chain_name)
@@ -92,7 +103,7 @@ pub async fn make_allocation_local(
         web3,
         &conn,
         chain_cfg.chain_id as u64,
-        make_allocation_options.from.unwrap_or(*public_addr),
+        public_addr,
         chain_cfg.token.address,
         MakeAllocationOptionsInt {
             lock_contract_address: chain_cfg

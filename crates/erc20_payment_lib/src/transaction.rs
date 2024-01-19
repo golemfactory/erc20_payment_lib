@@ -179,6 +179,67 @@ pub fn create_erc20_transfer(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
+pub fn create_erc20_allocation_transfer(
+    from: Address,
+    erc20_to: Address,
+    erc20_amount: U256,
+    chain_id: u64,
+    gas_limit: Option<u64>,
+    lock_contract_address: Address,
+    allocation_id: u32,
+    use_internal: bool,
+) -> Result<TxDao, PaymentError> {
+    Ok(TxDao {
+        method: if use_internal {
+            "LOCK.payoutSingleInternal".to_string()
+        } else {
+            "LOCK.payoutSingle".to_string()
+        },
+        from_addr: format!("{from:#x}"),
+        to_addr: format!("{lock_contract_address:#x}"),
+        chain_id: chain_id as i64,
+        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
+        call_data: Some(hex::encode(if use_internal {
+            encode_payout_single_internal(allocation_id, erc20_to, erc20_amount)
+                .map_err(err_from!())?
+        } else {
+            encode_payout_single(allocation_id, erc20_to, erc20_amount).map_err(err_from!())?
+        })),
+        ..Default::default()
+    })
+}
+
+pub struct MultiTransferAllocationArgs {
+    pub from: Address,
+    pub lock_contract: Address,
+    pub erc20_to: Vec<Address>,
+    pub erc20_amount: Vec<U256>,
+    pub chain_id: u64,
+    pub gas_limit: Option<u64>,
+    pub allocation_id: u32,
+    pub use_internal: bool,
+}
+
+pub fn create_erc20_transfer_multi_allocation(
+    multi_args: MultiTransferAllocationArgs,
+) -> Result<TxDao, PaymentError> {
+    let (packed, _sum) =
+        pack_transfers_for_multi_contract(multi_args.erc20_to, multi_args.erc20_amount)?;
+
+    let data =
+        encode_payout_multiple_internal(multi_args.allocation_id, packed).map_err(err_from!())?;
+    Ok(TxDao {
+        method: "payoutMultipleInternal".to_string(),
+        from_addr: format!("{:#x}", multi_args.from),
+        to_addr: format!("{:#x}", multi_args.lock_contract),
+        chain_id: multi_args.chain_id as i64,
+        gas_limit: multi_args.gas_limit.map(|gas_limit| gas_limit as i64),
+        call_data: Some(hex::encode(data)),
+        ..Default::default()
+    })
+}
+
 pub struct MultiTransferArgs {
     pub from: Address,
     pub contract: Address,
