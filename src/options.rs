@@ -101,8 +101,11 @@ pub struct MintTestTokensOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
-    #[structopt(long = "from", help = "From (has to have private key)")]
-    pub from: Option<Address>,
+    #[structopt(long = "address", help = "Address (has to have private key)")]
+    pub address: Option<Address>,
+
+    #[structopt(long = "account-no", help = "Address by index (for convenience)")]
+    pub account_no: Option<usize>,
 
     #[structopt(
         long = "mint-loop",
@@ -117,8 +120,11 @@ pub struct DepositTokensOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
-    #[structopt(long = "from", help = "From (has to have private key)")]
-    pub from: Option<Address>,
+    #[structopt(long = "address", help = "Address (has to have private key)")]
+    pub address: Option<Address>,
+
+    #[structopt(long = "account-no", help = "Address by index (for convenience)")]
+    pub account_no: Option<usize>,
 
     #[structopt(
         short = "a",
@@ -143,8 +149,11 @@ pub struct WithdrawTokensOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
-    #[structopt(long = "from", help = "From (has to have private key)")]
-    pub from: Option<Address>,
+    #[structopt(long = "address", help = "Address (has to have private key)")]
+    pub address: Option<Address>,
+
+    #[structopt(long = "account-no", help = "Address by index (for convenience)")]
+    pub account_no: Option<usize>,
 
     #[structopt(
         short = "a",

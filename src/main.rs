@@ -300,7 +300,15 @@ async fn main_internal() -> Result<(), PaymentError> {
             mint_test_tokens_options,
         } => {
             log::info!("Generating test tokens...");
-            let public_addr = public_addrs.first().expect("No public address found");
+            let public_addr = if let Some(address) = mint_test_tokens_options.address {
+                address
+            } else if let Some(account_no) = mint_test_tokens_options.account_no {
+                *public_addrs
+                    .get(account_no)
+                    .expect("No public adss found with specified account_no")
+            } else {
+                *public_addrs.first().expect("No public adss found")
+            };
             let chain_cfg = config
                 .chain
                 .get(&mint_test_tokens_options.chain_name)
@@ -316,7 +324,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 web3,
                 &conn,
                 chain_cfg.chain_id as u64,
-                mint_test_tokens_options.from.unwrap_or(*public_addr),
+                public_addr,
                 chain_cfg.token.address,
                 chain_cfg.mint_contract.clone().map(|c| c.address),
                 true,
@@ -344,7 +352,15 @@ async fn main_internal() -> Result<(), PaymentError> {
             deposit_tokens_options,
         } => {
             log::info!("Generating test tokens...");
-            let public_addr = public_addrs.first().expect("No public address found");
+            let public_addr = if let Some(address) = deposit_tokens_options.address {
+                address
+            } else if let Some(account_no) = deposit_tokens_options.account_no {
+                *public_addrs
+                    .get(account_no)
+                    .expect("No public adss found with specified account_no")
+            } else {
+                *public_addrs.first().expect("No public adss found")
+            };
             let chain_cfg =
                 config
                     .chain
@@ -360,7 +376,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             if !deposit_tokens_options.skip_allowance {
                 let allowance = check_allowance(
                     web3.clone(),
-                    deposit_tokens_options.from.unwrap_or(*public_addr),
+                    public_addr,
                     chain_cfg.token.address,
                     chain_cfg
                         .lock_contract
@@ -377,7 +393,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     get_token_balance(
                         payment_setup.get_provider(chain_cfg.chain_id)?,
                         chain_cfg.token.address,
-                        *public_addr,
+                        public_addr,
                         None,
                     )
                     .await?
@@ -390,7 +406,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     let allowance_request = AllowanceRequest {
                         owner: format!(
                             "{:#x}",
-                            deposit_tokens_options.from.unwrap_or(*public_addr)
+                            public_addr
                         ),
                         token_addr: format!("{:#x}", chain_cfg.token.address),
                         spender_addr: format!(
@@ -420,7 +436,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 web3,
                 &conn,
                 chain_cfg.chain_id as u64,
-                deposit_tokens_options.from.unwrap_or(*public_addr),
+                public_addr,
                 chain_cfg.token.address,
                 chain_cfg
                     .lock_contract

@@ -14,7 +14,15 @@ pub async fn withdraw_funds_local(
     public_addrs: &[Address],
 ) -> Result<(), PaymentError> {
     log::info!("Withdrawing tokens...");
-    let public_addr = public_addrs.first().expect("No public address found");
+    let public_addr = if let Some(address) = withdraw_tokens_options.address {
+        address
+    } else if let Some(account_no) = withdraw_tokens_options.account_no {
+        *public_addrs
+            .get(account_no)
+            .expect("No public adss found with specified account_no")
+    } else {
+        *public_addrs.first().expect("No public adss found")
+    };
     let chain_cfg = config
         .chain
         .get(&withdraw_tokens_options.chain_name)
@@ -30,7 +38,7 @@ pub async fn withdraw_funds_local(
         web3,
         &conn,
         chain_cfg.chain_id as u64,
-        withdraw_tokens_options.from.unwrap_or(*public_addr),
+        public_addr,
         chain_cfg
             .lock_contract
             .clone()
