@@ -88,8 +88,11 @@ pub struct GetDevEthOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
-    #[structopt(long = "from", help = "From (has to have private key)")]
-    pub from: Option<Address>,
+    #[structopt(long = "address", help = "Address to get funds for")]
+    pub address: Option<Address>,
+
+    #[structopt(long = "account-no", help = "Which account to use")]
+    pub account_no: Option<usize>,
 }
 
 #[derive(StructOpt)]

@@ -261,7 +261,15 @@ async fn main_internal() -> Result<(), PaymentError> {
             get_dev_eth_options,
         } => {
             log::info!("Getting funds from faucet...");
-            let public_addr = public_addrs.first().expect("No public adss found");
+            let public_addr = if let Some(address) = get_dev_eth_options.address {
+                address
+            } else if let Some(account_no) = get_dev_eth_options.account_no {
+                *public_addrs
+                    .get(account_no)
+                    .expect("No public adss found with specified account_no")
+            } else {
+                *public_addrs.first().expect("No public adss found")
+            };
             let chain_cfg =
                 config
                     .chain
@@ -284,7 +292,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 &faucet_lookup_domain,
                 &faucet_host,
                 faucet_srv_port,
-                *public_addr,
+                public_addr,
             )
             .await?;
         }
