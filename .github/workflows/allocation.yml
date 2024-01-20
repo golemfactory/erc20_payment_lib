@@ -25,8 +25,18 @@ jobs:
       - name: Build
         run: cargo build
 
-      - name: Run tests (faucet)
-        run: cargo run -- generate-key -n 1 > .env
+      - name: Generate ethereum accounts
+        run: |
+          cargo run -- generate-key -n 5 > .env
+          cat .env | grep ETH_ADDRESS | sed "s/#\s//g" | sed "s/:\s/=/g" > $GITHUB_ENV
+
+      - name: Show created addresses
+        run: |
+          echo "Eth address 0: $ETH_ADDRESS_0"
+          echo "Eth address 1: $ETH_ADDRESS_1"
+          echo "Eth address 2: $ETH_ADDRESS_2"
+          echo "Eth address 3: $ETH_ADDRESS_3"
+          echo "Eth address 4: $ETH_ADDRESS_4"
 
       - name: Check if balance is 0
         run: |
