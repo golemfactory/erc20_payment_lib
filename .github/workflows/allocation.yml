@@ -47,7 +47,7 @@ jobs:
         run: |
           sleep 60 # give time for the blockchain to propagate info about the transaction
           [ $(cargo run -- balance -c holesky | jq -r "."\"$ETH_ADDRESS_1\".gasDecimal") == "0.01" ]
-          [ $(cargo run -- balance -c holesky | jq -r "."\"$ETH_ADDRESS_1\".gasDecimal") == "0.01" ]
+          [ $(cargo run -- balance -c holesky | jq -r "."\"$ETH_ADDRESS_2\".gasDecimal") == "0.01" ]
 
       - name: Mint tokens
         run: |
