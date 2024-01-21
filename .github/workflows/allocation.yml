@@ -60,19 +60,19 @@ jobs:
 
       - name: Transfer 166.6 GLM tokens
         run: |
-          cargo run -- transfer --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --amount 166.6
+          cargo run -- transfer --account-no 1 --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --amount 166.6
           cargo run -- run
 
       - name: Transfer all GLM tokens
         run: |
-          cargo run -- transfer --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --all
+          cargo run -- transfer --account-no 1 --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --all
           cargo run -- run
 
       - name: Check token balance zero
         run: |
-          [ $(cargo run -- balance -c holesky | jq -r ".\"$ETH_ADDRESS_1\".tokenDecimal") == "1000" ]
+          [ $(cargo run -- balance| jq -r ".\"$ETH_ADDRESS_1\".tokenDecimal") == "0" ]
 
       - name: Transfer all left ETH tokens
         run: |
-          cargo run -- transfer --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
+          cargo run -- transfer --account-no 1  --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
           cargo run -- run
