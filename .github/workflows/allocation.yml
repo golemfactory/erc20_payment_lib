@@ -46,33 +46,33 @@ jobs:
       - name: Check ETH balance after getting funds from faucet (should be 0.01)
         run: |
           sleep 60 # give time for the blockchain to propagate info about the transaction
-          [ $(cargo run -- balance -c holesky | jq -r ".\"$ETH_ADDRESS_1\".gasDecimal") == "0.01" ]
-          [ $(cargo run -- balance -c holesky | jq -r ".\"$ETH_ADDRESS_2\".gasDecimal") == "0.01" ]
+          [ $(cargo run -- balance | jq -r ".\"$ETH_ADDRESS_1\".gasDecimal") == "0.01" ]
+          [ $(cargo run -- balance | jq -r ".\"$ETH_ADDRESS_2\".gasDecimal") == "0.01" ]
 
       - name: Mint tokens
         run: |
-          cargo run -- mint-test-tokens -c holesky
+          cargo run -- mint-test-tokens --account-no 1
           cargo run -- run
 
       - name: Check token balance
         run: |
-          [ $(cargo run -- balance -c holesky | jq -r '.[] | .tokenDecimal') == "1000" ]
+          [ $(cargo run -- balance | jq -r ".\"$ETH_ADDRESS_1\".tokenDecimal") == "1000" ]
 
       - name: Transfer 166.6 GLM tokens
         run: |
-          cargo run -- transfer -c holesky --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --amount 166.6
+          cargo run -- transfer --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --amount 166.6
           cargo run -- run
 
       - name: Transfer all GLM tokens
         run: |
-          cargo run -- transfer -c holesky --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --all
+          cargo run -- transfer --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --all
           cargo run -- run
 
       - name: Check token balance zero
         run: |
-          [ $(cargo run -- balance -c holesky | jq -r '.[] | .tokenDecimal') == "0" ]
+          [ $(cargo run -- balance -c holesky | jq -r ".\"$ETH_ADDRESS_1\".tokenDecimal") == "1000" ]
 
       - name: Transfer all left ETH tokens
         run: |
-          cargo run -- transfer -c holesky --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
+          cargo run -- transfer --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
           cargo run -- run
