@@ -70,7 +70,7 @@ priority = 0
 max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
-dns-source = "ethereum.rpc-node.dev.golem.network."
+dns-source = "mainnet.rpc-node.dev.golem.network."
 
 
 [chain.goerli]

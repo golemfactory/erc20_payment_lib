@@ -341,7 +341,7 @@ impl Web3RpcPool {
 
         let dns_jobs = &self.external_dns_sources;
         for dns_source in dns_jobs {
-            log::info!(
+            log::debug!(
                 "Chain id: {} Checking external dns source: {}",
                 self.chain_id,
                 dns_source.dns_url
@@ -380,7 +380,7 @@ impl Web3RpcPool {
         let jobs = &self.external_json_sources;
 
         for json_source in jobs {
-            log::info!(
+            log::debug!(
                 "Chain id: {} Checking external json source: {}",
                 self.chain_id,
                 json_source.url
