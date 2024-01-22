@@ -25,6 +25,7 @@ use std::env;
 use std::str::FromStr;
 
 use crate::actions::allocation_details::allocation_details_local;
+use crate::actions::cancel_allocation::cancel_allocation_local;
 use crate::actions::check_rpc::check_rpc_local;
 use crate::actions::make_allocation::make_allocation_local;
 use crate::actions::withdraw::withdraw_funds_local;
@@ -342,6 +343,17 @@ async fn main_internal() -> Result<(), PaymentError> {
         } => {
             make_allocation_local(conn.clone(), make_allocation_options, config, &public_addrs)
                 .await?;
+        }
+        PaymentCommands::CancelAllocation {
+            cancel_allocation_options,
+        } => {
+            cancel_allocation_local(
+                conn.clone(),
+                cancel_allocation_options,
+                config,
+                &public_addrs,
+            )
+            .await?;
         }
         PaymentCommands::CheckAllocation {
             check_allocation_options,

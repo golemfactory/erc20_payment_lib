@@ -1,5 +1,6 @@
 use std::{fmt::Debug, path::PathBuf};
 
+use crate::actions::cancel_allocation::CancelAllocationOptions;
 use crate::actions::make_allocation::MakeAllocationOptions;
 use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
 use structopt::StructOpt;
@@ -395,6 +396,10 @@ pub enum PaymentCommands {
     MakeAllocation {
         #[structopt(flatten)]
         make_allocation_options: MakeAllocationOptions,
+    },
+    CancelAllocation {
+        #[structopt(flatten)]
+        cancel_allocation_options: CancelAllocationOptions,
     },
     CheckAllocation {
         #[structopt(flatten)]

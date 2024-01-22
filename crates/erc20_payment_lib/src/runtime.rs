@@ -6,8 +6,9 @@ use crate::db::ops::{
 };
 use crate::signer::Signer;
 use crate::transaction::{
-    create_faucet_mint, create_lock_deposit, create_lock_withdraw, create_make_allocation,
-    create_make_allocation_internal, create_token_transfer, find_receipt_extended,
+    create_faucet_mint, create_free_allocation, create_lock_deposit, create_lock_withdraw,
+    create_make_allocation, create_make_allocation_internal, create_token_transfer,
+    find_receipt_extended,
 };
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
@@ -922,6 +923,27 @@ pub async fn allocation_details(
     Ok(result)
 }
 
+pub async fn cancel_allocation(
+    web3: Arc<Web3RpcPool>,
+    conn: &SqlitePool,
+    chain_id: u64,
+    from: Address,
+    glm_address: Address,
+    lock_contract_address: Address,
+    allocation_id: u32,
+) -> Result<(), PaymentError> {
+    let free_allocation_tx_id =
+        create_free_allocation(from, lock_contract_address, chain_id, None, allocation_id)?;
+    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
+    let make_allocation_tx = insert_tx(&mut *db_transaction, &free_allocation_tx_id)
+        .await
+        .map_err(err_from!())?;
+    db_transaction.commit().await.map_err(err_from!())?;
+
+    log::info!("Free allocation added to queue: {}", make_allocation_tx.id);
+    Ok(())
+}
+
 pub struct MakeAllocationOptionsInt {
     pub lock_contract_address: Address,
     pub spender: Address,
@@ -1014,7 +1036,8 @@ pub async fn make_allocation(
             block_info.block_number,
             diff_seconds,
             block_for,
-            average_block_time);
+            average_block_time
+        );
 
         let target_block = (block_info.block_number as i64
             + (diff_seconds + block_for as i64) / average_block_time as i64)

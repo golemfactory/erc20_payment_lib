@@ -147,6 +147,10 @@ pub struct CreateAllocationInternalArgs {
     pub allocation_block_no: u32,
 }
 
+pub fn encode_free_allocation(allocation_id: u32) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(&LOCK_CONTRACT_TEMPLATE, "freeAllocation", (allocation_id,))
+}
+
 pub fn encode_create_allocation_internal(
     allocation_args: CreateAllocationInternalArgs,
 ) -> Result<Vec<u8>, web3::ethabi::Error> {
