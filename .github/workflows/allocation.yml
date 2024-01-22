@@ -7,8 +7,8 @@ on:
     - cron: "42 3 * * *"
 
 jobs:
-  test_faucet_holesky:
-    name: Test Holesky faucet
+  test_allocation:
+    name: Test Allocation
     timeout-minutes: 20
 
     runs-on: ubuntu-latest
@@ -23,11 +23,14 @@ jobs:
           shared-key: "dev-build-cache"
 
       - name: Build
-        run: cargo build
+        run: |
+          cargo build
+          cp target/debug/erc20_processor /usr/local/bin/erc20_processor
+        
 
       - name: Generate ethereum accounts
         run: |
-          cargo run -- generate-key -n 5 > .env
+          erc20_processor generate-key -n 5 > .env
           cat .env | grep ETH_ADDRESS | sed "s/#\s//g" | sed "s/:\s/=/g" > $GITHUB_ENV
 
       - name: Show created addresses
@@ -60,7 +63,7 @@ jobs:
 
       - name: Transfer 166.6 GLM tokens
         run: |
-          cargo run -- transfer --account-no 1 --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --amount 166.6
+          cargo run -- deposit --account-no 1 --amount 800
           cargo run -- run
 
       - name: Transfer all GLM tokens
