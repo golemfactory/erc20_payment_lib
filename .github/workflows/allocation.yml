@@ -81,10 +81,21 @@ jobs:
 
       - name: Check token balance zero
         run: |
+          set -x 
           erc20_processor check-allocation --allocation-id $ALLOCATION_ID0
           erc20_processor check-allocation --allocation-id $ALLOCATION_ID1
 
+      - name: Make multiple transfers from allocation
+        run: |
+          set -x 
+          erc20_processor transfer --allocation-id $allocationId --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_0 --use-internal
+          erc20_processor transfer --allocation-id $allocationId --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_3 --use-internal
+          erc20_processor transfer --allocation-id $allocationId --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_4 --use-internal
+          erc20_processor run
+          erc20_processor balance
+
       - name: Transfer all left ETH tokens
         run: |
+          set -x 
           erc20_processor transfer --account-no 1 --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
           erc20_processor run
