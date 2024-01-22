@@ -1017,7 +1017,7 @@ pub async fn make_allocation(
             average_block_time);
 
         let target_block = (block_info.block_number as i64
-            + (diff_seconds + block_for as i64) * average_block_time as i64)
+            + (diff_seconds + block_for as i64) / average_block_time as i64)
             .unsigned_abs();
         target_block as u32
     } else {
