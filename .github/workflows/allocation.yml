@@ -26,7 +26,7 @@ jobs:
         run: |
           cargo build
           cp target/debug/erc20_processor /usr/local/bin/erc20_processor
-          [ $(which erc20_processor) == "/usr/local/bin/erc20_processo" ]
+          [ $(which erc20_processor) == "/usr/local/bin/erc20_processor" ]
 
       - name: Generate ethereum accounts
         run: |
