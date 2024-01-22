@@ -74,6 +74,7 @@ jobs:
 
       - name: Create allocation
         run: |
+          set -x 
           erc20_processor make-allocation --account-no 1 --amount 1 --fee-amount 0.1 --block-for 0 --spender $ETH_ADDRESS_2 --allocation-id $ALLOCATION_ID0 --use-internal
           erc20_processor make-allocation --account-no 1 --amount 1 --fee-amount 0.1 --block-for 1000 --spender $ETH_ADDRESS_2 --allocation-id $ALLOCATION_ID1 --use-internal
           erc20_processor run
