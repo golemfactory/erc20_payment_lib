@@ -1009,6 +1009,13 @@ pub async fn make_allocation(
             1
         });
         let diff_seconds = (chrono::Utc::now() - block_info.block_date).num_seconds();
+        log::info!(
+            "Block number: {}, diff_seconds: {}, block_for: {}, average_block_time: {}",
+            block_info.block_number,
+            diff_seconds,
+            block_for,
+            average_block_time);
+
         let target_block = (block_info.block_number as i64
             + (diff_seconds + block_for as i64) * average_block_time as i64)
             .unsigned_abs();
