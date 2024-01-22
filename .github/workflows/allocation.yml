@@ -32,7 +32,7 @@ jobs:
         run: |
           erc20_processor generate-key -n 5 > .env
           cat .env | grep ETH_ADDRESS | sed "s/#\s//g" | sed "s/:\s/=/g" > $GITHUB_ENV
-
+          cat ALLOCATION_ID=$(shuf -i 0-2000000000 -n 1) > $GITHUB_ENV
       - name: Show created addresses
         run: |
           echo "Eth address 0: $ETH_ADDRESS_0"
@@ -61,15 +61,16 @@ jobs:
         run: |
           [ $(erc20_processor balance | jq -r ".\"$ETH_ADDRESS_1\".tokenDecimal") == "1000" ]
 
-      - name: Transfer 166.6 GLM tokens
+      - name: Deposit 800.0 GLM tokens
         run: |
           erc20_processor deposit --account-no 1 --amount 800
           erc20_processor run
+          erc20_processor balance
 
-      - name: Transfer all GLM tokens
+      - name: Create allocation
         run: |
-          erc20_processor transfer --account-no 1 --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token glm --all
-          erc20_processor run
+          erc20_processor make-allocation --account-no 1 --amount 500 --fee-amount 100 --block-for 1000 --spender $ETH_ADDRESS_2 --allocation-id $ALLOCATION_ID --use-internal
+          target_wsl/debug/erc20_processor run
 
       - name: Check token balance zero
         run: |
