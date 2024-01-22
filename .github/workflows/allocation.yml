@@ -48,7 +48,7 @@ jobs:
 
       - name: Check ETH balance after getting funds from faucet (should be 0.01)
         run: |
-          x=1; while [ $(erc20_processor balance | jq -r ".\"$ETH_ADDRESS_1\".gasDecimal") != "0.01" ]; do echo "Waiting for funds for $x seconds"; sleep 5; x=$(( x + 5 )); done 
+          x=1; while [ $(erc20_processor balance | jq -r ".\"$ETH_ADDRESS_1\".gasDecimal") != "0.01" ]; do echo "Waiting for funds for $x seconds"; erc20_processor balance | jq -r ".\"$ETH_ADDRESS_1\".gasDecimal"; sleep 5; x=$(( x + 5 )); done 
           while [ $(erc20_processor balance | jq -r ".\"$ETH_ADDRESS_2\".gasDecimal") != "0.01" ]; do echo "Waiting for funds for $x seconds"; sleep 5; x=$(( x + 5 )); done 
 
       - name: Mint tokens
