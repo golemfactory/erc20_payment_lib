@@ -35,7 +35,9 @@ jobs:
 
       - name: Create random allocation id
         run: |
-          echo ALLOCATION_ID=$(shuf -i 0-2000000000 -n 1) > $GITHUB_ENV
+          echo ALLOCATION_ID0=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
+          echo ALLOCATION_ID1=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
+          echo ALLOCATION_ID2=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
 
       - name: Show created addresses
         run: |
@@ -53,7 +55,7 @@ jobs:
       - name: Check ETH balance after getting funds from faucet (should be 0.01)
         run: |
           x=1; while [ $(erc20_processor balance | jq -r ".\"$ETH_ADDRESS_1\".gasDecimal") != "0.01" ]; do echo "Waiting for funds for $x seconds"; sleep 5; x=$(( x + 5 )); done 
-          x=1; while [ $(erc20_processor balance | jq -r ".\"$ETH_ADDRESS_2\".gasDecimal") != "0.01" ]; do echo "Waiting for funds for $x seconds"; sleep 5; x=$(( x + 5 )); done 
+          while [ $(erc20_processor balance | jq -r ".\"$ETH_ADDRESS_2\".gasDecimal") != "0.01" ]; do echo "Waiting for funds for $x seconds"; sleep 5; x=$(( x + 5 )); done 
 
       - name: Mint tokens
         run: |
@@ -72,12 +74,14 @@ jobs:
 
       - name: Create allocation
         run: |
-          erc20_processor make-allocation --account-no 1 --amount 500 --fee-amount 100 --block-for 1000 --spender $ETH_ADDRESS_2 --allocation-id $ALLOCATION_ID --use-internal
+          erc20_processor make-allocation --account-no 1 --amount 1 --fee-amount 0.1 --block-for 0 --spender $ETH_ADDRESS_2 --allocation-id $ALLOCATION_ID0 --use-internal
+          erc20_processor make-allocation --account-no 1 --amount 1 --fee-amount 0.1 --block-for 1000 --spender $ETH_ADDRESS_2 --allocation-id $ALLOCATION_ID1 --use-internal
           erc20_processor run
 
       - name: Check token balance zero
         run: |
-          erc20_processor check-allocation --allocation-id $ALLOCATION_ID
+          erc20_processor check-allocation --allocation-id $ALLOCATION_ID0
+          erc20_processor check-allocation --allocation-id $ALLOCATION_ID1
 
       - name: Transfer all left ETH tokens
         run: |

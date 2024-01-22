@@ -130,7 +130,7 @@ pub fn create_token_transfer(
         token_addr: token_addr.map(|addr| format!("{addr:#x}")),
         token_amount: token_amount.to_string(),
         allocation_id,
-        /// Information if using internal contract account 0 - false, 1 - true
+        // Information if using internal contract account 0 - false, 1 - true
         use_internal: if use_internal { 1 } else { 0 },
         create_date: Utc::now(),
         tx_id: None,
