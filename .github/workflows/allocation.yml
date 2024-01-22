@@ -32,7 +32,11 @@ jobs:
         run: |
           erc20_processor generate-key -n 5 > .env
           cat .env | grep ETH_ADDRESS | sed "s/#\s//g" | sed "s/:\s/=/g" > $GITHUB_ENV
+
+      - name: Create random allocation id
+        run: |
           echo ALLOCATION_ID=$(shuf -i 0-2000000000 -n 1) > $GITHUB_ENV
+
       - name: Show created addresses
         run: |
           echo "Eth address 0: $ETH_ADDRESS_0"
