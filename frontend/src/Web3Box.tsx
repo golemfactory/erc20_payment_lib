@@ -1,8 +1,7 @@
-import React, {useCallback, useContext} from "react";
+import React, { useCallback, useContext } from "react";
 import "./Web3Box.css";
-import {useConfig} from "./ConfigProvider";
-import {backendFetch} from "./common/BackendCall";
-import {BackendSettingsContext} from "./BackendSettingsProvider";
+import { backendFetch } from "./common/BackendCall";
+import { BackendSettingsContext } from "./BackendSettingsProvider";
 import DateBox from "./DateBox";
 
 interface Web3BoxProps {
@@ -10,17 +9,17 @@ interface Web3BoxProps {
 }
 
 interface Web3VerifyEndpointStatus {
-    headSecondsBehind: number,
-    checkTimeMs: number,
+    headSecondsBehind: number;
+    checkTimeMs: number;
 }
 interface Web3VerifyEndpointResult {
-    ok?: Web3VerifyEndpointStatus,
-    noBlockInfo?: any,
-    wrongChainId?: any,
-    rpcWeb3Error?: string,
-    otherNetworkError?: string,
-    headBehind?: string,
-    Unreachable?: string,
+    ok?: Web3VerifyEndpointStatus;
+    noBlockInfo?: any;
+    wrongChainId?: any;
+    rpcWeb3Error?: string;
+    otherNetworkError?: string;
+    headBehind?: string;
+    Unreachable?: string;
 }
 
 interface Web3RpcInfo {
@@ -62,36 +61,49 @@ interface RpcPoolEndpoint {
 
 interface RpcPoolNetwork {
     chainId: number;
-    chainNetwork: string,
-    endpoints: [RpcPoolEndpoint]
+    chainNetwork: string;
+    endpoints: [RpcPoolEndpoint];
 }
 
 interface RpcPool {
-    networks: [RpcPoolNetwork]
+    networks: [RpcPoolNetwork];
 }
-
 
 interface Web3EndpointBoxProps {
     endpoint: RpcPoolEndpoint;
 }
 
 const Web3EndpointBox = (props: Web3EndpointBoxProps) => {
-    return (<div className={"web3-endpoint-box "
-        + (props.endpoint.web3RpcInfo.isAllowed ? "web3-endpoint-box-allowed " : "web3-endpoint-box-not-allowed ")
-        + (props.endpoint.web3RpcInfo.lastVerified ? "web3-endpoint-box-verified" : "web3-endpoint-box-not-verified")}>
-        <div>{props.endpoint.web3RpcParams.name}</div>
-        <div>{props.endpoint.web3RpcParams.endpoint}</div>
-        <div>{props.endpoint.web3RpcParams.sourceId}</div>
-        <div style={{"display": "flex"}}>
-            <div style={{"display": "flex"}}><DateBox date={props.endpoint.web3RpcInfo.lastChosen} title={"Last chosen"}/></div>
-            <div style={{"margin-left": "1em"}}><DateBox date={props.endpoint.web3RpcInfo.lastVerified} title={"Last verified"}/></div>
+    return (
+        <div
+            className={
+                "web3-endpoint-box " +
+                (props.endpoint.web3RpcInfo.isAllowed
+                    ? "web3-endpoint-box-allowed "
+                    : "web3-endpoint-box-not-allowed ") +
+                (props.endpoint.web3RpcInfo.lastVerified
+                    ? "web3-endpoint-box-verified"
+                    : "web3-endpoint-box-not-verified")
+            }
+        >
+            <div>{props.endpoint.web3RpcParams.name}</div>
+            <div>{props.endpoint.web3RpcParams.endpoint}</div>
+            <div>{props.endpoint.web3RpcParams.sourceId}</div>
+            <div style={{ display: "flex" }}>
+                <div style={{ display: "flex" }}>
+                    <DateBox date={props.endpoint.web3RpcInfo.lastChosen} title={"Last chosen"} />
+                </div>
+                <div style={{ "margin-left": "1em" }}>
+                    <DateBox date={props.endpoint.web3RpcInfo.lastVerified} title={"Last verified"} />
+                </div>
+            </div>
+            <div>{JSON.stringify(props.endpoint.web3RpcInfo.verifyResult)}</div>
         </div>
-        <div>{JSON.stringify(props.endpoint.web3RpcInfo.verifyResult)}</div>
-    </div>)
-}
+    );
+};
 
-const Web3Box = (_props : Web3BoxProps) => {
-    const config = useConfig();
+const Web3Box = (_props: Web3BoxProps) => {
+    //const config = useConfig();
     const { backendSettings } = useContext(BackendSettingsContext);
     const [rpcPool, setRpcPool] = React.useState<RpcPool | null>(null);
 
@@ -107,20 +119,18 @@ const Web3Box = (_props : Web3BoxProps) => {
 
     return (
         <>
-            {rpcPool?.networks.map(network => (
+            {rpcPool?.networks.map((network) => (
                 <div key={network.chainId}>
                     <div className="web3-endpoint-box-header">{network.chainNetwork}</div>
                     <div className="web3-endpoint-box-container">
-                        {network.endpoints.map(endpoint => (
+                        {network.endpoints.map((endpoint) => (
                             <Web3EndpointBox key={endpoint.web3RpcParams.endpoint} endpoint={endpoint} />
                         ))}
                     </div>
-
-
                 </div>
             ))}
         </>
-    )
-}
+    );
+};
 
 export default Web3Box;
