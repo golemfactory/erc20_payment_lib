@@ -91,12 +91,27 @@ jobs:
           erc20_processor transfer --allocation-id $ALLOCATION_ID0 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_4 --use-internal
           erc20_processor run
 
+      - name: Make single transfer without allocation
+        run: |
+          set -x 
+          erc20_processor transfer --account-no 1 --amount 0.0001 --recipient $ETH_ADDRESS_4 --use-internal
+          erc20_processor run
+
       - name: Make multiple transfers from allocation
         run: |
           set -x 
           erc20_processor transfer --allocation-id $ALLOCATION_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_0 --use-internal
           erc20_processor transfer --allocation-id $ALLOCATION_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_3 --use-internal
           erc20_processor transfer --allocation-id $ALLOCATION_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_4 --use-internal
+          erc20_processor run
+          erc20_processor balance
+
+      - name: Make multiple transfer without allocation
+        run: |
+          set -x 
+          erc20_processor transfer --account-no 1 --amount 0.0001 --recipient $ETH_ADDRESS_0 --use-internal
+          erc20_processor transfer --account-no 1 --amount 0.0001 --recipient $ETH_ADDRESS_3 --use-internal
+          erc20_processor transfer --account-no 1 --amount 0.0001 --recipient $ETH_ADDRESS_4 --use-internal
           erc20_processor run
           erc20_processor balance
 
