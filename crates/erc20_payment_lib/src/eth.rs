@@ -103,8 +103,7 @@ pub async fn get_allocation_details(
                 data: Some(
                     encode_get_allocation_details(allocation_id)
                         .unwrap()
-                        .try_into()
-                        .unwrap(),
+                        .into(),
                 ),
                 ..Default::default()
             },
