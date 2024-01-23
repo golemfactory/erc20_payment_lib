@@ -75,7 +75,7 @@ pub async fn cancel_allocation_local(
             allocation_id,
             skip_allocation_check: cancel_allocation_options.skip_check,
             funds_to_internal: cancel_allocation_options.use_internal,
-        }
+        },
     )
     .await?;
     println!(
