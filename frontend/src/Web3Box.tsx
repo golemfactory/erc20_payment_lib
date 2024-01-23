@@ -93,7 +93,7 @@ const Web3EndpointBox = (props: Web3EndpointBoxProps) => {
                 <div style={{ display: "flex" }}>
                     <DateBox date={props.endpoint.web3RpcInfo.lastChosen} title={"Last chosen"} />
                 </div>
-                <div style={{ "margin-left": "1em" }}>
+                <div className="web3-endpoint-box-last-verified">
                     <DateBox date={props.endpoint.web3RpcInfo.lastVerified} title={"Last verified"} />
                 </div>
             </div>

@@ -22,3 +22,7 @@
 .web3-endpoint-box-not-verified {
     background-color: lightgray !important;
 }
+
+.web3-endpoint-box-last-verified {
+    margin-left: 1em;
+}
