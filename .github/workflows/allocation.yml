@@ -104,6 +104,7 @@ jobs:
         run: |
           set -x 
           erc20_processor cancel-allocation --allocation-id $ALLOCATION_ID0 --account-no 1 --use-internal
+          erc20_processor cancel-allocation --allocation-id $ALLOCATION_ID1 --account-no 1 --use-internal
           erc20_processor run
 
       - name: Transfer all left ETH tokens

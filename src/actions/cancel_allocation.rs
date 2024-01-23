@@ -1,6 +1,6 @@
 use erc20_payment_lib::config::Config;
 use erc20_payment_lib::error::PaymentError;
-use erc20_payment_lib::runtime::{cancel_allocation};
+use erc20_payment_lib::runtime::{cancel_allocation, CancelAllocationOptionsInt};
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib_common::err_custom_create;
 use sqlx::SqlitePool;
@@ -66,13 +66,16 @@ pub async fn cancel_allocation_local(
         &conn,
         chain_cfg.chain_id as u64,
         public_addr,
-        chain_cfg.token.address,
-        chain_cfg
-            .lock_contract
-            .clone()
-            .map(|c| c.address)
-            .expect("No lock contract found"),
-        allocation_id,
+        CancelAllocationOptionsInt {
+            lock_contract_address: chain_cfg
+                .lock_contract
+                .clone()
+                .map(|c| c.address)
+                .expect("No lock contract found"),
+            allocation_id,
+            skip_allocation_check: cancel_allocation_options.skip_check,
+            funds_to_internal: cancel_allocation_options.use_internal,
+        }
     )
     .await?;
     println!(

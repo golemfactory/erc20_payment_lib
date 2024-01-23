@@ -6,9 +6,9 @@ use crate::db::ops::{
 };
 use crate::signer::Signer;
 use crate::transaction::{
-    create_faucet_mint, create_free_allocation, create_lock_deposit, create_lock_withdraw,
-    create_make_allocation, create_make_allocation_internal, create_token_transfer,
-    find_receipt_extended,
+    create_faucet_mint, create_free_allocation, create_free_allocation_internal,
+    create_lock_deposit, create_lock_withdraw, create_make_allocation,
+    create_make_allocation_internal, create_token_transfer, find_receipt_extended,
 };
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
@@ -27,10 +27,7 @@ use sqlx::SqlitePool;
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
 use crate::contracts::{CreateAllocationArgs, CreateAllocationInternalArgs};
-use crate::eth::{
-    average_block_time, get_deposit_balance, get_latest_block_info, AllocationDetails,
-    Web3BlockInfo,
-};
+use crate::eth::{average_block_time, get_deposit_balance, get_latest_block_info, AllocationDetails, Web3BlockInfo};
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
@@ -923,17 +920,61 @@ pub async fn allocation_details(
     Ok(result)
 }
 
+pub struct CancelAllocationOptionsInt {
+    pub lock_contract_address: Address,
+    pub skip_allocation_check: bool,
+    pub allocation_id: u32,
+    pub funds_to_internal: bool,
+}
+
+
 pub async fn cancel_allocation(
     web3: Arc<Web3RpcPool>,
     conn: &SqlitePool,
     chain_id: u64,
     from: Address,
-    glm_address: Address,
-    lock_contract_address: Address,
-    allocation_id: u32,
+    opt: CancelAllocationOptionsInt
 ) -> Result<(), PaymentError> {
-    let free_allocation_tx_id =
-        create_free_allocation(from, lock_contract_address, chain_id, None, allocation_id)?;
+    let free_allocation_tx_id = if opt.funds_to_internal {
+        create_free_allocation_internal(from, opt.lock_contract_address, chain_id, None, opt.allocation_id)?
+    } else {
+        create_free_allocation(from, opt.lock_contract_address, chain_id, None, opt.allocation_id)?
+    };
+    //let mut block_info: Option<Web3BlockInfo> = None;
+    if !opt.skip_allocation_check {
+        let allocation_details = allocation_details(
+            web3.clone(),
+            opt.allocation_id,
+            opt.lock_contract_address,
+        ).await?;
+        if allocation_details.amount_decimal.is_zero() {
+            log::error!("Allocation {} not found", opt.allocation_id);
+
+            return Err(err_custom_create!(
+                "Allocation {} not found",
+                opt.allocation_id
+            ));
+        }
+        if allocation_details.spender != from {
+            log::error!("You are not the spender of allocation {}", opt.allocation_id);
+            return Err(err_custom_create!(
+                "You are not the spender of allocation {}",
+                opt.allocation_id
+            ));
+        }
+        if let Some(est_time_left) = allocation_details.estimated_time_left {
+            if est_time_left > 10 {
+                log::error!("Allocation {} is not ready to be cancelled. Estimated time left: {}", opt.allocation_id, est_time_left);
+                return Err(err_custom_create!(
+                    "Allocation {} is not ready to be cancelled. Estimated time left: {}",
+                    opt.allocation_id,
+                    est_time_left
+                ));
+            }
+        }
+
+    }
+
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
     let make_allocation_tx = insert_tx(&mut *db_transaction, &free_allocation_tx_id)
         .await

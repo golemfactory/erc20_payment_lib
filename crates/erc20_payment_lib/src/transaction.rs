@@ -372,6 +372,26 @@ pub fn create_free_allocation(
     })
 }
 
+pub fn create_free_allocation_internal(
+    from: Address,
+    lock_address: Address,
+    chain_id: u64,
+    gas_limit: Option<u64>,
+    allocation_id: u32,
+) -> Result<TxDao, PaymentError> {
+    Ok(TxDao {
+        method: "LOCK.freeAllocationInternal".to_string(),
+        from_addr: format!("{from:#x}"),
+        to_addr: format!("{lock_address:#x}"),
+        chain_id: chain_id as i64,
+        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
+        call_data: Some(hex::encode(
+            encode_free_allocation(allocation_id).map_err(err_from!())?,
+        )),
+        ..Default::default()
+    })
+}
+
 pub fn create_make_allocation_internal(
     from: Address,
     lock_address: Address,
