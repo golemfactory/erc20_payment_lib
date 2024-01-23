@@ -329,9 +329,7 @@ pub async fn gather_transactions_batch(
         sum += U256::from_dec_str(&token_transfer.token_amount).map_err(err_from!())?;
     }
 
-    let Some(chain_setup) = payment_setup
-        .chain_setup
-        .get(&token_transfer.chain_id) else
+    let Some(chain_setup) = payment_setup.chain_setup.get(&token_transfer.chain_id) else
     {
         send_driver_event(
             &event_sender,
