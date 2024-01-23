@@ -966,13 +966,13 @@ pub async fn cancel_allocation(
                 opt.allocation_id
             ));
         }
-        if allocation_details.spender != from {
+        if allocation_details.customer != from {
             log::error!(
-                "You are not the spender of allocation {}",
+                "You are not the owner of allocation {}",
                 opt.allocation_id
             );
             return Err(err_custom_create!(
-                "You are not the spender of allocation {}",
+                "You are not the owner of allocation {}",
                 opt.allocation_id
             ));
         }
