@@ -124,7 +124,7 @@ pub async fn make_allocation_local(
     )
     .await?;
     println!(
-        "make_allocation called successfully allocation_id: {}",
+        "make_allocation added to queue successfully allocation_id: {}",
         allocation_id
     );
     Ok(())
