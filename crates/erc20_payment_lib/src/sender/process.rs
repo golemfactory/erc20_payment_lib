@@ -130,13 +130,12 @@ pub async fn process_transaction(
                     nonce,
                     db_nonce
                 );
-                if nonce > db_nonce + 1 {
+                if nonce > db_nonce {
                     log::warn!("Blockchain nonce is higher than db nonce, using blockchain nonce (probably external payment)");
                 } else {
                     log::warn!(
                         "Blockchain nonce is lower than db nonce, blockchain is not updated yet"
                     );
-                    //if blockchain nonce is lower than db nonce then use db nonce + 1
                     return Err(err_custom_create!(
                         "Blockchain nonce is lower than db nonce, blockchain is not updated yet"
                     ));
