@@ -35,12 +35,12 @@ async fn resolve_faucet_url(
         .await
         .unwrap_or_else(|_| format!("{}:{}", default_faucet_host, port));
 
-    println!("resolve_faucet_url: {}", faucet_host);
+    log::debug!("resolve_faucet_url: {}", faucet_host);
     Ok(format!("http://{faucet_host}/donate"))
 }
 
 pub async fn resolve_srv_record(record: &str) -> std::io::Result<String> {
-    println!("resolve_srv_record: {}", record);
+    log::debug!("resolve_srv_record: {}", record);
     let resolver: TokioAsyncResolver =
         TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default());
     let lookup = resolver.srv_lookup(record).await?;
@@ -53,8 +53,6 @@ pub async fn resolve_srv_record(record: &str) -> std::io::Result<String> {
         srv.target().to_string().trim_end_matches('.'),
         srv.port()
     );
-    println!("resolve_srv_record: {}", addr);
-
     log::debug!("Resolved address: {}", addr);
     Ok(addr)
 }
