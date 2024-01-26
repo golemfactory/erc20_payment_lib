@@ -100,11 +100,7 @@ pub async fn get_allocation_details(
         .eth_call(
             CallRequest {
                 to: Some(lock_contract_address),
-                data: Some(
-                    encode_get_allocation_details(allocation_id)
-                        .unwrap()
-                        .into(),
-                ),
+                data: Some(encode_get_allocation_details(allocation_id).unwrap().into()),
                 ..Default::default()
             },
             Some(BlockId::Number(BlockNumber::Number(U64::from(
