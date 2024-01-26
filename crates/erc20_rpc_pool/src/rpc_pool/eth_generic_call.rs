@@ -6,6 +6,7 @@ use erc20_payment_lib_common::{
 };
 use serde::de::DeserializeOwned;
 use std::sync::Arc;
+use std::time::Duration;
 use web3::{api::Eth, helpers::CallFuture};
 
 pub trait EthMethod<T: web3::Transport> {
@@ -22,6 +23,7 @@ impl Web3RpcPool {
         args: EthMethodCall::Args,
     ) -> Result<EthMethodCall::Return, web3::Error> {
         let mut loop_no = 0;
+        const LOOP_COUNT: usize = 4;
         loop {
             let idx_vec = self.clone().choose_best_endpoints().await;
 
@@ -37,7 +39,13 @@ impl Web3RpcPool {
                         })
                         .await;
                 }
-                return Err(web3::Error::Unreachable);
+                if loop_no >= LOOP_COUNT {
+                    log::warn!(
+                        "Seems like all RPC endpoints failed - chain id: {}",
+                        self.chain_id
+                    );
+                    return Err(web3::Error::Unreachable);
+                }
             }
 
             for idx in idx_vec {
@@ -131,7 +139,7 @@ impl Web3RpcPool {
                         web3::Error::Unreachable
                     }
                 };
-                if loop_no >= 4 {
+                if loop_no >= LOOP_COUNT {
                     if let Some(event_sender) =
                         self.event_sender.clone().and_then(|es| es.upgrade())
                     {
@@ -150,8 +158,9 @@ impl Web3RpcPool {
                     }
                     return Err(err);
                 }
-                // Wait half a second after encountering an error
-                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                // sleep for 800, 1200, 2000, 2800 ms - total max sleep time is 6800 ms
+                let sleep_times: [u64; LOOP_COUNT] = [800, 1200, 2000, 2800];
+                tokio::time::sleep(Duration::from_millis(sleep_times[loop_no])).await;
                 loop_no += 1;
             }
         }
