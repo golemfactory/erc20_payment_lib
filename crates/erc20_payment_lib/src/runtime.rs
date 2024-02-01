@@ -456,7 +456,7 @@ impl PaymentRuntime {
         let notify_ = notify.clone();
         let extra_testing_ = payment_runtime_args.extra_testing.clone();
         let config_ = payment_runtime_args.config.clone();
-        let jh = tokio::spawn(async move {
+        let jh = tokio::task::spawn(async move {
             if let Some(balance_check_loop) =
                 extra_testing_.clone().and_then(|e| e.balance_check_loop)
             {

@@ -1,6 +1,6 @@
+use std::future::Future;
 use crate::contracts::DUMMY_RPC_PROVIDER;
 use crate::eth::get_eth_addr_from_secret;
-use async_trait::async_trait;
 use secp256k1::SecretKey;
 use web3::types::{SignedTransaction, TransactionParameters, H160};
 
@@ -9,17 +9,18 @@ pub struct SignerError {
     pub message: String,
 }
 
-#[async_trait]
+
 pub trait Signer {
     /// Check if signer can sign transaction for given public address
-    async fn check_if_sign_possible(&self, pub_address: H160) -> Result<(), SignerError>;
+    fn check_if_sign_possible(&self, pub_address: H160)
+        -> impl Future<Output=Result<(), SignerError>> + std::marker::Send;
 
     /// Sign transaction for given public address (look at PrivateKeySigner for example)
-    async fn sign(
+    fn sign(
         &self,
         pub_address: H160,
         tp: TransactionParameters,
-    ) -> Result<SignedTransaction, SignerError>;
+    ) -> impl Future<Output=Result<SignedTransaction, SignerError>> + std::marker::Send;
 }
 
 /// PrivateKeySigner is implementation of Signer trait that stores private keys in memory and use
@@ -42,7 +43,7 @@ impl PrivateKeySigner {
             })
     }
 }
-#[async_trait]
+
 impl Signer for PrivateKeySigner {
     async fn check_if_sign_possible(&self, pub_address: H160) -> Result<(), SignerError> {
         self.get_private_key(pub_address)?;
@@ -54,6 +55,7 @@ impl Signer for PrivateKeySigner {
         pub_address: H160,
         tp: TransactionParameters,
     ) -> Result<SignedTransaction, SignerError> {
+
         let secret_key = self.get_private_key(pub_address)?;
         let signed = DUMMY_RPC_PROVIDER
             .accounts()
@@ -63,5 +65,6 @@ impl Signer for PrivateKeySigner {
                 message: format!("Error when signing transaction in PrivateKeySigner {err}"),
             })?;
         Ok(signed)
+
     }
 }

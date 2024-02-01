@@ -9,7 +9,6 @@ license = "MIT"
 [dependencies]
 anyhow = { workspace = true }
 bollard = { workspace = true }
-async-trait = { workspace = true }
 web3 = { workspace = true }
 tokio = { workspace = true }
 secp256k1 = { workspace = true }
