@@ -49,6 +49,8 @@ async fn transfer_to_null() -> Result<(), anyhow::Error> {
                 Some("test_payment"),
                 None,
                 U256::from(2222000000000000222_u128),
+                None,
+                false
             )
         ).await?;
 

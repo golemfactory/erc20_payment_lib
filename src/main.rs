@@ -1,3 +1,4 @@
+mod actions;
 mod options;
 mod stats;
 
@@ -12,7 +13,6 @@ use erc20_payment_lib::db::ops::{
     update_token_transfer, upsert_scan_info,
 };
 use erc20_payment_lib::signer::PrivateKeySigner;
-use std::collections::HashSet;
 
 use erc20_payment_lib::{
     config, err_custom_create, err_from,
@@ -24,13 +24,18 @@ use erc20_payment_lib::{
 use std::env;
 use std::str::FromStr;
 
+use crate::actions::allocation_details::allocation_details_local;
+use crate::actions::cancel_allocation::cancel_allocation_local;
+use crate::actions::check_rpc::check_rpc_local;
+use crate::actions::make_allocation::make_allocation_local;
+use crate::actions::withdraw::withdraw_funds_local;
 use crate::stats::{export_stats, run_stats};
 use erc20_payment_lib::eth::check_allowance;
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::runtime::{
     deposit_funds, get_token_balance, mint_golem_token, remove_last_unsent_transactions,
-    remove_transaction_force, withdraw_funds, PaymentRuntimeArgs,
+    remove_transaction_force, PaymentRuntimeArgs,
 };
 use erc20_payment_lib::server::web::{runtime_web_scope, ServerData};
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
@@ -40,13 +45,8 @@ use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use erc20_payment_lib_common::init_metrics;
 use erc20_payment_lib_common::model::{ScanDao, TokenTransferDao};
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
-use erc20_rpc_pool::{
-    resolve_txt_record_to_string_array, Web3EndpointParams, Web3ExternalEndpointList,
-};
-use erc20_rpc_pool::{Web3RpcPool, Web3RpcSingleParams};
 use rust_decimal::Decimal;
 use std::sync::Arc;
-use std::time::Duration;
 use structopt::StructOpt;
 use tokio::sync::{broadcast, Mutex};
 use web3::ethabi::ethereum_types::Address;
@@ -63,15 +63,6 @@ fn check_address_name(n: &str) -> String {
         ),
         _ => n.to_string(),
     }
-}
-
-fn split_string_by_coma(s: &Option<String>) -> Option<Vec<String>> {
-    s.as_ref().map(|s| {
-        s.split(',')
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .collect()
-    })
 }
 
 async fn main_internal() -> Result<(), PaymentError> {
@@ -265,206 +256,21 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::CheckRpc {
             check_web3_rpc_options,
         } => {
-            let chain_cfg =
-                config
-                    .chain
-                    .get(&check_web3_rpc_options.chain_name)
-                    .ok_or(err_custom_create!(
-                        "Chain {} not found in config file",
-                        check_web3_rpc_options.chain_name
-                    ))?;
-            println!("{:?}", chain_cfg);
-            let mut single_endpoints = Vec::with_capacity(100);
-            for rpc_settings in &chain_cfg.rpc_endpoints {
-                let endpoint_names = split_string_by_coma(&rpc_settings.names).unwrap_or_default();
-                if let Some(endpoints) = split_string_by_coma(&rpc_settings.endpoints) {
-                    for (idx, endpoint) in endpoints.iter().enumerate() {
-                        let endpoint = Web3RpcSingleParams {
-                            chain_id: chain_cfg.chain_id as u64,
-                            endpoint: endpoint.clone(),
-                            name: endpoint_names.get(idx).unwrap_or(&endpoint.clone()).clone(),
-                            web3_endpoint_params: Web3EndpointParams {
-                                backup_level: rpc_settings.backup_level.unwrap_or(0),
-                                skip_validation: rpc_settings.skip_validation.unwrap_or(false),
-                                verify_interval_secs: rpc_settings
-                                    .verify_interval_secs
-                                    .unwrap_or(120),
-                                max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
-                                max_head_behind_secs: Some(
-                                    rpc_settings.allowed_head_behind_secs.unwrap_or(120),
-                                ),
-                                max_number_of_consecutive_errors: rpc_settings
-                                    .max_consecutive_errors
-                                    .unwrap_or(5),
-                                min_interval_requests_ms: rpc_settings.min_interval_ms,
-                            },
-                            source_id: None,
-                        };
-                        single_endpoints.push(endpoint);
-                    }
-                } else if rpc_settings.dns_source.is_some() || rpc_settings.json_source.is_some() {
-                    //process later
-                } else {
-                    panic!(
-                        "Endpoint has to have endpoints or dns_source or json_source {}",
-                        check_web3_rpc_options.chain_name,
-                    );
-                };
-            }
-            let web3_pool = Web3RpcPool::new(
-                chain_cfg.chain_id as u64,
-                single_endpoints,
-                Vec::new(),
-                Vec::new(),
-                None,
-                Duration::from_secs(300),
-            );
-            for rpc_settings in &chain_cfg.rpc_endpoints {
-                if split_string_by_coma(&rpc_settings.endpoints).is_some() {
-                    //already processed above
-                } else if let Some(dns_source) = &rpc_settings.dns_source {
-                    let urls = resolve_txt_record_to_string_array(dns_source)
-                        .await
-                        .map_err(|e| {
-                            err_custom_create!("Error resolving dns entry {}: {}", dns_source, e)
-                        })?;
-
-                    let names = urls.clone();
-
-                    for (url, name) in urls.iter().zip(names) {
-                        log::info!("Imported from dns source: {}", name);
-                        web3_pool.clone().add_endpoint(Web3RpcSingleParams {
-                            chain_id: chain_cfg.chain_id as u64,
-                            endpoint: url.clone(),
-                            name: name.clone(),
-                            web3_endpoint_params: Web3EndpointParams {
-                                backup_level: rpc_settings.backup_level.unwrap_or(0),
-                                skip_validation: rpc_settings.skip_validation.unwrap_or(false),
-                                verify_interval_secs: rpc_settings
-                                    .verify_interval_secs
-                                    .unwrap_or(120),
-                                max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
-                                max_head_behind_secs: Some(
-                                    rpc_settings.allowed_head_behind_secs.unwrap_or(120),
-                                ),
-                                max_number_of_consecutive_errors: rpc_settings
-                                    .max_consecutive_errors
-                                    .unwrap_or(5),
-                                min_interval_requests_ms: rpc_settings.min_interval_ms,
-                            },
-                            source_id: None,
-                        });
-                    }
-                } else if let Some(json_source) = &rpc_settings.json_source {
-                    let client = awc::Client::builder()
-                        .timeout(std::time::Duration::from_secs(120))
-                        .finish();
-
-                    let response = client
-                        .get(json_source)
-                        .send()
-                        .await
-                        .map_err(|e| {
-                            err_custom_create!("Error getting response from faucet {}", e)
-                        })?
-                        .body()
-                        .await
-                        .map_err(|e| {
-                            err_custom_create!("Error getting payload from faucet {}", e)
-                        })?;
-
-                    let res: Web3ExternalEndpointList = serde_json::from_slice(response.as_ref())
-                        .map_err(|e| {
-                        err_custom_create!(
-                            "Error parsing json: {} {}",
-                            e,
-                            String::from_utf8_lossy(&response)
-                        )
-                    })?;
-                    if res.names.len() != res.urls.len() {
-                        return Err(err_custom_create!(
-                            "Endpoint names and endpoints have to have same length {} != {}",
-                            res.names.len(),
-                            res.urls.len()
-                        ));
-                    }
-
-                    for (url, name) in res.urls.iter().zip(res.names) {
-                        log::info!("Imported from json source: {}", name);
-
-                        web3_pool.clone().add_endpoint(Web3RpcSingleParams {
-                            chain_id: chain_cfg.chain_id as u64,
-                            endpoint: url.clone(),
-                            name: name.clone(),
-                            web3_endpoint_params: Web3EndpointParams {
-                                backup_level: rpc_settings.backup_level.unwrap_or(0),
-                                skip_validation: rpc_settings.skip_validation.unwrap_or(false),
-                                verify_interval_secs: rpc_settings
-                                    .verify_interval_secs
-                                    .unwrap_or(120),
-                                max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
-                                max_head_behind_secs: Some(
-                                    rpc_settings.allowed_head_behind_secs.unwrap_or(120),
-                                ),
-                                max_number_of_consecutive_errors: rpc_settings
-                                    .max_consecutive_errors
-                                    .unwrap_or(5),
-                                min_interval_requests_ms: rpc_settings.min_interval_ms,
-                            },
-                            source_id: None,
-                        });
-                    }
-                } else {
-                    panic!(
-                        "Endpoint has to have endpoints or dns_source {}",
-                        check_web3_rpc_options.chain_name,
-                    );
-                };
-            }
-
-            let task = tokio::spawn(web3_pool.clone().verify_unverified_endpoints());
-            let mut idx_set_completed = HashSet::new();
-
-            let enp_info = loop {
-                let is_finished = task.is_finished();
-                let mut enp_info = web3_pool.get_endpoints_info();
-                for (idx, params, info) in enp_info.iter() {
-                    if idx_set_completed.contains(idx) {
-                        continue;
-                    }
-                    if let Some(verify_result) = &info.verify_result {
-                        idx_set_completed.insert(*idx);
-                        log::info!(
-                            "Endpoint no {:?}, name: {} verified, result: {:?}",
-                            idx,
-                            params.name,
-                            verify_result
-                        );
-                    }
-                }
-                if is_finished {
-                    enp_info.sort_by_key(|(_idx, _params, info)| {
-                        info.penalty_from_ms + info.penalty_from_head_behind
-                    });
-                    break enp_info;
-                }
-                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
-            };
-            let enp_info_simple = enp_info
-                .iter()
-                .enumerate()
-                .map(|(idx, (_, params, info))| (idx, params, info))
-                .collect::<Vec<_>>();
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&enp_info_simple).unwrap()
-            );
+            check_rpc_local(check_web3_rpc_options, config).await?;
         }
         PaymentCommands::GetDevEth {
             get_dev_eth_options,
         } => {
             log::info!("Getting funds from faucet...");
-            let public_addr = public_addrs.first().expect("No public adss found");
+            let public_addr = if let Some(address) = get_dev_eth_options.address {
+                address
+            } else if let Some(account_no) = get_dev_eth_options.account_no {
+                *public_addrs
+                    .get(account_no)
+                    .expect("No public adss found with specified account_no")
+            } else {
+                *public_addrs.first().expect("No public adss found")
+            };
             let chain_cfg =
                 config
                     .chain
@@ -487,7 +293,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 &faucet_lookup_domain,
                 &faucet_host,
                 faucet_srv_port,
-                *public_addr,
+                public_addr,
             )
             .await?;
         }
@@ -495,7 +301,15 @@ async fn main_internal() -> Result<(), PaymentError> {
             mint_test_tokens_options,
         } => {
             log::info!("Generating test tokens...");
-            let public_addr = public_addrs.first().expect("No public address found");
+            let public_addr = if let Some(address) = mint_test_tokens_options.address {
+                address
+            } else if let Some(account_no) = mint_test_tokens_options.account_no {
+                *public_addrs
+                    .get(account_no)
+                    .expect("No public adss found with specified account_no")
+            } else {
+                *public_addrs.first().expect("No public adss found")
+            };
             let chain_cfg = config
                 .chain
                 .get(&mint_test_tokens_options.chain_name)
@@ -511,7 +325,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 web3,
                 &conn,
                 chain_cfg.chain_id as u64,
-                mint_test_tokens_options.from.unwrap_or(*public_addr),
+                public_addr,
                 chain_cfg.token.address,
                 chain_cfg.mint_contract.clone().map(|c| c.address),
                 true,
@@ -521,40 +335,44 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::Withdraw {
             withdraw_tokens_options,
         } => {
-            log::info!("Withdrawing tokens...");
-            let public_addr = public_addrs.first().expect("No public address found");
-            let chain_cfg = config
-                .chain
-                .get(&withdraw_tokens_options.chain_name)
-                .ok_or(err_custom_create!(
-                    "Chain {} not found in config file",
-                    withdraw_tokens_options.chain_name
-                ))?;
-
-            let payment_setup = PaymentSetup::new_empty(&config)?;
-            let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
-
-            withdraw_funds(
-                web3,
-                &conn,
-                chain_cfg.chain_id as u64,
-                withdraw_tokens_options.from.unwrap_or(*public_addr),
-                chain_cfg
-                    .lock_contract
-                    .clone()
-                    .map(|c| c.address)
-                    .expect("No lock contract found"),
-                withdraw_tokens_options.amount,
-                withdraw_tokens_options.withdraw_all,
-                withdraw_tokens_options.skip_balance_check,
+            withdraw_funds_local(conn.clone(), withdraw_tokens_options, config, &public_addrs)
+                .await?;
+        }
+        PaymentCommands::MakeAllocation {
+            make_allocation_options,
+        } => {
+            make_allocation_local(conn.clone(), make_allocation_options, config, &public_addrs)
+                .await?;
+        }
+        PaymentCommands::CancelAllocation {
+            cancel_allocation_options,
+        } => {
+            cancel_allocation_local(
+                conn.clone(),
+                cancel_allocation_options,
+                config,
+                &public_addrs,
             )
             .await?;
+        }
+        PaymentCommands::CheckAllocation {
+            check_allocation_options,
+        } => {
+            allocation_details_local(check_allocation_options, config).await?;
         }
         PaymentCommands::Deposit {
             deposit_tokens_options,
         } => {
             log::info!("Generating test tokens...");
-            let public_addr = public_addrs.first().expect("No public address found");
+            let public_addr = if let Some(address) = deposit_tokens_options.address {
+                address
+            } else if let Some(account_no) = deposit_tokens_options.account_no {
+                *public_addrs
+                    .get(account_no)
+                    .expect("No public adss found with specified account_no")
+            } else {
+                *public_addrs.first().expect("No public adss found")
+            };
             let chain_cfg =
                 config
                     .chain
@@ -570,13 +388,13 @@ async fn main_internal() -> Result<(), PaymentError> {
             if !deposit_tokens_options.skip_allowance {
                 let allowance = check_allowance(
                     web3.clone(),
-                    deposit_tokens_options.from.unwrap_or(*public_addr),
+                    public_addr,
                     chain_cfg.token.address,
                     chain_cfg
                         .lock_contract
                         .clone()
                         .map(|c| c.address)
-                        .expect("No mint contract"),
+                        .expect("No lock contract found"),
                 )
                 .await?;
 
@@ -587,7 +405,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                     get_token_balance(
                         payment_setup.get_provider(chain_cfg.chain_id)?,
                         chain_cfg.token.address,
-                        *public_addr,
+                        public_addr,
+                        None,
                     )
                     .await?
                     .to_eth_saturate()
@@ -597,10 +416,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
                 if amount.to_u256_from_eth().map_err(err_from!())? > allowance {
                     let allowance_request = AllowanceRequest {
-                        owner: format!(
-                            "{:#x}",
-                            deposit_tokens_options.from.unwrap_or(*public_addr)
-                        ),
+                        owner: format!("{:#x}", public_addr),
                         token_addr: format!("{:#x}", chain_cfg.token.address),
                         spender_addr: format!(
                             "{:#x}",
@@ -629,7 +445,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 web3,
                 &conn,
                 chain_cfg.chain_id as u64,
-                deposit_tokens_options.from.unwrap_or(*public_addr),
+                public_addr,
                 chain_cfg.token.address,
                 chain_cfg
                     .lock_contract
@@ -650,7 +466,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             let res = gen_private_keys(generate_key_options.number_of_keys)?;
 
             for key in res.1.iter().enumerate() {
-                println!("# PUBLIC_ADDRESS_{}: {:#x}", key.0, key.1);
+                println!("# ETH_ADDRESS_{}: {:#x}", key.0, key.1);
             }
             println!("ETH_PRIVATE_KEYS={}", res.0.join(","));
         }
@@ -684,7 +500,15 @@ async fn main_internal() -> Result<(), PaymentError> {
             let recipient =
                 Address::from_str(&check_address_name(&single_transfer_options.recipient)).unwrap();
 
-            let public_addr = public_addrs.first().expect("No public address found");
+            let public_addr = if let Some(address) = single_transfer_options.address {
+                address
+            } else if let Some(account_no) = single_transfer_options.account_no {
+                *public_addrs
+                    .get(account_no)
+                    .expect("No public adss found with specified account_no")
+            } else {
+                *public_addrs.first().expect("No public adss found")
+            };
             let mut db_transaction = conn.begin().await.unwrap();
 
             let amount_str = if let Some(amount) = single_transfer_options.amount {
@@ -697,7 +521,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                         get_token_balance(
                             payment_setup.get_provider(chain_cfg.chain_id)?,
                             chain_cfg.token.address,
-                            *public_addr,
+                            public_addr,
+                            None,
                         )
                         .await?
                         .to_string()
@@ -706,7 +531,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     {
                         let val = payment_setup
                             .get_provider(chain_cfg.chain_id)?
-                            .eth_balance(*public_addr, None)
+                            .eth_balance(public_addr, None)
                             .await
                             .map_err(err_from!())?;
                         let gas_val = Decimal::from_str(&chain_cfg.max_fee_per_gas.to_string())
@@ -738,14 +563,17 @@ async fn main_internal() -> Result<(), PaymentError> {
                 &TokenTransferDao {
                     id: 0,
                     payment_id: None,
-                    from_addr: format!(
-                        "{:#x}",
-                        single_transfer_options.from.unwrap_or(*public_addr)
-                    ),
+                    from_addr: format!("{:#x}", public_addr),
                     receiver_addr: format!("{:#x}", recipient),
                     chain_id: chain_cfg.chain_id,
                     token_addr: token,
                     token_amount: amount_str,
+                    allocation_id: single_transfer_options.allocation_id,
+                    use_internal: if single_transfer_options.use_internal {
+                        1
+                    } else {
+                        0
+                    },
                     create_date: Default::default(),
                     tx_id: None,
                     paid_date: None,

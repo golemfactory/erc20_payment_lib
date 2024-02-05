@@ -10,12 +10,14 @@ pub struct VerifyEndpointParams {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct VerifyEndpointStatus {
     pub head_seconds_behind: u64,
     pub check_time_ms: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub enum VerifyEndpointResult {
     Ok(VerifyEndpointStatus),
     NoBlockInfo,
@@ -27,6 +29,7 @@ pub enum VerifyEndpointResult {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Web3EndpointParams {
     /// Always treat endpoint as valid
     pub skip_validation: bool,
@@ -46,6 +49,7 @@ pub struct Web3EndpointParams {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Web3RpcSingleParams {
     /// If chain id is different than expected endpoint will be marked as critical
     pub chain_id: u64,
@@ -80,6 +84,7 @@ pub struct Web3RpcParams {
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ReqStats {
     pub request_succeeded_count: u64,
     pub last_success_request: Option<DateTime<Utc>>,
@@ -88,6 +93,7 @@ pub struct ReqStats {
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Web3RpcStats {
     pub request_count_total_succeeded: u64,
     pub request_count_total_error: u64,
@@ -98,6 +104,7 @@ pub struct Web3RpcStats {
 }
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Web3RpcInfo {
     /// Date of last verifiation
     pub last_verified: Option<DateTime<Utc>>,

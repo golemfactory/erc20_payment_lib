@@ -1,0 +1,28 @@
+.web3-endpoint-box {
+    border: 1px solid blue;
+    padding: 0.5em;
+    margin: 0.5em;
+    width: 30em;
+}
+.web3-endpoint-box-container {
+    display: flex;
+    flex-direction: row;
+}
+.web3-endpoint-box-header {
+    font-weight: bold;
+    font-size: 1.2em;
+    padding: 0.5em;
+}
+.web3-endpoint-box-allowed {
+    background-color: lightgreen;
+}
+.web3-endpoint-box-not-allowed {
+    background-color: lightpink;
+}
+.web3-endpoint-box-not-verified {
+    background-color: lightgray !important;
+}
+
+.web3-endpoint-box-last-verified {
+    margin-left: 1em;
+}

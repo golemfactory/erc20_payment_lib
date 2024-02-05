@@ -42,6 +42,7 @@ pub struct Web3ExternalDnsSource {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Web3RpcEndpoint {
     #[serde(skip)]
     pub web3: Web3<Http>,

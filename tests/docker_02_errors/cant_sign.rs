@@ -65,6 +65,8 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
                 Some("test_payment"),
                 Some(token_address),
                 U256::from(2222000000000000222_u128),
+                None,
+                false
             )
         ).await?;
 

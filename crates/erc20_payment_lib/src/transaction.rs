@@ -110,6 +110,7 @@ pub fn dao_to_transaction(web3_tx_dao: &TxDao) -> Result<TransactionParameters, 
 }
 
 // token_addr NULL means standard (non ERC20) transfer of main chain currency (i.e ETH)
+#[allow(clippy::too_many_arguments)]
 pub fn create_token_transfer(
     from: Address,
     receiver: Address,
@@ -117,6 +118,8 @@ pub fn create_token_transfer(
     payment_id: Option<&str>,
     token_addr: Option<Address>,
     token_amount: U256,
+    allocation_id: Option<String>,
+    use_internal: bool,
 ) -> TokenTransferDao {
     TokenTransferDao {
         id: 0,
@@ -126,6 +129,9 @@ pub fn create_token_transfer(
         chain_id,
         token_addr: token_addr.map(|addr| format!("{addr:#x}")),
         token_amount: token_amount.to_string(),
+        allocation_id,
+        // Information if using internal contract account 0 - false, 1 - true
+        use_internal: if use_internal { 1 } else { 0 },
         create_date: Utc::now(),
         tx_id: None,
         paid_date: None,
@@ -169,6 +175,67 @@ pub fn create_erc20_transfer(
         call_data: Some(hex::encode(
             encode_erc20_transfer(erc20_to, erc20_amount).map_err(err_from!())?,
         )),
+        ..Default::default()
+    })
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn create_erc20_allocation_transfer(
+    from: Address,
+    erc20_to: Address,
+    erc20_amount: U256,
+    chain_id: u64,
+    gas_limit: Option<u64>,
+    lock_contract_address: Address,
+    allocation_id: u32,
+    use_internal: bool,
+) -> Result<TxDao, PaymentError> {
+    Ok(TxDao {
+        method: if use_internal {
+            "LOCK.payoutSingleInternal".to_string()
+        } else {
+            "LOCK.payoutSingle".to_string()
+        },
+        from_addr: format!("{from:#x}"),
+        to_addr: format!("{lock_contract_address:#x}"),
+        chain_id: chain_id as i64,
+        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
+        call_data: Some(hex::encode(if use_internal {
+            encode_payout_single_internal(allocation_id, erc20_to, erc20_amount)
+                .map_err(err_from!())?
+        } else {
+            encode_payout_single(allocation_id, erc20_to, erc20_amount).map_err(err_from!())?
+        })),
+        ..Default::default()
+    })
+}
+
+pub struct MultiTransferAllocationArgs {
+    pub from: Address,
+    pub lock_contract: Address,
+    pub erc20_to: Vec<Address>,
+    pub erc20_amount: Vec<U256>,
+    pub chain_id: u64,
+    pub gas_limit: Option<u64>,
+    pub allocation_id: u32,
+    pub use_internal: bool,
+}
+
+pub fn create_erc20_transfer_multi_allocation(
+    multi_args: MultiTransferAllocationArgs,
+) -> Result<TxDao, PaymentError> {
+    let (packed, _sum) =
+        pack_transfers_for_multi_contract(multi_args.erc20_to, multi_args.erc20_amount)?;
+
+    let data =
+        encode_payout_multiple_internal(multi_args.allocation_id, packed).map_err(err_from!())?;
+    Ok(TxDao {
+        method: "payoutMultipleInternal".to_string(),
+        from_addr: format!("{:#x}", multi_args.from),
+        to_addr: format!("{:#x}", multi_args.lock_contract),
+        chain_id: multi_args.chain_id as i64,
+        gas_limit: multi_args.gas_limit.map(|gas_limit| gas_limit as i64),
+        call_data: Some(hex::encode(data)),
         ..Default::default()
     })
 }
@@ -265,6 +332,86 @@ pub fn create_lock_deposit(
     })
 }
 
+pub fn create_make_allocation(
+    from: Address,
+    lock_address: Address,
+    chain_id: u64,
+    gas_limit: Option<u64>,
+    allocation_args: CreateAllocationArgs,
+) -> Result<TxDao, PaymentError> {
+    Ok(TxDao {
+        method: "LOCK.createAllocation".to_string(),
+        from_addr: format!("{from:#x}"),
+        to_addr: format!("{lock_address:#x}"),
+        chain_id: chain_id as i64,
+        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
+        call_data: Some(hex::encode(
+            encode_create_allocation(allocation_args).map_err(err_from!())?,
+        )),
+        ..Default::default()
+    })
+}
+
+pub fn create_free_allocation(
+    from: Address,
+    lock_address: Address,
+    chain_id: u64,
+    gas_limit: Option<u64>,
+    allocation_id: u32,
+) -> Result<TxDao, PaymentError> {
+    Ok(TxDao {
+        method: "LOCK.freeAllocation".to_string(),
+        from_addr: format!("{from:#x}"),
+        to_addr: format!("{lock_address:#x}"),
+        chain_id: chain_id as i64,
+        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
+        call_data: Some(hex::encode(
+            encode_free_allocation(allocation_id).map_err(err_from!())?,
+        )),
+        ..Default::default()
+    })
+}
+
+pub fn create_free_allocation_internal(
+    from: Address,
+    lock_address: Address,
+    chain_id: u64,
+    gas_limit: Option<u64>,
+    allocation_id: u32,
+) -> Result<TxDao, PaymentError> {
+    Ok(TxDao {
+        method: "LOCK.freeAllocationInternal".to_string(),
+        from_addr: format!("{from:#x}"),
+        to_addr: format!("{lock_address:#x}"),
+        chain_id: chain_id as i64,
+        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
+        call_data: Some(hex::encode(
+            encode_free_allocation(allocation_id).map_err(err_from!())?,
+        )),
+        ..Default::default()
+    })
+}
+
+pub fn create_make_allocation_internal(
+    from: Address,
+    lock_address: Address,
+    chain_id: u64,
+    gas_limit: Option<u64>,
+    allocation_args: CreateAllocationInternalArgs,
+) -> Result<TxDao, PaymentError> {
+    Ok(TxDao {
+        method: "LOCK.createAllocationInternal".to_string(),
+        from_addr: format!("{from:#x}"),
+        to_addr: format!("{lock_address:#x}"),
+        chain_id: chain_id as i64,
+        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
+        call_data: Some(hex::encode(
+            encode_create_allocation_internal(allocation_args).map_err(err_from!())?,
+        )),
+        ..Default::default()
+    })
+}
+
 pub fn create_lock_withdraw(
     from: Address,
     lock_address: Address,
@@ -345,6 +492,7 @@ pub async fn get_no_token_details(
             web3,
             glm_token,
             Address::from_str(&web3_tx_dao.from_addr).map_err(err_from!())?,
+            None,
         )
         .await?
         .to_eth()
@@ -577,6 +725,7 @@ pub async fn send_transaction(
                                     glm_token,
                                     Address::from_str(&web3_tx_dao.from_addr)
                                         .map_err(err_from!())?,
+                                    None,
                                 )
                                 .await?
                                 .to_eth()

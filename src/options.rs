@@ -1,5 +1,7 @@
 use std::{fmt::Debug, path::PathBuf};
 
+use crate::actions::cancel_allocation::CancelAllocationOptions;
+use crate::actions::make_allocation::MakeAllocationOptions;
 use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
 use structopt::StructOpt;
 use web3::types::Address;
@@ -87,8 +89,11 @@ pub struct GetDevEthOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
-    #[structopt(long = "from", help = "From (has to have private key)")]
-    pub from: Option<Address>,
+    #[structopt(long = "address", help = "Address to get funds for")]
+    pub address: Option<Address>,
+
+    #[structopt(long = "account-no", help = "Which account to use")]
+    pub account_no: Option<usize>,
 }
 
 #[derive(StructOpt)]
@@ -97,8 +102,11 @@ pub struct MintTestTokensOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
-    #[structopt(long = "from", help = "From (has to have private key)")]
-    pub from: Option<Address>,
+    #[structopt(long = "address", help = "Address (has to have private key)")]
+    pub address: Option<Address>,
+
+    #[structopt(long = "account-no", help = "Address by index (for convenience)")]
+    pub account_no: Option<usize>,
 
     #[structopt(
         long = "mint-loop",
@@ -113,8 +121,11 @@ pub struct DepositTokensOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
-    #[structopt(long = "from", help = "From (has to have private key)")]
-    pub from: Option<Address>,
+    #[structopt(long = "address", help = "Address (has to have private key)")]
+    pub address: Option<Address>,
+
+    #[structopt(long = "account-no", help = "Address by index (for convenience)")]
+    pub account_no: Option<usize>,
 
     #[structopt(
         short = "a",
@@ -139,8 +150,11 @@ pub struct WithdrawTokensOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
-    #[structopt(long = "from", help = "From (has to have private key)")]
-    pub from: Option<Address>,
+    #[structopt(long = "address", help = "Address (has to have private key)")]
+    pub address: Option<Address>,
+
+    #[structopt(long = "account-no", help = "Address by index (for convenience)")]
+    pub account_no: Option<usize>,
 
     #[structopt(
         short = "a",
@@ -157,6 +171,16 @@ pub struct WithdrawTokensOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Allocate funds for use by payer")]
+pub struct CheckAllocationOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    pub chain_name: String,
+
+    #[structopt(long = "allocation-id", help = "Allocation id to use")]
+    pub allocation_id: u32,
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Single transfer options")]
 pub struct TransferOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
@@ -165,8 +189,11 @@ pub struct TransferOptions {
     #[structopt(short = "r", long = "recipient", help = "Recipient")]
     pub recipient: String,
 
-    #[structopt(long = "from", help = "From (has to have private key)")]
-    pub from: Option<Address>,
+    #[structopt(long = "address", help = "Address (has to have private key)")]
+    pub address: Option<Address>,
+
+    #[structopt(long = "account-no", help = "Address by index (for convenience)")]
+    pub account_no: Option<usize>,
 
     #[structopt(long = "token", help = "Token", default_value = "glm", possible_values = &["glm", "eth", "matic"])]
     pub token: String,
@@ -180,6 +207,12 @@ pub struct TransferOptions {
         help = "Amount (decimal, full precision, i.e. 0.01)"
     )]
     pub amount: Option<rust_decimal::Decimal>,
+
+    #[structopt(long = "allocation-id")]
+    pub allocation_id: Option<String>,
+
+    #[structopt(long = "use-internal")]
+    pub use_internal: bool,
 }
 
 #[derive(StructOpt)]
@@ -359,6 +392,18 @@ pub enum PaymentCommands {
     Withdraw {
         #[structopt(flatten)]
         withdraw_tokens_options: WithdrawTokensOptions,
+    },
+    MakeAllocation {
+        #[structopt(flatten)]
+        make_allocation_options: MakeAllocationOptions,
+    },
+    CancelAllocation {
+        #[structopt(flatten)]
+        cancel_allocation_options: CancelAllocationOptions,
+    },
+    CheckAllocation {
+        #[structopt(flatten)]
+        check_allocation_options: CheckAllocationOptions,
     },
     Transfer {
         #[structopt(flatten)]

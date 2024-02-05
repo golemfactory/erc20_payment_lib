@@ -6,8 +6,9 @@ use crate::db::ops::{
 };
 use crate::signer::Signer;
 use crate::transaction::{
-    create_faucet_mint, create_lock_deposit, create_lock_withdraw, create_token_transfer,
-    find_receipt_extended,
+    create_faucet_mint, create_free_allocation, create_free_allocation_internal,
+    create_lock_deposit, create_lock_withdraw, create_make_allocation,
+    create_make_allocation_internal, create_token_transfer, find_receipt_extended,
 };
 use crate::{err_custom_create, err_from};
 use std::collections::BTreeMap;
@@ -25,7 +26,11 @@ use sqlx::SqlitePool;
 
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
-use crate::eth::get_deposit_balance;
+use crate::contracts::{CreateAllocationArgs, CreateAllocationInternalArgs};
+use crate::eth::{
+    average_block_time, get_deposit_balance, get_latest_block_info, AllocationDetails,
+    Web3BlockInfo,
+};
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
@@ -392,6 +397,8 @@ pub struct TransferArgs {
     pub amount: U256,
     pub payment_id: String,
     pub deadline: Option<DateTime<Utc>>,
+    pub allocation_id: Option<String>,
+    pub use_internal: bool,
 }
 
 impl PaymentRuntime {
@@ -574,7 +581,7 @@ impl PaymentRuntime {
 
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
-        get_token_balance(web3, token_address, address).await
+        get_token_balance(web3, token_address, address, None).await
     }
 
     pub async fn get_gas_balance(
@@ -627,6 +634,8 @@ impl PaymentRuntime {
             Some(&transfer_args.payment_id),
             token_addr,
             transfer_args.amount,
+            transfer_args.allocation_id,
+            transfer_args.use_internal,
         );
 
         insert_token_transfer(&self.conn, &token_transfer)
@@ -772,7 +781,7 @@ pub async fn mint_golem_token(
         ));
         };
 
-        let token_balance = get_token_balance(web3.clone(), glm_address, from)
+        let token_balance = get_token_balance(web3.clone(), glm_address, from, None)
             .await?
             .to_eth_saturate();
 
@@ -869,6 +878,272 @@ pub async fn withdraw_funds(
     Ok(())
 }
 
+pub async fn allocation_details(
+    web3: Arc<Web3RpcPool>,
+    allocation_id: u32,
+    lock_contract_address: Address,
+) -> Result<AllocationDetails, PaymentError> {
+    let block_info = get_latest_block_info(web3.clone()).await?;
+
+    let mut result = crate::eth::get_allocation_details(
+        web3.clone(),
+        allocation_id,
+        lock_contract_address,
+        Some(block_info.block_number),
+    )
+    .await?;
+    result.current_block_datetime = Some(block_info.block_date);
+    if result.spender.is_zero() && result.customer.is_zero() {
+        return Ok(result);
+    }
+    if let Some(average_block_time) = average_block_time(&web3) {
+        result.estimated_time_left = Some(
+            (result.block_limit as i64 - result.current_block as i64) * average_block_time as i64,
+        );
+    } else {
+        log::info!("Unknown chain id: {} for estimation", web3.chain_id);
+    }
+    if let Some(estimated_time_left) = result.estimated_time_left {
+        if estimated_time_left <= 0 {
+            result.estimated_time_left_str = Some(format!(
+                "{} ago",
+                humantime::format_duration(std::time::Duration::from_secs(
+                    estimated_time_left.unsigned_abs()
+                ))
+            ));
+        } else {
+            result.estimated_time_left_str = Some(format!(
+                "in {} ",
+                humantime::format_duration(std::time::Duration::from_secs(
+                    estimated_time_left.unsigned_abs()
+                ))
+            ));
+        }
+    }
+    Ok(result)
+}
+
+pub struct CancelAllocationOptionsInt {
+    pub lock_contract_address: Address,
+    pub skip_allocation_check: bool,
+    pub allocation_id: u32,
+    pub funds_to_internal: bool,
+}
+
+pub async fn cancel_allocation(
+    web3: Arc<Web3RpcPool>,
+    conn: &SqlitePool,
+    chain_id: u64,
+    from: Address,
+    opt: CancelAllocationOptionsInt,
+) -> Result<(), PaymentError> {
+    let free_allocation_tx_id = if opt.funds_to_internal {
+        create_free_allocation_internal(
+            from,
+            opt.lock_contract_address,
+            chain_id,
+            None,
+            opt.allocation_id,
+        )?
+    } else {
+        create_free_allocation(
+            from,
+            opt.lock_contract_address,
+            chain_id,
+            None,
+            opt.allocation_id,
+        )?
+    };
+    //let mut block_info: Option<Web3BlockInfo> = None;
+    if !opt.skip_allocation_check {
+        let allocation_details =
+            allocation_details(web3.clone(), opt.allocation_id, opt.lock_contract_address).await?;
+        if allocation_details.amount_decimal.is_zero() {
+            log::error!("Allocation {} not found", opt.allocation_id);
+
+            return Err(err_custom_create!(
+                "Allocation {} not found",
+                opt.allocation_id
+            ));
+        }
+        if allocation_details.customer != from {
+            log::error!("You are not the owner of allocation {}", opt.allocation_id);
+            return Err(err_custom_create!(
+                "You are not the owner of allocation {}",
+                opt.allocation_id
+            ));
+        }
+        if let Some(est_time_left) = allocation_details.estimated_time_left {
+            if est_time_left > 10 {
+                log::error!(
+                    "Allocation {} is not ready to be cancelled. Estimated time left: {}",
+                    opt.allocation_id,
+                    est_time_left
+                );
+                return Err(err_custom_create!(
+                    "Allocation {} is not ready to be cancelled. Estimated time left: {}",
+                    opt.allocation_id,
+                    est_time_left
+                ));
+            }
+        }
+    }
+
+    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
+    let make_allocation_tx = insert_tx(&mut *db_transaction, &free_allocation_tx_id)
+        .await
+        .map_err(err_from!())?;
+    db_transaction.commit().await.map_err(err_from!())?;
+
+    log::info!("Free allocation added to queue: {}", make_allocation_tx.id);
+    Ok(())
+}
+
+pub struct MakeAllocationOptionsInt {
+    pub lock_contract_address: Address,
+    pub spender: Address,
+    pub skip_balance_check: bool,
+    pub amount: Option<Decimal>,
+    pub fee_amount: Option<Decimal>,
+    pub allocate_all: bool,
+    pub allocation_id: u32,
+    pub funds_from_internal: bool,
+    pub block_no: Option<u64>,
+    pub block_for: Option<u64>,
+}
+
+pub async fn make_allocation(
+    web3: Arc<Web3RpcPool>,
+    conn: &SqlitePool,
+    chain_id: u64,
+    from: Address,
+    glm_address: Address,
+    opt: MakeAllocationOptionsInt,
+) -> Result<(), PaymentError> {
+    let amount = if let Some(amount) = opt.amount {
+        amount.to_u256_from_eth().map_err(err_from!())?
+    } else {
+        return Err(err_custom_create!("Amount not specified. Use --amount"));
+    };
+    let fee_amount = if let Some(fee_amount) = opt.fee_amount {
+        fee_amount.to_u256_from_eth().map_err(err_from!())?
+    } else {
+        return Err(err_custom_create!(
+            "Fee amount not specified. Use --fee-amount"
+        ));
+    };
+
+    let mut block_info: Option<Web3BlockInfo> = None;
+    if !opt.skip_balance_check {
+        block_info = Some(get_latest_block_info(web3.clone()).await?);
+        let block_info = block_info.as_ref().unwrap();
+        if opt.funds_from_internal {
+            let token_balance = get_deposit_balance(
+                web3.clone(),
+                opt.lock_contract_address,
+                from,
+                Some(block_info.block_number),
+            )
+            .await?;
+
+            if token_balance < amount + fee_amount {
+                return Err(err_custom_create!(
+                    "You don't have enough: {} GLM on network with chain id: {} and account {:#x}",
+                    token_balance,
+                    chain_id,
+                    from
+                ));
+            };
+        } else {
+            let token_balance = get_token_balance(
+                web3.clone(),
+                glm_address,
+                from,
+                Some(block_info.block_number),
+            )
+            .await?;
+
+            if token_balance < amount + fee_amount {
+                return Err(err_custom_create!(
+                    "You don't have enough: {} GLM on network with chain id: {} and account {:#x}",
+                    token_balance,
+                    chain_id,
+                    from
+                ));
+            };
+        }
+    }
+
+    let block_no = if let Some(block_no) = opt.block_no {
+        block_no as u32
+    } else if let Some(block_for) = opt.block_for {
+        let block_info = match block_info {
+            Some(block_info) => block_info,
+            None => get_latest_block_info(web3.clone()).await?,
+        };
+        let average_block_time = average_block_time(&web3).unwrap_or_else(|| {
+            log::warn!("Unknown chain id: {chain_id} for estimation, assuming block time 1");
+            1
+        });
+        let diff_seconds = (chrono::Utc::now() - block_info.block_date).num_seconds();
+        log::info!(
+            "Block number: {}, diff_seconds: {}, block_for: {}, average_block_time: {}",
+            block_info.block_number,
+            diff_seconds,
+            block_for,
+            average_block_time
+        );
+
+        let target_block = (block_info.block_number as i64
+            + (diff_seconds + block_for as i64) / average_block_time as i64)
+            .unsigned_abs();
+        target_block as u32
+    } else {
+        return Err(err_custom_create!(
+            "Block number not specified. Use --block-no or --block-for"
+        ));
+    };
+
+    let make_allocation_tx = if opt.funds_from_internal {
+        create_make_allocation_internal(
+            from,
+            opt.lock_contract_address,
+            chain_id,
+            None,
+            CreateAllocationInternalArgs {
+                allocation_id: opt.allocation_id,
+                allocation_spender: opt.spender,
+                allocation_amount: amount,
+                allocation_fee_amount: fee_amount,
+                allocation_block_no: block_no,
+            },
+        )?
+    } else {
+        create_make_allocation(
+            from,
+            opt.lock_contract_address,
+            chain_id,
+            None,
+            CreateAllocationArgs {
+                allocation_id: opt.allocation_id,
+                allocation_spender: opt.spender,
+                allocation_amount: amount,
+                allocation_fee_amount: fee_amount,
+                allocation_block_no: block_no,
+            },
+        )?
+    };
+
+    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
+    let make_allocation_tx = insert_tx(&mut *db_transaction, &make_allocation_tx)
+        .await
+        .map_err(err_from!())?;
+    db_transaction.commit().await.map_err(err_from!())?;
+
+    log::info!("Make allocation added to queue: {}", make_allocation_tx.id);
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 pub async fn deposit_funds(
     web3: Arc<Web3RpcPool>,
@@ -884,7 +1159,7 @@ pub async fn deposit_funds(
     let amount = if let Some(amount) = amount {
         amount
     } else if deposit_all {
-        get_token_balance(web3.clone(), glm_address, from)
+        get_token_balance(web3.clone(), glm_address, from, None)
             .await?
             .to_eth()
             .map_err(err_from!())?
@@ -895,7 +1170,7 @@ pub async fn deposit_funds(
     };
 
     if !skip_balance_check {
-        let token_balance = get_token_balance(web3.clone(), glm_address, from)
+        let token_balance = get_token_balance(web3.clone(), glm_address, from, None)
             .await?
             .to_eth_saturate();
 
@@ -945,9 +1220,11 @@ pub async fn get_token_balance(
     web3: Arc<Web3RpcPool>,
     token_address: Address,
     address: Address,
+    block_number: Option<u64>,
 ) -> Result<U256, PaymentError> {
     let balance_result =
-        crate::eth::get_balance(web3, Some(token_address), None, address, true, None).await?;
+        crate::eth::get_balance(web3, Some(token_address), None, address, true, block_number)
+            .await?;
 
     let token_balance = balance_result
         .token_balance
