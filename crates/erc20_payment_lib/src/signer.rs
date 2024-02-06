@@ -8,11 +8,13 @@ use secp256k1::SecretKey;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 use tokio::time::timeout;
-use web3::types::{SignedTransaction, TransactionParameters, H160};
 
+use web3::types::{Address, SignedTransaction, TransactionParameters, H160};
+
+#[derive(Clone)]
 pub struct PaymentAccount {
-    pub address: H160,
-    pub signer: Arc<Box<dyn Signer + Send>>,
+    pub address: Address,
+    pub signer: Arc<Box<dyn Signer + Send + Sync>>,
 }
 
 impl Debug for PaymentAccount {
@@ -28,7 +30,7 @@ impl Display for PaymentAccount {
 }
 
 impl PaymentAccount {
-    pub fn new(address: H160, signer: Arc<Box<dyn Signer + Send>>) -> Self {
+    pub fn new(address: H160, signer: Arc<Box<dyn Signer + Send + Sync>>) -> Self {
         Self { address, signer }
     }
 

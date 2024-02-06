@@ -1,4 +1,4 @@
-use crate::eth::{get_balance, get_eth_addr_from_secret};
+use crate::eth::get_balance;
 use crate::runtime::{PaymentRuntime, SharedState, TransferArgs, TransferType};
 use crate::server::ws::event_stream_websocket_endpoint;
 use crate::setup::{ChainSetup, PaymentSetup};
@@ -365,8 +365,7 @@ pub async fn transactions_count(data: Data<Box<ServerData>>, _req: HttpRequest) 
 }
 
 pub async fn config_endpoint(data: Data<Box<ServerData>>) -> impl Responder {
-    let mut payment_setup = data.payment_setup.clone();
-    payment_setup.secret_keys = vec![];
+    let payment_setup = data.payment_setup.clone();
 
     web::Json(json!({
         "config": payment_setup,
@@ -778,13 +777,16 @@ pub async fn accounts(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Re
     //my_data.inserted += 1;
 
     let public_addr = data
-        .payment_setup
-        .secret_keys
+        .shared_state
+        .lock()
+        .unwrap()
+        .accounts
         .iter()
-        .map(|sk| format!("{:#x}", get_eth_addr_from_secret(sk)));
+        .map(|sk| format!("{:#x}", sk.address))
+        .collect::<Vec<String>>();
 
     web::Json(json!({
-        "publicAddr": public_addr.collect::<Vec<String>>()
+        "publicAddr": public_addr
     }))
 }
 
@@ -815,13 +817,15 @@ pub async fn account_details(data: Data<Box<ServerData>>, req: HttpRequest) -> i
 
     let account = format!("{web3_account:#x}");
 
-    let mut public_addr = data
-        .payment_setup
-        .secret_keys
+    let is_sender = if let Some(addr) = data
+        .shared_state
+        .lock()
+        .unwrap()
+        .accounts
         .iter()
-        .map(|sk| format!("{:#x}", get_eth_addr_from_secret(sk)));
-
-    let is_sender = if let Some(addr) = public_addr.find(|addr| addr == &account) {
+        .map(|acc| format!("{:#x}", acc.address))
+        .find(|addr| addr == &account)
+    {
         log::debug!("Found account: {}", addr);
         true
     } else {
@@ -976,12 +980,14 @@ pub async fn faucet(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Respo
 
         let glm_address = chain.glm_address;
 
-        let from_secret = return_on_error!(data
-            .payment_setup
-            .secret_keys
+        let from = data
+            .shared_state
+            .lock()
+            .unwrap()
+            .accounts
             .first()
-            .ok_or("No account found"));
-        let from = get_eth_addr_from_secret(from_secret);
+            .unwrap()
+            .address;
 
         let faucet_eth_amount = return_on_error!(chain
             .faucet_eth_amount
