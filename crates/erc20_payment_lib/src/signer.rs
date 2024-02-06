@@ -8,6 +8,7 @@ use secp256k1::SecretKey;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 use tokio::time::timeout;
+
 use web3::types::{Address, SignedTransaction, TransactionParameters, H160};
 
 #[derive(Clone)]
@@ -30,6 +31,56 @@ impl Display for PaymentAccount {
 
 impl PaymentAccount {
     pub fn new(address: H160, signer: Arc<Box<dyn Signer + Send + Sync>>) -> Self {
+        Self { address, signer }
+    }
+
+    pub async fn check_if_sign_possible(&self) -> Result<(), PaymentError> {
+        match timeout(
+            std::time::Duration::from_secs(5),
+            self.signer.check_if_sign_possible(self.address),
+        )
+        .await
+        {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(err)) => Err(err_custom_create!("Sign returned error {err:?}")),
+            Err(err) => Err(err_custom_create!("Sign check timed out {err:?}")),
+        }
+    }
+
+    pub async fn sign(&self, tp: TransactionParameters) -> Result<SignedTransaction, PaymentError> {
+        match timeout(
+            std::time::Duration::from_secs(5),
+            self.signer.sign(self.address, tp),
+        )
+        .await
+        {
+            Ok(Ok(signed)) => Ok(signed),
+            Ok(Err(err)) => Err(err_custom_create!("Sign returned error {err:?}")),
+            Err(err) => Err(err_custom_create!("Sign check timed out {err:?}")),
+        }
+    }
+}
+
+
+pub struct PaymentAccount {
+    pub address: H160,
+    pub signer: Arc<Box<dyn Signer + Send>>,
+}
+
+impl Debug for PaymentAccount {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PaymentAccount {{ address: {:#x} }}", self.address)
+    }
+}
+
+impl Display for PaymentAccount {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#x}", self.address)
+    }
+}
+
+impl PaymentAccount {
+    pub fn new(address: H160, signer: Arc<Box<dyn Signer + Send>>) -> Self {
         Self { address, signer }
     }
 
