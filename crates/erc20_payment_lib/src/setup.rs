@@ -10,7 +10,6 @@ use erc20_rpc_pool::{
     Web3RpcSingleParams,
 };
 use rust_decimal::Decimal;
-use secp256k1::SecretKey;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -75,8 +74,6 @@ pub struct ExtraOptionsForTesting {
 #[serde(rename_all = "camelCase")]
 pub struct PaymentSetup {
     pub chain_setup: BTreeMap<i64, ChainSetup>,
-    #[serde(skip_serializing)]
-    pub secret_keys: Vec<SecretKey>,
     //pub pub_address: Address,
     pub finish_when_done: bool,
     pub generate_tx_only: bool,
@@ -113,14 +110,12 @@ fn split_string_by_coma(s: &Option<String>) -> Option<Vec<String>> {
 impl PaymentSetup {
     pub fn new(
         config: &Config,
-        secret_keys: Vec<SecretKey>,
         options: &AdditionalOptions,
         web3_rpc_pool_info: Arc<std::sync::Mutex<BTreeMap<i64, Web3PoolType>>>,
         mpsc_sender: Option<mpsc::Sender<DriverEvent>>,
     ) -> Result<Self, PaymentError> {
         let mut ps = PaymentSetup {
             chain_setup: BTreeMap::new(),
-            secret_keys,
             //pub_address: get_eth_addr_from_secret(secret_key),
             finish_when_done: !options.keep_running,
             generate_tx_only: options.generate_tx_only,
@@ -326,7 +321,6 @@ impl PaymentSetup {
     pub fn new_empty(config: &Config) -> Result<Self, PaymentError> {
         PaymentSetup::new(
             config,
-            vec![],
             &AdditionalOptions::default(),
             Arc::new(std::sync::Mutex::new(BTreeMap::new())),
             None,

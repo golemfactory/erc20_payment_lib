@@ -60,7 +60,7 @@ pub struct SharedState {
     pub external_gather_time: Option<DateTime<Utc>>,
 
     #[serde(skip)]
-    pub accounts: Arc<std::sync::Mutex<BTreeMap<Address, PaymentAccount>>>,
+    pub accounts: Vec<PaymentAccount>,
 }
 
 impl SharedState {
@@ -417,7 +417,6 @@ impl PaymentRuntime {
 
         let mut payment_setup = PaymentSetup::new(
             &payment_runtime_args.config,
-            payment_runtime_args.secret_keys.to_vec(),
             &options,
             web3_rpc_pool_info.clone(),
             Some(raw_event_sender.clone()),
@@ -451,7 +450,7 @@ impl PaymentRuntime {
         let ps = payment_setup.clone();
 
         let shared_state = Arc::new(std::sync::Mutex::new(SharedState {
-            accounts: Arc::new(std::sync::Mutex::new(BTreeMap::new())),
+            accounts: Vec::new(),
             inserted: 0,
             idling: false,
             current_tx_info: BTreeMap::new(),
@@ -547,9 +546,17 @@ impl PaymentRuntime {
 
     pub async fn add_account(&self, payment_account: PaymentAccount) {
         log::info!("Adding account: {}", payment_account);
-        let scoped_lock = self.shared_state.lock().unwrap();
-        let mut accounts = scoped_lock.accounts.lock().unwrap();
-        accounts.insert(payment_account.address, payment_account);
+        let mut sh = self.shared_state.lock().unwrap();
+
+        if sh
+            .accounts
+            .iter()
+            .any(|a| a.address == payment_account.address)
+        {
+            log::warn!("Account already added: {}", payment_account);
+            return;
+        }
+        sh.accounts.push(payment_account);
     }
 
     pub async fn get_unpaid_token_amount(
