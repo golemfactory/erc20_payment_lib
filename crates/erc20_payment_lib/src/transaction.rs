@@ -633,7 +633,7 @@ pub async fn sign_transaction_with_callback(
     event_sender: &Option<mpsc::Sender<DriverEvent>>,
     web3_tx_dao: &mut TxDbObj,
     signer_pub_address: H160,
-    signer: &impl Signer,
+    signer: Arc<Box<dyn Signer + Send + Sync + 'static>>,
 ) -> Result<(), PaymentError> {
     let tx_object = dao_to_transaction(web3_tx_dao)?;
     log::debug!("Signing transaction: {:#?}", tx_object);

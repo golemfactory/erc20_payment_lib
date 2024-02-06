@@ -208,7 +208,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     broadcast_sender: Some(broadcast_sender),
                     extra_testing: extra_testing_options,
                 },
-                signer,
+                Arc::new(Box::new(signer)),
             )
             .await?;
 
@@ -432,9 +432,14 @@ async fn main_internal() -> Result<(), PaymentError> {
                         amount: U256::MAX,
                     };
 
-                    let _ =
-                        process_allowance(&conn, &payment_setup, &allowance_request, &signer, None)
-                            .await;
+                    let _ = process_allowance(
+                        &conn,
+                        &payment_setup,
+                        &allowance_request,
+                        Arc::new(Box::new(signer)),
+                        None,
+                    )
+                    .await;
                     /*return Err(err_custom_create!(
                         "Not enough allowance, required: {}, available: {}",
                         deposit_tokens_options.amount.unwrap(),

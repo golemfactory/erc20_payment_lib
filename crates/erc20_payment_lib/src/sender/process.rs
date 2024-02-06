@@ -17,7 +17,6 @@ use sqlx::SqlitePool;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
 use web3::transports::Http;
 use web3::types::{Address, BlockId, BlockNumber, U256, U64};
 use web3::Web3;
@@ -54,11 +53,11 @@ pub async fn get_provider(url: &str) -> Result<Web3<Http>, PaymentError> {
 
 pub async fn process_transaction(
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
-    shared_state: Arc<Mutex<SharedState>>,
+    shared_state: Arc<std::sync::Mutex<SharedState>>,
     conn: &SqlitePool,
     web3_tx_dao: &mut TxDbObj,
     payment_setup: &PaymentSetup,
-    signer: &impl Signer,
+    signer: Arc<Box<dyn Signer + Send + Sync + 'static>>,
     wait_for_confirmation: bool,
 ) -> Result<(TxDbObj, ProcessTransactionResult), PaymentError> {
     let chain_id = web3_tx_dao.chain_id;
@@ -100,7 +99,7 @@ pub async fn process_transaction(
     } else {
         shared_state
             .lock()
-            .await
+            .unwrap()
             .set_tx_message(web3_tx_dao.id, "Obtaining transaction nonce".to_string());
 
         let nonce = get_transaction_count(from_addr, web3.clone(), false)
@@ -243,7 +242,7 @@ pub async fn process_transaction(
         if web3_tx_dao.orig_tx_id.is_none() {
             shared_state
                 .lock()
-                .await
+                .unwrap()
                 .set_tx_message(web3_tx_dao.id, "Checking transaction".to_string());
             log::info!("Check and estimate gas for tx id: {}", web3_tx_dao.id);
             match check_transaction(
@@ -312,7 +311,7 @@ pub async fn process_transaction(
         }
         shared_state
             .lock()
-            .await
+            .unwrap()
             .set_tx_message(web3_tx_dao.id, "Signing transaction".to_string());
         sign_transaction_with_callback(&event_sender, web3_tx_dao, from_addr, signer).await?;
         update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
@@ -326,7 +325,7 @@ pub async fn process_transaction(
         );
         shared_state
             .lock()
-            .await
+            .unwrap()
             .set_tx_message(web3_tx_dao.id, "Sending transaction".to_string());
         web3_tx_dao.broadcast_count += 1;
         update_tx(conn, web3_tx_dao).await.map_err(err_from!())?;
@@ -358,7 +357,7 @@ pub async fn process_transaction(
     loop {
         shared_state
             .lock()
-            .await
+            .unwrap()
             .set_tx_message(web3_tx_dao.id, "Confirmations - checking nonce".to_string());
 
         log::debug!(
@@ -397,7 +396,7 @@ pub async fn process_transaction(
             .ok_or_else(|| err_custom_create!("Nonce should be present in db"))?;
 
         if latest_nonce > db_nonce {
-            shared_state.lock().await.set_tx_message(
+            shared_state.lock().unwrap().set_tx_message(
                 web3_tx_dao.id,
                 "Confirmations - checking receipt".to_string(),
             );
@@ -528,7 +527,7 @@ pub async fn process_transaction(
                     db_transaction.commit().await.map_err(err_from!())?;
                     shared_state
                         .lock()
-                        .await
+                        .unwrap()
                         .set_tx_message(web3_tx_dao.id, "".to_string());
 
                     return Ok((current_tx.clone(), ProcessTransactionResult::Confirmed));
@@ -544,7 +543,7 @@ pub async fn process_transaction(
                 //add is timed out
                 //log::debug!("Receipt not found: {:?}", web3_tx_dao.tx_hash);
 
-                shared_state.lock().await.set_tx_error(
+                shared_state.lock().unwrap().set_tx_error(
                     web3_tx_dao.id,
                     Some(
                         "Receipt not found despite proper nonce. Probably external payment done."
@@ -793,7 +792,7 @@ pub async fn process_transaction(
             );
             shared_state
                 .lock()
-                .await
+                .unwrap()
                 .set_tx_message(web3_tx_dao.id, "Resending transaction".to_string());
 
             send_transaction(

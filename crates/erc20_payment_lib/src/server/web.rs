@@ -23,7 +23,7 @@ use tokio::sync::Mutex;
 use web3::types::{Address, BlockId, BlockNumber, U256};
 
 pub struct ServerData {
-    pub shared_state: Arc<Mutex<SharedState>>,
+    pub shared_state: Arc<std::sync::Mutex<SharedState>>,
     pub db_connection: Arc<Mutex<SqlitePool>>,
     pub payment_setup: PaymentSetup,
     pub payment_runtime: PaymentRuntime,
@@ -101,7 +101,7 @@ pub async fn tx_details(data: Data<Box<ServerData>>, req: HttpRequest) -> impl R
 }
 
 pub async fn rpc_pool(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Responder {
-    let my_data = data.shared_state.lock().await;
+    let my_data = data.shared_state.lock().unwrap();
     //synchronize rpc_pool statistics with server
     /*shared_state.lock().await.web3_rpc_pool.insert(
         chain_id,
@@ -171,7 +171,7 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
     let pool_ref = data
         .shared_state
         .lock()
-        .await
+        .unwrap()
         .web3_pool_ref
         .lock()
         .unwrap()
@@ -309,9 +309,7 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
 }
 
 pub async fn allowances(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Responder {
-    let mut my_data = data.shared_state.lock().await;
-    my_data.inserted += 1;
-
+    data.shared_state.lock().unwrap().inserted += 1;
     let allowances = {
         let db_conn = data.db_connection.lock().await;
         match get_all_allowances(&db_conn).await {
@@ -376,7 +374,7 @@ pub async fn config_endpoint(data: Data<Box<ServerData>>) -> impl Responder {
 }
 
 pub async fn debug_endpoint(data: Data<Box<ServerData>>) -> impl Responder {
-    let shared_state = data.shared_state.lock().await.clone();
+    let shared_state = data.shared_state.lock().unwrap().clone();
 
     web::Json(json!({
         "sharedState": shared_state,
@@ -404,7 +402,7 @@ pub async fn skip_pending_operation(
         .map(|tx_id| i64::from_str(tx_id).ok())
         .unwrap_or(None);
     if let Some(tx_id) = tx_id {
-        if data.shared_state.lock().await.skip_tx(tx_id) {
+        if data.shared_state.lock().unwrap().skip_tx(tx_id) {
             web::Json(json!({
                 "success": "true",
             }))
@@ -541,7 +539,7 @@ pub async fn transactions_feed(data: Data<Box<ServerData>>, req: HttpRequest) ->
         txs
     };
 
-    let current_tx = data.shared_state.lock().await.current_tx_info.clone();
+    let current_tx = data.shared_state.lock().unwrap().current_tx_info.clone();
     for tx in txs.iter_mut() {
         if let Some(tx_info) = current_tx.get(&tx.id) {
             tx.engine_error = tx_info.error.clone();
@@ -930,7 +928,7 @@ pub async fn faucet(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Respo
         let faucet_event_idx = format!("{receiver_addr:#x}_{chain_id}");
 
         {
-            let mut shared_state = data.shared_state.lock().await;
+            let mut shared_state = data.shared_state.lock().unwrap();
             let faucet_data = match shared_state.faucet {
                 Some(ref mut faucet_data) => faucet_data,
                 None => {

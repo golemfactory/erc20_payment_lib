@@ -11,6 +11,7 @@ use erc20_payment_lib_common::DriverEventContent::*;
 use erc20_payment_lib_test::*;
 use erc20_rpc_pool::Web3RpcPool;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use web3::types::{Address, H256, U256};
 use web3_test_proxy_client::list_transactions_human;
@@ -148,7 +149,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
                 mspc_sender: Some(sender),
                 extra_testing: None,
             },
-            signer,
+            Arc::new(Box::new(signer)),
         ).await.unwrap();
         sp.runtime_handle.await?;
     };

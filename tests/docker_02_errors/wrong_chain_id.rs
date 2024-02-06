@@ -9,6 +9,7 @@ use erc20_payment_lib_common::DriverEventContent::*;
 use erc20_payment_lib_common::{DriverEvent, TransactionFailedReason};
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use web3::types::{Address, U256};
 
@@ -108,7 +109,7 @@ async fn test_wrong_chain_id() -> Result<(), anyhow::Error> {
                 mspc_sender: Some(sender),
                 extra_testing: None,
             },
-            signer,
+            Arc::new(Box::new(signer)),
         ).await?;
         //exit after some time
 

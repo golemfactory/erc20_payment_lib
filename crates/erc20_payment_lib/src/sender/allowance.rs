@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use std::sync::Arc;
 
 use crate::error::{AllowanceRequest, ErrorBag, PaymentError};
 use crate::signer::Signer;
@@ -20,7 +21,7 @@ pub async fn process_allowance(
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
     allowance_request: &AllowanceRequest,
-    signer: &impl Signer,
+    signer: Arc<Box<dyn Signer + Send + Sync + 'static>>,
     event_sender: Option<&tokio::sync::mpsc::Sender<DriverEvent>>,
 ) -> Result<u32, PaymentError> {
     let minimum_allowance: U256 = U256::max_value() / U256::from(2);

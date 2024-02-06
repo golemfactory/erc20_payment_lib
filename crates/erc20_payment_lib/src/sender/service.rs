@@ -2,7 +2,7 @@ use crate::error::{ErrorBag, PaymentError};
 use erc20_payment_lib_common::ops::*;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{Mutex, Notify};
+use tokio::sync::Notify;
 
 use crate::sender::process::{process_transaction, ProcessTransactionResult};
 
@@ -255,10 +255,10 @@ pub async fn update_tx_result(
 
 pub async fn process_transactions(
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
-    shared_state: Arc<Mutex<SharedState>>,
+    shared_state: Arc<std::sync::Mutex<SharedState>>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
-    signer: &impl Signer,
+    signer: Arc<Box<dyn Signer + Send + Sync + 'static>>,
 ) -> Result<(), PaymentError> {
     //remove tx from current processing infos
 
@@ -273,7 +273,7 @@ pub async fn process_transactions(
             break;
         };
 
-        let (mut tx, process_t_res) = if shared_state.lock().await.is_skipped(tx.id) {
+        let (mut tx, process_t_res) = if shared_state.lock().unwrap().is_skipped(tx.id) {
             (
                 tx.clone(),
                 ProcessTransactionResult::InternalError("Transaction skipped by user".into()),
@@ -281,7 +281,7 @@ pub async fn process_transactions(
         } else {
             shared_state
                 .lock()
-                .await
+                .unwrap()
                 .set_tx_message(tx.id, "Processing".to_string());
             match process_transaction(
                 event_sender.clone(),
@@ -289,7 +289,7 @@ pub async fn process_transactions(
                 conn,
                 tx,
                 payment_setup,
-                signer,
+                signer.clone(),
                 false,
             )
             .await
@@ -299,7 +299,7 @@ pub async fn process_transactions(
                     ErrorBag::TransactionFailedError(err2) => {
                         shared_state
                             .lock()
-                            .await
+                            .unwrap()
                             .set_tx_error(tx.id, Some(err2.message.clone()));
 
                         return Err(err_create!(err2));
@@ -308,7 +308,7 @@ pub async fn process_transactions(
                         log::error!("Error in process transaction: {}", err.inner);
                         shared_state
                             .lock()
-                            .await
+                            .unwrap()
                             .set_tx_error(tx.id, Some(format!("{}", err.inner)));
                         return Err(err);
                     }
@@ -322,7 +322,7 @@ pub async fn process_transactions(
             current_wait_time_no_gas_token = 0.0;
         }
         if let ProcessTransactionResult::Replaced = process_t_res {
-            shared_state.lock().await.current_tx_info.remove(&tx.id);
+            shared_state.lock().unwrap().current_tx_info.remove(&tx.id);
             continue;
         };
         if tx.method.starts_with("MULTI.golemTransfer")
@@ -351,7 +351,7 @@ pub async fn process_transactions(
                 continue;
             }
             _ => {
-                shared_state.lock().await.current_tx_info.remove(&tx.id);
+                shared_state.lock().unwrap().current_tx_info.remove(&tx.id);
             }
         }
         if let ProcessTransactionResult::DoNotSaveWaitForGasOrToken = process_t_res {
@@ -388,12 +388,12 @@ pub async fn process_transactions(
     Ok(())
 }
 
-async fn get_next_gather_time(
-    shared_state: Arc<Mutex<SharedState>>,
+fn get_next_gather_time(
+    shared_state: Arc<std::sync::Mutex<SharedState>>,
     last_gather_time: chrono::DateTime<chrono::Utc>,
     gather_transactions_interval: i64,
 ) -> chrono::DateTime<chrono::Utc> {
-    let shared_state = shared_state.lock().await;
+    let shared_state = shared_state.lock().unwrap();
     let external_gather_time = shared_state.external_gather_time;
 
     let next_gather_time =
@@ -406,12 +406,12 @@ async fn get_next_gather_time(
     }
 }
 
-async fn get_next_gather_time_and_clear_if_success(
-    shared_state: Arc<Mutex<SharedState>>,
+fn get_next_gather_time_and_clear_if_success(
+    shared_state: Arc<std::sync::Mutex<SharedState>>,
     last_gather_time: chrono::DateTime<chrono::Utc>,
     gather_transactions_interval: i64,
 ) -> Option<chrono::DateTime<chrono::Utc>> {
-    let mut shared_state = shared_state.lock().await;
+    let mut shared_state = shared_state.lock().unwrap();
     let external_gather_time = shared_state.external_gather_time;
 
     let next_gather_time =
@@ -432,7 +432,7 @@ async fn get_next_gather_time_and_clear_if_success(
 
 async fn sleep_for_gather_time_or_report_alive(
     wake: Arc<Notify>,
-    shared_state: Arc<Mutex<SharedState>>,
+    shared_state: Arc<std::sync::Mutex<SharedState>>,
     last_gather_time: chrono::DateTime<chrono::Utc>,
     payment_setup: PaymentSetup,
 ) {
@@ -445,8 +445,7 @@ async fn sleep_for_gather_time_or_report_alive(
             shared_state.clone(),
             last_gather_time,
             gather_transactions_interval,
-        )
-        .await;
+        );
         if current_time >= next_gather_time {
             break;
         }
@@ -472,11 +471,11 @@ async fn sleep_for_gather_time_or_report_alive(
 }
 
 pub async fn service_loop(
-    shared_state: Arc<Mutex<SharedState>>,
+    shared_state: Arc<std::sync::Mutex<SharedState>>,
     wake: Arc<tokio::sync::Notify>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
-    signer: impl Signer + Send + Sync + 'static,
+    signer: Arc<Box<dyn Signer + Send + Sync + 'static>>,
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
 ) {
     let gather_transactions_interval = payment_setup.gather_interval as i64;
@@ -520,7 +519,7 @@ pub async fn service_loop(
             shared_state.clone(),
             conn,
             payment_setup,
-            &signer,
+            signer.clone(),
         )
         .await
         {
@@ -537,8 +536,7 @@ pub async fn service_loop(
             shared_state.clone(),
             last_gather_time,
             gather_transactions_interval,
-        )
-        .await;
+        );
 
         if !payment_setup.finish_when_done {
             if let Some(next_gather_time) = next_gather_time {
@@ -609,14 +607,14 @@ pub async fn service_loop(
                             conn,
                             payment_setup,
                             allowance_request,
-                            &signer,
+                            signer.clone(),
                             event_sender.as_ref(),
                         )
                         .await
                         {
                             Ok(_) => {
                                 //process transaction instantly
-                                shared_state.lock().await.idling = false;
+                                shared_state.lock().unwrap().idling = false;
                                 continue;
                             }
                             Err(e) => {
@@ -645,9 +643,9 @@ pub async fn service_loop(
         }
         if !process_tx_needed {
             log::debug!("No work found for now...");
-            shared_state.lock().await.idling = true;
+            shared_state.lock().unwrap().idling = true;
         } else {
-            shared_state.lock().await.idling = false;
+            shared_state.lock().unwrap().idling = false;
         }
     }
 }

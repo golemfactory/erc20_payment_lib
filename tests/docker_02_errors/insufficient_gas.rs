@@ -12,6 +12,7 @@ use erc20_payment_lib_test::*;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use web3::types::{Address, U256};
 use web3_test_proxy_client::list_transactions_human;
@@ -102,7 +103,7 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
                 mspc_sender: Some(sender),
                 extra_testing: None,
             },
-            signer,
+            Arc::new(Box::new(signer)),
         ).await?;
 
         tokio::time::sleep(Duration::from_secs(5)).await;
