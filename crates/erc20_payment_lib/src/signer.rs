@@ -13,7 +13,7 @@ use web3::types::{Address, SignedTransaction, TransactionParameters, H160};
 #[derive(Clone)]
 pub struct PaymentAccount {
     pub address: Address,
-    pub signer: Arc<Box<dyn Signer + Send>>,
+    pub signer: Arc<Box<dyn Signer + Send + Sync>>,
 }
 
 impl Debug for PaymentAccount {
@@ -29,7 +29,7 @@ impl Display for PaymentAccount {
 }
 
 impl PaymentAccount {
-    pub fn new(address: H160, signer: Arc<Box<dyn Signer + Send>>) -> Self {
+    pub fn new(address: H160, signer: Arc<Box<dyn Signer + Send + Sync>>) -> Self {
         Self { address, signer }
     }
 

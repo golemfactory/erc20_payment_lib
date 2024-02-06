@@ -27,10 +27,7 @@ use sqlx::SqlitePool;
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
 use crate::contracts::{CreateAllocationArgs, CreateAllocationInternalArgs};
-use crate::eth::{
-    average_block_time, get_deposit_balance, get_latest_block_info, AllocationDetails,
-    Web3BlockInfo,
-};
+use crate::eth::{average_block_time, get_deposit_balance, get_latest_block_info, AllocationDetails, Web3BlockInfo, get_eth_addr_from_secret};
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
@@ -410,6 +407,8 @@ impl PaymentRuntime {
         signer: Arc<Box<dyn Signer + Send + Sync + 'static>>,
     ) -> Result<PaymentRuntime, PaymentError> {
         let options = payment_runtime_args.options.unwrap_or_default();
+
+
         let web3_rpc_pool_info =
             Arc::new(std::sync::Mutex::new(BTreeMap::<i64, Web3PoolType>::new()));
 
@@ -449,8 +448,16 @@ impl PaymentRuntime {
 
         let ps = payment_setup.clone();
 
+
+        let accounts = payment_runtime_args.secret_keys.iter().map(|s| {
+            PaymentAccount {
+                address: get_eth_addr_from_secret(s),
+                signer: signer.clone(),
+            }
+        }).collect();
+
         let shared_state = Arc::new(std::sync::Mutex::new(SharedState {
-            accounts: Vec::new(),
+            accounts,
             inserted: 0,
             idling: false,
             current_tx_info: BTreeMap::new(),
