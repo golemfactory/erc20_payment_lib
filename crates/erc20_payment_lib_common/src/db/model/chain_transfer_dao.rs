@@ -3,7 +3,7 @@ use serde::Serialize;
 
 #[derive(Serialize, sqlx::FromRow, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ChainTransferDao {
+pub struct ChainTransferDbObj {
     pub id: i64,
     pub from_addr: String,
     pub receiver_addr: String,
@@ -17,7 +17,7 @@ pub struct ChainTransferDao {
 /*
 #[derive(Serialize, sqlx::FromRow, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ChainTransferDaoExt {
+pub struct ChainTransferDbObjExt {
     pub id: i64,
     pub from_addr: String,
     pub receiver_addr: String,

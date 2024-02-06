@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, sqlx::FromRow, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct TokenTransferDao {
+pub struct TokenTransferDbObj {
     pub id: i64,
     pub payment_id: Option<String>,
     pub from_addr: String,

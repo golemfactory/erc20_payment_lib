@@ -1,4 +1,4 @@
-use super::model::TxDao;
+use super::model::TxDbObj;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
 use sqlx::{Executor, Transaction};
@@ -17,14 +17,14 @@ pub async fn get_transactions<'c, E>(
     filter: Option<&str>,
     limit: Option<i64>,
     order: Option<&str>,
-) -> Result<Vec<TxDao>, sqlx::Error>
+) -> Result<Vec<TxDbObj>, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
     let limit = limit.unwrap_or(i64::MAX);
     let filter = filter.unwrap_or(TRANSACTION_FILTER_ALL);
     let order = order.unwrap_or("id DESC");
-    let rows = sqlx::query_as::<_, TxDao>(
+    let rows = sqlx::query_as::<_, TxDbObj>(
         format!(r"SELECT * FROM tx WHERE {filter} ORDER BY {order} LIMIT {limit}").as_str(),
     )
     .fetch_all(executor)
@@ -32,11 +32,11 @@ where
     Ok(rows)
 }
 
-pub async fn get_transaction<'c, E>(executor: E, tx_id: i64) -> Result<TxDao, sqlx::Error>
+pub async fn get_transaction<'c, E>(executor: E, tx_id: i64) -> Result<TxDbObj, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
-    let row = sqlx::query_as::<_, TxDao>(r"SELECT * FROM tx WHERE id = $1")
+    let row = sqlx::query_as::<_, TxDbObj>(r"SELECT * FROM tx WHERE id = $1")
         .bind(tx_id)
         .fetch_one(executor)
         .await?;
@@ -46,11 +46,11 @@ where
 pub async fn get_last_unsent_tx<'c, E>(
     executor: E,
     tx_id: i64,
-) -> Result<Option<TxDao>, sqlx::Error>
+) -> Result<Option<TxDbObj>, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
-    let row = sqlx::query_as::<_, TxDao>(r"SELECT * FROM tx WHERE broadcast_date is NULL AND signed_date is NULL ORDER BY id DESC LIMIT 1")
+    let row = sqlx::query_as::<_, TxDbObj>(r"SELECT * FROM tx WHERE broadcast_date is NULL AND signed_date is NULL ORDER BY id DESC LIMIT 1")
         .bind(tx_id)
         .fetch_optional(executor)
         .await?;
@@ -61,11 +61,11 @@ where
 pub async fn get_transaction_chain(
     executor: &mut Transaction<'_, Sqlite>,
     tx_id: i64,
-) -> Result<Vec<TxDao>, sqlx::Error> {
+) -> Result<Vec<TxDbObj>, sqlx::Error> {
     let mut current_id = Some(tx_id);
     let mut res = vec![];
     while let Some(id) = current_id {
-        let row = sqlx::query_as::<_, TxDao>(r"SELECT * FROM tx WHERE id = $1")
+        let row = sqlx::query_as::<_, TxDbObj>(r"SELECT * FROM tx WHERE id = $1")
             .bind(id)
             .fetch_one(&mut **executor)
             .await?;
@@ -138,7 +138,7 @@ pub async fn get_transaction_count(
 pub async fn get_next_transactions_to_process(
     conn: &SqlitePool,
     limit: i64,
-) -> Result<Vec<TxDao>, sqlx::Error> {
+) -> Result<Vec<TxDbObj>, sqlx::Error> {
     get_transactions(
         conn,
         Some(TRANSACTION_FILTER_TO_PROCESS),
@@ -148,7 +148,7 @@ pub async fn get_next_transactions_to_process(
     .await
 }
 
-pub async fn force_tx_error(conn: &SqlitePool, tx: &TxDao) -> Result<(), sqlx::Error> {
+pub async fn force_tx_error(conn: &SqlitePool, tx: &TxDbObj) -> Result<(), sqlx::Error> {
     sqlx::query(r"UPDATE tx SET error = 'forced error' WHERE id = $1")
         .bind(tx.id)
         .execute(conn)
@@ -156,11 +156,11 @@ pub async fn force_tx_error(conn: &SqlitePool, tx: &TxDao) -> Result<(), sqlx::E
     Ok(())
 }
 
-pub async fn insert_tx<'c, E>(executor: E, tx: &TxDao) -> Result<TxDao, sqlx::Error>
+pub async fn insert_tx<'c, E>(executor: E, tx: &TxDbObj) -> Result<TxDbObj, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
-    let res = sqlx::query_as::<_, TxDao>(
+    let res = sqlx::query_as::<_, TxDbObj>(
         r"INSERT INTO tx
 (method, from_addr, to_addr, chain_id, gas_limit, max_fee_per_gas, priority_fee, val, nonce, processing, call_data, created_date, first_processed, tx_hash, signed_raw_data, signed_date, broadcast_date, broadcast_count, first_stuck_date, confirm_date, blockchain_date, gas_used, block_number, chain_status, block_gas_price, effective_gas_price, fee_paid, error, orig_tx_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29) RETURNING *;
@@ -202,8 +202,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $
 
 pub async fn update_processing_and_first_processed_tx<'c, E>(
     executor: E,
-    tx: &TxDao,
-) -> Result<TxDao, sqlx::Error>
+    tx: &TxDbObj,
+) -> Result<TxDbObj, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
@@ -222,7 +222,7 @@ WHERE id = $1
     Ok(tx.clone())
 }
 
-pub async fn update_tx<'c, E>(executor: E, tx: &TxDao) -> Result<TxDao, sqlx::Error>
+pub async fn update_tx<'c, E>(executor: E, tx: &TxDbObj) -> Result<TxDbObj, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
@@ -295,7 +295,7 @@ WHERE id = $1
     Ok(tx.clone())
 }
 
-pub async fn update_tx_stuck_date<'c, E>(executor: E, tx: &TxDao) -> Result<TxDao, sqlx::Error>
+pub async fn update_tx_stuck_date<'c, E>(executor: E, tx: &TxDbObj) -> Result<TxDbObj, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
@@ -323,7 +323,7 @@ async fn tx_test() -> sqlx::Result<()> {
 
     println!("In memory DB created");
 
-    let mut tx_to_insert = TxDao {
+    let mut tx_to_insert = TxDbObj {
         id: -1,
         tx_hash: Some(
             "0x13d8a54dec1c0a30f1cd5129f690c3e27b9aadd59504957bad4d247966dadae7".to_string(),

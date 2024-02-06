@@ -6,10 +6,10 @@ mod token_transfer_dao;
 mod transfer_in_dao;
 mod tx_dao;
 
-pub use allowance_dao::AllowanceDao;
-pub use chain_transfer_dao::ChainTransferDao;
-pub use chain_tx_dao::ChainTxDao;
-pub use scan_dao::ScanDao;
-pub use token_transfer_dao::TokenTransferDao;
-pub use transfer_in_dao::TransferInDao;
-pub use tx_dao::TxDao;
+pub use allowance_dao::AllowanceDbObj;
+pub use chain_transfer_dao::ChainTransferDbObj;
+pub use chain_tx_dao::ChainTxDbObj;
+pub use scan_dao::ScanDaoDbObj;
+pub use token_transfer_dao::TokenTransferDbObj;
+pub use transfer_in_dao::TransferIn;
+pub use tx_dao::TxDbObj;

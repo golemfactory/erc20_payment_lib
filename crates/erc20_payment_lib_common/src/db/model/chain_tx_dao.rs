@@ -3,7 +3,7 @@ use serde::Serialize;
 
 #[derive(Serialize, sqlx::FromRow, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct ChainTxDao {
+pub struct ChainTxDbObj {
     pub id: i64,
     pub tx_hash: String,
     pub method: String,

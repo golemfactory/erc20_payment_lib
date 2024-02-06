@@ -1,16 +1,16 @@
-use super::model::ChainTransferDao;
+use super::model::ChainTransferDbObj;
 use sqlx::Executor;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
 
 pub async fn insert_chain_transfer<'c, E>(
     executor: E,
-    chain_transfer: &ChainTransferDao,
-) -> Result<ChainTransferDao, sqlx::Error>
+    chain_transfer: &ChainTransferDbObj,
+) -> Result<ChainTransferDbObj, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
-    let res = sqlx::query_as::<_, ChainTransferDao>(
+    let res = sqlx::query_as::<_, ChainTransferDbObj>(
         r"INSERT INTO chain_transfer
 (from_addr, receiver_addr, chain_id, token_addr, token_amount, chain_tx_id, fee_paid, blockchain_date)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
@@ -32,9 +32,9 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
 pub async fn get_all_chain_transfers(
     conn: &SqlitePool,
     limit: Option<i64>,
-) -> Result<Vec<ChainTransferDao>, sqlx::Error> {
+) -> Result<Vec<ChainTransferDbObj>, sqlx::Error> {
     let limit = limit.unwrap_or(i64::MAX);
-    let rows = sqlx::query_as::<_, ChainTransferDao>(
+    let rows = sqlx::query_as::<_, ChainTransferDbObj>(
         r"SELECT * FROM chain_transfer ORDER by id DESC LIMIT $1",
     )
     .bind(limit)
@@ -47,9 +47,9 @@ pub async fn get_chain_transfers_by_chain_id(
     conn: &SqlitePool,
     chain_id: i64,
     limit: Option<i64>,
-) -> Result<Vec<ChainTransferDao>, sqlx::Error> {
+) -> Result<Vec<ChainTransferDbObj>, sqlx::Error> {
     let limit = limit.unwrap_or(i64::MAX);
-    let rows = sqlx::query_as::<_, ChainTransferDao>(
+    let rows = sqlx::query_as::<_, ChainTransferDbObj>(
         r"SELECT * FROM chain_transfer WHERE chain_id = $1 ORDER by id DESC LIMIT $2",
     )
     .bind(chain_id)

@@ -3,7 +3,7 @@ use serde::Serialize;
 
 #[derive(Serialize, sqlx::FromRow, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
-pub struct TxDao {
+pub struct TxDbObj {
     pub id: i64,
     pub method: String,
     pub from_addr: String,
@@ -42,7 +42,7 @@ pub struct TxDao {
     pub engine_error: Option<String>,
 }
 
-impl Default for TxDao {
+impl Default for TxDbObj {
     fn default() -> Self {
         Self {
             id: 0,

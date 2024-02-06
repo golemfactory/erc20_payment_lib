@@ -1,11 +1,11 @@
-use super::model::TransferInDao;
+use super::model::TransferIn;
 use sqlx::SqlitePool;
 
 pub async fn insert_transfer_in(
     conn: &SqlitePool,
-    token_transfer: &TransferInDao,
-) -> Result<TransferInDao, sqlx::Error> {
-    let res = sqlx::query_as::<_, TransferInDao>(
+    token_transfer: &TransferIn,
+) -> Result<TransferIn, sqlx::Error> {
+    let res = sqlx::query_as::<_, TransferIn>(
         r"INSERT INTO transfer_in
 (payment_id, from_addr, receiver_addr, chain_id, token_addr, token_amount, tx_hash, requested_date, received_date)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
@@ -27,8 +27,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
 
 pub async fn update_transfer_in(
     conn: &SqlitePool,
-    token_transfer: &TransferInDao,
-) -> Result<TransferInDao, sqlx::Error> {
+    token_transfer: &TransferIn,
+) -> Result<TransferIn, sqlx::Error> {
     let _res = sqlx::query(
         r"UPDATE token_transfer SET
 payment_id = $2,
@@ -62,9 +62,9 @@ pub async fn get_account_transfers_in(
     conn: &SqlitePool,
     account: &str,
     limit: Option<i64>,
-) -> Result<Vec<TransferInDao>, sqlx::Error> {
+) -> Result<Vec<TransferIn>, sqlx::Error> {
     let limit = limit.unwrap_or(i64::MAX);
-    let rows = sqlx::query_as::<_, TransferInDao>(
+    let rows = sqlx::query_as::<_, TransferIn>(
         r"SELECT * FROM transfer_in
 WHERE receiver_addr=$2
 ORDER by requested_date DESC
@@ -80,10 +80,10 @@ LIMIT $1",
 pub async fn get_all_transfers_in(
     conn: &SqlitePool,
     limit: Option<i64>,
-) -> Result<Vec<TransferInDao>, sqlx::Error> {
+) -> Result<Vec<TransferIn>, sqlx::Error> {
     let limit = limit.unwrap_or(i64::MAX);
     let rows =
-        sqlx::query_as::<_, TransferInDao>(r"SELECT * FROM transfer_in ORDER by id DESC LIMIT $1")
+        sqlx::query_as::<_, TransferIn>(r"SELECT * FROM transfer_in ORDER by id DESC LIMIT $1")
             .bind(limit)
             .fetch_all(conn)
             .await?;

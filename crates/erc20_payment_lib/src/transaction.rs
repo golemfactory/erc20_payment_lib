@@ -9,7 +9,9 @@ use crate::signer::Signer;
 use crate::utils::{datetime_from_u256_timestamp, ConversionError, StringConvExt, U256ConvExt};
 use crate::{err_custom_create, err_from};
 use chrono::Utc;
-use erc20_payment_lib_common::model::{ChainTransferDao, ChainTxDao, TokenTransferDao, TxDao};
+use erc20_payment_lib_common::model::{
+    ChainTransferDbObj, ChainTxDbObj, TokenTransferDbObj, TxDbObj,
+};
 use erc20_payment_lib_common::CantSignContent;
 use erc20_payment_lib_common::{
     DriverEvent, DriverEventContent, NoGasDetails, NoTokenDetails, TransactionStuckReason,
@@ -28,7 +30,7 @@ use web3::types::{
 };
 use web3::Web3;
 
-fn decode_data_to_bytes(web3_tx_dao: &TxDao) -> Result<Option<Bytes>, PaymentError> {
+fn decode_data_to_bytes(web3_tx_dao: &TxDbObj) -> Result<Option<Bytes>, PaymentError> {
     Ok(if let Some(data) = &web3_tx_dao.call_data {
         let hex_data = hex::decode(data)
             .map_err(|_err| err_custom_create!("Failed to convert data from hex"))?;
@@ -38,7 +40,7 @@ fn decode_data_to_bytes(web3_tx_dao: &TxDao) -> Result<Option<Bytes>, PaymentErr
     })
 }
 
-pub fn dao_to_call_request(web3_tx_dao: &TxDao) -> Result<CallRequest, PaymentError> {
+pub fn dao_to_call_request(web3_tx_dao: &TxDbObj) -> Result<CallRequest, PaymentError> {
     Ok(CallRequest {
         from: Some(Address::from_str(&web3_tx_dao.from_addr).map_err(err_from!())?),
         to: Some(Address::from_str(&web3_tx_dao.to_addr).map_err(err_from!())?),
@@ -69,7 +71,7 @@ pub fn dao_to_call_request(web3_tx_dao: &TxDao) -> Result<CallRequest, PaymentEr
     })
 }
 
-pub fn dao_to_transaction(web3_tx_dao: &TxDao) -> Result<TransactionParameters, PaymentError> {
+pub fn dao_to_transaction(web3_tx_dao: &TxDbObj) -> Result<TransactionParameters, PaymentError> {
     Ok(TransactionParameters {
         nonce: Some(U256::from(
             web3_tx_dao
@@ -120,8 +122,8 @@ pub fn create_token_transfer(
     token_amount: U256,
     allocation_id: Option<String>,
     use_internal: bool,
-) -> TokenTransferDao {
-    TokenTransferDao {
+) -> TokenTransferDbObj {
+    TokenTransferDbObj {
         id: 0,
         payment_id: payment_id.map(|s| s.to_string()),
         from_addr: format!("{from:#x}"),
@@ -146,8 +148,8 @@ pub fn create_eth_transfer(
     chain_id: u64,
     gas_limit: Option<u64>,
     amount: U256,
-) -> TxDao {
-    TxDao {
+) -> TxDbObj {
+    TxDbObj {
         method: "transfer".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{to:#x}"),
@@ -165,8 +167,8 @@ pub fn create_erc20_transfer(
     erc20_amount: U256,
     chain_id: u64,
     gas_limit: Option<u64>,
-) -> Result<TxDao, PaymentError> {
-    Ok(TxDao {
+) -> Result<TxDbObj, PaymentError> {
+    Ok(TxDbObj {
         method: "ERC20.transfer".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{token:#x}"),
@@ -189,8 +191,8 @@ pub fn create_erc20_allocation_transfer(
     lock_contract_address: Address,
     allocation_id: u32,
     use_internal: bool,
-) -> Result<TxDao, PaymentError> {
-    Ok(TxDao {
+) -> Result<TxDbObj, PaymentError> {
+    Ok(TxDbObj {
         method: if use_internal {
             "LOCK.payoutSingleInternal".to_string()
         } else {
@@ -223,13 +225,13 @@ pub struct MultiTransferAllocationArgs {
 
 pub fn create_erc20_transfer_multi_allocation(
     multi_args: MultiTransferAllocationArgs,
-) -> Result<TxDao, PaymentError> {
+) -> Result<TxDbObj, PaymentError> {
     let (packed, _sum) =
         pack_transfers_for_multi_contract(multi_args.erc20_to, multi_args.erc20_amount)?;
 
     let data =
         encode_payout_multiple_internal(multi_args.allocation_id, packed).map_err(err_from!())?;
-    Ok(TxDao {
+    Ok(TxDbObj {
         method: "payoutMultipleInternal".to_string(),
         from_addr: format!("{:#x}", multi_args.from),
         to_addr: format!("{:#x}", multi_args.lock_contract),
@@ -252,7 +254,7 @@ pub struct MultiTransferArgs {
 }
 
 /// Defaults direct to false and unpacked to false
-pub fn create_erc20_transfer_multi(multi_args: MultiTransferArgs) -> Result<TxDao, PaymentError> {
+pub fn create_erc20_transfer_multi(multi_args: MultiTransferArgs) -> Result<TxDbObj, PaymentError> {
     let (data, method_str) = if multi_args.unpacked {
         if multi_args.direct {
             (
@@ -284,7 +286,7 @@ pub fn create_erc20_transfer_multi(multi_args: MultiTransferArgs) -> Result<TxDa
         }
     };
 
-    Ok(TxDao {
+    Ok(TxDbObj {
         method: method_str,
         from_addr: format!("{:#x}", multi_args.from),
         to_addr: format!("{:#x}", multi_args.contract),
@@ -300,8 +302,8 @@ pub fn create_faucet_mint(
     faucet_address: Address,
     chain_id: u64,
     gas_limit: Option<u64>,
-) -> Result<TxDao, PaymentError> {
-    Ok(TxDao {
+) -> Result<TxDbObj, PaymentError> {
+    Ok(TxDbObj {
         method: "FAUCET.create".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{faucet_address:#x}"),
@@ -318,8 +320,8 @@ pub fn create_lock_deposit(
     chain_id: u64,
     gas_limit: Option<u64>,
     amount: U256,
-) -> Result<TxDao, PaymentError> {
-    Ok(TxDao {
+) -> Result<TxDbObj, PaymentError> {
+    Ok(TxDbObj {
         method: "LOCK.deposit".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
@@ -338,8 +340,8 @@ pub fn create_make_allocation(
     chain_id: u64,
     gas_limit: Option<u64>,
     allocation_args: CreateAllocationArgs,
-) -> Result<TxDao, PaymentError> {
-    Ok(TxDao {
+) -> Result<TxDbObj, PaymentError> {
+    Ok(TxDbObj {
         method: "LOCK.createAllocation".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
@@ -358,8 +360,8 @@ pub fn create_free_allocation(
     chain_id: u64,
     gas_limit: Option<u64>,
     allocation_id: u32,
-) -> Result<TxDao, PaymentError> {
-    Ok(TxDao {
+) -> Result<TxDbObj, PaymentError> {
+    Ok(TxDbObj {
         method: "LOCK.freeAllocation".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
@@ -378,8 +380,8 @@ pub fn create_free_allocation_internal(
     chain_id: u64,
     gas_limit: Option<u64>,
     allocation_id: u32,
-) -> Result<TxDao, PaymentError> {
-    Ok(TxDao {
+) -> Result<TxDbObj, PaymentError> {
+    Ok(TxDbObj {
         method: "LOCK.freeAllocationInternal".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
@@ -398,8 +400,8 @@ pub fn create_make_allocation_internal(
     chain_id: u64,
     gas_limit: Option<u64>,
     allocation_args: CreateAllocationInternalArgs,
-) -> Result<TxDao, PaymentError> {
-    Ok(TxDao {
+) -> Result<TxDbObj, PaymentError> {
+    Ok(TxDbObj {
         method: "LOCK.createAllocationInternal".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
@@ -418,7 +420,7 @@ pub fn create_lock_withdraw(
     chain_id: u64,
     gas_limit: Option<u64>,
     amount: Option<U256>,
-) -> Result<TxDao, PaymentError> {
+) -> Result<TxDbObj, PaymentError> {
     let method = if amount.is_some() {
         "LOCK.withdraw".to_string()
     } else {
@@ -431,7 +433,7 @@ pub fn create_lock_withdraw(
     } else {
         Some(hex::encode(withdraw_all_from_lock().map_err(err_from!())?))
     };
-    Ok(TxDao {
+    Ok(TxDbObj {
         method,
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
@@ -447,8 +449,8 @@ pub fn create_lock_withdraw_all(
     lock_address: Address,
     chain_id: u64,
     gas_limit: Option<u64>,
-) -> Result<TxDao, PaymentError> {
-    Ok(TxDao {
+) -> Result<TxDbObj, PaymentError> {
+    Ok(TxDbObj {
         method: "LOCK.withdraw".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
@@ -465,8 +467,8 @@ pub fn create_erc20_approve(
     contract_to_approve: Address,
     chain_id: u64,
     gas_limit: Option<u64>,
-) -> Result<TxDao, PaymentError> {
-    Ok(TxDao {
+) -> Result<TxDbObj, PaymentError> {
+    Ok(TxDbObj {
         method: "ERC20.approve".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{token:#x}"),
@@ -482,7 +484,7 @@ pub fn create_erc20_approve(
 pub async fn get_no_token_details(
     web3: Arc<Web3RpcPool>,
     conn: &SqlitePool,
-    web3_tx_dao: &TxDao,
+    web3_tx_dao: &TxDbObj,
     glm_token: Address,
 ) -> Result<NoTokenDetails, PaymentError> {
     Ok(NoTokenDetails {
@@ -514,7 +516,7 @@ pub async fn check_transaction(
     conn: &SqlitePool,
     glm_token: Address,
     web3: Arc<Web3RpcPool>,
-    web3_tx_dao: &mut TxDao,
+    web3_tx_dao: &mut TxDbObj,
 ) -> Result<Option<U256>, PaymentError> {
     let call_request = dao_to_call_request(web3_tx_dao)?;
     log::debug!("Check transaction with gas estimation: {:?}", call_request);
@@ -598,7 +600,7 @@ pub async fn check_transaction(
 
 pub async fn sign_transaction_deprecated(
     web3: &Web3<Http>,
-    web3_tx_dao: &mut TxDao,
+    web3_tx_dao: &mut TxDbObj,
     secret_key: &SecretKey,
 ) -> Result<(), PaymentError> {
     let public_addr = get_eth_addr_from_secret(secret_key);
@@ -629,7 +631,7 @@ pub async fn sign_transaction_deprecated(
 
 pub async fn sign_transaction_with_callback(
     event_sender: &Option<mpsc::Sender<DriverEvent>>,
-    web3_tx_dao: &mut TxDao,
+    web3_tx_dao: &mut TxDbObj,
     signer_pub_address: H160,
     signer: &impl Signer,
 ) -> Result<(), PaymentError> {
@@ -666,7 +668,7 @@ pub async fn send_transaction(
     glm_token: Address,
     event_sender: Option<mpsc::Sender<DriverEvent>>,
     web3: Arc<Web3RpcPool>,
-    web3_tx_dao: &mut TxDao,
+    web3_tx_dao: &mut TxDbObj,
 ) -> Result<(), PaymentError> {
     if let Some(signed_raw_data) = web3_tx_dao.signed_raw_data.as_ref() {
         let bytes = Bytes(
@@ -777,7 +779,7 @@ erc20processor cleanup --remove-tx-unsafe
 // it seems that this function is not needed at all for checking the transaction status
 // instead use nonce and transaction receipt
 #[allow(unused)]
-pub async fn find_tx(web3: &Web3<Http>, web3_tx_dao: &mut TxDao) -> Result<bool, PaymentError> {
+pub async fn find_tx(web3: &Web3<Http>, web3_tx_dao: &mut TxDbObj) -> Result<bool, PaymentError> {
     if let Some(tx_hash) = web3_tx_dao.tx_hash.as_ref() {
         let tx_hash = web3::types::H256::from_str(tx_hash)
             .map_err(|err| ConversionError::from("Failed to convert tx hash".into()))
@@ -800,7 +802,7 @@ pub async fn find_tx(web3: &Web3<Http>, web3_tx_dao: &mut TxDao) -> Result<bool,
 
 pub async fn find_receipt(
     web3: Arc<Web3RpcPool>,
-    web3_tx_dao: &mut TxDao,
+    web3_tx_dao: &mut TxDbObj,
 ) -> Result<Option<U256>, PaymentError> {
     if let Some(tx_hash) = web3_tx_dao.tx_hash.as_ref() {
         let tx_hash = web3::types::H256::from_str(tx_hash)
@@ -858,8 +860,8 @@ pub async fn find_receipt_extended(
     tx_hash: H256,
     chain_id: i64,
     glm_address: Address,
-) -> Result<(ChainTxDao, Vec<ChainTransferDao>), PaymentError> {
-    let mut chain_tx_dao = ChainTxDao {
+) -> Result<(ChainTxDbObj, Vec<ChainTransferDbObj>), PaymentError> {
+    let mut chain_tx_dao = ChainTxDbObj {
         id: -1,
         tx_hash: tx_hash.to_string(),
         method: "".to_string(),
@@ -993,10 +995,10 @@ pub async fn find_receipt_extended(
     let erc20_transfer_event_signature: H256 =
         H256::from_str("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")
             .unwrap();
-    let mut transfers = Vec::<ChainTransferDao>::new();
+    let mut transfers = Vec::<ChainTransferDbObj>::new();
 
     if tx.value != U256::zero() {
-        transfers.push(ChainTransferDao {
+        transfers.push(ChainTransferDbObj {
             id: 0,
             from_addr: format!("{tx_from:#x}"),
             receiver_addr: format!("{tx_to:#x}"),
@@ -1071,7 +1073,7 @@ pub async fn find_receipt_extended(
                 let contract_from_addr = transfered_to_contract_from.ok_or(err_custom_create!(
                     "Transfer from contract without contract from"
                 ))?;
-                transfers.push(ChainTransferDao {
+                transfers.push(ChainTransferDbObj {
                     id: 0,
                     from_addr: format!("{contract_from_addr:#x}"),
                     receiver_addr: format!("{to:#x}"),
@@ -1086,7 +1088,7 @@ pub async fn find_receipt_extended(
                 //ignore payment to contract - handled in loop before
                 continue;
             } else {
-                transfers.push(ChainTransferDao {
+                transfers.push(ChainTransferDbObj {
                     id: 0,
                     from_addr: format!("{from:#x}"),
                     receiver_addr: format!("{to:#x}"),

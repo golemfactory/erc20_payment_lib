@@ -3,7 +3,7 @@ use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::{verify_transaction, PaymentRuntime, PaymentRuntimeArgs};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
-use erc20_payment_lib_common::model::TxDao;
+use erc20_payment_lib_common::model::TxDbObj;
 use erc20_payment_lib_common::ops::insert_token_transfer;
 use erc20_payment_lib_common::utils::U256ConvExt;
 use erc20_payment_lib_common::DriverEvent;
@@ -24,7 +24,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
 
     let proxy_url_base = format!("http://127.0.0.1:{}", geth_container.web3_proxy_port);
     let proxy_key = "erc20_transfer";
-    let mut tx_dao_return: Option<TxDao> = None;
+    let mut tx_dao_return: Option<TxDbObj> = None;
 
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<DriverEvent>(1);
     let receiver_loop = tokio::spawn(async move {

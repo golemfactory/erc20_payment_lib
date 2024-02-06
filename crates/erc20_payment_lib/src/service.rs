@@ -11,7 +11,7 @@ use crate::err_from;
 use crate::setup::ChainSetup;
 
 use crate::contracts::encode_erc20_balance_of;
-use erc20_payment_lib_common::model::{ChainTxDao, TransferInDao};
+use erc20_payment_lib_common::model::{ChainTxDbObj, TransferIn};
 use erc20_rpc_pool::Web3RpcPool;
 use sqlx::SqlitePool;
 use web3::types::{Address, BlockNumber, CallRequest, U256};
@@ -24,8 +24,8 @@ pub async fn add_payment_request_2(
     payer_addr: Address,
     receiver_addr: Address,
     chain_id: i64,
-) -> Result<TransferInDao, PaymentError> {
-    let transfer_in = TransferInDao {
+) -> Result<TransferIn, PaymentError> {
+    let transfer_in = TransferIn {
         id: 0,
         payment_id: payment_id.to_string(),
         from_addr: format!("{payer_addr:#x}"),
@@ -49,8 +49,8 @@ pub async fn add_glm_request(
     payment_id: &str,
     payer_addr: Address,
     receiver_addr: Address,
-) -> Result<TransferInDao, PaymentError> {
-    let transfer_in = TransferInDao {
+) -> Result<TransferIn, PaymentError> {
+    let transfer_in = TransferIn {
         id: 0,
         payment_id: payment_id.to_string(),
         from_addr: format!("{payer_addr:#x}"),
@@ -73,7 +73,7 @@ pub async fn transaction_from_chain_and_into_db(
     chain_id: i64,
     tx_hash: &str,
     glm_address: Address,
-) -> Result<Option<ChainTxDao>, PaymentError> {
+) -> Result<Option<ChainTxDbObj>, PaymentError> {
     println!("tx_hash: {tx_hash}");
     let tx_hash = web3::types::H256::from_str(tx_hash)
         .map_err(|_err| ConversionError::from("Cannot parse tx_hash".to_string()))

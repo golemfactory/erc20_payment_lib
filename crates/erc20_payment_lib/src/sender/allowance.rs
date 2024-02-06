@@ -13,7 +13,7 @@ use sqlx::SqlitePool;
 
 use crate::error::TransactionFailedError;
 use crate::eth::check_allowance;
-use erc20_payment_lib_common::model::AllowanceDao;
+use erc20_payment_lib_common::model::AllowanceDbObj;
 use web3::types::{Address, U256};
 
 pub async fn process_allowance(
@@ -79,7 +79,7 @@ pub async fn process_allowance(
             .await?;
             if allowance > minimum_allowance {
                 log::info!("Allowance found on chain, add entry to db");
-                let db_allowance = AllowanceDao {
+                let db_allowance = AllowanceDbObj {
                     id: 0,
                     owner: allowance_request.owner.clone(),
                     token_addr: allowance_request.token_addr.clone(),
@@ -105,7 +105,7 @@ pub async fn process_allowance(
 
         let from_addr = Address::from_str(&allowance_request.owner).map_err(err_from!())?;
 
-        let mut allowance = AllowanceDao {
+        let mut allowance = AllowanceDbObj {
             id: 0,
             owner: allowance_request.owner.clone(),
             token_addr: allowance_request.token_addr.clone(),

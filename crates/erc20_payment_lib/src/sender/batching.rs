@@ -18,7 +18,7 @@ use sqlx::SqlitePool;
 use tokio::sync::mpsc;
 
 use crate::runtime::send_driver_event;
-use erc20_payment_lib_common::model::TokenTransferDao;
+use erc20_payment_lib_common::model::TokenTransferDbObj;
 use erc20_payment_lib_common::{DriverEvent, DriverEventContent, TransactionFailedReason};
 use web3::types::{Address, U256};
 
@@ -41,12 +41,12 @@ pub struct TokenTransferMultiKey {
     pub use_internal: i64,
 }
 
-type TokenTransferMap = HashMap<TokenTransferKey, Vec<TokenTransferDao>>;
+type TokenTransferMap = HashMap<TokenTransferKey, Vec<TokenTransferDbObj>>;
 
 #[derive(Debug, Clone)]
 pub struct TokenTransferMultiOrder {
     receiver: Address,
-    token_transfers: Vec<TokenTransferDao>,
+    token_transfers: Vec<TokenTransferDbObj>,
 }
 
 pub async fn gather_transactions_pre(
@@ -322,7 +322,7 @@ pub async fn gather_transactions_batch(
     event_sender: Option<mpsc::Sender<DriverEvent>>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
-    token_transfers: &mut [TokenTransferDao],
+    token_transfers: &mut [TokenTransferDbObj],
     token_transfer: &TokenTransferKey,
 ) -> Result<u32, PaymentError> {
     let mut sum = U256::zero();

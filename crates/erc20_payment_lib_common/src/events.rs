@@ -1,4 +1,4 @@
-use crate::model::{AllowanceDao, TokenTransferDao, TxDao};
+use crate::model::{AllowanceDbObj, TokenTransferDbObj, TxDbObj};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::Serialize;
@@ -49,7 +49,7 @@ pub struct FaucetData {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct GasLowInfo {
-    pub tx: TxDao,
+    pub tx: TxDbObj,
     pub tx_max_fee_per_gas_gwei: Decimal,
     pub block_date: chrono::DateTime<Utc>,
     pub block_number: u64,
@@ -60,7 +60,7 @@ pub struct GasLowInfo {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct NoGasDetails {
-    pub tx: TxDao,
+    pub tx: TxDbObj,
     pub gas_balance: Decimal,
     pub gas_needed: Decimal,
 }
@@ -68,7 +68,7 @@ pub struct NoGasDetails {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NoTokenDetails {
-    pub tx: TxDao,
+    pub tx: TxDbObj,
     pub sender: Address,
     pub token_balance: Decimal,
     pub token_needed: Decimal,
@@ -94,8 +94,8 @@ pub enum TransactionFailedReason {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionFinishedInfo {
-    pub token_transfer_dao: TokenTransferDao,
-    pub tx_dao: TxDao,
+    pub token_transfer_dao: TokenTransferDbObj,
+    pub tx_dao: TxDbObj,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -117,8 +117,8 @@ pub struct Web3RpcPoolInfo {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CantSignContent {
-    Tx(TxDao),
-    Allowance(AllowanceDao),
+    Tx(TxDbObj),
+    Allowance(AllowanceDbObj),
 }
 
 impl CantSignContent {
@@ -142,9 +142,9 @@ impl CantSignContent {
 #[serde(rename_all = "camelCase")]
 pub enum DriverEventContent {
     Alive,
-    TransactionConfirmed(TxDao),
+    TransactionConfirmed(TxDbObj),
     TransferFinished(TransactionFinishedInfo),
-    ApproveFinished(AllowanceDao),
+    ApproveFinished(AllowanceDbObj),
     TransactionStuck(TransactionStuckReason),
     TransactionFailed(TransactionFailedReason),
     CantSign(CantSignContent),

@@ -44,7 +44,7 @@ use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::{import_erc20_txs, ImportErc20TxsArgs};
 use erc20_payment_lib_common::init_metrics;
-use erc20_payment_lib_common::model::{ScanDao, TokenTransferDao};
+use erc20_payment_lib_common::model::{ScanDaoDbObj, TokenTransferDbObj};
 use erc20_payment_lib_common::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use rust_decimal::Decimal;
@@ -562,7 +562,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let mut tt = insert_token_transfer(
                 &mut *db_transaction,
-                &TokenTransferDao {
+                &TokenTransferDbObj {
                     id: 0,
                     payment_id: None,
                     from_addr: format!("{:#x}", public_addr),
@@ -651,7 +651,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let sender = Address::from_str(&scan_blockchain_options.sender).unwrap();
 
-            let scan_info = ScanDao {
+            let scan_info = ScanDaoDbObj {
                 id: 0,
                 chain_id: chain_cfg.chain_id,
                 filter: format!("{sender:#x}"),
@@ -801,7 +801,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 .delimiter(import_options.separator as u8)
                 .from_reader(std::fs::File::open(&import_options.file).map_err(err_from!())?);
 
-            let deserialize = rdr.deserialize::<TokenTransferDao>();
+            let deserialize = rdr.deserialize::<TokenTransferDbObj>();
 
             let mut token_transfer_list = vec![];
             for (line_no, result) in deserialize.enumerate() {

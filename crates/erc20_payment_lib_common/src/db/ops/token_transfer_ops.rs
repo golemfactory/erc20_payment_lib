@@ -1,4 +1,4 @@
-use super::model::TokenTransferDao;
+use super::model::TokenTransferDbObj;
 use crate::db::ops::get_chain_transfers_by_chain_id;
 use crate::err_from;
 use crate::error::PaymentError;
@@ -14,12 +14,12 @@ use web3::types::{Address, U256};
 
 pub async fn insert_token_transfer<'c, E>(
     executor: E,
-    token_transfer: &TokenTransferDao,
-) -> Result<TokenTransferDao, sqlx::Error>
+    token_transfer: &TokenTransferDbObj,
+) -> Result<TokenTransferDbObj, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
-    sqlx::query_as::<_, TokenTransferDao>(
+    sqlx::query_as::<_, TokenTransferDbObj>(
         r"INSERT INTO token_transfer
 (payment_id, from_addr, receiver_addr, chain_id, token_addr, token_amount, allocation_id, use_internal, create_date, tx_id, paid_date, fee_paid, error)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, strftime('%Y-%m-%dT%H:%M:%f', 'now'), $9, $10, $11, $12) RETURNING *;
@@ -83,8 +83,8 @@ where
 
 pub async fn update_token_transfer<'c, E>(
     executor: E,
-    token_transfer: &TokenTransferDao,
-) -> Result<TokenTransferDao, sqlx::Error>
+    token_transfer: &TokenTransferDbObj,
+) -> Result<TokenTransferDbObj, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
@@ -126,9 +126,9 @@ WHERE id = $1
 pub async fn get_all_token_transfers(
     conn: &SqlitePool,
     limit: Option<i64>,
-) -> Result<Vec<TokenTransferDao>, sqlx::Error> {
+) -> Result<Vec<TokenTransferDbObj>, sqlx::Error> {
     let limit = limit.unwrap_or(i64::MAX);
-    let rows = sqlx::query_as::<_, TokenTransferDao>(
+    let rows = sqlx::query_as::<_, TokenTransferDbObj>(
         r"SELECT * FROM token_transfer ORDER by id DESC LIMIT $1",
     )
     .bind(limit)
@@ -141,9 +141,9 @@ pub async fn get_token_transfers_by_chain_id(
     conn: &SqlitePool,
     chain_id: i64,
     limit: Option<i64>,
-) -> Result<Vec<TokenTransferDao>, sqlx::Error> {
+) -> Result<Vec<TokenTransferDbObj>, sqlx::Error> {
     let limit = limit.unwrap_or(i64::MAX);
-    let rows = sqlx::query_as::<_, TokenTransferDao>(
+    let rows = sqlx::query_as::<_, TokenTransferDbObj>(
         r"SELECT * FROM token_transfer WHERE chain_id = $1 ORDER by id DESC LIMIT $2",
     )
     .bind(chain_id)
@@ -155,8 +155,8 @@ pub async fn get_token_transfers_by_chain_id(
 
 pub async fn get_pending_token_transfers(
     conn: &SqlitePool,
-) -> Result<Vec<TokenTransferDao>, sqlx::Error> {
-    let rows = sqlx::query_as::<_, TokenTransferDao>(
+) -> Result<Vec<TokenTransferDbObj>, sqlx::Error> {
+    let rows = sqlx::query_as::<_, TokenTransferDbObj>(
         r"SELECT * FROM token_transfer
 WHERE tx_id is null
 AND error is null
@@ -171,8 +171,8 @@ pub async fn get_unpaid_token_transfers(
     conn: &SqlitePool,
     chain_id: i64,
     sender: Address,
-) -> Result<Vec<TokenTransferDao>, sqlx::Error> {
-    sqlx::query_as::<_, TokenTransferDao>(
+) -> Result<Vec<TokenTransferDbObj>, sqlx::Error> {
+    sqlx::query_as::<_, TokenTransferDbObj>(
         r"SELECT * FROM token_transfer
 WHERE fee_paid is null
 AND chain_id = $1
@@ -188,12 +188,12 @@ AND from_addr = $2
 pub async fn get_token_transfers_by_tx<'c, E>(
     executor: E,
     tx_id: i64,
-) -> Result<Vec<TokenTransferDao>, sqlx::Error>
+) -> Result<Vec<TokenTransferDbObj>, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
     let rows =
-        sqlx::query_as::<_, TokenTransferDao>(r"SELECT * FROM token_transfer WHERE tx_id=$1")
+        sqlx::query_as::<_, TokenTransferDbObj>(r"SELECT * FROM token_transfer WHERE tx_id=$1")
             .bind(tx_id)
             .fetch_all(executor)
             .await?;

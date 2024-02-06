@@ -3,7 +3,7 @@ use erc20_payment_lib::config::Config;
 use erc20_payment_lib_common::create_sqlite_connection;
 use erc20_payment_lib_common::error::ErrorBag;
 use erc20_payment_lib_common::error::PaymentError;
-use erc20_payment_lib_common::model::ChainTxDao;
+use erc20_payment_lib_common::model::ChainTxDbObj;
 use erc20_payment_lib_common::ops::{
     get_chain_transfers_by_chain_id, get_chain_txs_by_chain_id, get_transfer_stats,
     get_transfer_stats_from_blockchain, TransferStatsPart,
@@ -72,7 +72,7 @@ pub async fn export_stats(
         .clone()
         .into_iter()
         .map(|tx| (tx.id, tx))
-        .collect::<std::collections::HashMap<i64, ChainTxDao>>();
+        .collect::<std::collections::HashMap<i64, ChainTxDbObj>>();
 
     let mut transaction_ids = HashMap::<i64, Vec<i64>>::new();
     for tchain in tchains {

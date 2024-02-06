@@ -1,13 +1,16 @@
-use super::model::ChainTxDao;
+use super::model::ChainTxDbObj;
 use sqlx::Executor;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
 
-pub async fn insert_chain_tx<'c, E>(executor: E, tx: &ChainTxDao) -> Result<ChainTxDao, sqlx::Error>
+pub async fn insert_chain_tx<'c, E>(
+    executor: E,
+    tx: &ChainTxDbObj,
+) -> Result<ChainTxDbObj, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
-    let res = sqlx::query_as::<_, ChainTxDao>(
+    let res = sqlx::query_as::<_, ChainTxDbObj>(
         r"INSERT INTO chain_tx
 (tx_hash, method, from_addr, to_addr, chain_id, gas_used, gas_limit, block_gas_price, effective_gas_price, max_fee_per_gas, priority_fee, val, nonce, checked_date, blockchain_date, block_number, chain_status, fee_paid, error, balance_eth, balance_glm)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21) RETURNING *",
@@ -42,9 +45,9 @@ pub async fn get_chain_txs_by_chain_id(
     conn: &SqlitePool,
     chain_id: i64,
     limit: Option<i64>,
-) -> Result<Vec<ChainTxDao>, sqlx::Error> {
+) -> Result<Vec<ChainTxDbObj>, sqlx::Error> {
     let limit = limit.unwrap_or(i64::MAX);
-    let rows = sqlx::query_as::<_, ChainTxDao>(
+    let rows = sqlx::query_as::<_, ChainTxDbObj>(
         r"SELECT * FROM chain_tx WHERE chain_id = $1 ORDER by id DESC LIMIT $2",
     )
     .bind(chain_id)
@@ -54,8 +57,8 @@ pub async fn get_chain_txs_by_chain_id(
     Ok(rows)
 }
 
-pub async fn get_chain_tx(conn: &SqlitePool, id: i64) -> Result<ChainTxDao, sqlx::Error> {
-    let row = sqlx::query_as::<_, ChainTxDao>(r"SELECT * FROM chain_tx WHERE id = $1")
+pub async fn get_chain_tx(conn: &SqlitePool, id: i64) -> Result<ChainTxDbObj, sqlx::Error> {
+    let row = sqlx::query_as::<_, ChainTxDbObj>(r"SELECT * FROM chain_tx WHERE id = $1")
         .bind(id)
         .fetch_one(conn)
         .await?;
@@ -65,11 +68,11 @@ pub async fn get_chain_tx(conn: &SqlitePool, id: i64) -> Result<ChainTxDao, sqlx
 pub async fn get_chain_tx_hash<'c, E>(
     executor: E,
     tx_hash: String,
-) -> Result<Option<ChainTxDao>, sqlx::Error>
+) -> Result<Option<ChainTxDbObj>, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
-    let row = sqlx::query_as::<_, ChainTxDao>(r"SELECT * FROM chain_tx WHERE tx_hash = $1")
+    let row = sqlx::query_as::<_, ChainTxDbObj>(r"SELECT * FROM chain_tx WHERE tx_hash = $1")
         .bind(tx_hash)
         .fetch_optional(executor)
         .await?;
@@ -100,7 +103,7 @@ async fn tx_chain_test() -> sqlx::Result<()> {
 
     println!("In memory DB created");
 
-    let mut tx_to_insert = ChainTxDao {
+    let mut tx_to_insert = ChainTxDbObj {
         id: -1,
         tx_hash: "0x13d8a54dec1c0a30f1cd5129f690c3e27b9aadd59504957bad4d247966dadae7".to_string(),
         method: "".to_string(),

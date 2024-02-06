@@ -3,7 +3,7 @@ use crate::error::*;
 use crate::eth::get_eth_addr_from_secret;
 use crate::transaction::create_token_transfer;
 use crate::{err_custom_create, err_from};
-use erc20_payment_lib_common::model::TokenTransferDao;
+use erc20_payment_lib_common::model::TokenTransferDbObj;
 use futures::{stream, Stream, StreamExt};
 use rand::Rng;
 use secp256k1::SecretKey;
@@ -65,7 +65,8 @@ pub fn generate_transaction_batch<'a>(
     addr_pool: &'a [Address],
     random_target_addr: bool,
     amount_pool: &'a [U256],
-) -> Result<impl Stream<Item = Result<(u64, TokenTransferDao), PaymentError>> + 'a, PaymentError> {
+) -> Result<impl Stream<Item = Result<(u64, TokenTransferDbObj), PaymentError>> + 'a, PaymentError>
+{
     //thread rng
     Ok(stream::iter(0..).then(move |transfer_no| {
         let rng = rng.clone();

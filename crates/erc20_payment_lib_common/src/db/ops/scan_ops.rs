@@ -1,15 +1,15 @@
-use super::model::ScanDao;
+use super::model::ScanDaoDbObj;
 use sqlx::{Executor, Sqlite};
 
 pub async fn get_scan_info<'c, E>(
     executor: E,
     chain_id: i64,
     filter: &str,
-) -> Result<Option<ScanDao>, sqlx::Error>
+) -> Result<Option<ScanDaoDbObj>, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
-    let row = sqlx::query_as::<_, ScanDao>(
+    let row = sqlx::query_as::<_, ScanDaoDbObj>(
         r"SELECT * FROM scan_info WHERE chain_id = $1 AND filter = $2",
     )
     .bind(chain_id)
@@ -37,12 +37,12 @@ where
 
 pub async fn upsert_scan_info<'c, E>(
     executor: E,
-    scan_dao: &ScanDao,
-) -> Result<ScanDao, sqlx::Error>
+    scan_dao: &ScanDaoDbObj,
+) -> Result<ScanDaoDbObj, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
-    let res = sqlx::query_as::<_, ScanDao>(
+    let res = sqlx::query_as::<_, ScanDaoDbObj>(
         r"INSERT OR REPLACE INTO scan_info
 (chain_id, filter, start_block, last_block)
 VALUES ($1, $2, $3, $4) RETURNING *;
@@ -65,7 +65,7 @@ async fn tx_chain_test() -> sqlx::Result<()> {
         .await
         .unwrap();
 
-    let mut scan_info_to_insert = ScanDao {
+    let mut scan_info_to_insert = ScanDaoDbObj {
         id: -1,
         chain_id: 25,
         filter: "filter".to_string(),

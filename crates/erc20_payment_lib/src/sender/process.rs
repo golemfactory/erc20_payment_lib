@@ -1,7 +1,7 @@
 use crate::error::PaymentError;
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
-use erc20_payment_lib_common::model::TxDao;
+use erc20_payment_lib_common::model::TxDbObj;
 use erc20_payment_lib_common::ops::{
     delete_tx, get_transaction, get_transaction_highest_nonce, insert_tx, remap_allowance_tx,
     remap_token_transfer_tx, update_processing_and_first_processed_tx, update_tx,
@@ -56,11 +56,11 @@ pub async fn process_transaction(
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     shared_state: Arc<Mutex<SharedState>>,
     conn: &SqlitePool,
-    web3_tx_dao: &mut TxDao,
+    web3_tx_dao: &mut TxDbObj,
     payment_setup: &PaymentSetup,
     signer: &impl Signer,
     wait_for_confirmation: bool,
-) -> Result<(TxDao, ProcessTransactionResult), PaymentError> {
+) -> Result<(TxDbObj, ProcessTransactionResult), PaymentError> {
     let chain_id = web3_tx_dao.chain_id;
     let Some(chain_setup) = payment_setup.chain_setup.get(&chain_id) else {
         send_driver_event(
@@ -716,7 +716,7 @@ pub async fn process_transaction(
 
                 if send_replacement_tx {
                     let mut tx = web3_tx_dao.clone();
-                    let new_tx_dao = TxDao {
+                    let new_tx_dao = TxDbObj {
                         id: 0,
                         method: tx.method.clone(),
                         from_addr: tx.from_addr.clone(),

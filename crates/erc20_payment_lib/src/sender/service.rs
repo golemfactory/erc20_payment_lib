@@ -14,7 +14,7 @@ use crate::sender::process_allowance;
 use crate::setup::PaymentSetup;
 use crate::signer::Signer;
 use crate::{err_create, err_custom_create, err_from};
-use erc20_payment_lib_common::model::TxDao;
+use erc20_payment_lib_common::model::TxDbObj;
 use erc20_payment_lib_common::{DriverEvent, DriverEventContent, TransactionFinishedInfo};
 use sqlx::SqlitePool;
 use tokio::select;
@@ -24,7 +24,7 @@ use web3::types::U256;
 pub async fn update_token_transfer_result(
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     conn: &SqlitePool,
-    tx: &mut TxDao,
+    tx: &mut TxDbObj,
     process_t_res: &ProcessTransactionResult,
 ) -> Result<(), PaymentError> {
     match process_t_res {
@@ -155,7 +155,7 @@ pub async fn update_token_transfer_result(
 pub async fn update_approve_result(
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     conn: &SqlitePool,
-    tx: &mut TxDao,
+    tx: &mut TxDbObj,
     process_t_res: &ProcessTransactionResult,
 ) -> Result<(), PaymentError> {
     match process_t_res {
@@ -226,7 +226,7 @@ pub async fn update_approve_result(
 
 pub async fn update_tx_result(
     conn: &SqlitePool,
-    tx: &mut TxDao,
+    tx: &mut TxDbObj,
     process_t_res: &ProcessTransactionResult,
 ) -> Result<(), PaymentError> {
     match process_t_res {

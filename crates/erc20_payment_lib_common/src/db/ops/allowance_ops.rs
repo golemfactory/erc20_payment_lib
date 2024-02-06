@@ -1,16 +1,16 @@
-use super::model::AllowanceDao;
+use super::model::AllowanceDbObj;
 use sqlx::Executor;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
 
 pub async fn insert_allowance<'c, E>(
     executor: E,
-    allowance: &AllowanceDao,
-) -> Result<AllowanceDao, sqlx::Error>
+    allowance: &AllowanceDbObj,
+) -> Result<AllowanceDbObj, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
-    let res = sqlx::query_as::<_, AllowanceDao>(
+    let res = sqlx::query_as::<_, AllowanceDbObj>(
         r"INSERT INTO allowance
 (
 owner,
@@ -42,7 +42,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
 
 pub async fn update_allowance<'c, E>(
     executor: E,
-    allowance: &AllowanceDao,
+    allowance: &AllowanceDbObj,
 ) -> Result<(), sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
@@ -76,8 +76,8 @@ WHERE id = $1
     Ok(())
 }
 
-pub async fn get_all_allowances(conn: &SqlitePool) -> Result<Vec<AllowanceDao>, sqlx::Error> {
-    let rows = sqlx::query_as::<_, AllowanceDao>(r"SELECT * FROM allowance")
+pub async fn get_all_allowances(conn: &SqlitePool) -> Result<Vec<AllowanceDbObj>, sqlx::Error> {
+    let rows = sqlx::query_as::<_, AllowanceDbObj>(r"SELECT * FROM allowance")
         .fetch_all(conn)
         .await?;
     Ok(rows)
@@ -86,11 +86,11 @@ pub async fn get_all_allowances(conn: &SqlitePool) -> Result<Vec<AllowanceDao>, 
 pub async fn get_allowance_by_tx<'c, E>(
     executor: E,
     tx_id: i64,
-) -> Result<AllowanceDao, sqlx::Error>
+) -> Result<AllowanceDbObj, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
 {
-    let row = sqlx::query_as::<_, AllowanceDao>(r"SELECT * FROM allowance WHERE tx_id=$1")
+    let row = sqlx::query_as::<_, AllowanceDbObj>(r"SELECT * FROM allowance WHERE tx_id=$1")
         .bind(tx_id)
         .fetch_one(executor)
         .await?;
@@ -103,8 +103,8 @@ pub async fn find_allowance(
     token_addr: &str,
     spender: &str,
     chain_id: i64,
-) -> Result<Option<AllowanceDao>, sqlx::Error> {
-    let row = sqlx::query_as::<_, AllowanceDao>(
+) -> Result<Option<AllowanceDbObj>, sqlx::Error> {
+    let row = sqlx::query_as::<_, AllowanceDbObj>(
         r"SELECT * FROM allowance
 WHERE
 owner = $1 AND
@@ -125,8 +125,8 @@ chain_id = $4
 pub async fn get_allowances_by_owner(
     conn: &SqlitePool,
     owner: &str,
-) -> Result<Vec<AllowanceDao>, sqlx::Error> {
-    let row = sqlx::query_as::<_, AllowanceDao>(
+) -> Result<Vec<AllowanceDbObj>, sqlx::Error> {
+    let row = sqlx::query_as::<_, AllowanceDbObj>(
         r"SELECT * FROM allowance
 WHERE
 owner = $1
