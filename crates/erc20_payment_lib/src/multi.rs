@@ -3,7 +3,7 @@ use web3::types::{Address, U256};
 use crate::err_custom_create;
 use crate::error::PaymentError;
 
-pub fn pack_transfers_for_multi_contract(
+pub(crate) fn pack_transfers_for_multi_contract(
     receivers: Vec<Address>,
     amounts: Vec<U256>,
 ) -> Result<(Vec<[u8; 32]>, U256), PaymentError> {
