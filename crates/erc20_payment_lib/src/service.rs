@@ -11,7 +11,7 @@ use crate::err_from;
 use crate::setup::ChainSetup;
 
 use crate::contracts::encode_erc20_balance_of;
-use erc20_payment_lib_common::model::{ChainTxDbObj, TransferIn};
+use erc20_payment_lib_common::model::{ChainTxDbObj, TransferInDbObj};
 use erc20_rpc_pool::Web3RpcPool;
 use sqlx::SqlitePool;
 use web3::types::{Address, BlockNumber, CallRequest, U256};
@@ -24,8 +24,8 @@ pub async fn add_payment_request_2(
     payer_addr: Address,
     receiver_addr: Address,
     chain_id: i64,
-) -> Result<TransferIn, PaymentError> {
-    let transfer_in = TransferIn {
+) -> Result<TransferInDbObj, PaymentError> {
+    let transfer_in = TransferInDbObj {
         id: 0,
         payment_id: payment_id.to_string(),
         from_addr: format!("{payer_addr:#x}"),
@@ -49,8 +49,8 @@ pub async fn add_glm_request(
     payment_id: &str,
     payer_addr: Address,
     receiver_addr: Address,
-) -> Result<TransferIn, PaymentError> {
-    let transfer_in = TransferIn {
+) -> Result<TransferInDbObj, PaymentError> {
+    let transfer_in = TransferInDbObj {
         id: 0,
         payment_id: payment_id.to_string(),
         from_addr: format!("{payer_addr:#x}"),

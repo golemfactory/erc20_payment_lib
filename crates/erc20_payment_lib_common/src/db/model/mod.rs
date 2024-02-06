@@ -11,5 +11,5 @@ pub use chain_transfer_dao::ChainTransferDbObj;
 pub use chain_tx_dao::ChainTxDbObj;
 pub use scan_dao::ScanDaoDbObj;
 pub use token_transfer_dao::TokenTransferDbObj;
-pub use transfer_in_dao::TransferIn;
+pub use transfer_in_dao::TransferInDbObj;
 pub use tx_dao::TxDbObj;

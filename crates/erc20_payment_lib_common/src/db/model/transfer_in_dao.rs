@@ -3,7 +3,7 @@ use serde::Serialize;
 
 #[derive(Serialize, sqlx::FromRow, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct TransferIn {
+pub struct TransferInDbObj {
     pub id: i64,
     pub payment_id: String,
     pub from_addr: String,
