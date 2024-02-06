@@ -13,10 +13,10 @@ pub mod setup;
 pub mod signer;
 pub mod transaction;
 
-use erc20_payment_lib_common::*;
 pub use contracts::DUMMY_RPC_PROVIDER;
-pub use sender::process_allowance;
+use erc20_payment_lib_common::*;
 pub use erc20_payment_lib_common::{DriverEvent, DriverEventContent, StatusProperty};
+pub use sender::process_allowance;
 pub mod model {
     pub use erc20_payment_lib_common::model::*;
 }
