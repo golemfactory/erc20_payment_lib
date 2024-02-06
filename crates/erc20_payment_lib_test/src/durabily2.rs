@@ -4,11 +4,12 @@ use crate::{
 };
 use erc20_payment_lib::config::AdditionalOptions;
 use erc20_payment_lib::db::ops::get_transfer_stats;
-use erc20_payment_lib::error::PaymentError;
+
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::{PaymentRuntime, PaymentRuntimeArgs};
 use erc20_payment_lib::signer::PrivateKeySigner;
-use erc20_payment_lib::utils::U256ConvExt;
+use erc20_payment_lib_common::error::PaymentError;
+use erc20_payment_lib_common::utils::U256ConvExt;
 use erc20_payment_lib_common::DriverEvent;
 use erc20_payment_lib_common::DriverEventContent::*;
 use erc20_payment_lib_extra::{generate_test_payments, GenerateOptions};

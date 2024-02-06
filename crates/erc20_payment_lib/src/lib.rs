@@ -15,5 +15,5 @@ mod sender;
 pub mod server;
 pub mod signer;
 
-pub use erc20_payment_lib_common::*;
+use erc20_payment_lib_common::*;
 pub use sender::process_allowance;

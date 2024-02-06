@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use bollard::container::StopContainerOptions;
 use bollard::models::{PortBinding, PortMap};
 use bollard::{container, image, service::HostConfig, Docker};
-use erc20_payment_lib::utils::get_env_bool_value;
+use erc20_payment_lib_common::utils::*;
 use futures_util::TryStreamExt;
 use lazy_static::lazy_static;
 use std::collections::HashMap;

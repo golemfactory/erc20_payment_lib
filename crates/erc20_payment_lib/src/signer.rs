@@ -9,7 +9,7 @@ pub struct SignerError {
     pub message: String,
 }
 
-pub trait Signer {
+pub trait Signer: Send + Sync {
     /// Check if signer can sign transaction for given public address
     fn check_if_sign_possible(
         &self,

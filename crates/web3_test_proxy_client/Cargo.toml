@@ -17,3 +17,4 @@ chrono = { workspace = true, features = ["serde"] }
 tokio = { workspace = true }
 web3 = { workspace = true }
 erc20_payment_lib = { path = "../erc20_payment_lib", version = "0.3.20" }
+erc20_payment_lib_common = { path = "../erc20_payment_lib_common", version = "0.3.20" }

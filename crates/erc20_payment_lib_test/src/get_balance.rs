@@ -1,5 +1,5 @@
 use crate::config_setup::create_default_config_setup;
-use erc20_payment_lib::error::PaymentError;
+use erc20_payment_lib_common::error::PaymentError;
 use erc20_payment_lib_extra::{account_balance, BalanceOptions, BalanceResult};
 use std::collections::BTreeMap;
 

@@ -12,15 +12,17 @@ use erc20_payment_lib::db::ops::{
     update_token_transfer, upsert_scan_info,
 };
 use erc20_payment_lib::signer::PrivateKeySigner;
+use erc20_payment_lib_common::error::*;
+use erc20_payment_lib_common::*;
 use std::collections::HashSet;
 
 use erc20_payment_lib::{
-    config, err_custom_create, err_from,
-    error::*,
+    config,
     misc::{display_private_keys, load_private_keys},
     process_allowance,
     runtime::PaymentRuntime,
 };
+
 use std::env;
 use std::str::FromStr;
 
@@ -36,9 +38,9 @@ use erc20_payment_lib::server::web::{runtime_web_scope, ServerData};
 use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::transaction::{import_erc20_txs, ImportErc20TxsArgs};
-use erc20_payment_lib::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use erc20_payment_lib_common::init_metrics;
 use erc20_payment_lib_common::model::{ScanDao, TokenTransferDao};
+use erc20_payment_lib_common::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use erc20_rpc_pool::{
     resolve_txt_record_to_string_array, Web3EndpointParams, Web3ExternalEndpointList,
