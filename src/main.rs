@@ -7,13 +7,13 @@ use actix_web::Scope;
 use actix_web::{web, App, HttpServer};
 use csv::ReaderBuilder;
 use erc20_payment_lib::config::{AdditionalOptions, RpcSettings};
-use erc20_payment_lib::db::create_sqlite_connection;
-use erc20_payment_lib::db::ops::{
+use erc20_payment_lib::signer::PrivateKeySigner;
+use erc20_payment_lib_common::create_sqlite_connection;
+use erc20_payment_lib_common::error::*;
+use erc20_payment_lib_common::ops::{
     delete_scan_info, get_next_transactions_to_process, get_scan_info, insert_token_transfer,
     update_token_transfer, upsert_scan_info,
 };
-use erc20_payment_lib::signer::PrivateKeySigner;
-use erc20_payment_lib_common::error::*;
 use erc20_payment_lib_common::*;
 
 use erc20_payment_lib::{

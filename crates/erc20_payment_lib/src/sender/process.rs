@@ -1,12 +1,12 @@
-use crate::db::ops::{
-    delete_tx, get_transaction, get_transaction_highest_nonce, insert_tx, remap_allowance_tx,
-    remap_token_transfer_tx, update_processing_and_first_processed_tx, update_tx,
-    update_tx_stuck_date,
-};
 use crate::error::PaymentError;
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
 use erc20_payment_lib_common::model::TxDao;
+use erc20_payment_lib_common::ops::{
+    delete_tx, get_transaction, get_transaction_highest_nonce, insert_tx, remap_allowance_tx,
+    remap_token_transfer_tx, update_processing_and_first_processed_tx, update_tx,
+    update_tx_stuck_date,
+};
 use erc20_payment_lib_common::{
     CantSignContent, DriverEvent, DriverEventContent, GasLowInfo, NoGasDetails,
     TransactionFailedReason, TransactionStuckReason,

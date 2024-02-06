@@ -1,4 +1,3 @@
-use crate::db::ops::*;
 use crate::eth::{get_balance, get_eth_addr_from_secret};
 use crate::runtime::{PaymentRuntime, SharedState, TransferArgs, TransferType};
 use crate::server::ws::event_stream_websocket_endpoint;
@@ -10,6 +9,7 @@ use actix_web::http::header::HeaderValue;
 use actix_web::http::{header, StatusCode};
 use actix_web::web::Data;
 use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
+use erc20_payment_lib_common::ops::*;
 use erc20_payment_lib_common::utils::datetime_from_u256_timestamp;
 use erc20_payment_lib_common::{export_metrics_to_prometheus, FaucetData};
 use erc20_rpc_pool::VerifyEndpointResult;

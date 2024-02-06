@@ -1,7 +1,6 @@
 mod account_balance;
 pub mod config;
 mod contracts;
-pub mod db;
 pub mod eth;
 pub mod faucet_client;
 pub mod misc;

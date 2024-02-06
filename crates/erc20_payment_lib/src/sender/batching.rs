@@ -1,7 +1,8 @@
 use std::collections::{BTreeMap, HashMap};
 use std::str::FromStr;
 
-use crate::db::ops::*;
+use erc20_payment_lib_common::ops::*;
+
 use crate::error::{AllowanceRequest, ErrorBag, PaymentError};
 
 use crate::transaction::{

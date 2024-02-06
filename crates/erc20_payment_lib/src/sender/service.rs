@@ -1,5 +1,5 @@
-use crate::db::ops::*;
 use crate::error::{ErrorBag, PaymentError};
+use erc20_payment_lib_common::ops::*;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{Mutex, Notify};

@@ -5,5 +5,6 @@ mod metrics;
 pub mod utils;
 
 pub use crate::metrics::*;
+pub use db::connection::create_sqlite_connection;
 pub use db::*;
 pub use events::*;

@@ -1,9 +1,9 @@
+use super::model::TokenTransferDao;
 use crate::db::ops::get_chain_transfers_by_chain_id;
 use crate::err_from;
 use crate::error::PaymentError;
 use crate::error::*;
 use chrono::{DateTime, Duration, Utc};
-use erc20_payment_lib_common::model::TokenTransferDao;
 use sqlx::Executor;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;

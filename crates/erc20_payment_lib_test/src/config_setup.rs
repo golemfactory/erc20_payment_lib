@@ -1,6 +1,6 @@
 use erc20_payment_lib::config;
 use erc20_payment_lib::config::{Chain, Config, Engine, MultiContractSettings, RpcSettings, Token};
-use erc20_payment_lib::db::create_sqlite_connection;
+use erc20_payment_lib_common::create_sqlite_connection;
 use erc20_payment_lib_common::utils::get_env_bool_value;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;

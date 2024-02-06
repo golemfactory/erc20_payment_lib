@@ -1,9 +1,9 @@
 use erc20_payment_lib::config::{AdditionalOptions, RpcSettings};
-use erc20_payment_lib::db::ops::insert_token_transfer;
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::{PaymentRuntime, PaymentRuntimeArgs};
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::transaction::create_token_transfer;
+use erc20_payment_lib_common::ops::insert_token_transfer;
 use erc20_payment_lib_common::utils::U256ConvExt;
 use erc20_payment_lib_common::DriverEventContent::*;
 use erc20_payment_lib_common::{DriverEvent, TransactionStuckReason};

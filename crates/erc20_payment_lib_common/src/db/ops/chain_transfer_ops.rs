@@ -1,4 +1,4 @@
-use erc20_payment_lib_common::model::ChainTransferDao;
+use super::model::ChainTransferDao;
 use sqlx::Executor;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;

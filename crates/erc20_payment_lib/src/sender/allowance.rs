@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
-use crate::db::ops::*;
 use crate::error::{AllowanceRequest, ErrorBag, PaymentError};
 use crate::signer::Signer;
 use crate::transaction::create_erc20_approve;
+use erc20_payment_lib_common::ops::*;
 
 use crate::setup::PaymentSetup;
 use crate::{err_create, err_from};
