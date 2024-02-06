@@ -7,6 +7,7 @@ use erc20_payment_lib_common::ops::insert_token_transfer;
 use erc20_payment_lib_common::DriverEvent;
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use web3::types::{Address, U256};
 
@@ -69,7 +70,7 @@ async fn transfer_to_null() -> Result<(), anyhow::Error> {
                 mspc_sender: Some(sender),
                 extra_testing: None,
             },
-            signer,
+            Arc::new(Box::new(signer)),
         ).await.unwrap();
         sp.runtime_handle.await?;
     };

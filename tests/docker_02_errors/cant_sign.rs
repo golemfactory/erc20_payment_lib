@@ -8,6 +8,7 @@ use erc20_payment_lib_common::DriverEvent;
 use erc20_payment_lib_common::DriverEventContent::*;
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use web3::types::{Address, U256};
 
@@ -85,7 +86,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
                 mspc_sender: Some(sender),
                 extra_testing: None,
             },
-            signer,
+            Arc::new(Box::new(signer)),
         ).await.unwrap();
 
         let abort_handle = sp.runtime_handle.abort_handle();

@@ -54,7 +54,7 @@ pub struct BalanceResult2 {
 }
 
 pub async fn test_balance_loop(
-    _shared_state: Option<Arc<tokio::sync::Mutex<SharedState>>>,
+    _shared_state: Option<Arc<std::sync::Mutex<SharedState>>>,
     payment_setup: PaymentSetup,
     account_balance_options: BalanceOptions2,
     chain_cfg: &Chain,

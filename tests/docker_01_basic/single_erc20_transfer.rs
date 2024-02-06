@@ -12,6 +12,7 @@ use erc20_payment_lib_test::*;
 use erc20_rpc_pool::Web3RpcPool;
 use rust_decimal::prelude::ToPrimitive;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use web3::types::{Address, H256, U256};
 use web3_test_proxy_client::list_transactions_human;
@@ -101,7 +102,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
                 mspc_sender: Some(sender),
                 extra_testing: None,
             },
-            signer,
+            Arc::new(Box::new(signer)),
         ).await.unwrap();
         sp.runtime_handle.await?;
     };

@@ -9,6 +9,7 @@ use erc20_payment_lib_common::DriverEventContent::*;
 use erc20_payment_lib_common::{DriverEvent, TransactionStuckReason};
 use erc20_payment_lib_test::*;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use web3::types::{Address, U256};
 use web3_test_proxy_client::{list_transactions_human, set_error_probability};
@@ -130,7 +131,7 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
                 mspc_sender: Some(sender),
                 extra_testing: None,
             },
-            signer,
+            Arc::new(Box::new(signer)),
         ).await.unwrap();
         sp.runtime_handle.await?;
     }

@@ -10,6 +10,7 @@ use erc20_payment_lib_test::*;
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use web3::types::{Address, U256};
 use web3_test_proxy_client::list_transactions_human;
@@ -128,7 +129,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
                 mspc_sender: Some(sender.clone()),
                 extra_testing: None,
             },
-            signer,
+            Arc::new(Box::new(signer)),
         ).await?;
 
         tokio::time::sleep(Duration::from_secs(5)).await;
@@ -160,7 +161,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
                     balance_check_loop: None,
                 }),
             },
-            signer2,
+            Arc::new(Box::new(signer2)),
         ).await?;
 
         match scenario {
@@ -198,7 +199,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
                     balance_check_loop: None,
                 })
             },
-            signer3,
+            Arc::new(Box::new(signer3)),
         ).await?;
 
         sp.runtime_handle.await?;

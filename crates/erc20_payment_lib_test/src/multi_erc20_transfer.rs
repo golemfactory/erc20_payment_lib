@@ -14,6 +14,7 @@ use erc20_payment_lib_common::DriverEventContent::*;
 use erc20_payment_lib_extra::{generate_test_payments, GenerateOptions};
 use std::env;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use web3::types::U256;
 
@@ -125,7 +126,7 @@ pub async fn test_durability(generate_count: u64, gen_interval_secs: f64, transf
                         mspc_sender: Some(sender),
                         extra_testing: None,
                     },
-                    signer,
+                    Arc::new(Box::new(signer)),
                 ).await.unwrap();
                 sp.runtime_handle.await.unwrap();
             }

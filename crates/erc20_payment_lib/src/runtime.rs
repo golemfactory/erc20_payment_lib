@@ -1,4 +1,4 @@
-use crate::signer::Signer;
+use crate::signer::{PaymentAccount, Signer};
 use crate::transaction::{
     create_faucet_mint, create_free_allocation, create_free_allocation_internal,
     create_lock_deposit, create_lock_withdraw, create_make_allocation,
@@ -58,6 +58,9 @@ pub struct SharedState {
     pub inserted: usize,
     pub idling: bool,
     pub external_gather_time: Option<DateTime<Utc>>,
+
+    #[serde(skip)]
+    pub accounts: Arc<std::sync::Mutex<BTreeMap<Address, PaymentAccount>>>,
 }
 
 impl SharedState {
@@ -368,7 +371,7 @@ pub enum TransferType {
 pub struct PaymentRuntime {
     pub runtime_handle: JoinHandle<()>,
     pub setup: PaymentSetup,
-    pub shared_state: Arc<Mutex<SharedState>>,
+    pub shared_state: Arc<std::sync::Mutex<SharedState>>,
     pub wake: Arc<Notify>,
     pub driver_broadcast_sender: Option<broadcast::Sender<DriverEvent>>,
     pub driver_mpsc_sender: Option<mpsc::Sender<DriverEvent>>,
@@ -404,7 +407,7 @@ pub struct TransferArgs {
 impl PaymentRuntime {
     pub async fn new(
         payment_runtime_args: PaymentRuntimeArgs,
-        signer: impl Signer + Send + Sync + 'static,
+        signer: Arc<Box<dyn Signer + Send + Sync + 'static>>,
     ) -> Result<PaymentRuntime, PaymentError> {
         let options = payment_runtime_args.options.unwrap_or_default();
         let web3_rpc_pool_info =
@@ -447,7 +450,8 @@ impl PaymentRuntime {
 
         let ps = payment_setup.clone();
 
-        let shared_state = Arc::new(Mutex::new(SharedState {
+        let shared_state = Arc::new(std::sync::Mutex::new(SharedState {
+            accounts: Arc::new(std::sync::Mutex::new(BTreeMap::new())),
             inserted: 0,
             idling: false,
             current_tx_info: BTreeMap::new(),
@@ -539,6 +543,13 @@ impl PaymentRuntime {
             driver_mpsc_sender,
             config: payment_runtime_args.config,
         })
+    }
+
+    pub async fn add_account(&self, payment_account: PaymentAccount) {
+        log::info!("Adding account: {}", payment_account);
+        let scoped_lock = self.shared_state.lock().unwrap();
+        let mut accounts = scoped_lock.accounts.lock().unwrap();
+        accounts.insert(payment_account.address, payment_account);
     }
 
     pub async fn get_unpaid_token_amount(
@@ -644,7 +655,7 @@ impl PaymentRuntime {
 
         if !self.setup.ignore_deadlines {
             if let Some(deadline) = transfer_args.deadline {
-                let mut s = self.shared_state.lock().await;
+                let mut s = self.shared_state.lock().unwrap();
 
                 let new_time = s
                     .external_gather_time
