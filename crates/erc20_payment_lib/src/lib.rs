@@ -3,7 +3,7 @@ mod contracts;
 pub mod db;
 pub mod eth;
 pub mod misc;
-pub mod multi;
+mod multi;
 pub mod runtime;
 pub mod service;
 pub mod setup;
