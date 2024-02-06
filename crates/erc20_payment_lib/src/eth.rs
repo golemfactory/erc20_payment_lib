@@ -1,6 +1,10 @@
-use crate::contracts::{encode_balance_of_lock, encode_erc20_allowance, encode_erc20_balance_of};
+use crate::contracts::{
+    encode_balance_of_lock, encode_erc20_allowance, encode_erc20_balance_of,
+    encode_get_allocation_details,
+};
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
+use erc20_payment_lib_common::utils::{datetime_from_u256_timestamp, U256ConvExt};
 use erc20_rpc_pool::Web3RpcPool;
 use secp256k1::{PublicKey, SecretKey};
 use serde::Serialize;
@@ -57,6 +61,81 @@ pub(crate) async fn get_deposit_balance(
         ))));
     };
     Ok(U256::from_big_endian(&res.0))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AllocationDetails {
+    pub customer: Address,
+    pub spender: Address,
+    pub amount: String,
+    pub fee_amount: String,
+    pub amount_decimal: rust_decimal::Decimal,
+    pub fee_amount_decimal: rust_decimal::Decimal,
+    pub block_limit: u64,
+    pub current_block: u64,
+    pub current_block_datetime: Option<chrono::DateTime<chrono::Utc>>,
+    pub estimated_time_left: Option<i64>,
+    pub estimated_time_left_str: Option<String>,
+}
+
+pub async fn get_allocation_details(
+    web3: Arc<Web3RpcPool>,
+    allocation_id: u32,
+    lock_contract_address: Address,
+    block_number: Option<u64>,
+) -> Result<AllocationDetails, PaymentError> {
+    let block_number = if let Some(block_number) = block_number {
+        log::debug!("Checking balance for block number {}", block_number);
+        block_number
+    } else {
+        web3.clone()
+            .eth_block_number()
+            .await
+            .map_err(err_from!())?
+            .as_u64()
+    };
+
+    let res = web3
+        .eth_call(
+            CallRequest {
+                to: Some(lock_contract_address),
+                data: Some(encode_get_allocation_details(allocation_id).unwrap().into()),
+                ..Default::default()
+            },
+            Some(BlockId::Number(BlockNumber::Number(U64::from(
+                block_number,
+            )))),
+        )
+        .await
+        .map_err(err_from!())?;
+    if res.0.len() != 5 * 32 {
+        return Err(err_custom_create!(
+            "Invalid response length: {}, expected {}",
+            res.0.len(),
+            5 * 32
+        ));
+    }
+    let amount_u256 = U256::from(&res.0[(2 * 32)..(3 * 32)]);
+    let fee_amount_u256 = U256::from(&res.0[(3 * 32)..(4 * 32)]);
+
+    let block_no = U256::from(&res.0[(4 * 32)..(5 * 32)]);
+    if block_no > U256::from(u32::MAX) {
+        return Err(err_custom_create!("Block number too big: {}", block_no));
+    }
+    Ok(AllocationDetails {
+        customer: Address::from_slice(&res.0[12..32]),
+        spender: Address::from_slice(&res.0[(32 + 12)..(2 * 32)]),
+        amount: amount_u256.to_string(),
+        fee_amount: fee_amount_u256.to_string(),
+        block_limit: block_no.as_u64(),
+        current_block: block_number,
+        amount_decimal: amount_u256.to_eth().map_err(err_from!())?,
+        fee_amount_decimal: fee_amount_u256.to_eth().map_err(err_from!())?,
+        current_block_datetime: None,
+        estimated_time_left: None,
+        estimated_time_left_str: None,
+    })
 }
 
 pub async fn get_balance(
@@ -140,6 +219,47 @@ pub async fn get_balance(
         deposit_balance,
         block_number,
     })
+}
+
+pub struct Web3BlockInfo {
+    pub block_number: u64,
+    pub block_date: chrono::DateTime<chrono::Utc>,
+}
+
+pub async fn get_latest_block_info(web3: Arc<Web3RpcPool>) -> Result<Web3BlockInfo, PaymentError> {
+    let block_info = web3
+        .eth_block(BlockId::Number(BlockNumber::Latest))
+        .await
+        .map_err(err_from!())?
+        .ok_or(err_custom_create!("Cannot found block_info"))?;
+
+    let block_number = block_info
+        .number
+        .ok_or(err_custom_create!(
+            "Failed to found block number in block info",
+        ))?
+        .as_u64();
+
+    let block_date = datetime_from_u256_timestamp(block_info.timestamp).ok_or(
+        err_custom_create!("Failed to found block date in block info"),
+    )?;
+
+    Ok(Web3BlockInfo {
+        block_number,
+        block_date,
+    })
+}
+
+pub fn average_block_time(web3: &Web3RpcPool) -> Option<u32> {
+    if web3.chain_id == 1 || web3.chain_id == 5 || web3.chain_id == 17000 {
+        Some(12)
+    } else if web3.chain_id == 137 || web3.chain_id == 80001 {
+        Some(2)
+    } else if web3.chain_id == 987789 {
+        Some(5)
+    } else {
+        None
+    }
 }
 
 pub(crate) async fn get_transaction_count(

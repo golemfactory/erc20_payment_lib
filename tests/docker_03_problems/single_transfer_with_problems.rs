@@ -109,6 +109,8 @@ async fn test_gas_transfer(error_probability: f64) -> Result<(), anyhow::Error> 
                 Some("test_payment"),
                 None,
                 U256::from(456000000000000222_u128),
+                None,
+                false,
             )
         ).await?;
 

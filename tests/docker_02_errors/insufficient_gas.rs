@@ -81,6 +81,8 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
                 Some("test_payment"),
                 None,
                 U256::from(2345678_u128),
+                None,
+                false
             )
         ).await?;
 

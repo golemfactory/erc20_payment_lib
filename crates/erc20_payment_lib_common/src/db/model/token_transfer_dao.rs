@@ -11,6 +11,10 @@ pub struct TokenTransferDao {
     pub chain_id: i64,
     pub token_addr: Option<String>,
     pub token_amount: String,
+    /// If set payment done from internal allocation
+    pub allocation_id: Option<String>,
+    /// Information if using internal contract account 0 - false, 1 - true
+    pub use_internal: i64,
     /// The time when the record is inserted into the database
     /// It is overriden when inserting new entry to db
     pub create_date: DateTime<Utc>,

@@ -83,6 +83,17 @@ pub fn encode_erc20_approve(
     contract_encode(&ERC20_CONTRACT_TEMPLATE, "approve", (spender, amount))
 }
 
+pub fn encode_payout_multiple_internal(
+    allocation_id: u32,
+    packed: Vec<[u8; 32]>,
+) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(
+        &LOCK_CONTRACT_TEMPLATE,
+        "payoutMultipleInternal",
+        (allocation_id, packed),
+    )
+}
+
 pub fn encode_multi_direct(
     recipients: Vec<Address>,
     amounts: Vec<U256>,
@@ -126,6 +137,85 @@ pub fn encode_multi_indirect_packed(
 
 pub fn encode_deposit_to_lock(amount: U256) -> Result<Vec<u8>, web3::ethabi::Error> {
     contract_encode(&LOCK_CONTRACT_TEMPLATE, "deposit", (amount,))
+}
+
+pub struct CreateAllocationInternalArgs {
+    pub allocation_id: u32,
+    pub allocation_spender: Address,
+    pub allocation_amount: U256,
+    pub allocation_fee_amount: U256,
+    pub allocation_block_no: u32,
+}
+
+pub fn encode_free_allocation(allocation_id: u32) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(&LOCK_CONTRACT_TEMPLATE, "freeAllocation", (allocation_id,))
+}
+
+pub fn encode_create_allocation_internal(
+    allocation_args: CreateAllocationInternalArgs,
+) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(
+        &LOCK_CONTRACT_TEMPLATE,
+        "createAllocationInternal",
+        (
+            allocation_args.allocation_id,
+            allocation_args.allocation_spender,
+            allocation_args.allocation_amount,
+            allocation_args.allocation_fee_amount,
+            allocation_args.allocation_block_no,
+        ),
+    )
+}
+
+pub struct CreateAllocationArgs {
+    pub allocation_id: u32,
+    pub allocation_spender: Address,
+    pub allocation_amount: U256,
+    pub allocation_fee_amount: U256,
+    pub allocation_block_no: u32,
+}
+
+pub fn encode_create_allocation(
+    allocation_args: CreateAllocationArgs,
+) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(
+        &LOCK_CONTRACT_TEMPLATE,
+        "createAllocation",
+        (
+            allocation_args.allocation_id,
+            allocation_args.allocation_spender,
+            allocation_args.allocation_amount,
+            allocation_args.allocation_fee_amount,
+            allocation_args.allocation_block_no,
+        ),
+    )
+}
+pub fn encode_payout_single(
+    id: u32,
+    recipient: Address,
+    amount: U256,
+) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(
+        &LOCK_CONTRACT_TEMPLATE,
+        "payoutSingle",
+        (id, recipient, amount),
+    )
+}
+
+pub fn encode_payout_single_internal(
+    id: u32,
+    recipient: Address,
+    amount: U256,
+) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(
+        &LOCK_CONTRACT_TEMPLATE,
+        "payoutSingleInternal",
+        (id, recipient, amount),
+    )
+}
+
+pub fn encode_get_allocation_details(id: u32) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(&LOCK_CONTRACT_TEMPLATE, "lockedAmounts", (id,))
 }
 
 pub fn withdraw_from_lock(amount: U256) -> Result<Vec<u8>, web3::ethabi::Error> {

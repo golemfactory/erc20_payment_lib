@@ -87,6 +87,8 @@ async fn test_wrong_chain_id() -> Result<(), anyhow::Error> {
                 Some("test_payment"),
                 None,
                 U256::from(456000000000000222_u128),
+                None,
+                false
             )
         ).await?;
 

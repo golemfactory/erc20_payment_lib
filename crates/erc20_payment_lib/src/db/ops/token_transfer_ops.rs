@@ -19,10 +19,10 @@ pub async fn insert_token_transfer<'c, E>(
 where
     E: Executor<'c, Database = Sqlite>,
 {
-    let res = sqlx::query_as::<_, TokenTransferDao>(
+    sqlx::query_as::<_, TokenTransferDao>(
         r"INSERT INTO token_transfer
-(payment_id, from_addr, receiver_addr, chain_id, token_addr, token_amount, create_date, tx_id, paid_date, fee_paid, error)
-VALUES ($1, $2, $3, $4, $5, $6, strftime('%Y-%m-%dT%H:%M:%f', 'now'), $7, $8, $9, $10) RETURNING *;
+(payment_id, from_addr, receiver_addr, chain_id, token_addr, token_amount, allocation_id, use_internal, create_date, tx_id, paid_date, fee_paid, error)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, strftime('%Y-%m-%dT%H:%M:%f', 'now'), $9, $10, $11, $12) RETURNING *;
 ",
     )
     .bind(&token_transfer.payment_id)
@@ -31,13 +31,14 @@ VALUES ($1, $2, $3, $4, $5, $6, strftime('%Y-%m-%dT%H:%M:%f', 'now'), $7, $8, $9
     .bind(token_transfer.chain_id)
     .bind(&token_transfer.token_addr)
     .bind(&token_transfer.token_amount)
+    .bind(&token_transfer.allocation_id)
+    .bind(token_transfer.use_internal)
     .bind(token_transfer.tx_id)
     .bind(token_transfer.paid_date)
     .bind(&token_transfer.fee_paid)
     .bind(&token_transfer.error)
     .fetch_one(executor)
-    .await?;
-    Ok(res)
+    .await
 }
 
 pub async fn remap_token_transfer_tx<'c, E>(
@@ -95,10 +96,12 @@ receiver_addr = $4,
 chain_id = $5,
 token_addr = $6,
 token_amount = $7,
-tx_id = $8,
-paid_date = $9,
-fee_paid = $10,
-error = $11
+allocation_id = $8,
+use_internal = $9,
+tx_id = $10,
+paid_date = $11,
+fee_paid = $12,
+error = $13
 WHERE id = $1
 ",
     )
@@ -109,6 +112,8 @@ WHERE id = $1
     .bind(token_transfer.chain_id)
     .bind(&token_transfer.token_addr)
     .bind(&token_transfer.token_amount)
+    .bind(&token_transfer.allocation_id)
+    .bind(token_transfer.use_internal)
     .bind(token_transfer.tx_id)
     .bind(token_transfer.paid_date)
     .bind(&token_transfer.fee_paid)

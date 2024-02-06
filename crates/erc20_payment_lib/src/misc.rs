@@ -86,6 +86,8 @@ pub fn generate_transaction_batch<'a>(
                 Some(&payment_id),
                 token_addr,
                 amount,
+                None,
+                false,
             );
             Ok((transfer_no, token_transfer))
         }
@@ -153,7 +155,7 @@ pub fn load_public_addresses(str: &str) -> Result<Vec<Address>, PaymentError> {
 }
 
 pub fn display_private_keys(keys: &[SecretKey]) {
-    let mut account_no = 1;
+    let mut account_no = 0;
     if keys.is_empty() {
         log::info!("No Eth accounts loaded");
     } else {
