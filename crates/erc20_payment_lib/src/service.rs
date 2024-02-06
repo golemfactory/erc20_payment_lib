@@ -1,8 +1,8 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
-use crate::db::ops::*;
 use crate::error::{ErrorBag, PaymentError};
+use erc20_payment_lib_common::ops::*;
 
 use crate::transaction::find_receipt_extended;
 use crate::utils::{ConversionError, U256ConvExt};

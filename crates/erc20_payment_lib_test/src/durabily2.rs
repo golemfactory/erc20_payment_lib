@@ -3,7 +3,7 @@ use crate::{
     test_get_balance,
 };
 use erc20_payment_lib::config::AdditionalOptions;
-use erc20_payment_lib::db::ops::get_transfer_stats;
+use erc20_payment_lib_common::ops::get_transfer_stats;
 
 use erc20_payment_lib::misc::load_private_keys;
 use erc20_payment_lib::runtime::{PaymentRuntime, PaymentRuntimeArgs};

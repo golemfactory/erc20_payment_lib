@@ -1,4 +1,4 @@
-use erc20_payment_lib_common::model::TransferInDao;
+use super::model::TransferInDao;
 use sqlx::SqlitePool;
 
 pub async fn insert_transfer_in(

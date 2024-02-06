@@ -1,9 +1,3 @@
-use crate::db::create_sqlite_connection;
-use crate::db::ops::{
-    cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx,
-    get_transaction_chain, get_transactions, get_unpaid_token_transfers, insert_token_transfer,
-    insert_tx,
-};
 use crate::signer::Signer;
 use crate::transaction::{
     create_faucet_mint, create_free_allocation, create_free_allocation_internal,
@@ -11,6 +5,12 @@ use crate::transaction::{
     create_make_allocation_internal, create_token_transfer, find_receipt_extended,
 };
 use crate::{err_custom_create, err_from};
+use erc20_payment_lib_common::create_sqlite_connection;
+use erc20_payment_lib_common::ops::{
+    cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx,
+    get_transaction_chain, get_transactions, get_unpaid_token_transfers, insert_token_transfer,
+    insert_tx,
+};
 use std::collections::BTreeMap;
 use std::ops::DerefMut;
 use std::path::PathBuf;

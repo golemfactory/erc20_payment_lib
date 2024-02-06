@@ -6,6 +6,7 @@ mod token_transfer_ops;
 mod transfer_in_ops;
 mod tx_ops;
 
+use super::model;
 pub use allowance_ops::*;
 pub use chain_transfer_ops::*;
 pub use chain_tx_ops::*;

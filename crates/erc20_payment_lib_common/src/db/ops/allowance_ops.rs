@@ -1,4 +1,4 @@
-use erc20_payment_lib_common::model::AllowanceDao;
+use super::model::AllowanceDao;
 use sqlx::Executor;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;

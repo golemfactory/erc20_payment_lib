@@ -1,4 +1,4 @@
-use erc20_payment_lib_common::model::ScanDao;
+use super::model::ScanDao;
 use sqlx::{Executor, Sqlite};
 
 pub async fn get_scan_info<'c, E>(
@@ -60,7 +60,7 @@ VALUES ($1, $2, $3, $4) RETURNING *;
 async fn tx_chain_test() -> sqlx::Result<()> {
     println!("Start tx_chain_test...");
 
-    use crate::db::create_sqlite_connection;
+    use crate::create_sqlite_connection;
     let conn = create_sqlite_connection(None, None, false, true)
         .await
         .unwrap();

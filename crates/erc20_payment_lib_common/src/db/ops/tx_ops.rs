@@ -1,4 +1,4 @@
-use erc20_payment_lib_common::model::TxDao;
+use super::model::TxDao;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
 use sqlx::{Executor, Transaction};
@@ -316,7 +316,7 @@ WHERE id = $1
 async fn tx_test() -> sqlx::Result<()> {
     println!("Start tx_test...");
 
-    use crate::db::create_sqlite_connection;
+    use crate::create_sqlite_connection;
     let conn = create_sqlite_connection(None, None, false, true)
         .await
         .unwrap();
