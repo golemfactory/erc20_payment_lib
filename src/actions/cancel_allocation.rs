@@ -1,8 +1,8 @@
 use erc20_payment_lib::config::Config;
-use erc20_payment_lib_common::error::PaymentError;
 use erc20_payment_lib::runtime::{cancel_allocation, CancelAllocationOptionsInt};
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib_common::err_custom_create;
+use erc20_payment_lib_common::error::PaymentError;
 use sqlx::SqlitePool;
 use structopt::StructOpt;
 use web3::types::Address;

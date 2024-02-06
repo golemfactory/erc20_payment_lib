@@ -1,9 +1,9 @@
 use crate::options::WithdrawTokensOptions;
 use erc20_payment_lib::config::Config;
-use erc20_payment_lib_common::error::PaymentError;
 use erc20_payment_lib::runtime::withdraw_funds;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib_common::err_custom_create;
+use erc20_payment_lib_common::error::PaymentError;
 use sqlx::SqlitePool;
 use web3::types::Address;
 
