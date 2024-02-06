@@ -9,7 +9,6 @@ license = "MIT"
 [dependencies]
 actix-files = { workspace = true }
 actix-web = { workspace = true }
-async-trait = { workspace = true }
 awc = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 dotenv = { workspace = true }

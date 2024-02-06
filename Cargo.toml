@@ -30,7 +30,6 @@ actix-web = { version = "4", default-features = false, features = [
 ] }
 actix-web-actors = { version = "4", default-features = false }
 anyhow = "1"
-async-trait = "0.1"
 awc = { version = "3.1", features = ["rustls"] }
 base64 = "0.21"
 bollard = "0.14"
@@ -82,7 +81,6 @@ actix-cors = { workspace = true }
 actix-files = { workspace = true }
 actix-web = { workspace = true }
 anyhow = { workspace = true }
-async-trait = { workspace = true }
 awc = { workspace = true }
 chrono = { workspace = true }
 csv = { workspace = true }

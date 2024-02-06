@@ -1,9 +1,9 @@
 use crate::options::CheckAllocationOptions;
 use erc20_payment_lib::config::Config;
-use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib::runtime::allocation_details;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib_common::err_custom_create;
+use erc20_payment_lib_common::error::PaymentError;
 
 pub async fn allocation_details_local(
     check_allocation_options: CheckAllocationOptions,

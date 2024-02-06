@@ -22,7 +22,7 @@ pub struct GetBalanceResult {
     pub block_number: u64,
 }
 
-pub async fn get_deposit_balance(
+pub(crate) async fn get_deposit_balance(
     web3: Arc<Web3RpcPool>,
     lock_address: Address,
     address: Address,
@@ -262,7 +262,7 @@ pub fn average_block_time(web3: &Web3RpcPool) -> Option<u32> {
     }
 }
 
-pub async fn get_transaction_count(
+pub(crate) async fn get_transaction_count(
     address: Address,
     web3: Arc<Web3RpcPool>,
     pending: bool,
@@ -277,7 +277,7 @@ pub async fn get_transaction_count(
     Ok(nonce.as_u64())
 }
 
-pub fn get_eth_addr_from_secret(secret_key: &SecretKey) -> Address {
+pub(crate) fn get_eth_addr_from_secret(secret_key: &SecretKey) -> Address {
     Address::from_slice(
         &Keccak256::digest(
             &PublicKey::from_secret_key(&secp256k1::Secp256k1::new(), secret_key)

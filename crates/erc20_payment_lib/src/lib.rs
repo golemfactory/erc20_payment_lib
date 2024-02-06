@@ -1,19 +1,18 @@
+mod account_balance;
 pub mod config;
-pub mod contracts;
+mod contracts;
 pub mod db;
 pub mod eth;
-pub mod misc;
-pub mod multi;
-pub mod runtime;
-pub mod service;
-pub mod setup;
-pub mod transaction;
-//@todo - add feature
-pub mod account_balance;
 pub mod faucet_client;
+pub mod misc;
+mod multi;
+pub mod runtime;
 mod sender;
 pub mod server;
+pub mod service;
+pub mod setup;
 pub mod signer;
+pub mod transaction;
 
-pub use erc20_payment_lib_common::*;
+use erc20_payment_lib_common::*;
 pub use sender::process_allowance;

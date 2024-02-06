@@ -1,7 +1,7 @@
 use crate::options::CheckWeb3RpcOptions;
 use erc20_payment_lib::config::Config;
-use erc20_payment_lib::error::PaymentError;
 use erc20_payment_lib_common::err_custom_create;
+use erc20_payment_lib_common::error::PaymentError;
 use erc20_rpc_pool::{
     resolve_txt_record_to_string_array, Web3EndpointParams, Web3ExternalEndpointList, Web3RpcPool,
     Web3RpcSingleParams,
