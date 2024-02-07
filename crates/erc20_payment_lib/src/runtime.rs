@@ -57,9 +57,7 @@ pub struct SharedState {
     pub faucet: Option<FaucetData>,
     pub inserted: usize,
     pub idling: bool,
-    pub external_gather_time: Option<DateTime<Utc>>,
 
-    #[serde(skip)]
     pub accounts: Vec<SignerAccount>,
 }
 
@@ -453,10 +451,7 @@ impl PaymentRuntime {
         let accounts = payment_runtime_args
             .secret_keys
             .iter()
-            .map(|s| SignerAccount {
-                address: get_eth_addr_from_secret(s),
-                signer: signer.clone(),
-            })
+            .map(|s| SignerAccount::new(get_eth_addr_from_secret(s), signer.clone()))
             .collect::<Vec<SignerAccount>>();
 
         let shared_state = Arc::new(std::sync::Mutex::new(SharedState {
@@ -465,7 +460,6 @@ impl PaymentRuntime {
             idling: false,
             current_tx_info: BTreeMap::new(),
             faucet: None,
-            external_gather_time: None,
             web3_pool_ref: web3_rpc_pool_info.clone(),
         }));
 
@@ -682,7 +676,11 @@ impl PaymentRuntime {
         Ok(gas_balance)
     }
 
-    pub async fn transfer(&self, transfer_args: TransferArgs) -> Result<(), PaymentError> {
+    pub async fn transfer(
+        &self,
+        account: &SignerAccount,
+        transfer_args: TransferArgs,
+    ) -> Result<(), PaymentError> {
         let chain_cfg =
             self.config
                 .chain
@@ -717,15 +715,13 @@ impl PaymentRuntime {
 
         if !self.setup.ignore_deadlines {
             if let Some(deadline) = transfer_args.deadline {
-                let mut s = self.shared_state.lock().unwrap();
-
-                let new_time = s
-                    .external_gather_time
+                let mut ext_gath_time_guard = account.external_gather_time.lock().unwrap();
+                let new_time = ext_gath_time_guard
                     .map(|t| t.min(deadline))
                     .unwrap_or(deadline);
 
-                if Some(new_time) != s.external_gather_time {
-                    s.external_gather_time = Some(new_time);
+                if Some(new_time) != *ext_gath_time_guard {
+                    *ext_gath_time_guard = Some(new_time);
                     self.wake.notify_one();
                 }
             }

@@ -12,7 +12,7 @@ use crate::runtime::{send_driver_event, SharedState};
 use crate::sender::batching::{gather_transactions_post, gather_transactions_pre};
 use crate::sender::process_allowance;
 use crate::setup::PaymentSetup;
-use crate::signer::Signer;
+use crate::signer::{Signer, SignerAccount};
 use crate::{err_create, err_custom_create, err_from};
 use erc20_payment_lib_common::model::TxDbObj;
 use erc20_payment_lib_common::{DriverEvent, DriverEventContent, TransactionFinishedInfo};
@@ -389,17 +389,14 @@ pub async fn process_transactions(
 }
 
 fn get_next_gather_time(
-    shared_state: Arc<std::sync::Mutex<SharedState>>,
+    account: &SignerAccount,
     last_gather_time: chrono::DateTime<chrono::Utc>,
     gather_transactions_interval: i64,
 ) -> chrono::DateTime<chrono::Utc> {
-    let shared_state = shared_state.lock().unwrap();
-    let external_gather_time = shared_state.external_gather_time;
-
     let next_gather_time =
         last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
 
-    if let Some(external_gather_time) = external_gather_time {
+    if let Some(external_gather_time) = *account.external_gather_time.lock().unwrap() {
         std::cmp::min(external_gather_time, next_gather_time)
     } else {
         next_gather_time
@@ -407,32 +404,31 @@ fn get_next_gather_time(
 }
 
 fn get_next_gather_time_and_clear_if_success(
-    shared_state: Arc<std::sync::Mutex<SharedState>>,
+    account: &SignerAccount,
     last_gather_time: chrono::DateTime<chrono::Utc>,
     gather_transactions_interval: i64,
 ) -> Option<chrono::DateTime<chrono::Utc>> {
-    let mut shared_state = shared_state.lock().unwrap();
-    let external_gather_time = shared_state.external_gather_time;
+    let mut external_gather_time_guard = account.external_gather_time.lock().unwrap();
 
     let next_gather_time =
         last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
 
-    let next_gather_time = if let Some(external_gather_time) = external_gather_time {
+    let next_gather_time = if let Some(external_gather_time) = *external_gather_time_guard {
         std::cmp::min(external_gather_time, next_gather_time)
     } else {
         next_gather_time
     };
 
     if chrono::Utc::now() >= next_gather_time {
-        shared_state.external_gather_time = None;
+        *external_gather_time_guard = None;
         return None;
     }
     Some(next_gather_time)
 }
 
 async fn sleep_for_gather_time_or_report_alive(
+    account: &SignerAccount,
     wake: Arc<Notify>,
-    shared_state: Arc<std::sync::Mutex<SharedState>>,
     last_gather_time: chrono::DateTime<chrono::Utc>,
     payment_setup: PaymentSetup,
 ) {
@@ -441,11 +437,8 @@ async fn sleep_for_gather_time_or_report_alive(
     loop {
         let current_time = chrono::Utc::now();
         let already_slept = current_time - started_sleep;
-        let next_gather_time = get_next_gather_time(
-            shared_state.clone(),
-            last_gather_time,
-            gather_transactions_interval,
-        );
+        let next_gather_time =
+            get_next_gather_time(account, last_gather_time, gather_transactions_interval);
         if current_time >= next_gather_time {
             break;
         }
@@ -547,7 +540,7 @@ pub async fn service_loop(
         //we should be here only when all pending transactions are processed
 
         let next_gather_time = get_next_gather_time_and_clear_if_success(
-            shared_state.clone(),
+            &signer_account,
             last_gather_time,
             gather_transactions_interval,
         );
@@ -564,8 +557,8 @@ pub async fn service_loop(
                     ))
                 );
                 sleep_for_gather_time_or_report_alive(
+                    &signer_account,
                     wake.clone(),
-                    shared_state.clone(),
                     last_gather_time,
                     payment_setup.clone(),
                 )

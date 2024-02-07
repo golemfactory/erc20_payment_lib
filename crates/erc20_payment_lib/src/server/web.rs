@@ -617,7 +617,28 @@ async fn new_transfer(
         use_internal: new_transfer.use_internal,
     };
 
-    if let Err(err) = data.payment_runtime.transfer(transfer_args.clone()).await {
+    let account = match data
+        .shared_state
+        .lock()
+        .unwrap()
+        .accounts
+        .iter()
+        .find(|acc| acc.address == transfer_args.from)
+    {
+        Some(acc) => acc.clone(),
+        None => {
+            return Err(actix_web::error::ErrorBadRequest(format!(
+                "Account not found: {:#x}",
+                transfer_args.from
+            )));
+        }
+    };
+
+    if let Err(err) = data
+        .payment_runtime
+        .transfer(&account, transfer_args.clone())
+        .await
+    {
         return Err(actix_web::error::ErrorInternalServerError(format!(
             "Failed to create transfer: {}",
             err
