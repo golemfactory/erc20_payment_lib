@@ -19,7 +19,7 @@ use erc20_payment_lib_common::{DriverEvent, DriverEventContent, TransactionFinis
 use sqlx::SqlitePool;
 use tokio::select;
 use tokio::time::Instant;
-use web3::types::U256;
+use web3::types::{Address, U256};
 
 pub async fn update_token_transfer_result(
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
@@ -472,10 +472,10 @@ async fn sleep_for_gather_time_or_report_alive(
 
 pub async fn service_loop(
     shared_state: Arc<std::sync::Mutex<SharedState>>,
+    account: Address,
     wake: Arc<tokio::sync::Notify>,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
-    signer: Arc<Box<dyn Signer + Send + Sync + 'static>>,
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
 ) {
     let gather_transactions_interval = payment_setup.gather_interval as i64;
@@ -504,6 +504,20 @@ pub async fn service_loop(
     loop {
         log::debug!("Sender service loop - start loop");
         metrics::counter!(metric_label_start, 1);
+        let signer_account = match shared_state
+            .lock()
+            .unwrap()
+            .accounts
+            .iter()
+            .find(|acc| acc.address == account)
+        {
+            Some(acc) => acc.clone(),
+            None => {
+                log::warn!("Account {:#x} not found in accounts, exiting...", account);
+                break;
+            }
+        };
+
         let current_time = chrono::Utc::now();
         let current_time_inst = Instant::now();
         if let Some(_last_stats_time) = last_stats_time {
@@ -519,7 +533,7 @@ pub async fn service_loop(
             shared_state.clone(),
             conn,
             payment_setup,
-            signer.clone(),
+            signer_account.signer.clone(),
         )
         .await
         {
@@ -607,7 +621,7 @@ pub async fn service_loop(
                             conn,
                             payment_setup,
                             allowance_request,
-                            signer.clone(),
+                            signer_account.signer.clone(),
                             event_sender.as_ref(),
                         )
                         .await

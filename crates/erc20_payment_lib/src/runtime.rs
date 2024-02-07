@@ -457,10 +457,10 @@ impl PaymentRuntime {
                 address: get_eth_addr_from_secret(s),
                 signer: signer.clone(),
             })
-            .collect();
+            .collect::<Vec<SignerAccount>>();
 
         let shared_state = Arc::new(std::sync::Mutex::new(SharedState {
-            accounts,
+            accounts: accounts.clone(),
             inserted: 0,
             idling: false,
             current_tx_info: BTreeMap::new(),
@@ -469,67 +469,73 @@ impl PaymentRuntime {
             web3_pool_ref: web3_rpc_pool_info.clone(),
         }));
 
-        let shared_state_clone = shared_state.clone();
-        let conn_ = conn.clone();
-
         let notify = Arc::new(Notify::new());
-        let notify_ = notify.clone();
-        let extra_testing_ = payment_runtime_args.extra_testing.clone();
-        let config_ = payment_runtime_args.config.clone();
-        let jh = tokio::task::spawn(async move {
-            if let Some(balance_check_loop) =
-                extra_testing_.clone().and_then(|e| e.balance_check_loop)
-            {
-                if config_.chain.values().len() != 1 {
-                    panic!("balance_check_loop can be used only with single chain");
-                }
-                let config_chain = config_.chain.values().next().unwrap().clone();
-                let balance_options = BalanceOptions2 {
-                    chain_name: "dev".to_string(),
-                    //dead address
-                    accounts: Some("0x2000000000000000000000000000000000000000".to_string()),
-                    hide_gas: false,
-                    hide_token: true,
-                    block_number: None,
-                    tasks: 0,
-                    interval: Some(2.0),
-                    debug_loop: Some(balance_check_loop),
-                };
-                match test_balance_loop(
-                    Some(shared_state_clone),
-                    ps.clone(),
-                    balance_options,
-                    &config_chain,
-                )
-                .await
+
+        let mut tasks = Vec::new();
+        for addr in accounts {
+            let raw_event_sender = raw_event_sender.clone();
+            let shared_state_clone = shared_state.clone();
+            let notify_ = notify.clone();
+            let extra_testing_ = payment_runtime_args.extra_testing.clone();
+            let config_ = payment_runtime_args.config.clone();
+            let ps = ps.clone();
+            let conn_ = conn.clone();
+            let jh = tokio::task::spawn(async move {
+                if let Some(balance_check_loop) =
+                    extra_testing_.clone().and_then(|e| e.balance_check_loop)
                 {
-                    Ok(_) => {
-                        log::info!("Balance debug loop finished");
+                    if config_.chain.values().len() != 1 {
+                        panic!("balance_check_loop can be used only with single chain");
                     }
-                    Err(e) => {
-                        log::error!("Balance debug loop finished with error: {}", e);
-                        panic!("Balance debug loop finished with error: {}", e);
+                    let config_chain = config_.chain.values().next().unwrap().clone();
+                    let balance_options = BalanceOptions2 {
+                        chain_name: "dev".to_string(),
+                        //dead address
+                        accounts: Some("0x2000000000000000000000000000000000000000".to_string()),
+                        hide_gas: false,
+                        hide_token: true,
+                        block_number: None,
+                        tasks: 0,
+                        interval: Some(2.0),
+                        debug_loop: Some(balance_check_loop),
+                    };
+                    match test_balance_loop(
+                        Some(shared_state_clone),
+                        ps.clone(),
+                        balance_options,
+                        &config_chain,
+                    )
+                    .await
+                    {
+                        Ok(_) => {
+                            log::info!("Balance debug loop finished");
+                        }
+                        Err(e) => {
+                            log::error!("Balance debug loop finished with error: {}", e);
+                            panic!("Balance debug loop finished with error: {}", e);
+                        }
                     }
+                    return;
                 }
-                return;
-            }
-            if options.skip_service_loop && options.keep_running {
-                log::warn!("Started with skip_service_loop and keep_running, no transaction will be sent or processed");
-                loop {
-                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                if options.skip_service_loop && options.keep_running {
+                    log::warn!("Started with skip_service_loop and keep_running, no transaction will be sent or processed");
+                    loop {
+                        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                    }
+                } else {
+                    service_loop(
+                        shared_state_clone,
+                        addr.address,
+                        notify_,
+                        &conn_,
+                        &ps,
+                        Some(raw_event_sender),
+                    )
+                    .await
                 }
-            } else {
-                service_loop(
-                    shared_state_clone,
-                    notify_,
-                    &conn_,
-                    &ps,
-                    signer,
-                    Some(raw_event_sender),
-                )
-                .await
-            }
-        });
+            });
+            tasks.push(jh);
+        }
 
         /* - use this to test notifies
         let notify_ = notify.clone();
@@ -542,7 +548,7 @@ impl PaymentRuntime {
          */
 
         Ok(PaymentRuntime {
-            runtime_handle: jh,
+            runtime_handle: tasks.into_iter().next().unwrap(),
             setup: payment_setup,
             shared_state,
             wake: notify,
