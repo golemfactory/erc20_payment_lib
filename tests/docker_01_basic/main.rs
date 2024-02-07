@@ -1,9 +1,9 @@
 use erc20_payment_lib_test::test_durability;
 
+mod multi_account_erc20_transfer;
 mod multi_account_gas_transfer;
 mod single_erc20_transfer;
 mod single_gas_transfer;
-mod multi_account_erc20_transfer;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_durability_1() -> Result<(), anyhow::Error> {
