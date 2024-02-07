@@ -1,5 +1,6 @@
 use erc20_payment_lib_test::test_durability;
 
+mod multi_account_gas_transfer;
 mod single_erc20_transfer;
 mod single_gas_transfer;
 
