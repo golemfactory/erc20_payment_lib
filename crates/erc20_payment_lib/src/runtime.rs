@@ -1,4 +1,4 @@
-use crate::signer::{PaymentAccount, Signer};
+use crate::signer::{Signer, SignerAccount};
 use crate::transaction::{
     create_faucet_mint, create_free_allocation, create_free_allocation_internal,
     create_lock_deposit, create_lock_withdraw, create_make_allocation,
@@ -60,7 +60,7 @@ pub struct SharedState {
     pub external_gather_time: Option<DateTime<Utc>>,
 
     #[serde(skip)]
-    pub accounts: Vec<PaymentAccount>,
+    pub accounts: Vec<SignerAccount>,
 }
 
 impl SharedState {
@@ -453,7 +453,7 @@ impl PaymentRuntime {
         let accounts = payment_runtime_args
             .secret_keys
             .iter()
-            .map(|s| PaymentAccount {
+            .map(|s| SignerAccount {
                 address: get_eth_addr_from_secret(s),
                 signer: signer.clone(),
             })
@@ -554,7 +554,7 @@ impl PaymentRuntime {
         })
     }
 
-    pub async fn add_account(&self, payment_account: PaymentAccount) {
+    pub async fn add_account(&self, payment_account: SignerAccount) {
         log::info!("Adding account: {}", payment_account);
         let mut sh = self.shared_state.lock().unwrap();
 

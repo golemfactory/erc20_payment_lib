@@ -12,24 +12,24 @@ use tokio::time::timeout;
 use web3::types::{Address, SignedTransaction, TransactionParameters, H160};
 
 #[derive(Clone)]
-pub struct PaymentAccount {
+pub struct SignerAccount {
     pub address: Address,
     pub signer: Arc<Box<dyn Signer + Send + Sync>>,
 }
 
-impl Debug for PaymentAccount {
+impl Debug for SignerAccount {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "PaymentAccount {{ address: {:#x} }}", self.address)
+        write!(f, "SignerAccount {{ address: {:#x} }}", self.address)
     }
 }
 
-impl Display for PaymentAccount {
+impl Display for SignerAccount {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:#x}", self.address)
     }
 }
 
-impl PaymentAccount {
+impl SignerAccount {
     pub fn new(address: H160, signer: Arc<Box<dyn Signer + Send + Sync>>) -> Self {
         Self { address, signer }
     }
