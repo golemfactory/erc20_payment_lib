@@ -72,7 +72,7 @@ async fn transfer_to_null() -> Result<(), anyhow::Error> {
             },
             Arc::new(Box::new(signer)),
         ).await.unwrap();
-        sp.runtime_handle.await?;
+        sp.join_tasks().await?;
     };
 
     receiver_loop.await.unwrap().unwrap();

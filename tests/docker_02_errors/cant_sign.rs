@@ -89,9 +89,8 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
             Arc::new(Box::new(signer)),
         ).await.unwrap();
 
-        let abort_handle = sp.runtime_handle.abort_handle();
         receiver_loop.await.unwrap().unwrap();
-        abort_handle.abort();
+        sp.abort_tasks();
     };
 
     Ok(())

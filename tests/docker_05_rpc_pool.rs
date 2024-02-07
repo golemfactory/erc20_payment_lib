@@ -125,7 +125,7 @@ async fn test_rpc_pool() -> Result<(), anyhow::Error> {
             },
             Arc::new(Box::new(signer)),
         ).await?;
-        sp.runtime_handle.await?;
+        sp.join_tasks().await?;
     };
 
     #[allow(clippy::bool_assert_comparison)]

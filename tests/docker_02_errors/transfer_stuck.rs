@@ -105,7 +105,7 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
             },
             Arc::new(Box::new(signer)),
         ).await?;
-        sp.runtime_handle.await?;
+        sp.join_tasks().await?;
     }
 
     {

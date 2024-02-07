@@ -133,7 +133,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
         ).await?;
 
         tokio::time::sleep(Duration::from_secs(5)).await;
-        sp.runtime_handle.abort();
+        sp.abort_tasks();
 
         config.chain.get_mut("dev").unwrap().priority_fee = Decimal::from_f64(0.01).unwrap();
         config.chain.get_mut("dev").unwrap().max_fee_per_gas = Decimal::from_f64(0.011).unwrap();
@@ -166,11 +166,11 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
 
         match scenario {
             Scenarios::FirstTransactionDone => {
-                sp.runtime_handle.await?;
+                sp.join_tasks().await?;
             }
             _ => {
                 tokio::time::sleep(Duration::from_secs(5)).await;
-                sp.runtime_handle.abort();
+                sp.abort_tasks();
             }
         }
 
@@ -202,7 +202,7 @@ async fn test_transfer_stuck_and_replaced(scenario: Scenarios) -> Result<(), any
             Arc::new(Box::new(signer3)),
         ).await?;
 
-        sp.runtime_handle.await?;
+        sp.join_tasks().await?;
         drop(sender);
     }
 

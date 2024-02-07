@@ -44,7 +44,7 @@ use rust_decimal::Decimal;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify};
-use tokio::task::JoinHandle;
+use tokio::task::{JoinError, JoinHandle};
 use web3::types::{Address, H256, U256};
 
 #[derive(Debug, Clone, Serialize)]
@@ -369,7 +369,7 @@ pub enum TransferType {
 }
 
 pub struct PaymentRuntime {
-    pub runtime_handle: JoinHandle<()>,
+    pub runtime_handles: Arc<std::sync::Mutex<Vec<JoinHandle<()>>>>,
     pub setup: PaymentSetup,
     pub shared_state: Arc<std::sync::Mutex<SharedState>>,
     pub wake: Arc<Notify>,
@@ -548,7 +548,7 @@ impl PaymentRuntime {
          */
 
         Ok(PaymentRuntime {
-            runtime_handle: tasks.into_iter().next().unwrap(),
+            runtime_handles: Arc::new(std::sync::Mutex::new(tasks)),
             setup: payment_setup,
             shared_state,
             wake: notify,
@@ -558,6 +558,45 @@ impl PaymentRuntime {
             driver_mpsc_sender,
             config: payment_runtime_args.config,
         })
+    }
+
+    fn get_and_remove_tasks(&self) -> Vec<JoinHandle<()>> {
+        let handles = {
+            let mut mutex_guard = self.runtime_handles.lock().unwrap();
+            let g: &mut Vec<JoinHandle<()>> = &mut mutex_guard;
+            std::mem::take(g)
+        };
+        handles
+    }
+
+    pub fn is_any_task_running(&self) -> bool {
+        let mutex_guard = self.runtime_handles.lock().unwrap();
+        mutex_guard.iter().any(|h| !h.is_finished())
+    }
+    pub fn is_any_task_finished(&self) -> bool {
+        let mutex_guard = self.runtime_handles.lock().unwrap();
+        mutex_guard.iter().any(|h| h.is_finished())
+    }
+
+    pub async fn join_tasks(&self) -> Result<(), JoinError> {
+        let handles = self.get_and_remove_tasks();
+        for handle in handles {
+            match handle.await {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("Task finished with error: {}", e);
+                    return Err(e);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn abort_tasks(&self) {
+        let handles = self.get_and_remove_tasks();
+        for handle in handles {
+            handle.abort();
+        }
     }
 
     pub async fn add_account(&self, payment_account: SignerAccount) {

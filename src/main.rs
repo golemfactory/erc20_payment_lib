@@ -251,7 +251,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
                 server.await.unwrap();
             } else {
-                sp.runtime_handle.await.unwrap();
+                sp.join_tasks().await.unwrap();
             }
             drop(broadcast_receiver);
         }

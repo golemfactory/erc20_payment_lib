@@ -114,7 +114,7 @@ async fn test_wrong_chain_id() -> Result<(), anyhow::Error> {
         //exit after some time
 
         tokio::time::sleep(Duration::from_secs(10)).await;
-        sp.runtime_handle.abort();
+        sp.abort_tasks();
     }
 
     {

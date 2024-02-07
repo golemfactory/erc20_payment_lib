@@ -128,7 +128,7 @@ pub async fn test_durability2(generate_count: u64, gen_interval_secs: f64, trans
                     },
                     Arc::new(Box::new(signer)),
                 ).await.unwrap();
-                sp.runtime_handle.await.unwrap();
+                sp.join_tasks().await.unwrap();
             }
         );
 
