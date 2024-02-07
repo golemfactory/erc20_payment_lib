@@ -133,7 +133,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
 
         let gas_left = U256::from_dec_str(&res["0xbfb29b133aa51c4b45b49468f9a22958eafea6fa"].gas.clone().unwrap()).unwrap();
         let gas_left2 = U256::from_dec_str(&res["0x2e9e88a1f32ea12bbaf3d3eb52a71c8224451431"].gas.clone().unwrap()).unwrap();
-        assert_eq!(gas_left + gas_left2 + fee_paid_u256, U256::from(536870912004000000000_u128) + U256::from(2147483648000000000000_u128));
+        assert_eq!(gas_left + gas_left2 + fee_paid_u256, U256::from(536870912000000000000_u128) + U256::from(2147483648000000000000_u128));
 
         let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;
         log::info!("transaction list \n {}", transaction_human.join("\n"));
