@@ -865,11 +865,9 @@ pub async fn mint_golem_token(
     }
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-    let filter = format!(
-        "from_addr=\"{:#x}\" AND method=\"FAUCET.create\" AND fee_paid is NULL",
-        from
-    );
-    let tx_existing = get_transactions(&mut *db_transaction, Some(&filter), None, None)
+    let filter = "method=\"FAUCET.create\" AND fee_paid is NULL";
+
+    let tx_existing = get_transactions(&mut *db_transaction, Some(from), Some(filter), None, None)
         .await
         .map_err(err_from!())?;
 
@@ -1254,11 +1252,8 @@ pub async fn deposit_funds(
     }
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-    let filter = format!(
-        "from_addr=\"{:#x}\" AND method=\"LOCK.deposit\" AND fee_paid is NULL",
-        from
-    );
-    let tx_existing = get_transactions(&mut *db_transaction, Some(&filter), None, None)
+    let filter = "method=\"LOCK.deposit\" AND fee_paid is NULL";
+    let tx_existing = get_transactions(&mut *db_transaction, Some(from), Some(filter), None, None)
         .await
         .map_err(err_from!())?;
 

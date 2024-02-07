@@ -18,6 +18,7 @@ use sqlx::SqlitePool;
 use tokio::sync::mpsc;
 
 use crate::runtime::send_driver_event;
+use crate::signer::SignerAccount;
 use erc20_payment_lib_common::model::TokenTransferDbObj;
 use erc20_payment_lib_common::{DriverEvent, DriverEventContent, TransactionFailedReason};
 use web3::types::{Address, U256};
@@ -50,12 +51,13 @@ pub struct TokenTransferMultiOrder {
 }
 
 pub async fn gather_transactions_pre(
+    account: &SignerAccount,
     conn: &SqlitePool,
     _payment_setup: &PaymentSetup,
 ) -> Result<TokenTransferMap, PaymentError> {
     let mut transfer_map = TokenTransferMap::new();
 
-    let mut token_transfers = get_pending_token_transfers(conn)
+    let mut token_transfers = get_pending_token_transfers(conn, account.address)
         .await
         .map_err(err_from!())?;
 

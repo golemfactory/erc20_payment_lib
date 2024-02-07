@@ -888,7 +888,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 }
             }
             if cleanup_options.remove_tx_stuck {
-                let mut transactions = get_next_transactions_to_process(&conn, 1)
+                let mut transactions = get_next_transactions_to_process(&conn, None, 1)
                     .await
                     .map_err(err_from!())?;
 
@@ -918,7 +918,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 }
             }
             if cleanup_options.remove_tx_unsafe {
-                let mut transactions = get_next_transactions_to_process(&conn, 1)
+                let mut transactions = get_next_transactions_to_process(&conn, None, 1)
                     .await
                     .map_err(err_from!())?;
 

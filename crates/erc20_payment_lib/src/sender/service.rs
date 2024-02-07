@@ -254,6 +254,7 @@ pub async fn update_tx_result(
 }
 
 pub async fn process_transactions(
+    signer_account: &SignerAccount,
     event_sender: Option<tokio::sync::mpsc::Sender<DriverEvent>>,
     shared_state: Arc<std::sync::Mutex<SharedState>>,
     conn: &SqlitePool,
@@ -264,9 +265,10 @@ pub async fn process_transactions(
 
     let mut current_wait_time_no_gas_token: f64 = 0.0;
     loop {
-        let mut transactions = get_next_transactions_to_process(conn, 1)
-            .await
-            .map_err(err_from!())?;
+        let mut transactions =
+            get_next_transactions_to_process(conn, Some(signer_account.address), 1)
+                .await
+                .map_err(err_from!())?;
 
         let Some(tx) = transactions.get_mut(0) else {
             log::debug!("No transactions to process, breaking from loop");
@@ -522,6 +524,7 @@ pub async fn service_loop(
         if payment_setup.generate_tx_only {
             log::warn!("Skipping processing transactions...");
         } else if let Err(e) = process_transactions(
+            &signer_account,
             event_sender.clone(),
             shared_state.clone(),
             conn,
@@ -569,21 +572,22 @@ pub async fn service_loop(
         metrics::counter!(metric_label_gather_pre, 1);
 
         log::debug!("Gathering payments...");
-        let mut token_transfer_map = match gather_transactions_pre(conn, payment_setup).await {
-            Ok(token_transfer_map) => token_transfer_map,
-            Err(e) => {
-                metrics::counter!(metric_label_gather_pre_error, 1);
-                log::error!(
+        let mut token_transfer_map =
+            match gather_transactions_pre(&signer_account, conn, payment_setup).await {
+                Ok(token_transfer_map) => token_transfer_map,
+                Err(e) => {
+                    metrics::counter!(metric_label_gather_pre_error, 1);
+                    log::error!(
                     "Error in gather transactions, driver will be stuck, Fix DB to continue {:?}",
                     e
                 );
-                tokio::time::sleep(std::time::Duration::from_secs(
-                    payment_setup.process_interval_after_error,
-                ))
-                .await;
-                continue;
-            }
-        };
+                    tokio::time::sleep(std::time::Duration::from_secs(
+                        payment_setup.process_interval_after_error,
+                    ))
+                    .await;
+                    continue;
+                }
+            };
         metrics::counter!(metric_label_gather_post, 1);
 
         match gather_transactions_post(
