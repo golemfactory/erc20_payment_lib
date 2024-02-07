@@ -6,6 +6,8 @@ interface TokenTransfer {
     receiverAddr: string;
     tokenAddr: string | null;
     tokenAmount: string;
+    useInternal: boolean;
+    allocationId: number | null;
 }
 
 export default TokenTransfer;
