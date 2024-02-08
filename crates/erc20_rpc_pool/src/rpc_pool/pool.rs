@@ -119,6 +119,8 @@ pub struct Web3RpcPool {
     pub external_dns_sources: Vec<Web3ExternalDnsSource>,
     pub last_external_check: Arc<Mutex<Option<std::time::Instant>>>,
     pub check_external_sources_interval: Duration,
+
+    pub last_verify_endpoints_spawn: Arc<Mutex<Option<std::time::Instant>>>,
 }
 
 pub async fn resolve_txt_record_to_string_array(record: &str) -> std::io::Result<Vec<String>> {
@@ -192,6 +194,7 @@ impl Web3RpcPool {
             external_dns_sources: dns_sources,
             last_external_check: Arc::new(Mutex::new(None)),
             check_external_sources_interval: external_sources_interval_check,
+            last_verify_endpoints_spawn: Arc::new(Mutex::new(None)),
         });
         if !s.external_json_sources.is_empty() || !s.external_dns_sources.is_empty() {
             tokio::spawn(s.clone().resolve_external_addresses());
@@ -495,10 +498,35 @@ impl Web3RpcPool {
             //todo change type system to allow that call
 
             let self_cloned = self.clone();
-            tokio::spawn(self_cloned.verify_unverified_endpoints());
+
+            let spawn_endpoints = if let Some(last_verify_endpoints_spawn) = self_cloned
+                .last_verify_endpoints_spawn
+                .try_lock_for(Duration::from_secs(5))
+                .unwrap()
+                .as_ref()
+            {
+                if last_verify_endpoints_spawn.elapsed() < Duration::from_secs(10) {
+                    false
+                } else {
+                    true
+                }
+            } else {
+                true
+            };
+
+            if spawn_endpoints {
+                self_cloned
+                    .last_verify_endpoints_spawn
+                    .try_lock_for(Duration::from_secs(5))
+                    .unwrap()
+                    .replace(std::time::Instant::now());
+                tokio::spawn(self_cloned.verify_unverified_endpoints());
+            }
+
             allowed_endpoints
         } else {
             let self_cloned = self.clone();
+            log::error!("Spawn tasks");
             let verify_task = tokio::spawn(self_cloned.verify_unverified_endpoints());
 
             loop {
