@@ -262,25 +262,28 @@ impl Web3RpcPool {
 
     pub async fn verify_unverified_endpoints(self: Arc<Self>) {
         let _guard = self.verify_mutex.lock().await;
-        let endpoints_copy = self
-            .endpoints
-            .try_lock_for(Duration::from_secs(5))
-            .unwrap()
-            .clone();
+        let futures = {
+            let endpoints_copy = self
+                .endpoints
+                .try_lock_for(Duration::from_secs(5))
+                .unwrap()
+                .clone();
 
-        let mut futures = Vec::new();
-        for (_idx, endp) in endpoints_copy {
-            {
-                if endp
-                    .try_read_for(Duration::from_secs(5))
-                    .unwrap()
-                    .is_removed()
+            let mut futures = Vec::new();
+            for (_idx, endp) in endpoints_copy {
                 {
-                    continue;
+                    if endp
+                        .try_read_for(Duration::from_secs(5))
+                        .unwrap()
+                        .is_removed()
+                    {
+                        continue;
+                    }
                 }
+                futures.push(verify_endpoint(self.chain_id, endp.clone()));
             }
-            futures.push(verify_endpoint(self.chain_id, endp.clone()));
-        }
+            futures
+        };
 
         future::join_all(futures).await;
     }
@@ -458,7 +461,7 @@ impl Web3RpcPool {
             .clone();
         let (extra_score_idx, extra_score) = self.extra_score_from_last_chosen();
         for (idx, el) in endpoints_copy.iter() {
-            el.try_write_for(Duration::from_secs(5))
+            el.try_write_for(Duration::from_secs(10))
                 .unwrap()
                 .web3_rpc_info
                 .bonus_from_last_chosen = if Some(idx) == extra_score_idx {
@@ -585,6 +588,10 @@ impl Web3RpcPool {
             log::error!("mark_rpc_success - no params found for given index");
             return;
         };
+        self.last_success_endpoints
+            .try_lock_for(Duration::from_secs(5))
+            .unwrap()
+            .push_front(idx);
 
         let endpoints = self.endpoints.try_lock_for(Duration::from_secs(5)).unwrap();
         let stats = &mut endpoints
@@ -594,10 +601,7 @@ impl Web3RpcPool {
             .unwrap()
             .web3_rpc_info;
 
-        self.last_success_endpoints
-            .try_lock_for(Duration::from_secs(5))
-            .unwrap()
-            .push_front(idx);
+
 
         let el = if let Some(entry) = stats.web3_rpc_stats.request_stats.get_mut(&method) {
             entry
