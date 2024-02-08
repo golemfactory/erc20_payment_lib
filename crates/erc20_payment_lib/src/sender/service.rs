@@ -659,4 +659,5 @@ pub async fn service_loop(
             shared_state.lock().unwrap().idling = false;
         }
     }
+    log::info!("Sender service loop - end loop for account {:#x}", account);
 }

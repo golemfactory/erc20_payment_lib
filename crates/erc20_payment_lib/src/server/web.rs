@@ -12,13 +12,14 @@ use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
 use erc20_payment_lib_common::ops::*;
 use erc20_payment_lib_common::utils::datetime_from_u256_timestamp;
 use erc20_payment_lib_common::{export_metrics_to_prometheus, FaucetData};
-use erc20_rpc_pool::VerifyEndpointResult;
+use erc20_rpc_pool::{VerifyEndpointResult};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
 use std::collections::BTreeMap;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::Mutex;
 use web3::types::{Address, BlockId, BlockNumber, U256};
 
@@ -124,7 +125,7 @@ pub async fn rpc_pool(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Re
         .map(|(k, v)| {
             (
                 *k,
-                v.lock()
+                v.try_lock_for(Duration::from_secs(5))
                     .unwrap()
                     .iter()
                     .map(|pair| pair.1.clone())
@@ -136,6 +137,10 @@ pub async fn rpc_pool(data: Data<Box<ServerData>>, _req: HttpRequest) -> impl Re
     let mut array = Vec::with_capacity(web3_rpc_pool_info.len());
 
     for (idx, val) in web3_rpc_pool_info {
+        let val = val
+            .iter()
+            .map(|v| json!(*v.try_read_for(Duration::from_secs(5)).unwrap()))
+            .collect::<Vec<_>>();
         let chain_network = data
             .payment_setup
             .chain_setup
@@ -214,8 +219,10 @@ pub async fn rpc_pool_metrics(data: Data<Box<ServerData>>, _req: HttpRequest) ->
     });
 
     for (_idx, vec) in pool_ref {
-        for (_idx, endpoint) in vec.lock().unwrap().iter() {
-            let endpoint = endpoint.read().unwrap();
+        for (_idx, endpoint) in vec.try_lock_for(Duration::from_secs(5)).unwrap().iter() {
+            let endpoint = endpoint
+                .try_read_for(std::time::Duration::from_secs(5))
+                .unwrap();
             let params = vec![
                 (
                     "chain_id".to_string(),

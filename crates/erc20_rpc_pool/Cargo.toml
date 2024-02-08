@@ -40,3 +40,4 @@ trust-dns-resolver = { workspace = true }
 uuid = { workspace = true }
 web3 = { workspace = true }
 erc20_payment_lib_common = { path = "../erc20_payment_lib_common", version = "0.3.20" }
+parking_lot = "0.12.1"
