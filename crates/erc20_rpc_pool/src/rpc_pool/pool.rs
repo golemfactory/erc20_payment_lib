@@ -44,7 +44,7 @@ pub struct Web3ExternalDnsSource {
     pub endpoint_params: Web3EndpointParams,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Web3RpcEndpoint {
     #[serde(skip)]
@@ -373,7 +373,6 @@ impl Web3RpcPool {
             allowed_endpoints
         } else {
             let self_cloned = self.clone();
-            log::error!("Spawn tasks");
             self_cloned
                 .endpoint_verifier
                 .clone()

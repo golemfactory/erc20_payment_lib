@@ -63,6 +63,7 @@ impl ExternalSourceResolver {
         });
     }
     async fn resolve_external_addresses_int(self: Arc<Self>, pool: Arc<Web3RpcPool>) {
+        metrics::counter!("resolver_spawned", 1, "chain_id" => pool.chain_id.to_string());
         pool.cleanup_sources_after_grace_period();
 
         let dns_jobs = &pool.external_dns_sources;

@@ -56,7 +56,6 @@ impl EndpointsVerifier {
         let pool = pool.clone();
         let self_cloned = self.clone();
         let h = tokio::spawn(async move {
-            log::error!("Starting external resolver");
             self_cloned
                 .clone()
                 .verify_unverified_endpoints(pool.clone())
@@ -73,6 +72,7 @@ impl EndpointsVerifier {
     }
 
     async fn verify_unverified_endpoints(self: Arc<EndpointsVerifier>, pool: Arc<Web3RpcPool>) {
+        metrics::counter!("verifier_spawned", 1, "chain_id" => pool.chain_id.to_string());
         let _guard = pool.verify_mutex.lock().await;
         let futures = {
             let endpoints_copy = pool

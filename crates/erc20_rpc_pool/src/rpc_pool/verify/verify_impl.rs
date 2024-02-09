@@ -47,6 +47,7 @@ async fn verify_endpoint_int(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
         };
         if let Some(max_head_behind_secs) = vep.allow_max_head_behind_secs {
             if Utc::now() - date > Duration::seconds(max_head_behind_secs as i64) {
+                log::warn!("Verify endpoint error - Head behind");
                 return VerifyEndpointResult::HeadBehind(date);
             }
         }
@@ -66,23 +67,13 @@ async fn verify_endpoint_int(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
 }
 
 pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
-    let (web3, web3_rpc_info, web3_rpc_params) = {
-        (
-            m.try_read_for(std::time::Duration::from_secs(5))
-                .unwrap()
-                .web3
-                .clone(),
-            m.try_read_for(std::time::Duration::from_secs(5))
-                .unwrap()
-                .web3_rpc_info
-                .clone(),
-            m.try_read_for(std::time::Duration::from_secs(5))
-                .unwrap()
-                .web3_rpc_params
-                .clone(),
-        )
-    };
+    let (web3, web3_rpc_info, web3_rpc_params) = m
+            .try_read_for(std::time::Duration::from_secs(5))
+            .map(|x| x.clone())
+            .map(|x| (x.web3, x.web3_rpc_info, x.web3_rpc_params))
+            .unwrap();
 
+    log::error!("Verify endpoint {:?}", web3_rpc_params.web3_endpoint_params.max_head_behind_secs);
     if let Some(last_verified) = web3_rpc_info.last_verified {
         if Utc::now() - last_verified
             < Duration::seconds(web3_rpc_params.web3_endpoint_params.verify_interval_secs as i64)
