@@ -41,42 +41,28 @@ impl ExternalSourceResolver {
     }
 
     pub(super) fn start_resolve_if_needed(self: Arc<Self>, pool: Arc<Web3RpcPool>) {
-        let mut last_external_check = pool
-            .last_external_check
+        let mut last_check = self
+            .last_check
             .try_lock_for(Duration::from_secs(5))
             .unwrap();
-        if let Some(last_external_check) = last_external_check.as_ref() {
-            if last_external_check.elapsed() < pool.check_external_sources_interval {
+        if let Some(last_check) = last_check.as_ref() {
+            if last_check.elapsed() < pool.check_external_sources_interval {
                 log::debug!(
                     "Last external check was less than check_external_sources_interval ago"
                 );
                 return;
             }
         }
-        last_external_check.replace(std::time::Instant::now());
+        last_check.replace(std::time::Instant::now());
         //spawn async task and return immediately
         let pool = pool.clone();
+        let self_clone = self.clone();
         tokio::spawn(async move {
             log::error!("Starting external resolver");
-            self.resolve_external_addresses_int(pool).await;
+            self_clone.resolve_external_addresses_int(pool).await;
         });
     }
     async fn resolve_external_addresses_int(self: Arc<Self>, pool: Arc<Web3RpcPool>) {
-        {
-            let mut last_external_check = pool
-                .last_external_check
-                .try_lock_for(Duration::from_secs(5))
-                .unwrap();
-            if let Some(last_external_check) = last_external_check.as_ref() {
-                if last_external_check.elapsed() < pool.check_external_sources_interval {
-                    log::debug!(
-                        "Last external check was less than check_external_sources_interval ago"
-                    );
-                    return;
-                }
-            }
-            last_external_check.replace(std::time::Instant::now());
-        }
         pool.cleanup_sources_after_grace_period();
 
         let dns_jobs = &pool.external_dns_sources;

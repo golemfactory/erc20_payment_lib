@@ -1,12 +1,13 @@
 mod resolver;
+mod verifier;
 
 use crate::rpc_pool::pool::resolver::ExternalSourceResolver;
-use crate::rpc_pool::verify::{verify_endpoint, ReqStats, Web3EndpointParams, Web3RpcSingleParams};
+use crate::rpc_pool::pool::verifier::EndpointsVerifier;
+use crate::rpc_pool::verify::{ReqStats, Web3EndpointParams, Web3RpcSingleParams};
 use crate::rpc_pool::VerifyEndpointResult;
 use crate::Web3RpcInfo;
 use chrono::Utc;
 use erc20_payment_lib_common::DriverEvent;
-use futures::future;
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -105,12 +106,11 @@ pub struct Web3RpcPool {
     pub external_json_sources: Vec<Web3ExternalJsonSource>,
     pub external_dns_sources: Vec<Web3ExternalDnsSource>,
 
-    pub last_external_check: Arc<Mutex<Option<std::time::Instant>>>,
     pub check_external_sources_interval: Duration,
-
-    pub last_verify_endpoints_spawn: Arc<Mutex<Option<std::time::Instant>>>,
+    pub verify_rpc_min_interval: Duration,
 
     pub external_sources_resolver: Arc<ExternalSourceResolver>,
+    pub endpoint_verifier: Arc<EndpointsVerifier>,
 }
 
 pub async fn resolve_txt_record_to_string_array(record: &str) -> std::io::Result<Vec<String>> {
@@ -134,6 +134,7 @@ impl Web3RpcPool {
         json_sources: Vec<Web3ExternalJsonSource>,
         dns_sources: Vec<Web3ExternalDnsSource>,
         events: Option<tokio::sync::mpsc::WeakSender<DriverEvent>>,
+        verify_rpc_min_interval: Duration,
         external_sources_interval_check: Duration,
     ) -> Arc<Self> {
         let mut web3_endpoints = Arena::new();
@@ -182,10 +183,10 @@ impl Web3RpcPool {
             event_sender: events,
             external_json_sources: json_sources,
             external_dns_sources: dns_sources,
-            last_external_check: Arc::new(Mutex::new(None)),
+            verify_rpc_min_interval,
             check_external_sources_interval: external_sources_interval_check,
-            last_verify_endpoints_spawn: Arc::new(Mutex::new(None)),
             external_sources_resolver: Arc::new(ExternalSourceResolver::new()),
+            endpoint_verifier: Arc::new(Default::default()),
         });
 
         if !s.external_json_sources.is_empty() || !s.external_dns_sources.is_empty() {
@@ -221,6 +222,7 @@ impl Web3RpcPool {
             Vec::new(),
             Vec::new(),
             None,
+            Duration::from_secs(10),
             Duration::from_secs(300),
         )
     }
@@ -255,34 +257,6 @@ impl Web3RpcPool {
 
     pub fn get_chain_id(self) -> u64 {
         self.chain_id
-    }
-
-    pub async fn verify_unverified_endpoints(self: Arc<Self>) {
-        let _guard = self.verify_mutex.lock().await;
-        let futures = {
-            let endpoints_copy = self
-                .endpoints
-                .try_lock_for(Duration::from_secs(5))
-                .unwrap()
-                .clone();
-
-            let mut futures = Vec::new();
-            for (_idx, endp) in endpoints_copy {
-                {
-                    if endp
-                        .try_read_for(Duration::from_secs(5))
-                        .unwrap()
-                        .is_removed()
-                    {
-                        continue;
-                    }
-                }
-                futures.push(verify_endpoint(self.chain_id, endp.clone()));
-            }
-            futures
-        };
-
-        future::join_all(futures).await;
     }
 
     pub fn extra_score_from_last_chosen(&self) -> (Option<Index>, i64) {
@@ -391,35 +365,23 @@ impl Web3RpcPool {
 
             let self_cloned = self.clone();
 
-            let spawn_endpoints = if let Some(last_verify_endpoints_spawn) = self_cloned
-                .last_verify_endpoints_spawn
-                .try_lock_for(Duration::from_secs(5))
-                .unwrap()
-                .as_ref()
-            {
-                last_verify_endpoints_spawn.elapsed() >= Duration::from_secs(10)
-            } else {
-                true
-            };
-
-            if spawn_endpoints {
-                self_cloned
-                    .last_verify_endpoints_spawn
-                    .try_lock_for(Duration::from_secs(5))
-                    .unwrap()
-                    .replace(std::time::Instant::now());
-                log::error!("Spawn tasks");
-                tokio::spawn(self_cloned.verify_unverified_endpoints());
-            }
+            self_cloned
+                .endpoint_verifier
+                .clone()
+                .start_verify_if_needed(self.clone());
 
             allowed_endpoints
         } else {
             let self_cloned = self.clone();
             log::error!("Spawn tasks");
-            let verify_task = tokio::spawn(self_cloned.verify_unverified_endpoints());
+            self_cloned
+                .endpoint_verifier
+                .clone()
+                .start_verify_if_needed(self.clone());
+            //let verify_task = tokio::spawn(self_cloned.endpoint_verifier.verify_unverified_endpoints(self));
 
             loop {
-                let is_finished = verify_task.is_finished();
+                let is_finished = self_cloned.endpoint_verifier.is_finished();
 
                 if let Some(el) = endpoints_copy
                     .iter()

@@ -223,6 +223,7 @@ impl PaymentSetup {
                 json_sources,
                 dns_sources,
                 mpsc_sender.as_ref().map(|s| s.downgrade()),
+                Duration::from_secs(10),
                 Duration::from_secs(chain_config.1.external_source_check_interval.unwrap_or(300)),
             );
 

@@ -71,6 +71,7 @@ pub async fn check_rpc_local(
         Vec::new(),
         Vec::new(),
         None,
+        Duration::from_secs(10),
         Duration::from_secs(300),
     );
     for rpc_settings in &chain_cfg.rpc_endpoints {
@@ -167,8 +168,10 @@ pub async fn check_rpc_local(
             );
         };
     }
-
-    let task = tokio::spawn(web3_pool.clone().verify_unverified_endpoints());
+    web3_pool
+        .endpoint_verifier
+        .start_verify_if_needed(web3_pool.clone());
+    let task = web3_pool.endpoint_verifier.get_join_handle().unwrap();
     let mut idx_set_completed = HashSet::new();
 
     let enp_info = loop {
