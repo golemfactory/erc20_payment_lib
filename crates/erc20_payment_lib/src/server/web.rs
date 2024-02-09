@@ -12,7 +12,7 @@ use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
 use erc20_payment_lib_common::ops::*;
 use erc20_payment_lib_common::utils::datetime_from_u256_timestamp;
 use erc20_payment_lib_common::{export_metrics_to_prometheus, FaucetData};
-use erc20_rpc_pool::{VerifyEndpointResult};
+use erc20_rpc_pool::VerifyEndpointResult;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::SqlitePool;
