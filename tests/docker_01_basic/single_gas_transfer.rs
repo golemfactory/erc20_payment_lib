@@ -96,7 +96,7 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
             },
             Arc::new(Box::new(signer)),
         ).await?;
-        sp.runtime_handle.await?;
+        sp.join_tasks().await?;
     }
 
     {

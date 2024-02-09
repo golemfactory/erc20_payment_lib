@@ -155,13 +155,16 @@ pub async fn get_token_transfers_by_chain_id(
 
 pub async fn get_pending_token_transfers(
     conn: &SqlitePool,
+    account: Address,
 ) -> Result<Vec<TokenTransferDbObj>, sqlx::Error> {
     let rows = sqlx::query_as::<_, TokenTransferDbObj>(
         r"SELECT * FROM token_transfer
 WHERE tx_id is null
 AND error is null
+AND from_addr = $1
 ",
     )
+    .bind(format!("{:#x}", account))
     .fetch_all(conn)
     .await?;
     Ok(rows)

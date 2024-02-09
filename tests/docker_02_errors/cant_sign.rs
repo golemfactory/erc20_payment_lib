@@ -35,7 +35,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
             match msg.content {
                 CantSign(details) => {
                     log::info!("CantSign event received");
-                    if details.address() != "0xbeefbeefbeefbeefbeefbeefbeefbeefbeefbeef" {
+                    if details.address() != "0x2ea855730401b2eecef576236633a752611879d8" {
                         Err(format!("Wrong owner address: {}",details.address()))
                     } else if details.chain_id() != chain_id {
                         Err(format!("Wrong chain_id {}", details.chain_id()))
@@ -53,14 +53,16 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
     
     {
         //load private key for account 0xbfb29b133aa51c4b45b49468f9a22958eafea6fa
-        let private_keys = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963")?;
-        let signer = PrivateKeySigner::new(private_keys.0.clone());
+        let private_keys = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963,8726a7780194b15fdc1550792d9f381133205bdd092b7bbacd9c2817a7ff4f98")?;
+        let private_keys_signer = load_private_keys("0228396638e32d52db01056c00e19bc7bd9bb489e2970a3a7a314d67e55ee963")?;
+
+        let signer = PrivateKeySigner::new(private_keys_signer.0.clone());
 
         //add single erc20 transaction to database
         insert_token_transfer(
             &conn,
             &create_token_transfer(
-                Address::from_str("0xbeefbeefbeefbeefbeefbeefbeefbeefbeefbeef").unwrap(),
+                Address::from_str("0x2ea855730401b2eecef576236633a752611879d8").unwrap(),
                 Address::from_str("0xf2f86a61b769c91fc78f15059a5bd2c189b84be2").unwrap(),
                 chain_id,
                 Some("test_payment"),
@@ -89,9 +91,8 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
             Arc::new(Box::new(signer)),
         ).await.unwrap();
 
-        let abort_handle = sp.runtime_handle.abort_handle();
         receiver_loop.await.unwrap().unwrap();
-        abort_handle.abort();
+        sp.abort_tasks();
     };
 
     Ok(())

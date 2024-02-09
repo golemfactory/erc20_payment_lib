@@ -2,6 +2,7 @@ use super::model::TxDbObj;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
 use sqlx::{Executor, Transaction};
+use web3::types::Address;
 
 pub const TRANSACTION_FILTER_QUEUED: &str = "processing > 0 AND first_processed IS NULL";
 pub const TRANSACTION_FILTER_PROCESSING: &str = "processing > 0 AND first_processed IS NOT NULL";
@@ -14,6 +15,7 @@ pub const TRANSACTION_ORDER_BY_FIRST_PROCESSED_DATE_DESC: &str = "first_processe
 
 pub async fn get_transactions<'c, E>(
     executor: E,
+    account: Option<Address>,
     filter: Option<&str>,
     limit: Option<i64>,
     order: Option<&str>,
@@ -24,8 +26,12 @@ where
     let limit = limit.unwrap_or(i64::MAX);
     let filter = filter.unwrap_or(TRANSACTION_FILTER_ALL);
     let order = order.unwrap_or("id DESC");
+    let filter_account = match account {
+        Some(addr) => format!("from_addr = '{:#x}'", addr),
+        None => "1 = 1".to_string(),
+    };
     let rows = sqlx::query_as::<_, TxDbObj>(
-        format!(r"SELECT * FROM tx WHERE {filter} ORDER BY {order} LIMIT {limit}").as_str(),
+        format!(r"SELECT * FROM tx WHERE ({filter_account}) AND ({filter}) ORDER BY {order} LIMIT {limit}").as_str(),
     )
     .fetch_all(executor)
     .await?;
@@ -137,10 +143,12 @@ pub async fn get_transaction_count(
 
 pub async fn get_next_transactions_to_process(
     conn: &SqlitePool,
+    account: Option<Address>,
     limit: i64,
 ) -> Result<Vec<TxDbObj>, sqlx::Error> {
     get_transactions(
         conn,
+        account,
         Some(TRANSACTION_FILTER_TO_PROCESS),
         Some(limit),
         Some(TRANSACTION_ORDER_BY_ID_AND_REPLACEMENT_ID),

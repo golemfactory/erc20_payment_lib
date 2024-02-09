@@ -104,7 +104,7 @@ async fn test_erc20_transfer() -> Result<(), anyhow::Error> {
             },
             Arc::new(Box::new(signer)),
         ).await.unwrap();
-        sp.runtime_handle.await?;
+        sp.join_tasks().await?;
     };
 
     #[allow(clippy::bool_assert_comparison)]

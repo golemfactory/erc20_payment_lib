@@ -151,7 +151,7 @@ async fn test_multi_erc20_transfer(payment_count: usize, use_direct_method: bool
             },
             Arc::new(Box::new(signer)),
         ).await.unwrap();
-        sp.runtime_handle.await?;
+        sp.join_tasks().await?;
     };
 
     #[allow(clippy::bool_assert_comparison)]

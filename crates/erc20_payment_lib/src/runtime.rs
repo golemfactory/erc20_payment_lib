@@ -44,7 +44,7 @@ use rust_decimal::Decimal;
 use serde::Serialize;
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify};
-use tokio::task::JoinHandle;
+use tokio::task::{JoinError, JoinHandle};
 use web3::types::{Address, H256, U256};
 
 #[derive(Debug, Clone, Serialize)]
@@ -57,9 +57,7 @@ pub struct SharedState {
     pub faucet: Option<FaucetData>,
     pub inserted: usize,
     pub idling: bool,
-    pub external_gather_time: Option<DateTime<Utc>>,
 
-    #[serde(skip)]
     pub accounts: Vec<SignerAccount>,
 }
 
@@ -369,7 +367,7 @@ pub enum TransferType {
 }
 
 pub struct PaymentRuntime {
-    pub runtime_handle: JoinHandle<()>,
+    pub runtime_handles: Arc<std::sync::Mutex<Vec<JoinHandle<()>>>>,
     pub setup: PaymentSetup,
     pub shared_state: Arc<std::sync::Mutex<SharedState>>,
     pub wake: Arc<Notify>,
@@ -453,83 +451,85 @@ impl PaymentRuntime {
         let accounts = payment_runtime_args
             .secret_keys
             .iter()
-            .map(|s| SignerAccount {
-                address: get_eth_addr_from_secret(s),
-                signer: signer.clone(),
-            })
-            .collect();
+            .map(|s| SignerAccount::new(get_eth_addr_from_secret(s), signer.clone()))
+            .collect::<Vec<SignerAccount>>();
 
         let shared_state = Arc::new(std::sync::Mutex::new(SharedState {
-            accounts,
+            accounts: accounts.clone(),
             inserted: 0,
             idling: false,
             current_tx_info: BTreeMap::new(),
             faucet: None,
-            external_gather_time: None,
             web3_pool_ref: web3_rpc_pool_info.clone(),
         }));
 
-        let shared_state_clone = shared_state.clone();
-        let conn_ = conn.clone();
-
         let notify = Arc::new(Notify::new());
-        let notify_ = notify.clone();
-        let extra_testing_ = payment_runtime_args.extra_testing.clone();
-        let config_ = payment_runtime_args.config.clone();
-        let jh = tokio::task::spawn(async move {
-            if let Some(balance_check_loop) =
-                extra_testing_.clone().and_then(|e| e.balance_check_loop)
-            {
-                if config_.chain.values().len() != 1 {
-                    panic!("balance_check_loop can be used only with single chain");
-                }
-                let config_chain = config_.chain.values().next().unwrap().clone();
-                let balance_options = BalanceOptions2 {
-                    chain_name: "dev".to_string(),
-                    //dead address
-                    accounts: Some("0x2000000000000000000000000000000000000000".to_string()),
-                    hide_gas: false,
-                    hide_token: true,
-                    block_number: None,
-                    tasks: 0,
-                    interval: Some(2.0),
-                    debug_loop: Some(balance_check_loop),
-                };
-                match test_balance_loop(
-                    Some(shared_state_clone),
-                    ps.clone(),
-                    balance_options,
-                    &config_chain,
-                )
-                .await
+
+        let mut tasks = Vec::new();
+        for addr in accounts {
+            let raw_event_sender = raw_event_sender.clone();
+            let shared_state_clone = shared_state.clone();
+            let notify_ = notify.clone();
+            let extra_testing_ = payment_runtime_args.extra_testing.clone();
+            let config_ = payment_runtime_args.config.clone();
+            let ps = ps.clone();
+            let conn_ = conn.clone();
+            let jh = tokio::task::spawn(async move {
+                if let Some(balance_check_loop) =
+                    extra_testing_.clone().and_then(|e| e.balance_check_loop)
                 {
-                    Ok(_) => {
-                        log::info!("Balance debug loop finished");
+                    if config_.chain.values().len() != 1 {
+                        panic!("balance_check_loop can be used only with single chain");
                     }
-                    Err(e) => {
-                        log::error!("Balance debug loop finished with error: {}", e);
-                        panic!("Balance debug loop finished with error: {}", e);
+                    let config_chain = config_.chain.values().next().unwrap().clone();
+                    let balance_options = BalanceOptions2 {
+                        chain_name: "dev".to_string(),
+                        //dead address
+                        accounts: Some("0x2000000000000000000000000000000000000000".to_string()),
+                        hide_gas: false,
+                        hide_token: true,
+                        block_number: None,
+                        tasks: 0,
+                        interval: Some(2.0),
+                        debug_loop: Some(balance_check_loop),
+                    };
+                    match test_balance_loop(
+                        Some(shared_state_clone),
+                        ps.clone(),
+                        balance_options,
+                        &config_chain,
+                    )
+                    .await
+                    {
+                        Ok(_) => {
+                            log::info!("Balance debug loop finished");
+                        }
+                        Err(e) => {
+                            log::error!("Balance debug loop finished with error: {}", e);
+                            panic!("Balance debug loop finished with error: {}", e);
+                        }
                     }
+                    return;
                 }
-                return;
-            }
-            if options.skip_service_loop && options.keep_running {
-                log::warn!("Started with skip_service_loop and keep_running, no transaction will be sent or processed");
-                loop {
-                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                if options.skip_service_loop && options.keep_running {
+                    log::warn!("Started with skip_service_loop and keep_running, no transaction will be sent or processed");
+                    loop {
+                        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                    }
+                } else {
+                    service_loop(
+                        shared_state_clone,
+                        addr.address,
+                        notify_,
+                        &conn_,
+                        &ps,
+                        Some(raw_event_sender),
+                    )
+                    .await
                 }
-            } else {
-                service_loop(
-                    shared_state_clone,
-                    notify_,
-                    &conn_,
-                    &ps,
-                    signer,
-                    Some(raw_event_sender),
-                )
-                .await
-            }
-        });
+            });
+            tasks.push(jh);
+        }
 
         /* - use this to test notifies
         let notify_ = notify.clone();
@@ -542,7 +542,7 @@ impl PaymentRuntime {
          */
 
         Ok(PaymentRuntime {
-            runtime_handle: jh,
+            runtime_handles: Arc::new(std::sync::Mutex::new(tasks)),
             setup: payment_setup,
             shared_state,
             wake: notify,
@@ -552,6 +552,45 @@ impl PaymentRuntime {
             driver_mpsc_sender,
             config: payment_runtime_args.config,
         })
+    }
+
+    fn get_and_remove_tasks(&self) -> Vec<JoinHandle<()>> {
+        let handles = {
+            let mut mutex_guard = self.runtime_handles.lock().unwrap();
+            let g: &mut Vec<JoinHandle<()>> = &mut mutex_guard;
+            std::mem::take(g)
+        };
+        handles
+    }
+
+    pub fn is_any_task_running(&self) -> bool {
+        let mutex_guard = self.runtime_handles.lock().unwrap();
+        mutex_guard.iter().any(|h| !h.is_finished())
+    }
+    pub fn is_any_task_finished(&self) -> bool {
+        let mutex_guard = self.runtime_handles.lock().unwrap();
+        mutex_guard.iter().any(|h| h.is_finished())
+    }
+
+    pub async fn join_tasks(&self) -> Result<(), JoinError> {
+        let handles = self.get_and_remove_tasks();
+        for handle in handles {
+            match handle.await {
+                Ok(_) => {}
+                Err(e) => {
+                    log::error!("Task finished with error: {}", e);
+                    return Err(e);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn abort_tasks(&self) {
+        let handles = self.get_and_remove_tasks();
+        for handle in handles {
+            handle.abort();
+        }
     }
 
     pub async fn add_account(&self, payment_account: SignerAccount) {
@@ -637,7 +676,11 @@ impl PaymentRuntime {
         Ok(gas_balance)
     }
 
-    pub async fn transfer(&self, transfer_args: TransferArgs) -> Result<(), PaymentError> {
+    pub async fn transfer(
+        &self,
+        account: &SignerAccount,
+        transfer_args: TransferArgs,
+    ) -> Result<(), PaymentError> {
         let chain_cfg =
             self.config
                 .chain
@@ -672,15 +715,13 @@ impl PaymentRuntime {
 
         if !self.setup.ignore_deadlines {
             if let Some(deadline) = transfer_args.deadline {
-                let mut s = self.shared_state.lock().unwrap();
-
-                let new_time = s
-                    .external_gather_time
+                let mut ext_gath_time_guard = account.external_gather_time.lock().unwrap();
+                let new_time = ext_gath_time_guard
                     .map(|t| t.min(deadline))
                     .unwrap_or(deadline);
 
-                if Some(new_time) != s.external_gather_time {
-                    s.external_gather_time = Some(new_time);
+                if Some(new_time) != *ext_gath_time_guard {
+                    *ext_gath_time_guard = Some(new_time);
                     self.wake.notify_one();
                 }
             }
@@ -824,11 +865,9 @@ pub async fn mint_golem_token(
     }
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-    let filter = format!(
-        "from_addr=\"{:#x}\" AND method=\"FAUCET.create\" AND fee_paid is NULL",
-        from
-    );
-    let tx_existing = get_transactions(&mut *db_transaction, Some(&filter), None, None)
+    let filter = "method=\"FAUCET.create\" AND fee_paid is NULL";
+
+    let tx_existing = get_transactions(&mut *db_transaction, Some(from), Some(filter), None, None)
         .await
         .map_err(err_from!())?;
 
@@ -1213,11 +1252,8 @@ pub async fn deposit_funds(
     }
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-    let filter = format!(
-        "from_addr=\"{:#x}\" AND method=\"LOCK.deposit\" AND fee_paid is NULL",
-        from
-    );
-    let tx_existing = get_transactions(&mut *db_transaction, Some(&filter), None, None)
+    let filter = "method=\"LOCK.deposit\" AND fee_paid is NULL";
+    let tx_existing = get_transactions(&mut *db_transaction, Some(from), Some(filter), None, None)
         .await
         .map_err(err_from!())?;
 

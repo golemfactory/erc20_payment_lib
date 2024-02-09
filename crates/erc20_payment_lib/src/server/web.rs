@@ -384,7 +384,7 @@ pub async fn transactions(data: Data<Box<ServerData>>, _req: HttpRequest) -> imp
     //todo: add limits
     let txs = {
         let db_conn = data.db_connection.lock().await;
-        return_on_error!(get_transactions(&*db_conn, None, None, None).await)
+        return_on_error!(get_transactions(&*db_conn, None, None, None, None).await)
     };
     web::Json(json!({
         "txs": txs,
@@ -429,6 +429,7 @@ pub async fn transactions_next(data: Data<Box<ServerData>>, req: HttpRequest) ->
         return_on_error!(
             get_transactions(
                 &*db_conn,
+                None,
                 Some(TRANSACTION_FILTER_QUEUED),
                 limit,
                 Some(TRANSACTION_ORDER_BY_CREATE_DATE)
@@ -450,6 +451,7 @@ pub async fn transactions_current(
         return_on_error!(
             get_transactions(
                 &*db_conn,
+                None,
                 Some(TRANSACTION_FILTER_PROCESSING),
                 None,
                 Some(TRANSACTION_ORDER_BY_CREATE_DATE)
@@ -477,6 +479,7 @@ pub async fn transactions_last_processed(
         return_on_error!(
             get_transactions(
                 &*db_conn,
+                None,
                 Some(TRANSACTION_FILTER_DONE),
                 limit,
                 Some(TRANSACTION_ORDER_BY_FIRST_PROCESSED_DATE_DESC)
@@ -506,6 +509,7 @@ pub async fn transactions_feed(data: Data<Box<ServerData>>, req: HttpRequest) ->
         let mut txs = return_on_error!(
             get_transactions(
                 &mut *db_transaction,
+                None,
                 Some(TRANSACTION_FILTER_DONE),
                 limit_prev,
                 Some(TRANSACTION_ORDER_BY_FIRST_PROCESSED_DATE_DESC)
@@ -515,6 +519,7 @@ pub async fn transactions_feed(data: Data<Box<ServerData>>, req: HttpRequest) ->
         let txs_current = return_on_error!(
             get_transactions(
                 &mut *db_transaction,
+                None,
                 Some(TRANSACTION_FILTER_PROCESSING),
                 None,
                 Some(TRANSACTION_ORDER_BY_CREATE_DATE)
@@ -524,6 +529,7 @@ pub async fn transactions_feed(data: Data<Box<ServerData>>, req: HttpRequest) ->
         let tx_next = return_on_error!(
             get_transactions(
                 &mut *db_transaction,
+                None,
                 Some(TRANSACTION_FILTER_QUEUED),
                 limit_next,
                 Some(TRANSACTION_ORDER_BY_CREATE_DATE)
@@ -617,7 +623,28 @@ async fn new_transfer(
         use_internal: new_transfer.use_internal,
     };
 
-    if let Err(err) = data.payment_runtime.transfer(transfer_args.clone()).await {
+    let account = match data
+        .shared_state
+        .lock()
+        .unwrap()
+        .accounts
+        .iter()
+        .find(|acc| acc.address == transfer_args.from)
+    {
+        Some(acc) => acc.clone(),
+        None => {
+            return Err(actix_web::error::ErrorBadRequest(format!(
+                "Account not found: {:#x}",
+                transfer_args.from
+            )));
+        }
+    };
+
+    if let Err(err) = data
+        .payment_runtime
+        .transfer(&account, transfer_args.clone())
+        .await
+    {
         return Err(actix_web::error::ErrorInternalServerError(format!(
             "Failed to create transfer: {}",
             err

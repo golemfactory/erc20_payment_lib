@@ -1,16 +1,20 @@
+use chrono::{DateTime, Utc};
 use erc20_payment_lib_common::err_custom_create;
 use erc20_payment_lib_common::error::PaymentError;
+use serde::Serialize;
 use std::fmt::{Debug, Display, Formatter};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::time::timeout;
 
 use super::Signer;
 use web3::types::{Address, SignedTransaction, TransactionParameters, H160};
 
-#[derive(Clone)]
+#[derive(Clone, Serialize)]
 pub struct SignerAccount {
     pub address: Address,
+    #[serde(skip)]
     pub signer: Arc<Box<dyn Signer + Send + Sync>>,
+    pub(crate) external_gather_time: Arc<Mutex<Option<DateTime<Utc>>>>,
 }
 
 impl Debug for SignerAccount {
@@ -27,7 +31,11 @@ impl Display for SignerAccount {
 
 impl SignerAccount {
     pub fn new(address: H160, signer: Arc<Box<dyn Signer + Send + Sync>>) -> Self {
-        Self { address, signer }
+        Self {
+            address,
+            signer,
+            external_gather_time: Arc::new(Mutex::new(None)),
+        }
     }
 
     pub async fn check_if_sign_possible(&self) -> Result<(), PaymentError> {

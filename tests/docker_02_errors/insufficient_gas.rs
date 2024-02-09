@@ -107,10 +107,13 @@ async fn test_insufficient_gas() -> Result<(), anyhow::Error> {
         ).await?;
 
         tokio::time::sleep(Duration::from_secs(5)).await;
-        if sp.runtime_handle.is_finished() {
+        if sp.is_any_task_finished() {
             panic!("runtime finished too early");
         }
-        sp.runtime_handle.abort();
+        if !sp.is_any_task_running() {
+            panic!("runtime finished too early");
+        }
+        sp.abort_tasks();
         drop(sp);
         let _ = receiver_loop.await.unwrap();
 
