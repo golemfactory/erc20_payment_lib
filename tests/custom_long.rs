@@ -19,5 +19,11 @@ async fn test_durability_custom() -> Result<(), anyhow::Error> {
     let transfer_interval = transfer_interval
         .parse::<f64>()
         .expect("ERC20_TEST_TRANSFER_INTERVAL has to be number");
-    test_durability(accounts_count, transfer_count, transfer_interval, transfers_at_once).await
+    test_durability(
+        accounts_count,
+        transfer_count,
+        transfer_interval,
+        transfers_at_once,
+    )
+    .await
 }

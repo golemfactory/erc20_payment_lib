@@ -7,10 +7,20 @@ mod single_gas_transfer;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_durability_1() -> Result<(), anyhow::Error> {
-    test_durability(1, 0.1, 10).await
+    test_durability(1, 1, 0.1, 10).await
 }
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_durability_20() -> Result<(), anyhow::Error> {
-    test_durability(20, 0.1, 10).await
+    test_durability(1, 20, 0.1, 10).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_durability_1_10() -> Result<(), anyhow::Error> {
+    test_durability(10, 1, 0.1, 10).await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_durability_20_10() -> Result<(), anyhow::Error> {
+    test_durability(10, 20, 0.1, 10).await
 }
