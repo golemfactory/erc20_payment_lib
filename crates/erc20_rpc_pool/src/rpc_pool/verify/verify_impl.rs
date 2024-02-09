@@ -3,7 +3,8 @@ use crate::rpc_pool::verify::{VerifyEndpointParams, VerifyEndpointStatus};
 use crate::rpc_pool::VerifyEndpointResult;
 use crate::Web3RpcEndpoint;
 use chrono::{Duration, Utc};
-use std::sync::{Arc, RwLock};
+use parking_lot::RwLock;
+use std::sync::Arc;
 use std::time::Instant;
 use tokio::select;
 use web3::transports::Http;
@@ -46,8 +47,11 @@ async fn verify_endpoint_int(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
         };
         if let Some(max_head_behind_secs) = vep.allow_max_head_behind_secs {
             if Utc::now() - date > Duration::seconds(max_head_behind_secs as i64) {
+                log::warn!("Verify endpoint error - Head behind");
                 return VerifyEndpointResult::HeadBehind(date);
             }
+        } else {
+            log::warn!("Skip max head behind check");
         }
         VerifyEndpointResult::Ok(VerifyEndpointStatus {
             head_seconds_behind: (Utc::now() - date).num_seconds() as u64,
@@ -65,13 +69,11 @@ async fn verify_endpoint_int(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
 }
 
 pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
-    let (web3, web3_rpc_info, web3_rpc_params) = {
-        (
-            m.read().unwrap().web3.clone(),
-            m.read().unwrap().web3_rpc_info.clone(),
-            m.read().unwrap().web3_rpc_params.clone(),
-        )
-    };
+    let (web3, web3_rpc_info, web3_rpc_params) = m
+        .try_read_for(std::time::Duration::from_secs(5))
+        .map(|x| x.clone())
+        .map(|x| (x.web3, x.web3_rpc_info, x.web3_rpc_params))
+        .unwrap();
 
     if let Some(last_verified) = web3_rpc_info.last_verified {
         if Utc::now() - last_verified
@@ -92,7 +94,11 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
     )
     .await;
 
-    let mut web3_rpc_info = m.read().unwrap().web3_rpc_info.clone();
+    let mut web3_rpc_info = m
+        .try_read_for(std::time::Duration::from_secs(5))
+        .unwrap()
+        .web3_rpc_info
+        .clone();
     let was_already_verified_and_not_allowed =
         web3_rpc_info.last_verified.is_some() && !web3_rpc_info.is_allowed;
     if was_already_verified_and_not_allowed {
@@ -123,13 +129,17 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
             VerifyEndpointResult::Unreachable => {}
         }
     }
-    m.write().unwrap().web3_rpc_info = web3_rpc_info;
-    metrics::gauge!("rpc_endpoint_score_validation", (m.read().unwrap().get_validation_score() * 1000.0) as i64, "chain_id" => chain_id.to_string(), "endpoint" => web3_rpc_params.name.clone());
-    metrics::gauge!("rpc_endpoint_effective_score", (m.read().unwrap().get_score() * 1000.0) as i64, "chain_id" => chain_id.to_string(), "endpoint" => web3_rpc_params.name.clone());
+    m.try_write_for(std::time::Duration::from_secs(5))
+        .unwrap()
+        .web3_rpc_info = web3_rpc_info;
+    metrics::gauge!("rpc_endpoint_score_validation", (m.try_read_for(std::time::Duration::from_secs(5)).unwrap().get_validation_score() * 1000.0) as i64, "chain_id" => chain_id.to_string(), "endpoint" => web3_rpc_params.name.clone());
+    metrics::gauge!("rpc_endpoint_effective_score", (m.try_read_for(std::time::Duration::from_secs(5)).unwrap().get_score() * 1000.0) as i64, "chain_id" => chain_id.to_string(), "endpoint" => web3_rpc_params.name.clone());
     metrics::counter!("web3_rpc_success", 0, "chain_id" => chain_id.to_string(), "endpoint" => web3_rpc_params.name.clone());
     metrics::counter!("web3_rpc_error", 0, "chain_id" => chain_id.to_string(), "endpoint" => web3_rpc_params.name.clone());
     log::debug!(
         "Verification finished score: {}",
-        m.read().unwrap().get_validation_score()
+        m.try_read_for(std::time::Duration::from_secs(5))
+            .unwrap()
+            .get_validation_score()
     );
 }
