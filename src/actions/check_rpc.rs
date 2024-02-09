@@ -32,6 +32,12 @@ pub async fn check_rpc_local(
             ))?;
     let mut single_endpoints = Vec::with_capacity(100);
     for rpc_settings in &chain_cfg.rpc_endpoints {
+        let max_head_behind_secs = rpc_settings.allowed_head_behind_secs.unwrap_or(120);
+        let max_head_behind_secs = if max_head_behind_secs < 0 {
+            None
+        } else {
+            Some(max_head_behind_secs as u64)
+        };
         let endpoint_names = split_string_by_coma(&rpc_settings.names).unwrap_or_default();
         if let Some(endpoints) = split_string_by_coma(&rpc_settings.endpoints) {
             for (idx, endpoint) in endpoints.iter().enumerate() {
@@ -44,9 +50,7 @@ pub async fn check_rpc_local(
                         skip_validation: rpc_settings.skip_validation.unwrap_or(false),
                         verify_interval_secs: rpc_settings.verify_interval_secs.unwrap_or(120),
                         max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
-                        max_head_behind_secs: Some(
-                            rpc_settings.allowed_head_behind_secs.unwrap_or(120),
-                        ),
+                        max_head_behind_secs,
                         max_number_of_consecutive_errors: rpc_settings
                             .max_consecutive_errors
                             .unwrap_or(5),
@@ -74,6 +78,12 @@ pub async fn check_rpc_local(
         Duration::from_secs(300),
     );
     for rpc_settings in &chain_cfg.rpc_endpoints {
+        let max_head_behind_secs = rpc_settings.allowed_head_behind_secs.unwrap_or(120);
+        let max_head_behind_secs = if max_head_behind_secs < 0 {
+            None
+        } else {
+            Some(max_head_behind_secs as u64)
+        };
         if split_string_by_coma(&rpc_settings.endpoints).is_some() {
             //already processed above
         } else if let Some(dns_source) = &rpc_settings.dns_source {
@@ -96,9 +106,7 @@ pub async fn check_rpc_local(
                         skip_validation: rpc_settings.skip_validation.unwrap_or(false),
                         verify_interval_secs: rpc_settings.verify_interval_secs.unwrap_or(120),
                         max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
-                        max_head_behind_secs: Some(
-                            rpc_settings.allowed_head_behind_secs.unwrap_or(120),
-                        ),
+                        max_head_behind_secs,
                         max_number_of_consecutive_errors: rpc_settings
                             .max_consecutive_errors
                             .unwrap_or(5),
@@ -149,9 +157,7 @@ pub async fn check_rpc_local(
                         skip_validation: rpc_settings.skip_validation.unwrap_or(false),
                         verify_interval_secs: rpc_settings.verify_interval_secs.unwrap_or(120),
                         max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
-                        max_head_behind_secs: Some(
-                            rpc_settings.allowed_head_behind_secs.unwrap_or(120),
-                        ),
+                        max_head_behind_secs,
                         max_number_of_consecutive_errors: rpc_settings
                             .max_consecutive_errors
                             .unwrap_or(5),

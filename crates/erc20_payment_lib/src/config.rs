@@ -110,7 +110,7 @@ pub struct RpcSettings {
     pub verify_interval_secs: Option<u64>,
     pub min_interval_ms: Option<u64>,
     pub max_timeout_ms: Option<u64>,
-    pub allowed_head_behind_secs: Option<u64>,
+    pub allowed_head_behind_secs: Option<i64>,
     pub max_consecutive_errors: Option<u64>,
 }
 

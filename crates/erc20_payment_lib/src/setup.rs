@@ -152,6 +152,12 @@ impl PaymentSetup {
             let mut dns_sources = Vec::new();
             for rpc_settings in &chain_config.1.rpc_endpoints {
                 let endpoint_names = split_string_by_coma(&rpc_settings.names).unwrap_or_default();
+                let max_head_behind_secs = rpc_settings.allowed_head_behind_secs.unwrap_or(120);
+                let max_head_behind_secs = if max_head_behind_secs < 0 {
+                    None
+                } else {
+                    Some(max_head_behind_secs as u64)
+                };
                 if let Some(endpoints) = split_string_by_coma(&rpc_settings.endpoints) {
                     for (idx, endpoint) in endpoints.iter().enumerate() {
                         let endpoint = Web3RpcSingleParams {
@@ -165,9 +171,7 @@ impl PaymentSetup {
                                     .verify_interval_secs
                                     .unwrap_or(120),
                                 max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
-                                max_head_behind_secs: Some(
-                                    rpc_settings.allowed_head_behind_secs.unwrap_or(120),
-                                ),
+                                max_head_behind_secs,
                                 max_number_of_consecutive_errors: rpc_settings
                                     .max_consecutive_errors
                                     .unwrap_or(5),
@@ -187,9 +191,7 @@ impl PaymentSetup {
                             skip_validation: rpc_settings.skip_validation.unwrap_or(false),
                             verify_interval_secs: rpc_settings.verify_interval_secs.unwrap_or(120),
                             max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
-                            max_head_behind_secs: Some(
-                                rpc_settings.allowed_head_behind_secs.unwrap_or(120),
-                            ),
+                            max_head_behind_secs,
                             max_number_of_consecutive_errors: rpc_settings
                                 .max_consecutive_errors
                                 .unwrap_or(5),
@@ -206,9 +208,7 @@ impl PaymentSetup {
                             skip_validation: rpc_settings.skip_validation.unwrap_or(false),
                             verify_interval_secs: rpc_settings.verify_interval_secs.unwrap_or(120),
                             max_response_time_ms: rpc_settings.max_timeout_ms.unwrap_or(10000),
-                            max_head_behind_secs: Some(
-                                rpc_settings.allowed_head_behind_secs.unwrap_or(120),
-                            ),
+                            max_head_behind_secs,
                             max_number_of_consecutive_errors: rpc_settings
                                 .max_consecutive_errors
                                 .unwrap_or(5),
