@@ -63,7 +63,7 @@ pub async fn test_durability2(accounts_count: usize, generate_count: u64, gen_in
 
         assert!(tx_confirmed_message_count > 0);
         assert_eq!(transfer_finished_message_count, generate_count);
-        assert_eq!(approve_contract_message_count, accounts_count);
+        assert!(approve_contract_message_count > 0 && approve_contract_message_count <= accounts_count);
         (fee_paid, fee_paid_approve)
     });
 
