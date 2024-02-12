@@ -676,7 +676,30 @@ impl PaymentRuntime {
         Ok(gas_balance)
     }
 
-    pub async fn transfer(
+    pub async fn transfer_guess_account(
+        &self,
+        transfer_args: TransferArgs,
+    ) -> Result<(), PaymentError> {
+        let account = {
+            self.shared_state
+                .lock()
+                .unwrap()
+                .accounts
+                .iter()
+                .find(|a| a.address == transfer_args.from)
+                .cloned()
+        };
+        if let Some(account) = account {
+            self.transfer_with_account(&account, transfer_args).await
+        } else {
+            Err(err_custom_create!(
+                "Account {:#x} not found in active accounts",
+                transfer_args.from
+            ))
+        }
+    }
+
+    pub async fn transfer_with_account(
         &self,
         account: &SignerAccount,
         transfer_args: TransferArgs,
