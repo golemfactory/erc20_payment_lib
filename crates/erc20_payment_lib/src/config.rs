@@ -10,6 +10,7 @@ use erc20_payment_lib_common::err_create;
 use tokio::fs;
 use web3::types::Address;
 
+#[derive(Debug, Clone)]
 pub struct AdditionalOptions {
     ///Set to keep running when finished processing transactions
     pub keep_running: bool,
