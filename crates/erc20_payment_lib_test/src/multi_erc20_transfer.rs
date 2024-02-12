@@ -125,7 +125,7 @@ pub async fn test_durability(accounts_count: usize, generate_count: u64, gen_int
         let conn_ = conn.clone();
         let jh = tokio::spawn(
             async move {
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                tokio::time::sleep(Duration::from_secs(5)).await;
                 let sp = PaymentRuntime::new(
                     PaymentRuntimeArgs {
                         secret_keys: private_keys,
@@ -145,6 +145,7 @@ pub async fn test_durability(accounts_count: usize, generate_count: u64, gen_int
                     Arc::new(Box::new(signer)),
                 ).await.unwrap();
                 sp.join_tasks().await.unwrap();
+
             }
         );
 
