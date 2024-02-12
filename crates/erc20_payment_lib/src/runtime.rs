@@ -367,12 +367,13 @@ pub enum TransferType {
 }
 
 pub struct PaymentRuntime {
-    pub runtime_handles: Arc<std::sync::Mutex<Vec<JoinHandle<()>>>>,
+    //pub runtime_handles: Arc<std::sync::Mutex<Vec<JoinHandle<()>>>>,
     pub setup: PaymentSetup,
     pub shared_state: Arc<std::sync::Mutex<SharedState>>,
     pub wake: Arc<Notify>,
     pub driver_broadcast_sender: Option<broadcast::Sender<DriverEvent>>,
     pub driver_mpsc_sender: Option<mpsc::Sender<DriverEvent>>,
+    pub raw_event_sender: mpsc::Sender<DriverEvent>,
     conn: SqlitePool,
     status_tracker: StatusTracker,
     config: Config,
@@ -403,6 +404,75 @@ pub struct TransferArgs {
 }
 
 impl PaymentRuntime {
+    fn start_service_loop(
+        &self,
+        signer_address: Address,
+        notify: Arc<Notify>,
+        extra_testing: Option<ExtraOptionsForTesting>,
+        options: AdditionalOptions,
+    ) -> JoinHandle<()> {
+        let shared_state_clone = self.shared_state.clone();
+        let raw_event_sender = self.raw_event_sender.clone();
+        let config = self.config.clone();
+        let ps = self.setup.clone();
+        let conn = self.conn.clone();
+        let jh = tokio::task::spawn(async move {
+            if let Some(balance_check_loop) =
+                extra_testing.clone().and_then(|e| e.balance_check_loop)
+            {
+                if config.chain.values().len() != 1 {
+                    panic!("balance_check_loop can be used only with single chain");
+                }
+                let config_chain = config.chain.values().next().unwrap().clone();
+                let balance_options = BalanceOptions2 {
+                    chain_name: "dev".to_string(),
+                    //dead address
+                    accounts: Some("0x2000000000000000000000000000000000000000".to_string()),
+                    hide_gas: false,
+                    hide_token: true,
+                    block_number: None,
+                    tasks: 0,
+                    interval: Some(2.0),
+                    debug_loop: Some(balance_check_loop),
+                };
+                match test_balance_loop(
+                    Some(shared_state_clone),
+                    ps.clone(),
+                    balance_options,
+                    &config_chain,
+                )
+                .await
+                {
+                    Ok(_) => {
+                        log::info!("Balance debug loop finished");
+                    }
+                    Err(e) => {
+                        log::error!("Balance debug loop finished with error: {}", e);
+                        panic!("Balance debug loop finished with error: {}", e);
+                    }
+                }
+                return;
+            }
+            if options.skip_service_loop && options.keep_running {
+                log::warn!("Started with skip_service_loop and keep_running, no transaction will be sent or processed");
+                loop {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                }
+            } else {
+                service_loop(
+                    shared_state_clone,
+                    signer_address,
+                    notify,
+                    &conn,
+                    &ps,
+                    Some(raw_event_sender),
+                )
+                .await
+            }
+        });
+        jh
+    }
+
     pub async fn new(
         payment_runtime_args: PaymentRuntimeArgs,
         signer: Arc<Box<dyn Signer + Send + Sync + 'static>>,
@@ -446,8 +516,6 @@ impl PaymentRuntime {
             status_rx,
         );
 
-        let ps = payment_setup.clone();
-
         let accounts = payment_runtime_args
             .secret_keys
             .iter()
@@ -455,7 +523,7 @@ impl PaymentRuntime {
             .collect::<Vec<SignerAccount>>();
 
         let shared_state = Arc::new(std::sync::Mutex::new(SharedState {
-            accounts: accounts.clone(),
+            accounts: vec![],
             inserted: 0,
             idling: false,
             current_tx_info: BTreeMap::new(),
@@ -465,70 +533,25 @@ impl PaymentRuntime {
 
         let notify = Arc::new(Notify::new());
 
-        let mut tasks = Vec::new();
-        for addr in accounts {
-            let raw_event_sender = raw_event_sender.clone();
-            let shared_state_clone = shared_state.clone();
-            let notify_ = notify.clone();
-            let extra_testing_ = payment_runtime_args.extra_testing.clone();
-            let config_ = payment_runtime_args.config.clone();
-            let ps = ps.clone();
-            let conn_ = conn.clone();
-            let jh = tokio::task::spawn(async move {
-                if let Some(balance_check_loop) =
-                    extra_testing_.clone().and_then(|e| e.balance_check_loop)
-                {
-                    if config_.chain.values().len() != 1 {
-                        panic!("balance_check_loop can be used only with single chain");
-                    }
-                    let config_chain = config_.chain.values().next().unwrap().clone();
-                    let balance_options = BalanceOptions2 {
-                        chain_name: "dev".to_string(),
-                        //dead address
-                        accounts: Some("0x2000000000000000000000000000000000000000".to_string()),
-                        hide_gas: false,
-                        hide_token: true,
-                        block_number: None,
-                        tasks: 0,
-                        interval: Some(2.0),
-                        debug_loop: Some(balance_check_loop),
-                    };
-                    match test_balance_loop(
-                        Some(shared_state_clone),
-                        ps.clone(),
-                        balance_options,
-                        &config_chain,
-                    )
-                    .await
-                    {
-                        Ok(_) => {
-                            log::info!("Balance debug loop finished");
-                        }
-                        Err(e) => {
-                            log::error!("Balance debug loop finished with error: {}", e);
-                            panic!("Balance debug loop finished with error: {}", e);
-                        }
-                    }
-                    return;
-                }
-                if options.skip_service_loop && options.keep_running {
-                    log::warn!("Started with skip_service_loop and keep_running, no transaction will be sent or processed");
-                    loop {
-                        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-                    }
-                } else {
-                    service_loop(
-                        shared_state_clone,
-                        addr.address,
-                        notify_,
-                        &conn_,
-                        &ps,
-                        Some(raw_event_sender),
-                    )
-                    .await
-                }
-            });
-            tasks.push(jh);
+        let pr = PaymentRuntime {
+            //runtime_handles: Arc::new(std::sync::Mutex::new(Vec::new())),
+            setup: payment_setup,
+            shared_state,
+            wake: notify.clone(),
+            conn,
+            status_tracker,
+            driver_broadcast_sender,
+            driver_mpsc_sender,
+            raw_event_sender,
+            config: payment_runtime_args.config,
+        };
+
+        for signer_account in accounts {
+            pr.add_account(
+                signer_account,
+                payment_runtime_args.extra_testing.clone(),
+                options.clone(),
+            );
         }
 
         /* - use this to test notifies
@@ -541,35 +564,35 @@ impl PaymentRuntime {
         });
          */
 
-        Ok(PaymentRuntime {
-            runtime_handles: Arc::new(std::sync::Mutex::new(tasks)),
-            setup: payment_setup,
-            shared_state,
-            wake: notify,
-            conn,
-            status_tracker,
-            driver_broadcast_sender,
-            driver_mpsc_sender,
-            config: payment_runtime_args.config,
-        })
+        Ok(pr)
     }
 
     fn get_and_remove_tasks(&self) -> Vec<JoinHandle<()>> {
-        let handles = {
-            let mut mutex_guard = self.runtime_handles.lock().unwrap();
-            let g: &mut Vec<JoinHandle<()>> = &mut mutex_guard;
-            std::mem::take(g)
-        };
-        handles
+        self.shared_state
+            .lock()
+            .unwrap()
+            .accounts
+            .iter_mut()
+            .filter_map(|a| a.jh.lock().unwrap().take())
+            .collect()
     }
 
     pub fn is_any_task_running(&self) -> bool {
-        let mutex_guard = self.runtime_handles.lock().unwrap();
-        mutex_guard.iter().any(|h| !h.is_finished())
+        self.shared_state.lock().unwrap().accounts.iter().any(|a| {
+            a.jh.lock()
+                .unwrap()
+                .as_ref()
+                .is_some_and(|jh| !jh.is_finished())
+        })
     }
+
     pub fn is_any_task_finished(&self) -> bool {
-        let mutex_guard = self.runtime_handles.lock().unwrap();
-        mutex_guard.iter().any(|h| h.is_finished())
+        self.shared_state.lock().unwrap().accounts.iter().any(|a| {
+            a.jh.lock()
+                .unwrap()
+                .as_ref()
+                .is_some_and(|jh| jh.is_finished())
+        })
     }
 
     pub async fn join_tasks(&self) -> Result<(), JoinError> {
@@ -593,7 +616,12 @@ impl PaymentRuntime {
         }
     }
 
-    pub async fn add_account(&self, payment_account: SignerAccount) {
+    pub fn add_account(
+        &self,
+        payment_account: SignerAccount,
+        extra_testing: Option<ExtraOptionsForTesting>,
+        options: AdditionalOptions,
+    ) -> bool {
         log::info!("Adding account: {}", payment_account);
         let mut sh = self.shared_state.lock().unwrap();
 
@@ -602,10 +630,19 @@ impl PaymentRuntime {
             .iter()
             .any(|a| a.address == payment_account.address)
         {
-            log::warn!("Account already added: {}", payment_account);
-            return;
+            log::error!("Account already added: {}", payment_account);
+            return false;
         }
+        let jh = self.start_service_loop(
+            payment_account.address,
+            self.wake.clone(),
+            extra_testing,
+            options,
+        );
+        *payment_account.jh.lock().unwrap() = Some(jh);
         sh.accounts.push(payment_account);
+
+        true
     }
 
     pub async fn get_unpaid_token_amount(
@@ -676,7 +713,30 @@ impl PaymentRuntime {
         Ok(gas_balance)
     }
 
-    pub async fn transfer(
+    pub async fn transfer_guess_account(
+        &self,
+        transfer_args: TransferArgs,
+    ) -> Result<(), PaymentError> {
+        let account = {
+            self.shared_state
+                .lock()
+                .unwrap()
+                .accounts
+                .iter()
+                .find(|a| a.address == transfer_args.from)
+                .cloned()
+        };
+        if let Some(account) = account {
+            self.transfer_with_account(&account, transfer_args).await
+        } else {
+            Err(err_custom_create!(
+                "Account {:#x} not found in active accounts",
+                transfer_args.from
+            ))
+        }
+    }
+
+    pub async fn transfer_with_account(
         &self,
         account: &SignerAccount,
         transfer_args: TransferArgs,

@@ -11,6 +11,10 @@ on:
         description: 'Number of transfers to generate'
         required: true
         default: '100000'
+      account_count:
+        description: 'Number of senders (signers) (>0, <=12)'
+        required: true
+        default: '5'
       journal_mode:
         description: 'Sqlite journal mode'
         required: true
@@ -60,6 +64,7 @@ jobs:
           ERC20_TEST_MAX_IN_TX: ${{ github.event.inputs.max_in_tx }}
           ERC20_TEST_TRANSFER_COUNT: ${{ github.event.inputs.transfer_count }}
           ERC20_TEST_TRANSFER_INTERVAL: ${{ github.event.inputs.transfer_interval }}
+          ERC20_TEST_ACCOUNTS_COUNT: ${{ github.event.inputs.account_count }}
 
       - name: Reopen db cleaning wal logs
         run: cargo run --profile=${{ github.event.inputs.build_profile }} -- --sqlite-db-file erc20lib.sqlite --sqlite-journal delete cleanup

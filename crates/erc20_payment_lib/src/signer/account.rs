@@ -4,6 +4,7 @@ use erc20_payment_lib_common::error::PaymentError;
 use serde::Serialize;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::{Arc, Mutex};
+use tokio::task::JoinHandle;
 use tokio::time::timeout;
 
 use super::Signer;
@@ -15,6 +16,8 @@ pub struct SignerAccount {
     #[serde(skip)]
     pub signer: Arc<Box<dyn Signer + Send + Sync>>,
     pub(crate) external_gather_time: Arc<Mutex<Option<DateTime<Utc>>>>,
+    #[serde(skip)]
+    pub(crate) jh: Arc<Mutex<Option<JoinHandle<()>>>>,
 }
 
 impl Debug for SignerAccount {
@@ -35,6 +38,7 @@ impl SignerAccount {
             address,
             signer,
             external_gather_time: Arc::new(Mutex::new(None)),
+            jh: Arc::new(Mutex::new(None)),
         }
     }
 

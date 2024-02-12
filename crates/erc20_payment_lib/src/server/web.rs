@@ -649,7 +649,7 @@ async fn new_transfer(
 
     if let Err(err) = data
         .payment_runtime
-        .transfer(&account, transfer_args.clone())
+        .transfer_with_account(&account, transfer_args.clone())
         .await
     {
         return Err(actix_web::error::ErrorInternalServerError(format!(
