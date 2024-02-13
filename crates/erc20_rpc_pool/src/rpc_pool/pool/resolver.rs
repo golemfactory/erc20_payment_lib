@@ -10,7 +10,7 @@ use std::time::Duration;
 
 #[derive(Debug)]
 pub struct ExternalSourceResolver {
-    pub last_check: Arc<Mutex<Option<std::time::Instant>>>,
+    last_check: Arc<Mutex<Option<std::time::Instant>>>,
 }
 
 async fn get_awc_response(url: &str) -> Result<Web3ExternalEndpointList, Box<dyn Error>> {
@@ -58,7 +58,7 @@ impl ExternalSourceResolver {
         let pool = pool.clone();
         let self_clone = self.clone();
         tokio::spawn(async move {
-            log::error!("Starting external resolver");
+            log::info!("Starting external resolver for chain id: {}", pool.chain_id);
             self_clone.resolve_external_addresses_int(pool).await;
         });
     }

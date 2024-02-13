@@ -42,6 +42,15 @@ impl SignerAccount {
         }
     }
 
+    pub fn is_active(&self) -> bool {
+        let jh_guard = self.jh.lock().unwrap();
+        if let Some(jh_guard) = jh_guard.as_ref() {
+            !jh_guard.is_finished()
+        } else {
+            false
+        }
+    }
+
     pub async fn check_if_sign_possible(&self) -> Result<(), PaymentError> {
         match timeout(
             std::time::Duration::from_secs(5),
