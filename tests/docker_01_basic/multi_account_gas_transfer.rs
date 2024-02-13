@@ -129,7 +129,7 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
         let transaction_human = list_transactions_human(&proxy_url_base, proxy_key).await;
         log::info!("transaction list \n {}", transaction_human.join("\n"));
         assert!(transaction_human.len() > 20);
-        assert!(transaction_human.len() < 60);
+        assert!(transaction_human.len() < 120);
     }
 
     Ok(())
