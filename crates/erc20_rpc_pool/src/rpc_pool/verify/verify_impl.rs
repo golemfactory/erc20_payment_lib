@@ -11,19 +11,23 @@ use web3::transports::Http;
 use web3::types::{BlockId, BlockNumber, U256};
 use web3::Web3;
 
-async fn verify_endpoint_int(web3: &Web3<Http>, vep: VerifyEndpointParams) -> VerifyEndpointResult {
+async fn verify_endpoint_int(
+    web3: &Web3<Http>,
+    name: &str,
+    vep: VerifyEndpointParams,
+) -> VerifyEndpointResult {
     let tsk = async move {
         let start_check = Instant::now();
         let chain_id = match web3.eth().chain_id().await {
             Ok(chain_id) => chain_id,
             Err(err) => {
-                log::debug!("Verify endpoint error {}", err);
+                log::debug!("Verify endpoint - {name} error: {}", err);
                 return VerifyEndpointResult::OtherNetworkError(err.to_string());
             }
         };
         if U256::from(vep.chain_id) != chain_id {
             log::debug!(
-                "Verify endpoint error - Chain id mismatch {} vs {}",
+                "Verify endpoint - {name} error: Chain id mismatch {} vs {}",
                 vep.chain_id,
                 chain_id
             );
@@ -33,25 +37,25 @@ async fn verify_endpoint_int(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
         let block_info = match web3.eth().block(BlockId::Number(BlockNumber::Latest)).await {
             Ok(Some(block_info)) => block_info,
             Ok(None) => {
-                log::warn!("Verify endpoint error - No block info");
+                log::warn!("Verify endpoint - {name} error: No block info");
                 return VerifyEndpointResult::NoBlockInfo;
             }
             Err(err) => {
-                log::warn!("Verify endpoint error {}", err);
+                log::warn!("Verify endpoint - {name} error: {}", err);
                 return VerifyEndpointResult::OtherNetworkError(err.to_string());
             }
         };
         let Some(date) = datetime_from_u256_timestamp(block_info.timestamp) else {
-            log::warn!("Verify endpoint error - No timestamp in block info");
+            log::warn!("Verify endpoint error - {name} error: No timestamp in block info");
             return VerifyEndpointResult::NoBlockInfo;
         };
         if let Some(max_head_behind_secs) = vep.allow_max_head_behind_secs {
             if Utc::now() - date > Duration::seconds(max_head_behind_secs as i64) {
-                log::warn!("Verify endpoint error - Head behind");
+                log::warn!("Verify endpoint error - {name} error: Head behind");
                 return VerifyEndpointResult::HeadBehind(date);
             }
         } else {
-            log::warn!("Skip max head behind check");
+            log::warn!("Skip max head behind check - {name}");
         }
         VerifyEndpointResult::Ok(VerifyEndpointStatus {
             head_seconds_behind: (Utc::now() - date).num_seconds() as u64,
@@ -62,7 +66,7 @@ async fn verify_endpoint_int(web3: &Web3<Http>, vep: VerifyEndpointParams) -> Ve
     select! {
         res = tsk => res,
         _ = tokio::time::sleep(std::time::Duration::from_millis(vep.allow_max_response_time_ms)) => {
-            log::warn!("Verify endpoint error - Unreachable");
+            log::warn!("Verify endpoint error - {name} error: Unreachable");
             VerifyEndpointResult::Unreachable
         },
     }
@@ -86,6 +90,7 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
 
     let verify_result = verify_endpoint_int(
         &web3,
+        &web3_rpc_params.name,
         VerifyEndpointParams {
             chain_id,
             allow_max_head_behind_secs: web3_rpc_params.web3_endpoint_params.max_head_behind_secs,
