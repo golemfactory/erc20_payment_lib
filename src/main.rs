@@ -78,9 +78,42 @@ async fn main_internal() -> Result<(), PaymentError> {
     init_metrics();
     let cli: PaymentOptions = PaymentOptions::from_args();
 
-    let (private_keys, public_addrs) =
-        load_private_keys(&env::var("ETH_PRIVATE_KEYS").unwrap_or("".to_string()))?;
-    display_private_keys(&private_keys);
+    let mut private_key_load_needed = true;
+    let mut db_connection_needed = true;
+
+    match cli.commands {
+        PaymentCommands::Run { .. } => {}
+        PaymentCommands::Generate { .. } => {}
+        PaymentCommands::GenerateKey { .. } => {
+            private_key_load_needed = false;
+            db_connection_needed = false;
+        }
+        PaymentCommands::CheckRpc { .. } => {}
+        PaymentCommands::GetDevEth { .. } => {}
+        PaymentCommands::MintTestTokens { .. } => {}
+        PaymentCommands::Deposit { .. } => {}
+        PaymentCommands::Withdraw { .. } => {}
+        PaymentCommands::MakeAllocation { .. } => {}
+        PaymentCommands::CancelAllocation { .. } => {}
+        PaymentCommands::CheckAllocation { .. } => {}
+        PaymentCommands::Transfer { .. } => {}
+        PaymentCommands::Balance { .. } => {}
+        PaymentCommands::ImportPayments { .. } => {}
+        PaymentCommands::ScanBlockchain { .. } => {}
+        PaymentCommands::PaymentStats { .. } => {}
+        PaymentCommands::ExportHistory { .. } => {}
+        PaymentCommands::DecryptKeyStore { .. } => {}
+        PaymentCommands::Cleanup { .. } => {}
+    }
+
+    let (private_keys, public_addrs) = if private_key_load_needed {
+        let (private_keys, public_addrs) =
+            load_private_keys(&env::var("ETH_PRIVATE_KEYS").unwrap_or("".to_string()))?;
+        display_private_keys(&private_keys);
+        (private_keys, public_addrs)
+    } else {
+        (vec![], vec![])
+    };
     let signer = PrivateKeySigner::new(private_keys.clone());
 
     let mut config = match config::Config::load("config-payments.toml").await {
@@ -150,27 +183,32 @@ async fn main_internal() -> Result<(), PaymentError> {
     }
 
     let db_filename = cli.sqlite_db_file;
-    if cli.sqlite_read_only {
-        log::info!(
-            "Connecting read only to db: {} (journal mode: {})",
-            db_filename.display(),
-            cli.sqlite_journal
-        );
+    let conn = if db_connection_needed {
+        if cli.sqlite_read_only {
+            log::info!(
+                "Connecting read only to db: {} (journal mode: {})",
+                db_filename.display(),
+                cli.sqlite_journal
+            );
+        } else {
+            log::info!(
+                "Connecting read/write connection to db: {} (journal mode: {})",
+                db_filename.display(),
+                cli.sqlite_journal
+            );
+        }
+        env::set_var("ERC20_LIB_SQLITE_JOURNAL_MODE", cli.sqlite_journal);
+        let conn = create_sqlite_connection(
+            Some(&db_filename),
+            None,
+            cli.sqlite_read_only,
+            !cli.skip_migrations,
+        )
+        .await?;
+        Some(conn)
     } else {
-        log::info!(
-            "Connecting read/write connection to db: {} (journal mode: {})",
-            db_filename.display(),
-            cli.sqlite_journal
-        );
-    }
-    env::set_var("ERC20_LIB_SQLITE_JOURNAL_MODE", cli.sqlite_journal);
-    let conn = create_sqlite_connection(
-        Some(&db_filename),
-        None,
-        cli.sqlite_read_only,
-        !cli.skip_migrations,
-    )
-    .await?;
+        None
+    };
 
     match cli.commands {
         PaymentCommands::Run { run_options } => {
@@ -202,7 +240,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     secret_keys: private_keys,
                     db_filename,
                     config,
-                    conn: Some(conn.clone()),
+                    conn: Some(conn.clone().unwrap()),
                     options: Some(add_opt),
                     mspc_sender: None,
                     broadcast_sender: Some(broadcast_sender),
@@ -215,7 +253,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             if run_options.http {
                 let server_data = web::Data::new(Box::new(ServerData {
                     shared_state: sp.shared_state.clone(),
-                    db_connection: Arc::new(Mutex::new(conn.clone())),
+                    db_connection: Arc::new(Mutex::new(conn.clone().unwrap())),
                     payment_setup: sp.setup.clone(),
                     payment_runtime: sp,
                 }));
@@ -325,7 +363,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             mint_golem_token(
                 web3,
-                &conn,
+                &conn.clone().unwrap(),
                 chain_cfg.chain_id as u64,
                 public_addr,
                 chain_cfg.token.address,
@@ -337,20 +375,30 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::Withdraw {
             withdraw_tokens_options,
         } => {
-            withdraw_funds_local(conn.clone(), withdraw_tokens_options, config, &public_addrs)
-                .await?;
+            withdraw_funds_local(
+                conn.clone().unwrap(),
+                withdraw_tokens_options,
+                config,
+                &public_addrs,
+            )
+            .await?;
         }
         PaymentCommands::MakeAllocation {
             make_allocation_options,
         } => {
-            make_allocation_local(conn.clone(), make_allocation_options, config, &public_addrs)
-                .await?;
+            make_allocation_local(
+                conn.clone().unwrap(),
+                make_allocation_options,
+                config,
+                &public_addrs,
+            )
+            .await?;
         }
         PaymentCommands::CancelAllocation {
             cancel_allocation_options,
         } => {
             cancel_allocation_local(
-                conn.clone(),
+                conn.clone().unwrap(),
                 cancel_allocation_options,
                 config,
                 &public_addrs,
@@ -433,7 +481,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     };
 
                     let _ = process_allowance(
-                        &conn,
+                        &conn.clone().unwrap(),
                         &payment_setup,
                         &allowance_request,
                         Arc::new(Box::new(signer)),
@@ -450,7 +498,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             deposit_funds(
                 web3,
-                &conn,
+                &conn.clone().unwrap(),
                 chain_cfg.chain_id as u64,
                 public_addr,
                 chain_cfg.token.address,
@@ -516,7 +564,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             } else {
                 *public_addrs.first().expect("No public adss found")
             };
-            let mut db_transaction = conn.begin().await.unwrap();
+            let mut db_transaction = conn.clone().unwrap().begin().await.unwrap();
 
             let amount_str = if let Some(amount) = single_transfer_options.amount {
                 amount.to_u256_from_eth().unwrap().to_string()
@@ -630,15 +678,20 @@ async fn main_internal() -> Result<(), PaymentError> {
             if generate_options.append_to_db && cli.sqlite_read_only {
                 return Err(err_custom_create!("Cannot append to db in read-only mode"));
             }
-            generate_test_payments(generate_options, &config, public_addrs, Some(conn.clone()))
-                .await?;
+            generate_test_payments(
+                generate_options,
+                &config,
+                public_addrs,
+                Some(conn.clone().unwrap()),
+            )
+            .await?;
         }
         PaymentCommands::ExportHistory {
             export_history_stats_options,
-        } => export_stats(conn.clone(), export_history_stats_options, &config).await?,
+        } => export_stats(conn.clone().unwrap(), export_history_stats_options, &config).await?,
         PaymentCommands::PaymentStats {
             payment_stats_options,
-        } => run_stats(conn.clone(), payment_stats_options, &config).await?,
+        } => run_stats(conn.clone().unwrap(), payment_stats_options, &config).await?,
         PaymentCommands::ScanBlockchain {
             scan_blockchain_options,
         } => {
@@ -663,15 +716,23 @@ async fn main_internal() -> Result<(), PaymentError> {
                 start_block: -1,
                 last_block: -1,
             };
-            let scan_info_from_db = get_scan_info(&conn, chain_cfg.chain_id, &scan_info.filter)
-                .await
-                .map_err(err_from!())?;
+            let scan_info_from_db = get_scan_info(
+                &conn.clone().unwrap(),
+                chain_cfg.chain_id,
+                &scan_info.filter,
+            )
+            .await
+            .map_err(err_from!())?;
 
             let mut scan_info = if scan_blockchain_options.start_new_scan {
                 log::warn!("Starting new scan - removing old scan info from db");
-                delete_scan_info(&conn, scan_info.chain_id, &scan_info.filter)
-                    .await
-                    .map_err(err_from!())?;
+                delete_scan_info(
+                    &conn.clone().unwrap(),
+                    scan_info.chain_id,
+                    &scan_info.filter,
+                )
+                .await
+                .map_err(err_from!())?;
                 scan_info
             } else if let Some(scan_info_from_db) = scan_info_from_db {
                 log::debug!("Found scan info from db: {:?}", scan_info_from_db);
@@ -760,7 +821,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             for tx in &txs {
                 match transaction_from_chain_and_into_db(
                     web3.clone(),
-                    &conn,
+                    &conn.clone().unwrap(),
                     chain_cfg.chain_id,
                     &format!("{tx:#x}"),
                     chain_cfg.token.address,
@@ -791,7 +852,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 scan_info.start_block,
                 scan_info.last_block
             );
-            upsert_scan_info(&conn, &scan_info)
+            upsert_scan_info(&conn.clone().unwrap(), &scan_info)
                 .await
                 .map_err(err_from!())?;
         }
@@ -848,7 +909,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 import_options.file
             );
             for token_transfer in token_transfer_list {
-                insert_token_transfer(&conn, &token_transfer)
+                insert_token_transfer(&conn.clone().unwrap(), &token_transfer)
                     .await
                     .map_err(err_from!())?;
             }
@@ -865,7 +926,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             if cleanup_options.remove_unsent_tx {
                 let mut number_of_unsent_removed = 0;
                 loop {
-                    match remove_last_unsent_transactions(conn.clone()).await {
+                    match remove_last_unsent_transactions(conn.clone().unwrap()).await {
                         Ok(Some(id)) => {
                             println!("Removed unsent transaction with id {}", id);
                             number_of_unsent_removed += 1;
@@ -888,16 +949,17 @@ async fn main_internal() -> Result<(), PaymentError> {
                 }
             }
             if cleanup_options.remove_tx_stuck {
-                let mut transactions = get_next_transactions_to_process(&conn, None, 1)
-                    .await
-                    .map_err(err_from!())?;
+                let mut transactions =
+                    get_next_transactions_to_process(&conn.clone().unwrap(), None, 1)
+                        .await
+                        .map_err(err_from!())?;
 
                 let Some(tx) = transactions.get_mut(0) else {
                     println!("No transactions found to remove");
                     return Ok(());
                 };
                 if tx.first_stuck_date.is_some() {
-                    match remove_transaction_force(&conn, tx.id).await {
+                    match remove_transaction_force(&conn.clone().unwrap(), tx.id).await {
                         Ok(_) => {
                             println!(
                                 "Removed stuck transaction with id {} (nonce: {})",
@@ -918,15 +980,16 @@ async fn main_internal() -> Result<(), PaymentError> {
                 }
             }
             if cleanup_options.remove_tx_unsafe {
-                let mut transactions = get_next_transactions_to_process(&conn, None, 1)
-                    .await
-                    .map_err(err_from!())?;
+                let mut transactions =
+                    get_next_transactions_to_process(&conn.clone().unwrap(), None, 1)
+                        .await
+                        .map_err(err_from!())?;
 
                 let Some(tx) = transactions.get_mut(0) else {
                     println!("No transactions found to remove");
                     return Ok(());
                 };
-                match remove_transaction_force(&conn, tx.id).await {
+                match remove_transaction_force(&conn.clone().unwrap(), tx.id).await {
                     Ok(_) => {
                         println!("Removed transaction with id {}", tx.id);
                     }
@@ -942,7 +1005,9 @@ async fn main_internal() -> Result<(), PaymentError> {
         }
     }
 
-    conn.close().await;
+    if let Some(conn) = conn.clone() {
+        conn.close().await;
+    }
     Ok(())
 }
 
