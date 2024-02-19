@@ -124,7 +124,7 @@ pub async fn generate_test_payments(
         rate_limit_options
     };
 
-    match generate_transaction_batch(
+    let gen_batch = generate_transaction_batch(
         Arc::new(std::sync::Mutex::new(rng)),
         chain_cfg.chain_id,
         &from_addrs,
@@ -178,8 +178,8 @@ pub async fn generate_test_payments(
             res
         }
     })
-    .await
-    {
+    .await;
+    match gen_batch {
         Ok(_) => {
             log::info!("All transactions generated successfully");
         }
