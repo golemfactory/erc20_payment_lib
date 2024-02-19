@@ -329,23 +329,6 @@ jobs:
           cargo run -- transfer -c holesky --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
           cargo run -- run
 
-  # generate_goeli_glms:
-  #   name: Generate goerli GLMs
-  #   timeout-minutes: 20
-  #   runs-on: ubuntu-latest
-  #
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v3
-  #
-  #     - name: Cache dependencies
-  #       uses: Swatinem/rust-cache@v2
-  #       with:
-  #         shared-key: "dev-build-cache"
-  #
-  #     - name: Generate
-  #       run: python junk/generate_goerli_glms.py
-
   payment_tests_custom:
     name: Payment tests (custom)
     timeout-minutes: 20
