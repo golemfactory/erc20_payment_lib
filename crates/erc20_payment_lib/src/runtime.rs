@@ -42,7 +42,9 @@ use erc20_rpc_pool::{Web3PoolType, Web3RpcPool};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
+use serde_json::json;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify};
 use tokio::task::{JoinError, JoinHandle};
 use web3::types::{Address, H256, U256};
@@ -686,6 +688,60 @@ impl PaymentRuntime {
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
         get_token_balance(web3, token_address, address, None).await
+    }
+
+    pub fn get_rpc_endpoints(
+        &self,
+        network: Option<String>,
+    ) -> Result<serde_json::Value, PaymentError> {
+        let my_data = self.shared_state.lock().unwrap();
+        // Convert BTreeMap of Arenas to BTreeMap of Vec because serde can't serialize Arena
+        let web3_rpc_pool_info = my_data
+            .web3_pool_ref
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(k, v)| {
+                (
+                    *k,
+                    v.try_lock_for(Duration::from_secs(5))
+                        .unwrap()
+                        .iter()
+                        .map(|pair| pair.1.clone())
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+
+        let mut array = Vec::with_capacity(web3_rpc_pool_info.len());
+
+        for (idx, val) in web3_rpc_pool_info {
+            let val = val
+                .iter()
+                .map(|v| json!(*v.try_read_for(Duration::from_secs(5)).unwrap()))
+                .collect::<Vec<_>>();
+            let chain_network = self
+                .setup
+                .chain_setup
+                .get(&idx)
+                .map(|s| s.network.clone())
+                .unwrap_or("unknown".to_string());
+            if let Some(network) = &network {
+                if network != &chain_network {
+                    continue;
+                }
+            }
+            array.push(json!(
+                {
+                    "chainId": idx,
+                    "chainNetwork": chain_network,
+                    "endpoints": val,
+                }
+            ));
+        }
+        Ok(json!({
+            "networks": array,
+        }))
     }
 
     pub async fn get_gas_balance(
