@@ -23,3 +23,4 @@ pub mod model {
 pub mod utils {
     pub use erc20_payment_lib_common::utils::*;
 }
+pub use erc20_rpc_pool::Web3FullNodeData;

@@ -38,11 +38,10 @@ use erc20_payment_lib_common::{
     DriverEvent, DriverEventContent, FaucetData, SharedInfoTx, StatusProperty,
     TransactionFailedReason, TransactionStuckReason, Web3RpcPoolContent,
 };
-use erc20_rpc_pool::{Web3PoolType, Web3RpcPool};
+use erc20_rpc_pool::{Web3FullNodeData, Web3PoolType, Web3RpcPool};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
-use serde_json::json;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify};
@@ -693,7 +692,7 @@ impl PaymentRuntime {
     pub fn get_rpc_endpoints(
         &self,
         network: Option<String>,
-    ) -> Result<serde_json::Value, PaymentError> {
+    ) -> Result<BTreeMap<String, Vec<Web3FullNodeData>>, PaymentError> {
         let my_data = self.shared_state.lock().unwrap();
         // Convert BTreeMap of Arenas to BTreeMap of Vec because serde can't serialize Arena
         let web3_rpc_pool_info = my_data
@@ -701,47 +700,34 @@ impl PaymentRuntime {
             .lock()
             .unwrap()
             .iter()
+            .filter(|(k, _)| {
+                network.is_none()
+                    || self.setup.chain_setup.get(k).map(|s| s.network.clone()) == network
+            })
             .map(|(k, v)| {
                 (
-                    *k,
+                    self.setup
+                        .chain_setup
+                        .get(k)
+                        .map(|s| s.network.clone())
+                        .unwrap_or("unknown".to_string()),
                     v.try_lock_for(Duration::from_secs(5))
                         .unwrap()
                         .iter()
-                        .map(|pair| pair.1.clone())
+                        .map(|pair| {
+                            let v = pair.1.clone();
+                            let val = v.try_read_for(Duration::from_secs(5)).unwrap().clone();
+                            Web3FullNodeData {
+                                params: val.web3_rpc_params,
+                                info: val.web3_rpc_info,
+                            }
+                        })
                         .collect::<Vec<_>>(),
                 )
             })
             .collect::<BTreeMap<_, _>>();
 
-        let mut array = Vec::with_capacity(web3_rpc_pool_info.len());
-
-        for (idx, val) in web3_rpc_pool_info {
-            let val = val
-                .iter()
-                .map(|v| json!(*v.try_read_for(Duration::from_secs(5)).unwrap()))
-                .collect::<Vec<_>>();
-            let chain_network = self
-                .setup
-                .chain_setup
-                .get(&idx)
-                .map(|s| s.network.clone())
-                .unwrap_or("unknown".to_string());
-            if let Some(network) = &network {
-                if network != &chain_network {
-                    continue;
-                }
-            }
-            array.push(json!(
-                {
-                    "chainId": idx,
-                    "chainNetwork": chain_network,
-                    "endpoints": val,
-                }
-            ));
-        }
-        Ok(json!({
-            "networks": array,
-        }))
+        Ok(web3_rpc_pool_info)
     }
 
     pub async fn get_gas_balance(
