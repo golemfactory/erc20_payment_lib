@@ -176,7 +176,7 @@ pub async fn check_rpc_local(
     }
     web3_pool
         .endpoint_verifier
-        .start_verify_if_needed(web3_pool.clone());
+        .start_verify_if_needed(web3_pool.clone(), false);
     let task = web3_pool.endpoint_verifier.get_join_handle().unwrap();
     let mut idx_set_completed = HashSet::new();
 
