@@ -448,6 +448,17 @@ impl Web3RpcPool {
         })
     }
 
+    pub fn mark_rpc_chosen(&self, idx: Index) {
+        let endpoints = self.endpoints.try_lock_for(Duration::from_secs(5)).unwrap();
+        endpoints
+            .get(idx)
+            .unwrap()
+            .try_write_for(Duration::from_secs(5))
+            .unwrap()
+            .web3_rpc_info
+            .last_chosen = Some(Utc::now());
+    }
+
     pub fn mark_rpc_success(&self, idx: Index, method: String) {
         // use read lock before write lock to avoid deadlock
         let params = self
@@ -500,6 +511,7 @@ impl Web3RpcPool {
         el.last_success_request = Some(Utc::now());
 
         stats.endpoint_consecutive_errors = 0;
+        stats.web3_rpc_stats.last_success_request = Some(Utc::now());
         stats.web3_rpc_stats.request_count_total_succeeded += 1;
     }
 

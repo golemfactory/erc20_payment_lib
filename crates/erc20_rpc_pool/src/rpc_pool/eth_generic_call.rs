@@ -26,6 +26,9 @@ impl Web3RpcPool {
         const LOOP_COUNT: usize = 4;
         loop {
             let idx_vec = self.clone().choose_best_endpoints().await;
+            if let Some(idx_chosen) = idx_vec.first() {
+                self.mark_rpc_chosen(*idx_chosen);
+            }
 
             if idx_vec.is_empty() {
                 if loop_no >= LOOP_COUNT {
