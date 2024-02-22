@@ -73,6 +73,12 @@ impl Web3RpcSingleParams {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Web3FullNodeData {
+    pub params: Web3RpcSingleParams,
+    pub info: Web3RpcInfo,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Web3RpcParams {
     /// If chain id is different than expected endpoint will be marked as critical
     pub chain_id: u64,
