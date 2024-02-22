@@ -72,7 +72,7 @@ async fn verify_endpoint_int(
     }
 }
 
-pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
+pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>, force: bool) {
     let (web3, web3_rpc_info, web3_rpc_params) = m
         .try_read_for(std::time::Duration::from_secs(5))
         .map(|x| x.clone())
@@ -80,11 +80,20 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>) {
         .unwrap();
 
     if let Some(last_verified) = web3_rpc_info.last_verified {
-        if Utc::now() - last_verified
-            < Duration::seconds(web3_rpc_params.web3_endpoint_params.verify_interval_secs as i64)
+        if !force
+            && Utc::now() - last_verified
+                < Duration::seconds(
+                    web3_rpc_params.web3_endpoint_params.verify_interval_secs as i64,
+                )
         {
             log::debug!("Verification skipped {}", last_verified);
             return;
+        }
+        if force {
+            log::info!(
+                "Forcing single endpoint verification {}",
+                web3_rpc_params.name
+            );
         }
     }
 
