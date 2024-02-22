@@ -38,17 +38,20 @@ impl EndpointsVerifier {
             .take()
     }
 
-    pub fn start_verify_if_needed(self: &Arc<Self>, pool: Arc<Web3RpcPool>) {
+    pub fn start_verify_if_needed(self: &Arc<Self>, pool: Arc<Web3RpcPool>, force: bool) {
         let mut last_verify = self
             .last_verify
             .try_lock_for(Duration::from_secs(5))
             .unwrap();
         if let Some(last_verify) = last_verify.as_ref() {
-            if last_verify.elapsed() < pool.check_external_sources_interval {
+            if !force && last_verify.elapsed() < pool.check_external_sources_interval {
                 log::debug!(
                     "Last external check was less than check_external_sources_interval ago"
                 );
                 return;
+            }
+            if force {
+                log::info!("Forcing endpoint verification");
             }
         }
         last_verify.replace(std::time::Instant::now());
@@ -58,7 +61,7 @@ impl EndpointsVerifier {
         let h = tokio::spawn(async move {
             self_cloned
                 .clone()
-                .verify_unverified_endpoints(pool.clone())
+                .verify_unverified_endpoints(pool.clone(), force)
                 .await;
             *self_cloned
                 .is_finished
@@ -71,7 +74,11 @@ impl EndpointsVerifier {
             .replace(h);
     }
 
-    async fn verify_unverified_endpoints(self: Arc<EndpointsVerifier>, pool: Arc<Web3RpcPool>) {
+    async fn verify_unverified_endpoints(
+        self: Arc<EndpointsVerifier>,
+        pool: Arc<Web3RpcPool>,
+        force: bool,
+    ) {
         metrics::counter!("verifier_spawned", 1, "chain_id" => pool.chain_id.to_string());
         let _guard = pool.verify_mutex.lock().await;
         let futures = {
@@ -92,7 +99,7 @@ impl EndpointsVerifier {
                         continue;
                     }
                 }
-                futures.push(verify_endpoint(pool.chain_id, endp.clone()));
+                futures.push(verify_endpoint(pool.chain_id, endp.clone(), force));
             }
             futures
         };

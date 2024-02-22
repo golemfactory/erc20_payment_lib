@@ -689,6 +689,60 @@ impl PaymentRuntime {
         get_token_balance(web3, token_address, address, None).await
     }
 
+    pub async fn force_check_endpoint_info(
+        &self,
+        chain_name: Option<String>,
+        resolve: bool,
+        verify: bool,
+        wait: bool,
+    ) -> Result<(), PaymentError> {
+        //do not keep locks
+
+        let chain_cfgs = if let Some(chain_name) = chain_name {
+            vec![self
+                .config
+                .chain
+                .get(&chain_name)
+                .ok_or(err_custom_create!(
+                    "Chain {} not found in config file",
+                    chain_name
+                ))?
+                .clone()]
+        } else {
+            self.config.chain.values().cloned().collect()
+        };
+
+        for chain_cfg in chain_cfgs {
+            let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
+
+            if resolve {
+                let jh = web3
+                    .external_sources_resolver
+                    .clone()
+                    .start_resolve_if_needed(web3.clone(), true);
+                if wait {
+                    jh.unwrap().await.map_err(|e| {
+                        err_custom_create!("Error waiting for external resolver: {}", e)
+                    })?
+                }
+            }
+
+            if verify {
+                web3.endpoint_verifier
+                    .start_verify_if_needed(web3.clone(), true);
+                if wait {
+                    let vh = web3.endpoint_verifier.get_join_handle();
+                    if let Some(vh) = vh {
+                        vh.await.map_err(|e| {
+                            err_custom_create!("Error waiting for endpoint verifier: {}", e)
+                        })?
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn get_rpc_endpoints(
         &self,
         network: Option<String>,
