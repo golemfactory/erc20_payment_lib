@@ -7,6 +7,7 @@ pub use rpc_pool::Web3EndpointParams;
 pub use rpc_pool::Web3ExternalDnsSource;
 pub use rpc_pool::Web3ExternalEndpointList;
 pub use rpc_pool::Web3ExternalJsonSource;
+pub use rpc_pool::Web3ExternalSources;
 pub use rpc_pool::Web3FullNodeData;
 pub use rpc_pool::Web3PoolType;
 pub use rpc_pool::Web3RpcEndpoint;
