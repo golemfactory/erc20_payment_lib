@@ -20,7 +20,7 @@ use uuid::Uuid;
 use web3::transports::Http;
 use web3::Web3;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Web3ExternalEndpointList {
     pub chain_id: u64,
@@ -28,7 +28,8 @@ pub struct Web3ExternalEndpointList {
     pub urls: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Web3ExternalJsonSource {
     pub chain_id: u64,
     pub unique_source_id: Uuid,
@@ -36,7 +37,8 @@ pub struct Web3ExternalJsonSource {
     pub endpoint_params: Web3EndpointParams,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Web3ExternalDnsSource {
     pub chain_id: u64,
     pub unique_source_id: Uuid,
@@ -44,11 +46,18 @@ pub struct Web3ExternalDnsSource {
     pub endpoint_params: Web3EndpointParams,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Web3ExternalSources {
+    pub json_sources: Vec<Web3ExternalJsonSource>,
+    pub dns_sources: Vec<Web3ExternalDnsSource>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Web3RpcEndpoint {
     #[serde(skip)]
-    pub web3: Web3<Http>,
+    pub web3: Option<Web3<Http>>,
     pub web3_rpc_params: Web3RpcSingleParams,
     pub web3_rpc_info: Web3RpcInfo,
 }
@@ -150,7 +159,7 @@ impl Web3RpcPool {
             let http = Http::new(&endpoint_params.endpoint).unwrap();
             let web3 = Web3::new(http);
             let endpoint = Web3RpcEndpoint {
-                web3,
+                web3: Some(web3),
                 web3_rpc_params: endpoint_params,
                 web3_rpc_info: Default::default(),
             };
@@ -247,7 +256,7 @@ impl Web3RpcPool {
         let http = Http::new(&endpoint.endpoint).unwrap();
         let web3 = Web3::new(http);
         let endpoint = Web3RpcEndpoint {
-            web3,
+            web3: Some(web3),
             web3_rpc_params: endpoint,
             web3_rpc_info: Default::default(),
         };
@@ -419,6 +428,7 @@ impl Web3RpcPool {
                 .unwrap()
                 .web3
                 .clone()
+                .expect("web3 field cannot be None")
         })
     }
 

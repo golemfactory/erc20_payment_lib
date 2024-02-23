@@ -38,7 +38,7 @@ use erc20_payment_lib_common::{
     DriverEvent, DriverEventContent, FaucetData, SharedInfoTx, StatusProperty,
     TransactionFailedReason, TransactionStuckReason, Web3RpcPoolContent,
 };
-use erc20_rpc_pool::{Web3FullNodeData, Web3PoolType, Web3RpcPool};
+use erc20_rpc_pool::{Web3ExternalSources, Web3FullNodeData, Web3PoolType, Web3RpcPool};
 use rust_decimal::prelude::FromPrimitive;
 use rust_decimal::Decimal;
 use serde::Serialize;
@@ -393,7 +393,7 @@ pub struct PaymentRuntimeArgs {
 
 #[derive(Debug, Clone)]
 pub struct TransferArgs {
-    pub chain_name: String,
+    pub network: String,
     pub from: Address,
     pub receiver: Address,
     pub tx_type: TransferType,
@@ -689,23 +689,24 @@ impl PaymentRuntime {
         get_token_balance(web3, token_address, address, None).await
     }
 
+    /// Force sources and enpoints check depending on input. If wait is set to false, it is nonblocking.
     pub async fn force_check_endpoint_info(
         &self,
-        chain_name: Option<String>,
+        network: Option<String>,
         resolve: bool,
         verify: bool,
         wait: bool,
     ) -> Result<(), PaymentError> {
         //do not keep locks
 
-        let chain_cfgs = if let Some(chain_name) = chain_name {
+        let chain_cfgs = if let Some(network) = network {
             vec![self
                 .config
                 .chain
-                .get(&chain_name)
+                .get(&network)
                 .ok_or(err_custom_create!(
                     "Chain {} not found in config file",
-                    chain_name
+                    network
                 ))?
                 .clone()]
         } else {
@@ -741,6 +742,45 @@ impl PaymentRuntime {
             }
         }
         Ok(())
+    }
+
+    pub fn get_rpc_sources(
+        &self,
+        network: Option<String>,
+    ) -> Result<BTreeMap<String, Web3ExternalSources>, PaymentError> {
+        let chain_cfgs = if let Some(network) = network {
+            vec![(
+                network.clone(),
+                self.config
+                    .chain
+                    .get(&network)
+                    .ok_or(err_custom_create!(
+                        "Chain {} not found in config file",
+                        network
+                    ))?
+                    .clone(),
+            )]
+        } else {
+            self.config
+                .chain
+                .iter()
+                .map(|el| (el.0.clone(), el.1.clone()))
+                .collect()
+        };
+
+        let mut res: BTreeMap<String, Web3ExternalSources> = BTreeMap::new();
+        for chain_cfg in chain_cfgs {
+            let web3 = self.setup.get_provider(chain_cfg.1.chain_id)?;
+            res.insert(
+                chain_cfg.0,
+                Web3ExternalSources {
+                    json_sources: web3.external_json_sources.clone(),
+                    dns_sources: web3.external_dns_sources.clone(),
+                },
+            );
+        }
+
+        Ok(res)
     }
 
     pub fn get_rpc_endpoints(
@@ -837,14 +877,14 @@ impl PaymentRuntime {
         account: &SignerAccount,
         transfer_args: TransferArgs,
     ) -> Result<(), PaymentError> {
-        let chain_cfg =
-            self.config
-                .chain
-                .get(&transfer_args.chain_name)
-                .ok_or(err_custom_create!(
-                    "Chain {} not found in config file",
-                    transfer_args.chain_name
-                ))?;
+        let chain_cfg = self
+            .config
+            .chain
+            .get(&transfer_args.network)
+            .ok_or(err_custom_create!(
+                "Chain {} not found in config file",
+                transfer_args.network
+            ))?;
 
         let token_addr = match transfer_args.tx_type {
             TransferType::Token => {
