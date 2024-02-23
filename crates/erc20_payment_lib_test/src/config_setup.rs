@@ -13,7 +13,7 @@ use web3::types::Address;
 
 pub async fn create_default_config_setup(proxy_url_base: &str, proxy_key: &str) -> config::Config {
     let chain = Chain {
-        chain_name: "dev".to_string(),
+        chain_name: "Dev".to_string(),
         chain_id: 987789,
         rpc_endpoints: vec![RpcSettings {
             names: Some(format!("{}/web3/{}", proxy_url_base, proxy_key)),

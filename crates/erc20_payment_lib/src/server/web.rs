@@ -619,7 +619,7 @@ async fn new_transfer(
     };
 
     let transfer_args = TransferArgs {
-        chain_name: chain.network,
+        network: chain.network,
         from: Address::from_str(&new_transfer.from).unwrap(),
         receiver: Address::from_str(&new_transfer.to).unwrap(),
         tx_type,
