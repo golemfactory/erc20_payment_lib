@@ -2,7 +2,7 @@
 name = "erc20_payment_lib"
 description = "Payment processor for ERC20 tokens"
 authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
-version = "0.3.25"
+version = "0.4.0"
 edition = "2021"
 license = "MIT"
 
@@ -40,6 +40,6 @@ trust-dns-resolver = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true }
 web3 = { workspace = true }
-erc20_rpc_pool = { path = "../erc20_rpc_pool", version = "0.3.20" }
+erc20_rpc_pool = { path = "../erc20_rpc_pool", version = "0.4.0" }
 erc20_payment_lib_common = { path = "../erc20_payment_lib_common", version = "0.3.20" }
 
