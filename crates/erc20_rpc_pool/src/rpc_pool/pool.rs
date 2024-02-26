@@ -20,7 +20,7 @@ use uuid::Uuid;
 use web3::transports::Http;
 use web3::Web3;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Web3ExternalEndpointList {
     pub chain_id: u64,
@@ -28,7 +28,8 @@ pub struct Web3ExternalEndpointList {
     pub urls: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Web3ExternalJsonSource {
     pub chain_id: u64,
     pub unique_source_id: Uuid,
@@ -36,7 +37,8 @@ pub struct Web3ExternalJsonSource {
     pub endpoint_params: Web3EndpointParams,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Web3ExternalDnsSource {
     pub chain_id: u64,
     pub unique_source_id: Uuid,
@@ -44,11 +46,18 @@ pub struct Web3ExternalDnsSource {
     pub endpoint_params: Web3EndpointParams,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Web3ExternalSources {
+    pub json_sources: Vec<Web3ExternalJsonSource>,
+    pub dns_sources: Vec<Web3ExternalDnsSource>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Web3RpcEndpoint {
     #[serde(skip)]
-    pub web3: Web3<Http>,
+    pub web3: Option<Web3<Http>>,
     pub web3_rpc_params: Web3RpcSingleParams,
     pub web3_rpc_info: Web3RpcInfo,
 }
@@ -150,7 +159,7 @@ impl Web3RpcPool {
             let http = Http::new(&endpoint_params.endpoint).unwrap();
             let web3 = Web3::new(http);
             let endpoint = Web3RpcEndpoint {
-                web3,
+                web3: Some(web3),
                 web3_rpc_params: endpoint_params,
                 web3_rpc_info: Default::default(),
             };
@@ -192,7 +201,7 @@ impl Web3RpcPool {
         if !s.external_json_sources.is_empty() || !s.external_dns_sources.is_empty() {
             s.external_sources_resolver
                 .clone()
-                .start_resolve_if_needed(s.clone());
+                .start_resolve_if_needed(s.clone(), false);
         }
         s
     }
@@ -247,7 +256,7 @@ impl Web3RpcPool {
         let http = Http::new(&endpoint.endpoint).unwrap();
         let web3 = Web3::new(http);
         let endpoint = Web3RpcEndpoint {
-            web3,
+            web3: Some(web3),
             web3_rpc_params: endpoint,
             web3_rpc_info: Default::default(),
         };
@@ -321,7 +330,7 @@ impl Web3RpcPool {
     pub async fn choose_best_endpoints(self: Arc<Self>) -> Vec<Index> {
         self.external_sources_resolver
             .clone()
-            .start_resolve_if_needed(self.clone());
+            .start_resolve_if_needed(self.clone(), false);
 
         let endpoints_copy = self
             .endpoints
@@ -368,7 +377,7 @@ impl Web3RpcPool {
             self_cloned
                 .endpoint_verifier
                 .clone()
-                .start_verify_if_needed(self.clone());
+                .start_verify_if_needed(self.clone(), false);
 
             allowed_endpoints
         } else {
@@ -376,7 +385,7 @@ impl Web3RpcPool {
             self_cloned
                 .endpoint_verifier
                 .clone()
-                .start_verify_if_needed(self.clone());
+                .start_verify_if_needed(self.clone(), false);
             //let verify_task = tokio::spawn(self_cloned.endpoint_verifier.verify_unverified_endpoints(self));
 
             loop {
@@ -419,6 +428,7 @@ impl Web3RpcPool {
                 .unwrap()
                 .web3
                 .clone()
+                .expect("web3 field cannot be None")
         })
     }
 
@@ -446,6 +456,17 @@ impl Web3RpcPool {
         } else {
             0
         })
+    }
+
+    pub fn mark_rpc_chosen(&self, idx: Index) {
+        let endpoints = self.endpoints.try_lock_for(Duration::from_secs(5)).unwrap();
+        endpoints
+            .get(idx)
+            .unwrap()
+            .try_write_for(Duration::from_secs(5))
+            .unwrap()
+            .web3_rpc_info
+            .last_chosen = Some(Utc::now());
     }
 
     pub fn mark_rpc_success(&self, idx: Index, method: String) {
@@ -500,6 +521,7 @@ impl Web3RpcPool {
         el.last_success_request = Some(Utc::now());
 
         stats.endpoint_consecutive_errors = 0;
+        stats.web3_rpc_stats.last_success_request = Some(Utc::now());
         stats.web3_rpc_stats.request_count_total_succeeded += 1;
     }
 

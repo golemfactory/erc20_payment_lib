@@ -23,3 +23,6 @@ pub mod model {
 pub mod utils {
     pub use erc20_payment_lib_common::utils::*;
 }
+pub mod rpc_pool {
+    pub use erc20_rpc_pool::*;
+}

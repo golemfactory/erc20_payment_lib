@@ -40,27 +40,34 @@ impl ExternalSourceResolver {
         }
     }
 
-    pub(super) fn start_resolve_if_needed(self: Arc<Self>, pool: Arc<Web3RpcPool>) {
+    pub fn start_resolve_if_needed(
+        self: Arc<Self>,
+        pool: Arc<Web3RpcPool>,
+        force: bool,
+    ) -> Option<tokio::task::JoinHandle<()>> {
         let mut last_check = self
             .last_check
             .try_lock_for(Duration::from_secs(5))
             .unwrap();
         if let Some(last_check) = last_check.as_ref() {
-            if last_check.elapsed() < pool.check_external_sources_interval {
+            if !force && last_check.elapsed() < pool.check_external_sources_interval {
                 log::debug!(
                     "Last external check was less than check_external_sources_interval ago"
                 );
-                return;
+                return None;
+            }
+            if force {
+                log::info!("Forcing external resolver check");
             }
         }
         last_check.replace(std::time::Instant::now());
         //spawn async task and return immediately
         let pool = pool.clone();
         let self_clone = self.clone();
-        tokio::spawn(async move {
+        Some(tokio::spawn(async move {
             log::info!("Starting external resolver for chain id: {}", pool.chain_id);
             self_clone.resolve_external_addresses_int(pool).await;
-        });
+        }))
     }
     async fn resolve_external_addresses_int(self: Arc<Self>, pool: Arc<Web3RpcPool>) {
         metrics::counter!("resolver_spawned", 1, "chain_id" => pool.chain_id.to_string());
