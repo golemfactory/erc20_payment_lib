@@ -2,7 +2,7 @@
 name = "erc20_payment_lib_extra"
 description = "Payment processor for ERC20 tokens"
 authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
-version = "0.3.25"
+version = "0.4.1"
 edition = "2021"
 license = "MIT"
 
@@ -33,7 +33,7 @@ actix-web = { workspace = true }
 actix-files = { workspace = true }
 serde_json = { workspace = true }
 uuid = { workspace = true }
-
-erc20_payment_lib = { path = "../erc20_payment_lib", version = "0.3.20" }
-erc20_payment_lib_common = { path = "../erc20_payment_lib_common", version = "0.3.20" }
-erc20_rpc_pool = { path = "../erc20_rpc_pool", version = "0.3.20" }
+# local dependencies
+erc20_payment_lib = { workspace = true }
+erc20_payment_lib_common = { workspace = true }
+erc20_rpc_pool = { workspace = true }
