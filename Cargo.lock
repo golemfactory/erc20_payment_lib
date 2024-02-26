@@ -1179,7 +1179,7 @@ dependencies = [
 
 [[package]]
 name = "erc20_payment_lib_common"
-version = "0.3.25"
+version = "0.4.0"
 dependencies = [
  "actix-files",
  "actix-web",
