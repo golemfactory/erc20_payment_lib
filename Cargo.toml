@@ -50,6 +50,7 @@ metrics = "0.12"
 metrics-core = "0.5.2"
 metrics-runtime = { version = "0.13.1", default-features = false, features = ["observers"] }
 mime_guess = "2.0.3"
+parking_lot = "0.12"
 rand = "0.8.5"
 regex = "1.10.2"
 reqwest = { version = "0.11", default-features = false, features = ["rustls-tls"] }
@@ -75,6 +76,12 @@ web3 = { version = "0.19", default-features = false, features = [
     "signing",
     "http-rustls-tls",
 ] }
+# local dependencies
+erc20_rpc_pool = { path = "crates/erc20_rpc_pool", version = "0.4.0" }
+erc20_payment_lib = { path = "crates/erc20_payment_lib", version = "0.4.0" }
+erc20_payment_lib_common = { path = "crates/erc20_payment_lib_common", version = "0.4.0" }
+erc20_payment_lib_extra = { path = "crates/erc20_payment_lib_extra", version = "0.4.0" }
+web3_test_proxy_client = { path = "crates/web3_test_proxy_client", version = "0.4.0" }
 
 [dependencies]
 actix-cors = { workspace = true }
@@ -115,10 +122,10 @@ url = { workspace = true }
 uuid = { workspace = true }
 web3 = { workspace = true }
 
-erc20_rpc_pool = { path = "crates/erc20_rpc_pool", version = "0.4.0" }
-erc20_payment_lib = { path = "crates/erc20_payment_lib", version = "0.4.0" }
-erc20_payment_lib_common = { path = "crates/erc20_payment_lib_common", version = "0.3.20" }
-erc20_payment_lib_extra = { path = "crates/erc20_payment_lib_extra", version = "0.4.0" }
+erc20_rpc_pool = { workspace = true }
+erc20_payment_lib = { workspace = true }
+erc20_payment_lib_common = { workspace = true }
+erc20_payment_lib_extra = { workspace = true }
 
 [dev-dependencies]
 bollard = { workspace = true }

@@ -23,6 +23,7 @@ humantime = { workspace = true }
 lazy_static = { workspace = true }
 log = { workspace = true }
 metrics = { workspace = true }
+parking_lot = { workspace = true }
 rand = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
@@ -39,5 +40,5 @@ toml = { workspace = true }
 trust-dns-resolver = { workspace = true }
 uuid = { workspace = true }
 web3 = { workspace = true }
-erc20_payment_lib_common = { path = "../erc20_payment_lib_common", version = "0.3.20" }
-parking_lot = "0.12.1"
+# local dependencies
+erc20_payment_lib_common = { workspace = true }
