@@ -227,7 +227,7 @@ pub struct ImportOptions {
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Scan blockchain options")]
 pub struct ScanBlockchainOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
     #[structopt(short = "b", long = "from-block")]
@@ -255,12 +255,11 @@ pub struct ScanBlockchainOptions {
     )]
     pub blocks_at_once: u64,
 
-    #[structopt(
-        short = "a",
-        long = "address",
-        default_value = "0x09e4F0aE44D5E60D44A8928Af7531e6A862290bC"
-    )]
-    pub sender: String,
+    #[structopt(long = "import-balances")]
+    pub import_balances: bool,
+
+    #[structopt(short = "a", long = "address")]
+    pub sender: Option<String>,
 }
 
 #[derive(StructOpt)]
@@ -273,7 +272,7 @@ pub struct CheckWeb3RpcOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Export history stats")]
 pub struct ExportHistoryStatsOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
     #[structopt(

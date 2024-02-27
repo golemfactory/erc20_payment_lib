@@ -707,12 +707,16 @@ async fn main_internal() -> Result<(), PaymentError> {
                 ))?;
             let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
 
-            let sender = Address::from_str(&scan_blockchain_options.sender).unwrap();
+            let sender = scan_blockchain_options
+                .sender
+                .map(|s| Address::from_str(&s).unwrap());
 
             let scan_info = ScanDaoDbObj {
                 id: 0,
                 chain_id: chain_cfg.chain_id,
-                filter: format!("{sender:#x}"),
+                filter: sender
+                    .map(|f| format!("{f:#x}"))
+                    .unwrap_or("all".to_string()),
                 start_block: -1,
                 last_block: -1,
             };
@@ -740,6 +744,8 @@ async fn main_internal() -> Result<(), PaymentError> {
             } else {
                 scan_info
             };
+
+            println!("scan_info: {:?}", scan_info);
 
             let current_block = web3
                 .clone()
@@ -808,7 +814,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 web3: web3.clone(),
                 erc20_address: chain_cfg.token.address,
                 chain_id: chain_cfg.chain_id,
-                filter_by_senders: Some([sender].to_vec()),
+                filter_by_senders: sender.map(|sender| [sender].to_vec()),
                 filter_by_receivers: None,
                 start_block,
                 scan_end_block: end_block,
