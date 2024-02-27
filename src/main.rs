@@ -831,6 +831,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     chain_cfg.chain_id,
                     &format!("{tx:#x}"),
                     chain_cfg.token.address,
+                    scan_blockchain_options.import_balances,
                 )
                 .await
                 {

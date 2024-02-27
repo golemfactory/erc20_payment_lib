@@ -3,6 +3,7 @@ use crate::transaction::{
     create_faucet_mint, create_free_allocation, create_free_allocation_internal,
     create_lock_deposit, create_lock_withdraw, create_make_allocation,
     create_make_allocation_internal, create_token_transfer, find_receipt_extended,
+    FindReceiptParseResult,
 };
 use crate::{err_custom_create, err_from};
 use erc20_payment_lib_common::create_sqlite_connection;
@@ -1531,7 +1532,15 @@ pub async fn verify_transaction(
     glm_address: Address,
 ) -> Result<VerifyTransactionResult, PaymentError> {
     let (chain_tx_dao, transfers) =
-        find_receipt_extended(web3, tx_hash, chain_id, glm_address).await?;
+        match find_receipt_extended(web3, tx_hash, chain_id, glm_address).await? {
+            FindReceiptParseResult::Success((chain_tx_dao, transfers)) => (chain_tx_dao, transfers),
+            FindReceiptParseResult::Failure(str) => {
+                return Ok(VerifyTransactionResult::Rejected(format!(
+                    "Transaction cannot be parsed {str}"
+                )))
+            }
+        };
+
     if chain_tx_dao.chain_status == 1 {
         //one transaction can contain multiple transfers. Search for ours.
         for transfer in transfers {

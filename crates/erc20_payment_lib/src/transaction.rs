@@ -855,15 +855,21 @@ pub async fn find_receipt(
     }
 }
 
+#[allow(clippy::large_enum_variant)]
+pub enum FindReceiptParseResult {
+    Success((ChainTxDbObj, Vec<ChainTransferDbObj>)),
+    Failure(String),
+}
+
 pub async fn find_receipt_extended(
     web3: Arc<Web3RpcPool>,
     tx_hash: H256,
     chain_id: i64,
     glm_address: Address,
-) -> Result<(ChainTxDbObj, Vec<ChainTransferDbObj>), PaymentError> {
+) -> Result<FindReceiptParseResult, PaymentError> {
     let mut chain_tx_dao = ChainTxDbObj {
         id: -1,
-        tx_hash: tx_hash.to_string(),
+        tx_hash: format!("{:#x}", tx_hash),
         method: "".to_string(),
         from_addr: "".to_string(),
         to_addr: "".to_string(),
@@ -1024,6 +1030,11 @@ pub async fn find_receipt_extended(
             let from = Address::from_slice(&log.topics[1][12..]);
             let to = Address::from_slice(&log.topics[2][12..]);
             let amount = U256::from(log.data.0.as_slice());
+            println!(
+                "ERC20 transfer from {:#x} to {:#x} amount {:#x}",
+                from, to, amount
+            );
+
             if to == tx_to {
                 if let Some(tcf) = &transfered_to_contract_from {
                     if from != *tcf {
@@ -1064,6 +1075,11 @@ pub async fn find_receipt_extended(
 
             if from == tx_to {
                 if Some(log.address) != transfered_to_contract_token {
+                    if transfered_to_contract_token.is_none() {
+                        return Ok(FindReceiptParseResult::Failure(
+                            "Transfer from contract without contract from".to_string(),
+                        ));
+                    }
                     return Err(err_custom_create!(
                         "Transfer from contract different token {:#x} != {:#x}",
                         log.address,
@@ -1103,7 +1119,7 @@ pub async fn find_receipt_extended(
         }
     }
 
-    Ok((chain_tx_dao, transfers))
+    Ok(FindReceiptParseResult::Success((chain_tx_dao, transfers)))
 }
 
 pub async fn get_erc20_logs(
