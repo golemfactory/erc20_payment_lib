@@ -231,7 +231,7 @@ pub struct ScanBlockchainOptions {
     pub chain_name: String,
 
     #[structopt(short = "b", long = "from-block")]
-    pub from_block: u64,
+    pub from_block: Option<u64>,
 
     #[structopt(long = "start-new-scan")]
     pub start_new_scan: bool,
@@ -249,6 +249,13 @@ pub struct ScanBlockchainOptions {
     pub blocks_behind: Option<u64>,
 
     #[structopt(
+        long = "forward-scan-buffer",
+        help = "How much blocks behind scanner should stop",
+        default_value = "40"
+    )]
+    pub forward_scan_buffer: u64,
+
+    #[structopt(
         long = "blocks-at-once",
         default_value = "1000",
         help = "Limit how much block to process at once. If too much web3 endpoint can return error"
@@ -260,6 +267,9 @@ pub struct ScanBlockchainOptions {
 
     #[structopt(short = "a", long = "address")]
     pub sender: Option<String>,
+
+    #[structopt(long = "auto")]
+    pub auto: bool,
 }
 
 #[derive(StructOpt)]

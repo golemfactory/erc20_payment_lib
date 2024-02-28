@@ -75,7 +75,7 @@ pub async fn transaction_from_chain_and_into_db(
     glm_address: Address,
     get_balances: bool,
 ) -> Result<Option<ChainTxDbObj>, PaymentError> {
-    println!("tx_hash: {tx_hash}");
+    log::debug!("tx_hash: {tx_hash}");
     let tx_hash = web3::types::H256::from_str(tx_hash)
         .map_err(|_err| ConversionError::from("Cannot parse tx_hash".to_string()))
         .map_err(err_from!())?;
@@ -84,7 +84,7 @@ pub async fn transaction_from_chain_and_into_db(
         .await
         .map_err(err_from!())?
     {
-        log::info!("Transaction already in DB: {}, skipping...", chain_tx.id);
+        log::warn!("Transaction already in DB: {}, skipping...", chain_tx.id);
         return Ok(Some(chain_tx));
     }
 
@@ -125,7 +125,7 @@ pub async fn transaction_from_chain_and_into_db(
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         };
 
-        log::info!(
+        log::debug!(
             "Balance: {:.5} for block {}",
             balance.unwrap_or_default().to_eth().unwrap(),
             chain_tx_dao.block_number
@@ -228,7 +228,7 @@ pub async fn transaction_from_chain_and_into_db(
     }
 
     db_transaction.commit().await.map_err(err_from!())?;
-    log::info!("Transaction found and parsed successfully: {}", tx.id);
+    log::debug!("Transaction found and parsed successfully: {}", tx.id);
     Ok(Some(tx))
 }
 

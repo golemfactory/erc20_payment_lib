@@ -1163,7 +1163,7 @@ pub struct ImportErc20TxsArgs {
 }
 
 pub async fn import_erc20_txs(import_args: ImportErc20TxsArgs) -> Result<Vec<H256>, PaymentError> {
-    let mut start_block = import_args.start_block;
+    let start_block = import_args.start_block;
     let option_address_to_option_h256 = |val: Option<Vec<Address>>| -> Option<Vec<H256>> {
         val.map(|accounts| {
             accounts
@@ -1189,43 +1189,46 @@ pub async fn import_erc20_txs(import_args: ImportErc20TxsArgs) -> Result<Vec<H25
         .as_u64() as i64;
 
     let mut txs = HashMap::<H256, u64>::new();
-    loop {
-        let end_block = std::cmp::min(
-            std::cmp::min(start_block + 1000, current_block),
-            import_args.scan_end_block,
+
+    let end_block = import_args.scan_end_block;
+    if start_block > end_block {
+        return Err(err_custom_create!("Start block is greater than end block"));
+    }
+    if end_block - start_block > import_args.blocks_at_once as i64 {
+        return Err(err_custom_create!("Too many blocks to scan"));
+    }
+    if start_block > current_block {
+        return Err(err_custom_create!(
+            "Start block is greater than current block"
+        ));
+    }
+    log::debug!("Scanning chain, blocks: {start_block} - {end_block}");
+    let logs = get_erc20_logs(
+        import_args.web3.clone(),
+        import_args.erc20_address,
+        topic_senders.clone(),
+        topic_receivers.clone(),
+        start_block,
+        end_block,
+    )
+    .await?;
+    for log in logs.into_iter() {
+        txs.insert(
+            log.transaction_hash
+                .ok_or(err_custom_create!("Log without transaction hash"))?,
+            log.block_number
+                .ok_or(err_custom_create!("Log without block number"))?
+                .as_u64(),
         );
-        if start_block > end_block {
-            break;
-        }
-        log::info!("Scanning chain, blocks: {start_block} - {end_block}");
-        let logs = get_erc20_logs(
-            import_args.web3.clone(),
-            import_args.erc20_address,
-            topic_senders.clone(),
-            topic_receivers.clone(),
-            start_block,
-            end_block,
-        )
-        .await?;
-        for log in logs.into_iter() {
-            txs.insert(
-                log.transaction_hash
-                    .ok_or(err_custom_create!("Log without transaction hash"))?,
-                log.block_number
-                    .ok_or(err_custom_create!("Log without block number"))?
-                    .as_u64(),
-            );
-            log::info!(
-                "Found matching log entry in block: {}, tx: {}",
-                log.block_number.unwrap(),
-                log.block_number.unwrap()
-            );
-        }
-        start_block += import_args.blocks_at_once as i64;
+        log::info!(
+            "Found matching log entry in block: {}, tx: {}",
+            log.block_number.unwrap(),
+            log.block_number.unwrap()
+        );
     }
 
     if txs.is_empty() {
-        log::info!("No logs found");
+        log::debug!("No logs found");
     } else {
         log::info!("Found {} transactions", txs.len());
     }
