@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.24;
 
 /**
  * @dev Interface of the ERC20 standard as defined in the EIP.
@@ -79,21 +79,28 @@ interface IERC20 {
     ) external returns (bool);
 }
 
-
 /**
   * Actors:
-  * - spender - the address that spends the funds
-  * -  - the address that requested the funds
-
+  * - Spender - the address that spends the funds
+  * - Funder - the address that deposits the funds
   */
 
     struct Deposit {
         address spender; //address that can spend the funds provided by customer
         uint128 amount; //remaining funds locked
         uint128 feeAmount; //fee amount locked for spender
-        uint32 block_no; //after this block funds can be returned to customer
+        uint64 validTo; //after this timestamp funds can be returned to customer
     }
 
+    struct DepositView {
+        uint256 id;     //unique id
+        uint64 nonce;  //nonce unique for each funder
+        address funder; //address that can spend the funds provided by customer
+        address spender; //address that can spend the funds provided by customer
+        uint128 amount; //remaining funds locked
+        uint128 feeAmount; //fee amount locked for spender
+        uint64 validTo; //after this timestamp funds can be returned to customer
+    }
 
 /**
  * @dev This contract is part of GLM payment system. Visit https://golem.network for details.
@@ -103,7 +110,7 @@ contract LockPayment {
     IERC20 public GLM;
 
     // allocation is stored using arbitrary id
-    mapping(uint32 => Allocation) public lockedAmounts;
+    mapping(uint256 => Deposit) public deposits;
 
     // fees are stored using spender address
     mapping(address => uint128) public funds;
@@ -111,6 +118,27 @@ contract LockPayment {
         GLM = _GLM;
     }
 
+    function idFromNonce(uint64 nonce) public view returns (uint256) {
+        return (uint256(uint160(msg.sender)) << 96) ^ uint256(nonce);
+    }
+
+    function nonceFromId(uint256 id) public pure returns (uint64) {
+        return uint64(id);
+    }
+
+    function funderFromId(uint256 id) public pure returns (address) {
+        return address(uint160(id >> 96));
+    }
+
+    function getMyDeposit(uint64 nonce) public view returns (DepositView memory) {
+        Deposit memory deposit = deposits[idFromNonce(nonce)];
+        return DepositView(idFromNonce(nonce), nonce, funderFromId(idFromNonce(nonce)), deposit.spender, deposit.amount, deposit.feeAmount, deposit.validTo);
+    }
+
+    function getDeposit(uint256 id) public view returns (DepositView memory) {
+        Deposit memory deposit = deposits[id];
+        return DepositView(id, nonceFromId(id), funderFromId(id), deposit.spender, deposit.amount, deposit.feeAmount, deposit.validTo);
+    }
 
     // createDeposit - Customer locks funds for usage by spender
     //
@@ -121,95 +149,77 @@ contract LockPayment {
     // blockNo - block number until which funds are guaranteed to be locked for spender.
     //           Spender still can use the funds after this block,
     //           but customer can request the funds to be returned clearing allocation after (or equal to) this block number.
-    function createDeposit(uint32 nonce, address spender, uint128 amount, uint128 feeAmount, uint64 timestamp) external {
+    function createDeposit(uint64 nonce, address spender, uint128 amount, uint128 feeAmount, uint64 validToTimestamp) public {
         //check if id is not used
-        require(lockedAmounts[id].amount == 0, "lockedAmounts[id].amount == 0");
+        uint256 id = idFromNonce(nonce);
+        require(deposits[id].amount == 0, "deposits[id].amount == 0");
         require(amount > 0, "amount > 0");
-
+        require(spender != address(0), "spender cannot be null address");
+        require(msg.sender != spender, "spender cannot be funder");
         require(GLM.transferFrom(msg.sender, address(this), amount + feeAmount), "transferFrom failed");
-        lockedAmounts[id] = Allocation(msg.sender, spender, amount, feeAmount, blockNo);
+        deposits[id] = Deposit(spender, amount, feeAmount, validToTimestamp);
     }
 
-    function extendDeposit(uint32 short_id, uint128 amount, uint128 extraFee, uint64 timestamp) external {
-        Allocation memory allocation = lockedAmounts[id];
-        require(msg.sender == allocation.customer, "msg.sender == allocation.customer");
-        require(GLM.transferFrom(msg.sender, address(this), amount + extraFee), "transferFrom failed");
-        require(allocation.block_no <= blockNo, "allocation.block_no <= blockNo");
-        allocation.amount += amount;
-        allocation.feeAmount += extraFee;
-        allocation.block_no = blockNo;
-        lockedAmounts[id] = allocation;
+    function extendDeposit(uint64 nonce, uint128 extraAmount, uint128 extraFee, uint64 validToTimestamp) public {
+        uint256 id = idFromNonce(nonce);
+        Deposit memory deposit = deposits[id];
+        require(GLM.transferFrom(msg.sender, address(this), extraAmount + extraFee), "transferFrom failed");
+        require(deposit.validTo <= validToTimestamp, "allocation.validTo <= validTo");
+        deposit.amount += extraAmount;
+        deposit.feeAmount += extraFee;
+        deposit.validTo = validToTimestamp;
+        deposits[id] = deposit;
     }
 
-    // only spender and customer can return funds after block_no
     // these are two parties interested in returning funds
-    function closeAllocation(uint32 id) external {
-        Allocation memory allocation = lockedAmounts[id];
+    function closeDeposit(uint256 id) public {
+        Deposit memory deposit = deposits[id];
         // customer cannot return funds before block_no
         // sender can return funds at any time
-        require((msg.sender == allocation.customer && allocation.block_no <= block.number) || msg.sender == allocation.spender);
-        require(GLM.transfer(allocation.customer, allocation.amount + allocation.feeAmount), "transfer failed");
-        lockedAmounts[id].amount = 0;
-        lockedAmounts[id].feeAmount = 0;
+        require(msg.sender == deposit.spender);
+        require(GLM.transfer(funderFromId(id), deposit.amount + deposit.feeAmount), "return transfer failed");
+        if (deposit.feeAmount > 0) {
+            require(GLM.transfer(deposit.spender, deposit.feeAmount), "fee transfer failed");
+            deposit.feeAmount = 0;
+        }
+        deposits[id].amount = 0;
+        deposits[id].feeAmount = 0;
     }
 
-    function freeAllocationInternal(uint32 id) external {
-        Allocation memory allocation = lockedAmounts[id];
+    // funder can terminate deposit after validTo date elapses
+    function terminateDeposit(uint64 nonce) public {
+        uint256 id = idFromNonce(nonce);
+        Deposit memory deposit = deposits[id];
         // customer cannot return funds before block_no
         // sender can return funds at any time
-        require((msg.sender == allocation.customer && allocation.block_no <= block.number) || msg.sender == allocation.spender);
-        funds[allocation.customer] += allocation.amount + allocation.feeAmount;
-        lockedAmounts[id].amount = 0;
-        lockedAmounts[id].feeAmount = 0;
+        require(deposit.validTo < block.timestamp);
+        require(GLM.transfer(msg.sender, deposit.amount + deposit.feeAmount), "transfer failed");
+        deposits[id].amount = 0;
+        deposits[id].feeAmount = 0;
     }
 
-    function depositTransferSingle(uint32 id, address recipient, uint128 amount) external {
-        Allocation memory allocation = lockedAmounts[id];
-        require(msg.sender == allocation.spender, "msg.sender == allocation.spender");
-        require(allocation.amount >= amount, "allocation.amount >= amount");
+    function depositTransfer(uint256 id, bytes32[] calldata payments) public {
+        Deposit memory deposit = deposits[id];
+        require(msg.sender == deposit.spender, "msg.sender == deposit.spender");
 
-        require(GLM.transfer(recipient, amount), "transfer failed");
-        allocation.amount -= amount;
-
-        if (allocation.feeAmount > 0) {
-            require(GLM.transfer(allocation.spender, allocation.feeAmount), "transfer failed");
-            allocation.feeAmount = 0;
-        }
-
-        if (allocation.amount == 0) {
-            delete lockedAmounts[id];
-        } else {
-            lockedAmounts[id] = allocation;
-        }
-    }
-
-    function depositTransfer(uint32 id, bytes32[] calldata payments) external {
-        Allocation memory allocation = lockedAmounts[id];
-        require(msg.sender == allocation.spender, "msg.sender == allocation.spender");
-
-        for (uint i = 0; i < payments.length; ++i) {
+        for (uint32 i = 0; i < payments.length; ++i) {
             // A payment contains compressed data:
             // first 160 bits (20 bytes) is an address.
             // following 96 bits (12 bytes) is a value,
             bytes32 payment = payments[i];
             address addr = address(bytes20(payment));
-            uint128 amount = uint128(uint(payment) % 2**96);
+            uint128 amount = uint128(uint256(payment) % 2 ** 96);
+            require(addr != deposit.spender, "cannot transfer to spender");
             require(GLM.transferFrom(msg.sender, addr, amount), "transferFrom failed");
-            require(allocation.amount >= amount, "allocation.amount >= amount");
-            allocation.amount -= amount;
+            require(deposit.amount >= amount, "deposit.amount >= amount");
+            deposit.amount -= amount;
         }
 
-        if (allocation.feeAmount > 0) {
-            require(GLM.transfer(allocation.spender, allocation.feeAmount), "transfer failed");
-            allocation.feeAmount = 0;
-        }
-
-        if (allocation.amount == 0) {
-            delete lockedAmounts[id];
-        } else {
-            lockedAmounts[id] = allocation;
-        }
+        deposits[id].amount = deposit.amount;
     }
 
-
+    function depositTransferAndClose(uint256 id, bytes32[] calldata payments) public {
+        depositTransfer(id, payments);
+        closeDeposit(id);
+    }
 }

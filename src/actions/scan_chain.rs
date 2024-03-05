@@ -22,7 +22,6 @@ async fn scan_int(
     web3: Arc<Web3RpcPool>,
     start_block: i64,
     end_block: i64,
-    current_block: i64,
     sender: Option<Address>,
 ) -> Result<(), PaymentError> {
     let txs = import_erc20_txs(ImportErc20TxsArgs {
@@ -127,7 +126,6 @@ async fn scan_auto_step(
             );
             return Ok(());
         }
-
     };
 
     log::info!(
@@ -144,7 +142,6 @@ async fn scan_auto_step(
         web3.clone(),
         start_block,
         end_block,
-        current_block,
         sender,
     )
     .await?;
@@ -274,7 +271,7 @@ pub async fn scan_blockchain_local(
                     log::info!("Scan step failed - trying again: {}", e);
                 }
             }
-            //tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+            // tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
         }
     } else {
         if current_block < scan_info.last_block {
@@ -324,12 +321,12 @@ pub async fn scan_blockchain_local(
             }
         }
 
-        let current_end_block = std::cmp::min(
+        /*let current_end_block = std::cmp::min(
             end_block,
             start_block + scan_blockchain_options.blocks_at_once as i64,
-        );
+        );*/
 
-        let mut scan_info = scan_info.clone();
+        //let mut scan_info = scan_info.clone();
         scan_int(
             conn.clone(),
             &scan_blockchain_options,
@@ -337,7 +334,6 @@ pub async fn scan_blockchain_local(
             web3.clone(),
             start_block,
             end_block,
-            current_end_block,
             sender,
         )
         .await?;
