@@ -394,14 +394,6 @@ pub enum PaymentCommands {
         #[structopt(flatten)]
         mint_test_tokens_options: MintTestTokensOptions,
     },
-    Deposit {
-        #[structopt(flatten)]
-        deposit_tokens_options: DepositTokensOptions,
-    },
-    Withdraw {
-        #[structopt(flatten)]
-        withdraw_tokens_options: WithdrawTokensOptions,
-    },
     MakeAllocation {
         #[structopt(flatten)]
         make_allocation_options: MakeAllocationOptions,

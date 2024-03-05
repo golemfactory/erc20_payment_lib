@@ -314,26 +314,6 @@ pub fn create_faucet_mint(
     })
 }
 
-pub fn create_lock_deposit(
-    from: Address,
-    lock_address: Address,
-    chain_id: u64,
-    gas_limit: Option<u64>,
-    amount: U256,
-) -> Result<TxDbObj, PaymentError> {
-    Ok(TxDbObj {
-        method: "LOCK.deposit".to_string(),
-        from_addr: format!("{from:#x}"),
-        to_addr: format!("{lock_address:#x}"),
-        chain_id: chain_id as i64,
-        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        call_data: Some(hex::encode(
-            encode_deposit_to_lock(amount).map_err(err_from!())?,
-        )),
-        ..Default::default()
-    })
-}
-
 pub fn create_make_allocation(
     from: Address,
     lock_address: Address,
@@ -342,7 +322,7 @@ pub fn create_make_allocation(
     allocation_args: CreateAllocationArgs,
 ) -> Result<TxDbObj, PaymentError> {
     Ok(TxDbObj {
-        method: "LOCK.createAllocation".to_string(),
+        method: "LOCK.createDeposit".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
         chain_id: chain_id as i64,
@@ -374,45 +354,7 @@ pub fn create_free_allocation(
     })
 }
 
-pub fn create_free_allocation_internal(
-    from: Address,
-    lock_address: Address,
-    chain_id: u64,
-    gas_limit: Option<u64>,
-    allocation_id: u32,
-) -> Result<TxDbObj, PaymentError> {
-    Ok(TxDbObj {
-        method: "LOCK.freeAllocationInternal".to_string(),
-        from_addr: format!("{from:#x}"),
-        to_addr: format!("{lock_address:#x}"),
-        chain_id: chain_id as i64,
-        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        call_data: Some(hex::encode(
-            encode_free_allocation(allocation_id).map_err(err_from!())?,
-        )),
-        ..Default::default()
-    })
-}
 
-pub fn create_make_allocation_internal(
-    from: Address,
-    lock_address: Address,
-    chain_id: u64,
-    gas_limit: Option<u64>,
-    allocation_args: CreateAllocationInternalArgs,
-) -> Result<TxDbObj, PaymentError> {
-    Ok(TxDbObj {
-        method: "LOCK.createAllocationInternal".to_string(),
-        from_addr: format!("{from:#x}"),
-        to_addr: format!("{lock_address:#x}"),
-        chain_id: chain_id as i64,
-        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        call_data: Some(hex::encode(
-            encode_create_allocation_internal(allocation_args).map_err(err_from!())?,
-        )),
-        ..Default::default()
-    })
-}
 
 pub fn create_lock_withdraw(
     from: Address,

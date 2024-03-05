@@ -19,7 +19,6 @@ use crate::actions::scan_chain::scan_blockchain_local;
 use erc20_payment_lib::{
     config,
     misc::{display_private_keys, load_private_keys},
-    process_allowance,
     runtime::PaymentRuntime,
 };
 use std::env;
@@ -29,40 +28,24 @@ use crate::actions::allocation_details::allocation_details_local;
 use crate::actions::cancel_allocation::cancel_allocation_local;
 use crate::actions::check_rpc::check_rpc_local;
 use crate::actions::make_allocation::make_allocation_local;
-use crate::actions::withdraw::withdraw_funds_local;
 use crate::stats::{export_stats, run_stats};
-use erc20_payment_lib::eth::check_allowance;
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::runtime::{
-    deposit_funds, get_token_balance, mint_golem_token, remove_last_unsent_transactions,
-    remove_transaction_force, PaymentRuntimeArgs,
+    get_token_balance, mint_golem_token, remove_last_unsent_transactions, remove_transaction_force,
+    PaymentRuntimeArgs,
 };
 use erc20_payment_lib::server::web::{runtime_web_scope, ServerData};
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib_common::init_metrics;
 use erc20_payment_lib_common::model::TokenTransferDbObj;
-use erc20_payment_lib_common::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
+use erc20_payment_lib_common::utils::{DecimalConvExt, StringConvExt};
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use rust_decimal::Decimal;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::{broadcast, Mutex};
-use web3::ethabi::ethereum_types::Address;
-use web3::types::U256;
-
-fn check_address_name(n: &str) -> String {
-    match n {
-        "funds" => "0x333dFEa0C940Dc9971C32C69837aBE14207F9097".to_string(),
-        "dead" => "0x000000000000000000000000000000000000dEaD".to_string(),
-        "null" => "0x0000000000000000000000000000000000000000".to_string(),
-        "random" => format!(
-            "{:#x}",
-            Address::from(rand::Rng::gen::<[u8; 20]>(&mut rand::thread_rng()))
-        ),
-        _ => n.to_string(),
-    }
-}
+use crate::actions::check_address_name;
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -88,8 +71,6 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::CheckRpc { .. } => {}
         PaymentCommands::GetDevEth { .. } => {}
         PaymentCommands::MintTestTokens { .. } => {}
-        PaymentCommands::Deposit { .. } => {}
-        PaymentCommands::Withdraw { .. } => {}
         PaymentCommands::MakeAllocation { .. } => {}
         PaymentCommands::CancelAllocation { .. } => {}
         PaymentCommands::CheckAllocation { .. } => {}
@@ -369,17 +350,6 @@ async fn main_internal() -> Result<(), PaymentError> {
             )
             .await?;
         }
-        PaymentCommands::Withdraw {
-            withdraw_tokens_options,
-        } => {
-            withdraw_funds_local(
-                conn.clone().unwrap(),
-                withdraw_tokens_options,
-                config,
-                &public_addrs,
-            )
-            .await?;
-        }
         PaymentCommands::MakeAllocation {
             make_allocation_options,
         } => {
@@ -388,6 +358,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 make_allocation_options,
                 config,
                 &public_addrs,
+                signer,
             )
             .await?;
         }
@@ -406,109 +377,6 @@ async fn main_internal() -> Result<(), PaymentError> {
             check_allocation_options,
         } => {
             allocation_details_local(check_allocation_options, config).await?;
-        }
-        PaymentCommands::Deposit {
-            deposit_tokens_options,
-        } => {
-            log::info!("Generating test tokens...");
-            let public_addr = if let Some(address) = deposit_tokens_options.address {
-                address
-            } else if let Some(account_no) = deposit_tokens_options.account_no {
-                *public_addrs
-                    .get(account_no)
-                    .expect("No public adss found with specified account_no")
-            } else {
-                *public_addrs.first().expect("No public adss found")
-            };
-            let chain_cfg =
-                config
-                    .chain
-                    .get(&deposit_tokens_options.chain_name)
-                    .ok_or(err_custom_create!(
-                        "Chain {} not found in config file",
-                        deposit_tokens_options.chain_name
-                    ))?;
-
-            let payment_setup = PaymentSetup::new_empty(&config)?;
-            let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
-
-            if !deposit_tokens_options.skip_allowance {
-                let allowance = check_allowance(
-                    web3.clone(),
-                    public_addr,
-                    chain_cfg.token.address,
-                    chain_cfg
-                        .lock_contract
-                        .clone()
-                        .map(|c| c.address)
-                        .expect("No lock contract found"),
-                )
-                .await?;
-
-                let amount = if let Some(amount) = deposit_tokens_options.amount {
-                    amount
-                } else if deposit_tokens_options.deposit_all {
-                    let payment_setup = PaymentSetup::new_empty(&config)?;
-                    get_token_balance(
-                        payment_setup.get_provider(chain_cfg.chain_id)?,
-                        chain_cfg.token.address,
-                        public_addr,
-                        None,
-                    )
-                    .await?
-                    .to_eth_saturate()
-                } else {
-                    return Err(err_custom_create!("No amount specified"));
-                };
-
-                if amount.to_u256_from_eth().map_err(err_from!())? > allowance {
-                    let allowance_request = AllowanceRequest {
-                        owner: format!("{:#x}", public_addr),
-                        token_addr: format!("{:#x}", chain_cfg.token.address),
-                        spender_addr: format!(
-                            "{:#x}",
-                            chain_cfg
-                                .lock_contract
-                                .clone()
-                                .map(|c| c.address)
-                                .expect("No mint contract")
-                        ),
-                        chain_id: chain_cfg.chain_id,
-                        amount: U256::MAX,
-                    };
-
-                    let _ = process_allowance(
-                        &conn.clone().unwrap(),
-                        &payment_setup,
-                        &allowance_request,
-                        Arc::new(Box::new(signer)),
-                        None,
-                    )
-                    .await;
-                    /*return Err(err_custom_create!(
-                        "Not enough allowance, required: {}, available: {}",
-                        deposit_tokens_options.amount.unwrap(),
-                        allowance
-                    ));*/
-                }
-            }
-
-            deposit_funds(
-                web3,
-                &conn.clone().unwrap(),
-                chain_cfg.chain_id as u64,
-                public_addr,
-                chain_cfg.token.address,
-                chain_cfg
-                    .lock_contract
-                    .clone()
-                    .map(|c| c.address)
-                    .expect("No mint contract"),
-                true,
-                deposit_tokens_options.amount,
-                deposit_tokens_options.deposit_all,
-            )
-            .await?;
         }
         PaymentCommands::GenerateKey {
             generate_key_options,
@@ -550,7 +418,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             };
 
             let recipient =
-                Address::from_str(&check_address_name(&single_transfer_options.recipient)).unwrap();
+                check_address_name(&single_transfer_options.recipient).unwrap();
 
             let public_addr = if let Some(address) = single_transfer_options.address {
                 address

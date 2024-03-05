@@ -1,12 +1,19 @@
 use erc20_payment_lib::config::Config;
+use erc20_payment_lib::eth::check_allowance;
+use erc20_payment_lib::process_allowance;
 use erc20_payment_lib::runtime::{make_allocation, MakeAllocationOptionsInt};
 use erc20_payment_lib::setup::PaymentSetup;
-use erc20_payment_lib_common::err_custom_create;
-use erc20_payment_lib_common::error::PaymentError;
+use erc20_payment_lib::signer::PrivateKeySigner;
+use erc20_payment_lib::utils::DecimalConvExt;
+use erc20_payment_lib_common::error::ErrorBag;
+use erc20_payment_lib_common::error::{AllowanceRequest, PaymentError};
+use erc20_payment_lib_common::{err_custom_create, err_from};
 use rand::Rng;
 use sqlx::SqlitePool;
+use std::sync::Arc;
 use structopt::StructOpt;
-use web3::types::Address;
+use web3::types::{Address, U256};
+use crate::actions::check_address_name;
 
 #[derive(StructOpt)]
 #[structopt(about = "Allocate funds for use by payer")]
@@ -24,7 +31,7 @@ pub struct MakeAllocationOptions {
         long = "spender",
         help = "Specify spender that is allowed to spend allocated tokens"
     )]
-    pub spender: Address,
+    pub spender: String,
 
     #[structopt(
         short = "a",
@@ -55,16 +62,19 @@ pub struct MakeAllocationOptions {
     pub block_for: Option<u64>,
 
     #[structopt(
-        long = "allocation-id",
-        help = "Allocation id to use. If not specified, new allocation id will be generated"
+        long = "allocation-nonce",
+        help = "Allocation nonce to use. If not specified, new allocation id will be generated"
     )]
-    pub allocation_id: Option<u32>,
+    pub allocation_nonce: Option<u64>,
 
     #[structopt(
         long = "use-internal",
         help = "Use tokens deposited to internal account"
     )]
     pub use_internal: bool,
+
+    #[structopt(long = "skip-allowance", help = "Skip allowance check")]
+    pub skip_allowance: bool,
 }
 
 pub async fn make_allocation_local(
@@ -72,6 +82,7 @@ pub async fn make_allocation_local(
     make_allocation_options: MakeAllocationOptions,
     config: Config,
     public_addrs: &[Address],
+    signer: PrivateKeySigner,
 ) -> Result<(), PaymentError> {
     log::info!("Making allocation...");
     let public_addr = if let Some(address) = make_allocation_options.address {
@@ -94,11 +105,68 @@ pub async fn make_allocation_local(
     let payment_setup = PaymentSetup::new_empty(&config)?;
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
 
-    let allocation_id = make_allocation_options.allocation_id.unwrap_or_else(|| {
+    if !make_allocation_options.skip_allowance {
+        let allowance = check_allowance(
+            web3.clone(),
+            public_addr,
+            chain_cfg.token.address,
+            chain_cfg
+                .lock_contract
+                .clone()
+                .map(|c| c.address)
+                .expect("No lock contract found"),
+        )
+        .await?;
+
+        if (make_allocation_options.fee_amount.unwrap_or_default()
+            + make_allocation_options.amount.unwrap_or_default())
+        .to_u256_from_eth()
+        .map_err(err_from!())?
+            > allowance
+        {
+            let allowance_request = AllowanceRequest {
+                owner: format!("{:#x}", public_addr),
+                token_addr: format!("{:#x}", chain_cfg.token.address),
+                spender_addr: format!(
+                    "{:#x}",
+                    chain_cfg
+                        .lock_contract
+                        .clone()
+                        .map(|c| c.address)
+                        .expect("No mint contract")
+                ),
+                chain_id: chain_cfg.chain_id,
+                amount: U256::MAX,
+            };
+
+            let _ = process_allowance(
+                &conn.clone(),
+                &payment_setup,
+                &allowance_request,
+                Arc::new(Box::new(signer)),
+                None,
+            )
+            .await;
+            /*return Err(err_custom_create!(
+                "Not enough allowance, required: {}, available: {}",
+                deposit_tokens_options.amount.unwrap(),
+                allowance
+            ));*/
+        }
+    }
+
+    let allocation_nonce = make_allocation_options.allocation_nonce.unwrap_or_else(|| {
         let mut rng = rand::thread_rng();
-        rng.gen::<u32>()
+        rng.gen::<u64>()
     });
 
+    let spender = check_address_name(make_allocation_options.spender.as_str()).map_err(|err| {
+        err_custom_create!(
+            "Cannot parse spender address {} {}",
+            make_allocation_options.spender.as_str(),
+            err
+        )
+    })?;
     make_allocation(
         web3,
         &conn,
@@ -111,21 +179,19 @@ pub async fn make_allocation_local(
                 .clone()
                 .map(|c| c.address)
                 .expect("No lock contract found"),
-            spender: make_allocation_options.spender,
+            spender,
             skip_balance_check: make_allocation_options.skip_balance_check,
             amount: make_allocation_options.amount,
             fee_amount: make_allocation_options.fee_amount,
             allocate_all: make_allocation_options.allocate_all,
-            allocation_id,
-            funds_from_internal: make_allocation_options.use_internal,
-            block_no: make_allocation_options.block_no,
-            block_for: make_allocation_options.block_for,
+            allocation_nonce,
+            timestamp: None,
         },
     )
     .await?;
     println!(
         "make_allocation added to queue successfully allocation_id: {}",
-        allocation_id
+        allocation_nonce
     );
     Ok(())
 }

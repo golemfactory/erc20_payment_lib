@@ -22,12 +22,6 @@ pub struct CancelAllocationOptions {
     #[structopt(long = "skip-check", help = "Skip check allocation")]
     pub skip_check: bool,
 
-    #[structopt(
-        long = "use-internal",
-        help = "Use tokens deposited to internal account"
-    )]
-    pub use_internal: bool,
-
     #[structopt(long = "allocation-id", help = "Allocation id to cancel.")]
     pub allocation_id: u32,
 }
@@ -74,7 +68,6 @@ pub async fn cancel_allocation_local(
                 .expect("No lock contract found"),
             allocation_id,
             skip_allocation_check: cancel_allocation_options.skip_check,
-            funds_to_internal: cancel_allocation_options.use_internal,
         },
     )
     .await?;

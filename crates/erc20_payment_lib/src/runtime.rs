@@ -1,9 +1,8 @@
 use crate::signer::{Signer, SignerAccount};
 use crate::transaction::{
-    create_faucet_mint, create_free_allocation, create_free_allocation_internal,
-    create_lock_deposit, create_lock_withdraw, create_make_allocation,
-    create_make_allocation_internal, create_token_transfer, find_receipt_extended,
-    FindReceiptParseResult,
+    create_faucet_mint, create_free_allocation,
+    create_make_allocation, create_token_transfer,
+    find_receipt_extended, FindReceiptParseResult,
 };
 use crate::{err_custom_create, err_from};
 use erc20_payment_lib_common::create_sqlite_connection;
@@ -27,10 +26,10 @@ use sqlx::SqlitePool;
 
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
-use crate::contracts::{CreateAllocationArgs, CreateAllocationInternalArgs};
+use crate::contracts::{CreateAllocationArgs};
 use crate::eth::{
-    average_block_time, get_deposit_balance, get_eth_addr_from_secret, get_latest_block_info,
-    AllocationDetails, Web3BlockInfo,
+    average_block_time, get_eth_addr_from_secret, get_latest_block_info,
+    AllocationDetails,
 };
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
@@ -1085,63 +1084,6 @@ pub async fn mint_golem_token(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
-pub async fn withdraw_funds(
-    web3: Arc<Web3RpcPool>,
-    conn: &SqlitePool,
-    chain_id: u64,
-    from: Address,
-    lock_contract_address: Address,
-    amount: Option<Decimal>,
-    withdraw_all: bool,
-    skip_check: bool,
-) -> Result<(), PaymentError> {
-    let amount = if let Some(amount) = amount {
-        Some(amount.to_u256_from_eth().map_err(err_from!())?)
-    } else if withdraw_all {
-        None
-    } else {
-        return Err(err_custom_create!(
-            "Amount not specified. Use --amount or --all"
-        ));
-    };
-    let current_amount =
-        get_deposit_balance(web3.clone(), lock_contract_address, from, None).await?;
-
-    if !skip_check {
-        if let Some(amount) = amount {
-            if amount > current_amount {
-                return Err(err_custom_create!(
-                    "You don't have enough: {} tGLM on network with chain id: {} and account {:#x} Lock contract: {:#x}",
-                    current_amount,
-                    chain_id,
-                    from,
-                    lock_contract_address
-                ));
-            }
-        } else if current_amount == U256::default() {
-            return Err(err_custom_create!(
-                    "You don't have any deposited tGLM on network with chain id: {} and account {:#x} Lock contract: {:#x}",
-                    chain_id,
-                    from,
-                    lock_contract_address
-                ));
-        }
-    }
-
-    let withdraw_tx = create_lock_withdraw(from, lock_contract_address, chain_id, None, amount)?;
-
-    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-
-    let withdraw_tx = insert_tx(&mut *db_transaction, &withdraw_tx)
-        .await
-        .map_err(err_from!())?;
-    db_transaction.commit().await.map_err(err_from!())?;
-
-    log::info!("Deposit transaction added to queue: {}", withdraw_tx.id);
-    Ok(())
-}
-
 pub async fn allocation_details(
     web3: Arc<Web3RpcPool>,
     allocation_id: u32,
@@ -1191,7 +1133,6 @@ pub struct CancelAllocationOptionsInt {
     pub lock_contract_address: Address,
     pub skip_allocation_check: bool,
     pub allocation_id: u32,
-    pub funds_to_internal: bool,
 }
 
 pub async fn cancel_allocation(
@@ -1201,23 +1142,14 @@ pub async fn cancel_allocation(
     from: Address,
     opt: CancelAllocationOptionsInt,
 ) -> Result<(), PaymentError> {
-    let free_allocation_tx_id = if opt.funds_to_internal {
-        create_free_allocation_internal(
+    let free_allocation_tx_id = create_free_allocation(
             from,
             opt.lock_contract_address,
             chain_id,
             None,
             opt.allocation_id,
-        )?
-    } else {
-        create_free_allocation(
-            from,
-            opt.lock_contract_address,
-            chain_id,
-            None,
-            opt.allocation_id,
-        )?
-    };
+        )?;
+
     //let mut block_info: Option<Web3BlockInfo> = None;
     if !opt.skip_allocation_check {
         let allocation_details =
@@ -1270,10 +1202,8 @@ pub struct MakeAllocationOptionsInt {
     pub amount: Option<Decimal>,
     pub fee_amount: Option<Decimal>,
     pub allocate_all: bool,
-    pub allocation_id: u32,
-    pub funds_from_internal: bool,
-    pub block_no: Option<u64>,
-    pub block_for: Option<u64>,
+    pub allocation_nonce: u64,
+    pub timestamp: Option<u64>,
 }
 
 pub async fn make_allocation(
@@ -1297,28 +1227,8 @@ pub async fn make_allocation(
         ));
     };
 
-    let mut block_info: Option<Web3BlockInfo> = None;
     if !opt.skip_balance_check {
-        block_info = Some(get_latest_block_info(web3.clone()).await?);
-        let block_info = block_info.as_ref().unwrap();
-        if opt.funds_from_internal {
-            let token_balance = get_deposit_balance(
-                web3.clone(),
-                opt.lock_contract_address,
-                from,
-                Some(block_info.block_number),
-            )
-            .await?;
-
-            if token_balance < amount + fee_amount {
-                return Err(err_custom_create!(
-                    "You don't have enough: {} GLM on network with chain id: {} and account {:#x}",
-                    token_balance,
-                    chain_id,
-                    from
-                ));
-            };
-        } else {
+        let block_info = get_latest_block_info(web3.clone()).await?;
             let token_balance = get_token_balance(
                 web3.clone(),
                 glm_address,
@@ -1335,68 +1245,21 @@ pub async fn make_allocation(
                     from
                 ));
             };
-        }
     }
 
-    let block_no = if let Some(block_no) = opt.block_no {
-        block_no as u32
-    } else if let Some(block_for) = opt.block_for {
-        let block_info = match block_info {
-            Some(block_info) => block_info,
-            None => get_latest_block_info(web3.clone()).await?,
-        };
-        let average_block_time = average_block_time(&web3).unwrap_or_else(|| {
-            log::warn!("Unknown chain id: {chain_id} for estimation, assuming block time 1");
-            1
-        });
-        let diff_seconds = (chrono::Utc::now() - block_info.block_date).num_seconds();
-        log::info!(
-            "Block number: {}, diff_seconds: {}, block_for: {}, average_block_time: {}",
-            block_info.block_number,
-            diff_seconds,
-            block_for,
-            average_block_time
-        );
-
-        let target_block = (block_info.block_number as i64
-            + (diff_seconds + block_for as i64) / average_block_time as i64)
-            .unsigned_abs();
-        target_block as u32
-    } else {
-        return Err(err_custom_create!(
-            "Block number not specified. Use --block-no or --block-for"
-        ));
-    };
-
-    let make_allocation_tx = if opt.funds_from_internal {
-        create_make_allocation_internal(
-            from,
-            opt.lock_contract_address,
-            chain_id,
-            None,
-            CreateAllocationInternalArgs {
-                allocation_id: opt.allocation_id,
-                allocation_spender: opt.spender,
-                allocation_amount: amount,
-                allocation_fee_amount: fee_amount,
-                allocation_block_no: block_no,
-            },
-        )?
-    } else {
-        create_make_allocation(
+    let make_allocation_tx =  create_make_allocation(
             from,
             opt.lock_contract_address,
             chain_id,
             None,
             CreateAllocationArgs {
-                allocation_id: opt.allocation_id,
+                allocation_nonce: opt.allocation_nonce,
                 allocation_spender: opt.spender,
                 allocation_amount: amount,
                 allocation_fee_amount: fee_amount,
-                allocation_block_no: block_no,
+                allocation_timestamp: opt.allocation_nonce,
             },
-        )?
-    };
+        )?;
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
     let make_allocation_tx = insert_tx(&mut *db_transaction, &make_allocation_tx)
@@ -1405,75 +1268,6 @@ pub async fn make_allocation(
     db_transaction.commit().await.map_err(err_from!())?;
 
     log::info!("Make allocation added to queue: {}", make_allocation_tx.id);
-    Ok(())
-}
-
-#[allow(clippy::too_many_arguments)]
-pub async fn deposit_funds(
-    web3: Arc<Web3RpcPool>,
-    conn: &SqlitePool,
-    chain_id: u64,
-    from: Address,
-    glm_address: Address,
-    lock_contract_address: Address,
-    skip_balance_check: bool,
-    amount: Option<Decimal>,
-    deposit_all: bool,
-) -> Result<(), PaymentError> {
-    let amount = if let Some(amount) = amount {
-        amount
-    } else if deposit_all {
-        get_token_balance(web3.clone(), glm_address, from, None)
-            .await?
-            .to_eth()
-            .map_err(err_from!())?
-    } else {
-        return Err(err_custom_create!(
-            "Amount not specified. Use --amount or --all"
-        ));
-    };
-
-    if !skip_balance_check {
-        let token_balance = get_token_balance(web3.clone(), glm_address, from, None)
-            .await?
-            .to_eth_saturate();
-
-        if token_balance < amount {
-            return Err(err_custom_create!(
-                "You don't have enough: {} tGLM on network with chain id: {} and account {:#x} ",
-                token_balance,
-                chain_id,
-                from
-            ));
-        };
-    }
-
-    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-    let filter = "method=\"LOCK.deposit\" AND fee_paid is NULL";
-    let tx_existing = get_transactions(&mut *db_transaction, Some(from), Some(filter), None, None)
-        .await
-        .map_err(err_from!())?;
-
-    if let Some(tx) = tx_existing.first() {
-        return Err(err_custom_create!(
-            "You already have a pending deposit transaction with id: {}",
-            tx.id
-        ));
-    }
-
-    let deposit_tx = create_lock_deposit(
-        from,
-        lock_contract_address,
-        chain_id,
-        None,
-        amount.to_u256_from_eth().map_err(err_from!())?,
-    )?;
-    let deposit_tx = insert_tx(&mut *db_transaction, &deposit_tx)
-        .await
-        .map_err(err_from!())?;
-    db_transaction.commit().await.map_err(err_from!())?;
-
-    log::info!("Deposit transaction added to queue: {}", deposit_tx.id);
     Ok(())
 }
 
