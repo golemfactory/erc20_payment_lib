@@ -119,7 +119,11 @@ contract LockPayment {
     }
 
     function idFromNonce(uint64 nonce) public view returns (uint256) {
-        return (uint256(uint160(msg.sender)) << 96) ^ uint256(nonce);
+        return idFromNonceAndFunder(nonce, msg.sender);
+    }
+
+    function idFromNonceAndFunder(uint64 nonce, address funder) public pure returns (uint256) {
+        return (uint256(uint160(funder)) << 96) ^ uint256(nonce);
     }
 
     function nonceFromId(uint256 id) public pure returns (uint64) {
@@ -136,6 +140,12 @@ contract LockPayment {
     }
 
     function getDeposit(uint256 id) public view returns (DepositView memory) {
+        Deposit memory deposit = deposits[id];
+        return DepositView(id, nonceFromId(id), funderFromId(id), deposit.spender, deposit.amount, deposit.feeAmount, deposit.validTo);
+    }
+
+    function getDeposit2(uint64 nonce, address funder) public view returns (DepositView memory) {
+        uint256 id = idFromNonceAndFunder(nonce, funder);
         Deposit memory deposit = deposits[id];
         return DepositView(id, nonceFromId(id), funderFromId(id), deposit.spender, deposit.amount, deposit.feeAmount, deposit.validTo);
     }
@@ -171,7 +181,7 @@ contract LockPayment {
         deposits[id] = deposit;
     }
 
-    // these are two parties interested in returning funds
+    // Spender can close deposit anytime claiming fee and returning rest of funds to Funder
     function closeDeposit(uint256 id) public {
         Deposit memory deposit = deposits[id];
         // customer cannot return funds before block_no
@@ -222,4 +232,5 @@ contract LockPayment {
         depositTransfer(id, payments);
         closeDeposit(id);
     }
+
 }

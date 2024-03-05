@@ -267,6 +267,67 @@
                 "internalType": "uint64",
                 "name": "nonce",
                 "type": "uint64"
+            },
+            {
+                "internalType": "address",
+                "name": "funder",
+                "type": "address"
+            }
+        ],
+        "name": "getDeposit2",
+        "outputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "uint256",
+                        "name": "id",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "nonce",
+                        "type": "uint64"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "funder",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "spender",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint128",
+                        "name": "amount",
+                        "type": "uint128"
+                    },
+                    {
+                        "internalType": "uint128",
+                        "name": "feeAmount",
+                        "type": "uint128"
+                    },
+                    {
+                        "internalType": "uint64",
+                        "name": "validTo",
+                        "type": "uint64"
+                    }
+                ],
+                "internalType": "struct DepositView",
+                "name": "",
+                "type": "tuple"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint64",
+                "name": "nonce",
+                "type": "uint64"
             }
         ],
         "name": "getMyDeposit",
@@ -334,6 +395,30 @@
             }
         ],
         "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint64",
+                "name": "nonce",
+                "type": "uint64"
+            },
+            {
+                "internalType": "address",
+                "name": "funder",
+                "type": "address"
+            }
+        ],
+        "name": "idFromNonceAndFunder",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "pure",
         "type": "function"
     },
     {
