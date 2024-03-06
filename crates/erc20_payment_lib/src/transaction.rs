@@ -339,10 +339,10 @@ pub fn create_free_allocation(
     lock_address: Address,
     chain_id: u64,
     gas_limit: Option<u64>,
-    allocation_id: u32,
+    allocation_id: U256,
 ) -> Result<TxDbObj, PaymentError> {
     Ok(TxDbObj {
-        method: "LOCK.freeAllocation".to_string(),
+        method: "LOCK.closeAllocation".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
         chain_id: chain_id as i64,
@@ -350,55 +350,6 @@ pub fn create_free_allocation(
         call_data: Some(hex::encode(
             encode_free_allocation(allocation_id).map_err(err_from!())?,
         )),
-        ..Default::default()
-    })
-}
-
-
-
-pub fn create_lock_withdraw(
-    from: Address,
-    lock_address: Address,
-    chain_id: u64,
-    gas_limit: Option<u64>,
-    amount: Option<U256>,
-) -> Result<TxDbObj, PaymentError> {
-    let method = if amount.is_some() {
-        "LOCK.withdraw".to_string()
-    } else {
-        "LOCK.withdrawAll".to_string()
-    };
-    let call_data = if let Some(amount) = amount {
-        Some(hex::encode(
-            withdraw_from_lock(amount).map_err(err_from!())?,
-        ))
-    } else {
-        Some(hex::encode(withdraw_all_from_lock().map_err(err_from!())?))
-    };
-    Ok(TxDbObj {
-        method,
-        from_addr: format!("{from:#x}"),
-        to_addr: format!("{lock_address:#x}"),
-        chain_id: chain_id as i64,
-        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        call_data,
-        ..Default::default()
-    })
-}
-
-pub fn create_lock_withdraw_all(
-    from: Address,
-    lock_address: Address,
-    chain_id: u64,
-    gas_limit: Option<u64>,
-) -> Result<TxDbObj, PaymentError> {
-    Ok(TxDbObj {
-        method: "LOCK.withdraw".to_string(),
-        from_addr: format!("{from:#x}"),
-        to_addr: format!("{lock_address:#x}"),
-        chain_id: chain_id as i64,
-        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        call_data: Some(hex::encode(withdraw_all_from_lock().map_err(err_from!())?)),
         ..Default::default()
     })
 }

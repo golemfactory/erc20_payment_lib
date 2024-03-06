@@ -1,6 +1,5 @@
 use crate::contracts::{
-    encode_balance_of_lock, encode_erc20_allowance, encode_erc20_balance_of,
-    encode_get_allocation_details,
+    encode_erc20_allowance, encode_erc20_balance_of, encode_get_allocation_details,
 };
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
@@ -18,49 +17,7 @@ use web3::types::{Address, BlockId, BlockNumber, Bytes, CallRequest, U256, U64};
 pub struct GetBalanceResult {
     pub gas_balance: Option<U256>,
     pub token_balance: Option<U256>,
-    pub deposit_balance: Option<U256>,
     pub block_number: u64,
-}
-
-pub(crate) async fn get_deposit_balance(
-    web3: Arc<Web3RpcPool>,
-    lock_address: Address,
-    address: Address,
-    block_number: Option<u64>,
-) -> Result<U256, PaymentError> {
-    log::debug!(
-        "Checking deposit balance for address {:#x}, lock address: {:#x}",
-        address,
-        lock_address,
-    );
-
-    let call_data = encode_balance_of_lock(address).map_err(err_from!())?;
-    let res = web3
-        .clone()
-        .eth_call(
-            CallRequest {
-                from: None,
-                to: Some(lock_address),
-                gas: None,
-                gas_price: None,
-                value: None,
-                data: Some(Bytes::from(call_data)),
-                transaction_type: None,
-                access_list: None,
-                max_fee_per_gas: None,
-                max_priority_fee_per_gas: None,
-            },
-            block_number.map(|bn| BlockId::Number(BlockNumber::Number(U64::from(bn)))),
-        )
-        .await
-        .map_err(err_from!())?;
-    if res.0.len() != 32 {
-        return Err(err_create!(TransactionFailedError::new(&format!(
-            "Invalid balance response: {:?}. Probably not a valid lock payments contract {:#x}",
-            res.0, lock_address
-        ))));
-    };
-    Ok(U256::from_big_endian(&res.0))
 }
 
 #[derive(Debug, Serialize)]
@@ -81,7 +38,7 @@ pub struct AllocationDetails {
 
 pub async fn get_allocation_details(
     web3: Arc<Web3RpcPool>,
-    allocation_id: u32,
+    allocation_id: U256,
     lock_contract_address: Address,
     block_number: Option<u64>,
 ) -> Result<AllocationDetails, PaymentError> {
@@ -141,7 +98,6 @@ pub async fn get_allocation_details(
 pub async fn get_balance(
     web3: Arc<Web3RpcPool>,
     token_address: Option<Address>,
-    lock_contract_address: Option<Address>,
     address: Address,
     check_gas: bool,
     block_number: Option<u64>,
@@ -170,14 +126,6 @@ pub async fn get_balance(
                 .await
                 .map_err(err_from!())?,
         )
-    } else {
-        None
-    };
-
-    let deposit_balance = if let Some(lock_contract) = lock_contract_address {
-        get_deposit_balance(web3.clone(), lock_contract, address, Some(block_number))
-            .await
-            .map(Some)?
     } else {
         None
     };
@@ -216,7 +164,6 @@ pub async fn get_balance(
     Ok(GetBalanceResult {
         gas_balance,
         token_balance,
-        deposit_balance,
         block_number,
     })
 }

@@ -26,6 +26,7 @@ use std::str::FromStr;
 
 use crate::actions::allocation_details::allocation_details_local;
 use crate::actions::cancel_allocation::cancel_allocation_local;
+use crate::actions::check_address_name;
 use crate::actions::check_rpc::check_rpc_local;
 use crate::actions::make_allocation::make_allocation_local;
 use crate::stats::{export_stats, run_stats};
@@ -45,7 +46,6 @@ use rust_decimal::Decimal;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::{broadcast, Mutex};
-use crate::actions::check_address_name;
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -417,8 +417,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 ));
             };
 
-            let recipient =
-                check_address_name(&single_transfer_options.recipient).unwrap();
+            let recipient = check_address_name(&single_transfer_options.recipient).unwrap();
 
             let public_addr = if let Some(address) = single_transfer_options.address {
                 address

@@ -177,7 +177,7 @@ pub struct CheckAllocationOptions {
     pub chain_name: String,
 
     #[structopt(long = "allocation-id", help = "Allocation id to use")]
-    pub allocation_id: u32,
+    pub allocation_id: String,
 }
 
 #[derive(StructOpt)]

@@ -723,7 +723,6 @@ struct AccountBalanceResponse {
     account: String,
     gas_balance: String,
     token_balance: String,
-    deposit_balance: Option<String>,
     block_number: u64,
     block_date: chrono::DateTime<chrono::Utc>,
 }
@@ -778,7 +777,6 @@ async fn account_balance(
     let balance = get_balance(
         chain.provider.clone(),
         Some(chain.glm_address),
-        chain.lock_contract_address,
         account,
         true,
         Some(block_number.as_u64()),
@@ -799,7 +797,6 @@ async fn account_balance(
             .token_balance
             .map(|b| b.to_string())
             .unwrap_or("0".to_string()),
-        deposit_balance: balance.deposit_balance.map(|b| b.to_string()),
         block_number: block_number.as_u64(),
         block_date,
     }))

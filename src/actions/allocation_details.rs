@@ -4,6 +4,8 @@ use erc20_payment_lib::runtime::allocation_details;
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib_common::err_custom_create;
 use erc20_payment_lib_common::error::PaymentError;
+use std::str::FromStr;
+use web3::types::U256;
 
 pub async fn allocation_details_local(
     check_allocation_options: CheckAllocationOptions,
@@ -22,9 +24,12 @@ pub async fn allocation_details_local(
     let payment_setup = PaymentSetup::new_empty(&config)?;
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
 
+    let allocation_id = U256::from_str(&check_allocation_options.allocation_id)
+        .map_err(|e| err_custom_create!("Invalid allocation id: {}", e))?;
+
     let details = allocation_details(
         web3,
-        check_allocation_options.allocation_id,
+        allocation_id,
         chain_cfg
             .lock_contract
             .clone()

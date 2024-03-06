@@ -1,7 +1,6 @@
 use crate::signer::{Signer, SignerAccount};
 use crate::transaction::{
-    create_faucet_mint, create_free_allocation,
-    create_make_allocation, create_token_transfer,
+    create_faucet_mint, create_free_allocation, create_make_allocation, create_token_transfer,
     find_receipt_extended, FindReceiptParseResult,
 };
 use crate::{err_custom_create, err_from};
@@ -26,10 +25,9 @@ use sqlx::SqlitePool;
 
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
-use crate::contracts::{CreateAllocationArgs};
+use crate::contracts::CreateAllocationArgs;
 use crate::eth::{
-    average_block_time, get_eth_addr_from_secret, get_latest_block_info,
-    AllocationDetails,
+    average_block_time, get_eth_addr_from_secret, get_latest_block_info, AllocationDetails,
 };
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
@@ -840,7 +838,7 @@ impl PaymentRuntime {
 
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
-        let balance_result = crate::eth::get_balance(web3, None, None, address, true, None).await?;
+        let balance_result = crate::eth::get_balance(web3, None, address, true, None).await?;
 
         let gas_balance = balance_result
             .gas_balance
@@ -1086,7 +1084,7 @@ pub async fn mint_golem_token(
 
 pub async fn allocation_details(
     web3: Arc<Web3RpcPool>,
-    allocation_id: u32,
+    allocation_id: U256,
     lock_contract_address: Address,
 ) -> Result<AllocationDetails, PaymentError> {
     let block_info = get_latest_block_info(web3.clone()).await?;
@@ -1132,7 +1130,7 @@ pub async fn allocation_details(
 pub struct CancelAllocationOptionsInt {
     pub lock_contract_address: Address,
     pub skip_allocation_check: bool,
-    pub allocation_id: u32,
+    pub allocation_id: U256,
 }
 
 pub async fn cancel_allocation(
@@ -1143,12 +1141,12 @@ pub async fn cancel_allocation(
     opt: CancelAllocationOptionsInt,
 ) -> Result<(), PaymentError> {
     let free_allocation_tx_id = create_free_allocation(
-            from,
-            opt.lock_contract_address,
-            chain_id,
-            None,
-            opt.allocation_id,
-        )?;
+        from,
+        opt.lock_contract_address,
+        chain_id,
+        None,
+        opt.allocation_id,
+    )?;
 
     //let mut block_info: Option<Web3BlockInfo> = None;
     if !opt.skip_allocation_check {
@@ -1229,37 +1227,37 @@ pub async fn make_allocation(
 
     if !opt.skip_balance_check {
         let block_info = get_latest_block_info(web3.clone()).await?;
-            let token_balance = get_token_balance(
-                web3.clone(),
-                glm_address,
-                from,
-                Some(block_info.block_number),
-            )
-            .await?;
+        let token_balance = get_token_balance(
+            web3.clone(),
+            glm_address,
+            from,
+            Some(block_info.block_number),
+        )
+        .await?;
 
-            if token_balance < amount + fee_amount {
-                return Err(err_custom_create!(
-                    "You don't have enough: {} GLM on network with chain id: {} and account {:#x}",
-                    token_balance,
-                    chain_id,
-                    from
-                ));
-            };
+        if token_balance < amount + fee_amount {
+            return Err(err_custom_create!(
+                "You don't have enough: {} GLM on network with chain id: {} and account {:#x}",
+                token_balance,
+                chain_id,
+                from
+            ));
+        };
     }
 
-    let make_allocation_tx =  create_make_allocation(
-            from,
-            opt.lock_contract_address,
-            chain_id,
-            None,
-            CreateAllocationArgs {
-                allocation_nonce: opt.allocation_nonce,
-                allocation_spender: opt.spender,
-                allocation_amount: amount,
-                allocation_fee_amount: fee_amount,
-                allocation_timestamp: opt.allocation_nonce,
-            },
-        )?;
+    let make_allocation_tx = create_make_allocation(
+        from,
+        opt.lock_contract_address,
+        chain_id,
+        None,
+        CreateAllocationArgs {
+            allocation_nonce: opt.allocation_nonce,
+            allocation_spender: opt.spender,
+            allocation_amount: amount,
+            allocation_fee_amount: fee_amount,
+            allocation_timestamp: opt.allocation_nonce,
+        },
+    )?;
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
     let make_allocation_tx = insert_tx(&mut *db_transaction, &make_allocation_tx)
@@ -1278,8 +1276,7 @@ pub async fn get_token_balance(
     block_number: Option<u64>,
 ) -> Result<U256, PaymentError> {
     let balance_result =
-        crate::eth::get_balance(web3, Some(token_address), None, address, true, block_number)
-            .await?;
+        crate::eth::get_balance(web3, Some(token_address), address, true, block_number).await?;
 
     let token_balance = balance_result
         .token_balance

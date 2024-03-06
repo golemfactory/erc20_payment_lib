@@ -1,3 +1,4 @@
+use crate::actions::check_address_name;
 use erc20_payment_lib::config::Config;
 use erc20_payment_lib::eth::check_allowance;
 use erc20_payment_lib::process_allowance;
@@ -13,7 +14,6 @@ use sqlx::SqlitePool;
 use std::sync::Arc;
 use structopt::StructOpt;
 use web3::types::{Address, U256};
-use crate::actions::check_address_name;
 
 #[derive(StructOpt)]
 #[structopt(about = "Allocate funds for use by payer")]

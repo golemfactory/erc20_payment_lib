@@ -135,8 +135,8 @@ pub fn encode_multi_indirect_packed(
     )
 }
 
-pub fn encode_free_allocation(allocation_id: u32) -> Result<Vec<u8>, web3::ethabi::Error> {
-    contract_encode(&LOCK_CONTRACT_TEMPLATE, "freeAllocation", (allocation_id,))
+pub fn encode_free_allocation(allocation_id: U256) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(&LOCK_CONTRACT_TEMPLATE, "closeAllocation", (allocation_id,))
 }
 
 pub struct CreateAllocationArgs {
@@ -186,18 +186,6 @@ pub fn encode_payout_single_internal(
     )
 }
 
-pub fn encode_get_allocation_details(id: u32) -> Result<Vec<u8>, web3::ethabi::Error> {
-    contract_encode(&LOCK_CONTRACT_TEMPLATE, "lockedAmounts", (id,))
-}
-
-pub fn withdraw_from_lock(amount: U256) -> Result<Vec<u8>, web3::ethabi::Error> {
-    contract_encode(&LOCK_CONTRACT_TEMPLATE, "withdraw", (amount,))
-}
-
-pub fn withdraw_all_from_lock() -> Result<Vec<u8>, web3::ethabi::Error> {
-    contract_encode(&LOCK_CONTRACT_TEMPLATE, "withdrawAll", ())
-}
-
-pub fn encode_balance_of_lock(address: Address) -> Result<Vec<u8>, web3::ethabi::Error> {
-    contract_encode(&LOCK_CONTRACT_TEMPLATE, "funds", (address,))
+pub fn encode_get_allocation_details(id: U256) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(&LOCK_CONTRACT_TEMPLATE, "getDeposit", (id,))
 }

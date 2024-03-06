@@ -4,8 +4,9 @@ use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib_common::err_custom_create;
 use erc20_payment_lib_common::error::PaymentError;
 use sqlx::SqlitePool;
+use std::str::FromStr;
 use structopt::StructOpt;
-use web3::types::Address;
+use web3::types::{Address, U256};
 
 #[derive(StructOpt)]
 #[structopt(about = "Allocate funds for use by payer")]
@@ -23,7 +24,7 @@ pub struct CancelAllocationOptions {
     pub skip_check: bool,
 
     #[structopt(long = "allocation-id", help = "Allocation id to cancel.")]
-    pub allocation_id: u32,
+    pub allocation_id: String,
 }
 
 pub async fn cancel_allocation_local(
@@ -53,7 +54,8 @@ pub async fn cancel_allocation_local(
     let payment_setup = PaymentSetup::new_empty(&config)?;
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
 
-    let allocation_id = cancel_allocation_options.allocation_id;
+    let allocation_id = U256::from_str(&cancel_allocation_options.allocation_id)
+        .map_err(|e| err_custom_create!("Invalid allocation id: {}", e))?;
 
     cancel_allocation(
         web3,

@@ -1,5 +1,5 @@
-use std::str::FromStr;
 use rustc_hex::FromHexError;
+use std::str::FromStr;
 use web3::types::Address;
 
 pub mod allocation_details;
