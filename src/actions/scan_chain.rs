@@ -86,7 +86,7 @@ async fn scan_auto_step(
 
     let (start_block, end_block, is_forward) = if scan_info.start_block == -1 {
         let start_block = std::cmp::max(
-            current_block as i64 - scan_blockchain_options.blocks_behind.unwrap_or(100) as i64,
+            current_block - scan_blockchain_options.blocks_behind.unwrap_or(100) as i64,
             1,
         );
         let end_block = current_block;
