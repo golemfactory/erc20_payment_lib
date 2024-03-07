@@ -210,9 +210,6 @@ pub struct TransferOptions {
 
     #[structopt(long = "deposit-id")]
     pub deposit_id: Option<String>,
-
-    #[structopt(long = "use-internal")]
-    pub use_internal: bool,
 }
 
 #[derive(StructOpt)]

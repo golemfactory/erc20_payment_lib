@@ -52,7 +52,6 @@ async fn transfer_to_null() -> Result<(), anyhow::Error> {
                 Some(token_address),
                 U256::from(2222000000000000222_u128),
                 None,
-                false
             )
         ).await?;
 

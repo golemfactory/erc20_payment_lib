@@ -112,7 +112,6 @@ pub fn dao_to_transaction(web3_tx_dao: &TxDbObj) -> Result<TransactionParameters
 }
 
 // token_addr NULL means standard (non ERC20) transfer of main chain currency (i.e ETH)
-#[allow(clippy::too_many_arguments)]
 pub fn create_token_transfer(
     from: Address,
     receiver: Address,
@@ -121,7 +120,6 @@ pub fn create_token_transfer(
     token_addr: Option<Address>,
     token_amount: U256,
     deposit_id: Option<String>,
-    use_internal: bool,
 ) -> TokenTransferDbObj {
     TokenTransferDbObj {
         id: 0,
@@ -132,8 +130,6 @@ pub fn create_token_transfer(
         token_addr: token_addr.map(|addr| format!("{addr:#x}")),
         token_amount: token_amount.to_string(),
         deposit_id,
-        // Information if using internal contract account 0 - false, 1 - true
-        use_internal: if use_internal { 1 } else { 0 },
         create_date: Utc::now(),
         tx_id: None,
         paid_date: None,
@@ -190,24 +186,16 @@ pub fn create_erc20_deposit_transfer(
     gas_limit: Option<u64>,
     lock_contract_address: Address,
     deposit_id: u32,
-    use_internal: bool,
 ) -> Result<TxDbObj, PaymentError> {
     Ok(TxDbObj {
-        method: if use_internal {
-            "LOCK.payoutSingleInternal".to_string()
-        } else {
-            "LOCK.payoutSingle".to_string()
-        },
+        method: "LOCK.payoutSingle".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_contract_address:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        call_data: Some(hex::encode(if use_internal {
-            encode_payout_single_internal(deposit_id, erc20_to, erc20_amount)
-                .map_err(err_from!())?
-        } else {
-            encode_payout_single(deposit_id, erc20_to, erc20_amount).map_err(err_from!())?
-        })),
+        call_data: Some(hex::encode(
+            encode_payout_single(deposit_id, erc20_to, erc20_amount).map_err(err_from!())?,
+        )),
         ..Default::default()
     })
 }
@@ -220,7 +208,6 @@ pub struct MultiTransferDepositArgs {
     pub chain_id: u64,
     pub gas_limit: Option<u64>,
     pub deposit_id: u32,
-    pub use_internal: bool,
 }
 
 pub fn create_erc20_transfer_multi_deposit(

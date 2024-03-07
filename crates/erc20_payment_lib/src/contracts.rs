@@ -178,18 +178,6 @@ pub fn encode_payout_single(
     )
 }
 
-pub fn encode_payout_single_internal(
-    id: u32,
-    recipient: Address,
-    amount: U256,
-) -> Result<Vec<u8>, web3::ethabi::Error> {
-    contract_encode(
-        &LOCK_CONTRACT_TEMPLATE,
-        "payoutSingleInternal",
-        (id, recipient, amount),
-    )
-}
-
 pub fn encode_get_deposit_details(id: U256) -> Result<Vec<u8>, web3::ethabi::Error> {
     contract_encode(&LOCK_CONTRACT_TEMPLATE, "getDeposit", (id,))
 }

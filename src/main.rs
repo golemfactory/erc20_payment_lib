@@ -488,11 +488,6 @@ async fn main_internal() -> Result<(), PaymentError> {
                     token_addr: token,
                     token_amount: amount_str,
                     deposit_id: single_transfer_options.deposit_id,
-                    use_internal: if single_transfer_options.use_internal {
-                        1
-                    } else {
-                        0
-                    },
                     create_date: Default::default(),
                     tx_id: None,
                     paid_date: None,

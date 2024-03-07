@@ -30,7 +30,6 @@ pub struct TokenTransferKey {
     pub chain_id: i64,
     pub token_addr: Option<String>,
     pub deposit_id: Option<String>,
-    pub use_internal: i64,
 }
 
 #[derive(Eq, Hash, PartialEq, Debug, Clone)]
@@ -39,7 +38,6 @@ pub struct TokenTransferMultiKey {
     pub chain_id: i64,
     pub token_addr: Option<String>,
     pub deposit_id: Option<String>,
-    pub use_internal: i64,
 }
 
 type TokenTransferMap = HashMap<TokenTransferKey, Vec<TokenTransferDbObj>>;
@@ -105,7 +103,6 @@ pub async fn gather_transactions_pre(
             chain_id: f.chain_id,
             token_addr: f.token_addr.clone(),
             deposit_id: f.deposit_id.clone(),
-            use_internal: f.use_internal,
         };
         match transfer_map.get_mut(&key) {
             Some(v) => {
@@ -238,7 +235,6 @@ pub async fn gather_transactions_batch_multi(
                         None,
                         lock_contract_address,
                         deposit_id,
-                        token_transfer.use_internal != 0,
                     )?
                 } else {
                     create_erc20_transfer(
@@ -258,10 +254,9 @@ pub async fn gather_transactions_batch_multi(
                     ))?;
                 let deposit_id = u32::from_str(deposit_id).map_err(err_from!())?;
                 log::info!(
-                    "Inserting transaction stub for ERC20 multi payment: {:?} for {} distinct transfers, use internal {}",
+                    "Inserting transaction stub for ERC20 multi payment: {:?} for {} distinct transfers",
                     lock_contract_address,
                     erc20_to.len(),
-                    token_transfer.use_internal != 0
                 );
                 create_erc20_transfer_multi_deposit(MultiTransferDepositArgs {
                     from: Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
@@ -271,7 +266,6 @@ pub async fn gather_transactions_batch_multi(
                     chain_id: token_transfer.chain_id as u64,
                     gas_limit: None,
                     deposit_id,
-                    use_internal: token_transfer.use_internal != 0,
                 })?
             } else if let Some(multi_contract_address) = chain_setup.multi_contract_address {
                 log::info!(
@@ -364,7 +358,6 @@ pub async fn gather_transactions_batch(
                 None,
                 lock_contract_address,
                 deposit_id,
-                token_transfer.use_internal != 0,
             )?
         } else {
             create_erc20_transfer(
@@ -429,7 +422,6 @@ pub async fn gather_transactions_post(
                 chain_id: key.1.chain_id,
                 token_addr: key.1.token_addr.clone(),
                 deposit_id: key.1.deposit_id.clone(),
-                use_internal: key.1.use_internal,
             };
             if multi_key.token_addr.is_none() {
                 let token_transfer = key.1;

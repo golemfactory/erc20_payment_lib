@@ -74,7 +74,6 @@ async fn test_gas_transfer() -> Result<(), anyhow::Error> {
                 None,
                 U256::from(456000000000000222_u128),
                 None,
-                false
             )
         ).await?;
 

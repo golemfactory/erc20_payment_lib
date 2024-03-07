@@ -397,7 +397,6 @@ pub struct TransferArgs {
     pub payment_id: String,
     pub deadline: Option<DateTime<Utc>>,
     pub deposit_id: Option<String>,
-    pub use_internal: bool,
 }
 
 impl PaymentRuntime {
@@ -918,7 +917,6 @@ impl PaymentRuntime {
             token_addr,
             transfer_args.amount,
             transfer_args.deposit_id,
-            transfer_args.use_internal,
         );
 
         insert_token_transfer(&self.conn, &token_transfer)
