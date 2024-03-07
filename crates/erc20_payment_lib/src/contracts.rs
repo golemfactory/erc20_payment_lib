@@ -84,13 +84,13 @@ pub fn encode_erc20_approve(
 }
 
 pub fn encode_payout_multiple_internal(
-    allocation_id: u32,
+    deposit_id: u32,
     packed: Vec<[u8; 32]>,
 ) -> Result<Vec<u8>, web3::ethabi::Error> {
     contract_encode(
         &LOCK_CONTRACT_TEMPLATE,
         "payoutMultipleInternal",
-        (allocation_id, packed),
+        (deposit_id, packed),
     )
 }
 
@@ -143,26 +143,26 @@ pub fn encode_terminate_deposit(nonce: u64) -> Result<Vec<u8>, web3::ethabi::Err
     contract_encode(&LOCK_CONTRACT_TEMPLATE, "terminateDeposit", (nonce,))
 }
 
-pub struct CreateAllocationArgs {
-    pub allocation_nonce: u64,
-    pub allocation_spender: Address,
-    pub allocation_amount: U256,
-    pub allocation_fee_amount: U256,
-    pub allocation_timestamp: u64,
+pub struct CreateDepositArgs {
+    pub deposit_nonce: u64,
+    pub deposit_spender: Address,
+    pub deposit_amount: U256,
+    pub deposit_fee_amount: U256,
+    pub deposit_timestamp: u64,
 }
 
-pub fn encode_create_allocation(
-    allocation_args: CreateAllocationArgs,
+pub fn encode_create_deposit(
+    deposit_args: CreateDepositArgs,
 ) -> Result<Vec<u8>, web3::ethabi::Error> {
     contract_encode(
         &LOCK_CONTRACT_TEMPLATE,
         "createDeposit",
         (
-            allocation_args.allocation_nonce,
-            allocation_args.allocation_spender,
-            allocation_args.allocation_amount,
-            allocation_args.allocation_fee_amount,
-            allocation_args.allocation_timestamp,
+            deposit_args.deposit_nonce,
+            deposit_args.deposit_spender,
+            deposit_args.deposit_amount,
+            deposit_args.deposit_fee_amount,
+            deposit_args.deposit_timestamp,
         ),
     )
 }
@@ -190,6 +190,6 @@ pub fn encode_payout_single_internal(
     )
 }
 
-pub fn encode_get_allocation_details(id: U256) -> Result<Vec<u8>, web3::ethabi::Error> {
+pub fn encode_get_deposit_details(id: U256) -> Result<Vec<u8>, web3::ethabi::Error> {
     contract_encode(&LOCK_CONTRACT_TEMPLATE, "getDeposit", (id,))
 }

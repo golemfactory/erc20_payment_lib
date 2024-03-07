@@ -1,5 +1,5 @@
 use crate::signer::{Signer, SignerAccount};
-use crate::transaction::{create_close_deposit, create_faucet_mint, create_make_allocation, create_token_transfer, find_receipt_extended, FindReceiptParseResult};
+use crate::transaction::{create_close_deposit, create_faucet_mint, create_make_deposit, create_token_transfer, find_receipt_extended, FindReceiptParseResult};
 use crate::{err_custom_create, err_from};
 use erc20_payment_lib_common::create_sqlite_connection;
 use erc20_payment_lib_common::ops::{
@@ -22,7 +22,7 @@ use sqlx::SqlitePool;
 
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
-use crate::contracts::CreateAllocationArgs;
+use crate::contracts::CreateDepositArgs;
 use crate::eth::{get_eth_addr_from_secret, get_latest_block_info, DepositDetails};
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
@@ -393,7 +393,7 @@ pub struct TransferArgs {
     pub amount: U256,
     pub payment_id: String,
     pub deadline: Option<DateTime<Utc>>,
-    pub allocation_id: Option<String>,
+    pub deposit_id: Option<String>,
     pub use_internal: bool,
 }
 
@@ -664,7 +664,7 @@ impl PaymentRuntime {
     pub async fn deposit_details(
         &self,
         chain_name: String,
-        allocation_id: U256,
+        deposit_id: U256,
         lock_contract_address: Address,
     ) -> Result<DepositDetails, PaymentError> {
         let chain_cfg = self
@@ -678,7 +678,7 @@ impl PaymentRuntime {
 
         let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
 
-        allocation_details(web3, allocation_id, lock_contract_address).await
+        deposit_details(web3, deposit_id, lock_contract_address).await
     }
 
     pub async fn get_token_balance(
@@ -914,7 +914,7 @@ impl PaymentRuntime {
             Some(&transfer_args.payment_id),
             token_addr,
             transfer_args.amount,
-            transfer_args.allocation_id,
+            transfer_args.deposit_id,
             transfer_args.use_internal,
         );
 
@@ -1097,16 +1097,16 @@ pub async fn mint_golem_token(
     Ok(())
 }
 
-pub async fn allocation_details(
+pub async fn deposit_details(
     web3: Arc<Web3RpcPool>,
-    allocation_id: U256,
+    deposit_id: U256,
     lock_contract_address: Address,
 ) -> Result<DepositDetails, PaymentError> {
     let block_info = get_latest_block_info(web3.clone()).await?;
 
-    let mut result = crate::eth::get_allocation_details(
+    let mut result = crate::eth::get_deposit_details(
         web3.clone(),
-        allocation_id,
+        deposit_id,
         lock_contract_address,
         Some(block_info.block_number),
     )
@@ -1119,58 +1119,58 @@ pub async fn allocation_details(
     Ok(result)
 }
 
-pub struct CancelAllocationOptionsInt {
+pub struct CancelDepositOptionsInt {
     pub lock_contract_address: Address,
-    pub skip_allocation_check: bool,
-    pub allocation_id: U256,
+    pub skip_deposit_check: bool,
+    pub deposit_id: U256,
 }
 
-pub async fn cancel_allocation(
+pub async fn cancel_deposit(
     web3: Arc<Web3RpcPool>,
     conn: &SqlitePool,
     chain_id: u64,
     from: Address,
-    opt: CancelAllocationOptionsInt,
+    opt: CancelDepositOptionsInt,
 ) -> Result<(), PaymentError> {
-    let free_allocation_tx_id = create_close_deposit(
+    let free_deposit_tx_id = create_close_deposit(
         from,
         opt.lock_contract_address,
         chain_id,
         None,
-        opt.allocation_id,
+        opt.deposit_id,
     )?;
 
     //let mut block_info: Option<Web3BlockInfo> = None;
-    if !opt.skip_allocation_check {
-        let allocation_details =
-            allocation_details(web3.clone(), opt.allocation_id, opt.lock_contract_address).await?;
-        if allocation_details.amount_decimal.is_zero() {
-            log::error!("Allocation {} not found", opt.allocation_id);
+    if !opt.skip_deposit_check {
+        let deposit_details =
+            deposit_details(web3.clone(), opt.deposit_id, opt.lock_contract_address).await?;
+        if deposit_details.amount_decimal.is_zero() {
+            log::error!("Deposit {} not found", opt.deposit_id);
 
             return Err(err_custom_create!(
-                "Allocation {} not found",
-                opt.allocation_id
+                "Deposit {} not found",
+                opt.deposit_id
             ));
         }
-        if allocation_details.funder != from {
-            log::error!("You are not the owner of allocation {}", opt.allocation_id);
+        if deposit_details.funder != from {
+            log::error!("You are not the owner of deposit {}", opt.deposit_id);
             return Err(err_custom_create!(
-                "You are not the owner of allocation {}",
-                opt.allocation_id
+                "You are not the owner of deposit {}",
+                opt.deposit_id
             ));
         }
-        //TODO: check if allocation is not expired
+        //TODO: check if deposit is not expired
         /*
-        if let Some(est_time_left) = allocation_details.valid_to {
+        if let Some(est_time_left) = deposit_details.valid_to {
             if est_time_left > 10 {
                 log::error!(
-                    "Allocation {} is not ready to be cancelled. Estimated time left: {}",
-                    opt.allocation_id,
+                    "Deposit {} is not ready to be cancelled. Estimated time left: {}",
+                    opt.deposit_id,
                     est_time_left
                 );
                 return Err(err_custom_create!(
-                    "Allocation {} is not ready to be cancelled. Estimated time left: {}",
-                    opt.allocation_id,
+                    "Deposit {} is not ready to be cancelled. Estimated time left: {}",
+                    opt.deposit_id,
                     est_time_left
                 ));
             }
@@ -1178,33 +1178,33 @@ pub async fn cancel_allocation(
     }
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-    let make_allocation_tx = insert_tx(&mut *db_transaction, &free_allocation_tx_id)
+    let make_deposit_tx = insert_tx(&mut *db_transaction, &free_deposit_tx_id)
         .await
         .map_err(err_from!())?;
     db_transaction.commit().await.map_err(err_from!())?;
 
-    log::info!("Free allocation added to queue: {}", make_allocation_tx.id);
+    log::info!("Free deposit added to queue: {}", make_deposit_tx.id);
     Ok(())
 }
 
-pub struct MakeAllocationOptionsInt {
+pub struct MakeDepositOptionsInt {
     pub lock_contract_address: Address,
     pub spender: Address,
     pub skip_balance_check: bool,
     pub amount: Option<Decimal>,
     pub fee_amount: Option<Decimal>,
     pub allocate_all: bool,
-    pub allocation_nonce: u64,
+    pub deposit_nonce: u64,
     pub timestamp: u64,
 }
 
-pub async fn make_allocation(
+pub async fn make_deposit(
     web3: Arc<Web3RpcPool>,
     conn: &SqlitePool,
     chain_id: u64,
     from: Address,
     glm_address: Address,
-    opt: MakeAllocationOptionsInt,
+    opt: MakeDepositOptionsInt,
 ) -> Result<(), PaymentError> {
     let amount = if let Some(amount) = opt.amount {
         amount.to_u256_from_eth().map_err(err_from!())?
@@ -1239,27 +1239,27 @@ pub async fn make_allocation(
         };
     }
 
-    let make_allocation_tx = create_make_allocation(
+    let make_deposit_tx = create_make_deposit(
         from,
         opt.lock_contract_address,
         chain_id,
         None,
-        CreateAllocationArgs {
-            allocation_nonce: opt.allocation_nonce,
-            allocation_spender: opt.spender,
-            allocation_amount: amount,
-            allocation_fee_amount: fee_amount,
-            allocation_timestamp: opt.timestamp,
+        CreateDepositArgs {
+            deposit_nonce: opt.deposit_nonce,
+            deposit_spender: opt.spender,
+            deposit_amount: amount,
+            deposit_fee_amount: fee_amount,
+            deposit_timestamp: opt.timestamp,
         },
     )?;
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-    let make_allocation_tx = insert_tx(&mut *db_transaction, &make_allocation_tx)
+    let make_deposit_tx = insert_tx(&mut *db_transaction, &make_deposit_tx)
         .await
         .map_err(err_from!())?;
     db_transaction.commit().await.map_err(err_from!())?;
 
-    log::info!("Make allocation added to queue: {}", make_allocation_tx.id);
+    log::info!("Make deposit added to queue: {}", make_deposit_tx.id);
     Ok(())
 }
 

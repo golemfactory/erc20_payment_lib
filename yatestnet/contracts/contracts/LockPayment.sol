@@ -109,7 +109,7 @@ interface IERC20 {
 contract LockPayment {
     IERC20 public GLM;
 
-    // allocation is stored using arbitrary id
+    // deposit is stored using arbitrary id
     mapping(uint256 => Deposit) public deposits;
 
     // fees are stored using spender address
@@ -158,7 +158,7 @@ contract LockPayment {
     // feeAmount - amount of GLM tokens given to spender (non-refundable). Fee is claimed by spender when called payoutSingle or payoutMultiple first time.
     // blockNo - block number until which funds are guaranteed to be locked for spender.
     //           Spender still can use the funds after this block,
-    //           but customer can request the funds to be returned clearing allocation after (or equal to) this block number.
+    //           but customer can request the funds to be returned clearing deposit after (or equal to) this block number.
     function createDeposit(uint64 nonce, address spender, uint128 amount, uint128 feeAmount, uint64 validToTimestamp) public {
         //check if id is not used
         uint256 id = idFromNonce(nonce);
@@ -174,7 +174,7 @@ contract LockPayment {
         uint256 id = idFromNonce(nonce);
         Deposit memory deposit = deposits[id];
         require(GLM.transferFrom(msg.sender, address(this), extraAmount + extraFee), "transferFrom failed");
-        require(deposit.validTo <= validToTimestamp, "allocation.validTo <= validTo");
+        require(deposit.validTo <= validToTimestamp, "deposit.validTo <= validTo");
         deposit.amount += extraAmount;
         deposit.feeAmount += extraFee;
         deposit.validTo = validToTimestamp;

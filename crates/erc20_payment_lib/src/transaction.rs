@@ -120,7 +120,7 @@ pub fn create_token_transfer(
     payment_id: Option<&str>,
     token_addr: Option<Address>,
     token_amount: U256,
-    allocation_id: Option<String>,
+    deposit_id: Option<String>,
     use_internal: bool,
 ) -> TokenTransferDbObj {
     TokenTransferDbObj {
@@ -131,7 +131,7 @@ pub fn create_token_transfer(
         chain_id,
         token_addr: token_addr.map(|addr| format!("{addr:#x}")),
         token_amount: token_amount.to_string(),
-        allocation_id,
+        deposit_id,
         // Information if using internal contract account 0 - false, 1 - true
         use_internal: if use_internal { 1 } else { 0 },
         create_date: Utc::now(),
@@ -182,14 +182,14 @@ pub fn create_erc20_transfer(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub fn create_erc20_allocation_transfer(
+pub fn create_erc20_deposit_transfer(
     from: Address,
     erc20_to: Address,
     erc20_amount: U256,
     chain_id: u64,
     gas_limit: Option<u64>,
     lock_contract_address: Address,
-    allocation_id: u32,
+    deposit_id: u32,
     use_internal: bool,
 ) -> Result<TxDbObj, PaymentError> {
     Ok(TxDbObj {
@@ -203,34 +203,34 @@ pub fn create_erc20_allocation_transfer(
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
         call_data: Some(hex::encode(if use_internal {
-            encode_payout_single_internal(allocation_id, erc20_to, erc20_amount)
+            encode_payout_single_internal(deposit_id, erc20_to, erc20_amount)
                 .map_err(err_from!())?
         } else {
-            encode_payout_single(allocation_id, erc20_to, erc20_amount).map_err(err_from!())?
+            encode_payout_single(deposit_id, erc20_to, erc20_amount).map_err(err_from!())?
         })),
         ..Default::default()
     })
 }
 
-pub struct MultiTransferAllocationArgs {
+pub struct MultiTransferDepositArgs {
     pub from: Address,
     pub lock_contract: Address,
     pub erc20_to: Vec<Address>,
     pub erc20_amount: Vec<U256>,
     pub chain_id: u64,
     pub gas_limit: Option<u64>,
-    pub allocation_id: u32,
+    pub deposit_id: u32,
     pub use_internal: bool,
 }
 
-pub fn create_erc20_transfer_multi_allocation(
-    multi_args: MultiTransferAllocationArgs,
+pub fn create_erc20_transfer_multi_deposit(
+    multi_args: MultiTransferDepositArgs,
 ) -> Result<TxDbObj, PaymentError> {
     let (packed, _sum) =
         pack_transfers_for_multi_contract(multi_args.erc20_to, multi_args.erc20_amount)?;
 
     let data =
-        encode_payout_multiple_internal(multi_args.allocation_id, packed).map_err(err_from!())?;
+        encode_payout_multiple_internal(multi_args.deposit_id, packed).map_err(err_from!())?;
     Ok(TxDbObj {
         method: "payoutMultipleInternal".to_string(),
         from_addr: format!("{:#x}", multi_args.from),
@@ -314,12 +314,12 @@ pub fn create_faucet_mint(
     })
 }
 
-pub fn create_make_allocation(
+pub fn create_make_deposit(
     from: Address,
     lock_address: Address,
     chain_id: u64,
     gas_limit: Option<u64>,
-    allocation_args: CreateAllocationArgs,
+    deposit_args: CreateDepositArgs,
 ) -> Result<TxDbObj, PaymentError> {
     Ok(TxDbObj {
         method: "LOCK.createDeposit".to_string(),
@@ -328,7 +328,7 @@ pub fn create_make_allocation(
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
         call_data: Some(hex::encode(
-            encode_create_allocation(allocation_args).map_err(err_from!())?,
+            encode_create_deposit(deposit_args).map_err(err_from!())?,
         )),
         ..Default::default()
     })

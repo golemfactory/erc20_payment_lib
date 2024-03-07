@@ -1,4 +1,4 @@
-name: Allocation tests
+name: Deposit tests
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
     - cron: "42 3 * * *"
 
 jobs:
-  test_allocation:
-    name: Test Allocation
+  test_deposit:
+    name: Test Deposit
     timeout-minutes: 20
 
     runs-on: ubuntu-latest
@@ -33,11 +33,11 @@ jobs:
           erc20_processor generate-key -n 5 > .env
           cat .env | grep ETH_ADDRESS | sed "s/#\s//g" | sed "s/:\s/=/g" > $GITHUB_ENV
 
-      - name: Create random allocation id
+      - name: Create random deposit id
         run: |
-          echo ALLOCATION_ID0=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
-          echo ALLOCATION_ID1=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
-          echo ALLOCATION_ID2=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
+          echo DEPOSIT_ID0=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
+          echo DEPOSIT_ID1=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
+          echo DEPOSIT_ID2=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
 
       - name: Show created addresses
         run: |
@@ -72,41 +72,41 @@ jobs:
           erc20_processor run
           erc20_processor balance
 
-      - name: Create allocation
+      - name: Create deposit
         run: |
           set -x 
-          erc20_processor make-allocation --account-no 1 --amount 1 --fee-amount 0.1 --block-for 0 --spender $ETH_ADDRESS_2 --allocation-id $ALLOCATION_ID0 --use-internal
-          erc20_processor make-allocation --account-no 1 --amount 1 --fee-amount 0.1 --block-for 1000 --spender $ETH_ADDRESS_2 --allocation-id $ALLOCATION_ID1 --use-internal
+          erc20_processor make-deposit --account-no 1 --amount 1 --fee-amount 0.1 --block-for 0 --spender $ETH_ADDRESS_2 --deposit-id $DEPOSIT_ID0 --use-internal
+          erc20_processor make-deposit --account-no 1 --amount 1 --fee-amount 0.1 --block-for 1000 --spender $ETH_ADDRESS_2 --deposit-id $DEPOSIT_ID1 --use-internal
           erc20_processor run
 
       - name: Check token balance zero
         run: |
           set -x 
-          erc20_processor check-allocation --allocation-id $ALLOCATION_ID0
-          erc20_processor check-allocation --allocation-id $ALLOCATION_ID1
+          erc20_processor check-deposit --deposit-id $DEPOSIT_ID0
+          erc20_processor check-deposit --deposit-id $DEPOSIT_ID1
 
-      - name: Make single transfer from allocation
+      - name: Make single transfer from deposit
         run: |
           set -x 
-          erc20_processor transfer --allocation-id $ALLOCATION_ID0 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_4 --use-internal
+          erc20_processor transfer --deposit-id $DEPOSIT_ID0 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_4 --use-internal
           erc20_processor run
 
-      - name: Make single transfer without allocation
+      - name: Make single transfer without deposit
         run: |
           set -x 
           erc20_processor transfer --account-no 1 --amount 0.0001 --recipient $ETH_ADDRESS_4 --use-internal
           erc20_processor run
 
-      - name: Make multiple transfers from allocation
+      - name: Make multiple transfers from deposit
         run: |
           set -x 
-          erc20_processor transfer --allocation-id $ALLOCATION_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_0 --use-internal
-          erc20_processor transfer --allocation-id $ALLOCATION_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_3 --use-internal
-          erc20_processor transfer --allocation-id $ALLOCATION_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_4 --use-internal
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_0 --use-internal
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_3 --use-internal
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_4 --use-internal
           erc20_processor run
           erc20_processor balance
 
-      - name: Make multiple transfer without allocation
+      - name: Make multiple transfer without deposit
         run: |
           set -x 
           erc20_processor transfer --account-no 1 --amount 0.0001 --recipient $ETH_ADDRESS_0 --use-internal
@@ -115,12 +115,12 @@ jobs:
           erc20_processor run
           erc20_processor balance
 
-      - name: Free allocation
+      - name: Free deposit
         run: |
           set -x 
-          erc20_processor cancel-allocation --allocation-id $ALLOCATION_ID0 --account-no 1 --use-internal
-          erc20_processor cancel-allocation --allocation-id $ALLOCATION_ID1 --account-no 1 --use-internal || echo "Error expected (OK)"
-          erc20_processor cancel-allocation --allocation-id $ALLOCATION_ID1 --account-no 2 --use-internal || echo "Error expected (OK)"
+          erc20_processor cancel-deposit --deposit-id $DEPOSIT_ID0 --account-no 1 --use-internal
+          erc20_processor cancel-deposit --deposit-id $DEPOSIT_ID1 --account-no 1 --use-internal || echo "Error expected (OK)"
+          erc20_processor cancel-deposit --deposit-id $DEPOSIT_ID1 --account-no 2 --use-internal || echo "Error expected (OK)"
           erc20_processor run
 
       - name: Withdraw all tokens

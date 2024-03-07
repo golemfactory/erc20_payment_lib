@@ -1,7 +1,7 @@
 use std::{fmt::Debug, path::PathBuf};
 
-use crate::actions::cancel_allocation::CancelAllocationOptions;
-use crate::actions::make_allocation::MakeAllocationOptions;
+use crate::actions::cancel_allocation::CancelDepositOptions;
+use crate::actions::make_allocation::MakeDepositOptions;
 use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
 use structopt::StructOpt;
 use web3::types::Address;
@@ -172,12 +172,12 @@ pub struct WithdrawTokensOptions {
 
 #[derive(StructOpt)]
 #[structopt(about = "Allocate funds for use by payer")]
-pub struct CheckAllocationOptions {
+pub struct CheckDepositOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
-    #[structopt(long = "allocation-id", help = "Allocation id to use")]
-    pub allocation_id: String,
+    #[structopt(long = "deposit-id", help = "Deposit id to use")]
+    pub deposit_id: String,
 }
 
 #[derive(StructOpt)]
@@ -208,8 +208,8 @@ pub struct TransferOptions {
     )]
     pub amount: Option<rust_decimal::Decimal>,
 
-    #[structopt(long = "allocation-id")]
-    pub allocation_id: Option<String>,
+    #[structopt(long = "deposit-id")]
+    pub deposit_id: Option<String>,
 
     #[structopt(long = "use-internal")]
     pub use_internal: bool,
@@ -394,17 +394,17 @@ pub enum PaymentCommands {
         #[structopt(flatten)]
         mint_test_tokens_options: MintTestTokensOptions,
     },
-    MakeAllocation {
+    MakeDeposit {
         #[structopt(flatten)]
-        make_allocation_options: MakeAllocationOptions,
+        make_deposit_options: MakeDepositOptions,
     },
-    CancelAllocation {
+    CancelDeposit {
         #[structopt(flatten)]
-        cancel_allocation_options: CancelAllocationOptions,
+        cancel_deposit_options: CancelDepositOptions,
     },
-    CheckAllocation {
+    CheckDeposit {
         #[structopt(flatten)]
-        check_allocation_options: CheckAllocationOptions,
+        check_deposit_options: CheckDepositOptions,
     },
     Transfer {
         #[structopt(flatten)]

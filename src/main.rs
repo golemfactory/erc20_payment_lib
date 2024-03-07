@@ -24,11 +24,11 @@ use erc20_payment_lib::{
 use std::env;
 use std::str::FromStr;
 
-use crate::actions::allocation_details::allocation_details_local;
-use crate::actions::cancel_allocation::cancel_allocation_local;
+use crate::actions::allocation_details::deposit_details_local;
+use crate::actions::cancel_allocation::cancel_deposit_local;
 use crate::actions::check_address_name;
 use crate::actions::check_rpc::check_rpc_local;
-use crate::actions::make_allocation::make_allocation_local;
+use crate::actions::make_allocation::make_deposit_local;
 use crate::stats::{export_stats, run_stats};
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
@@ -71,9 +71,9 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::CheckRpc { .. } => {}
         PaymentCommands::GetDevEth { .. } => {}
         PaymentCommands::MintTestTokens { .. } => {}
-        PaymentCommands::MakeAllocation { .. } => {}
-        PaymentCommands::CancelAllocation { .. } => {}
-        PaymentCommands::CheckAllocation { .. } => {}
+        PaymentCommands::MakeDeposit { .. } => {}
+        PaymentCommands::CancelDeposit { .. } => {}
+        PaymentCommands::CheckDeposit { .. } => {}
         PaymentCommands::Transfer { .. } => {}
         PaymentCommands::Balance { .. } => {}
         PaymentCommands::ImportPayments { .. } => {}
@@ -350,33 +350,33 @@ async fn main_internal() -> Result<(), PaymentError> {
             )
             .await?;
         }
-        PaymentCommands::MakeAllocation {
-            make_allocation_options,
+        PaymentCommands::MakeDeposit {
+            make_deposit_options,
         } => {
-            make_allocation_local(
+            make_deposit_local(
                 conn.clone().unwrap(),
-                make_allocation_options,
+                make_deposit_options,
                 config,
                 &public_addrs,
                 signer,
             )
             .await?;
         }
-        PaymentCommands::CancelAllocation {
-            cancel_allocation_options,
+        PaymentCommands::CancelDeposit {
+            cancel_deposit_options,
         } => {
-            cancel_allocation_local(
+            cancel_deposit_local(
                 conn.clone().unwrap(),
-                cancel_allocation_options,
+                cancel_deposit_options,
                 config,
                 &public_addrs,
             )
             .await?;
         }
-        PaymentCommands::CheckAllocation {
-            check_allocation_options,
+        PaymentCommands::CheckDeposit {
+            check_deposit_options,
         } => {
-            allocation_details_local(check_allocation_options, config).await?;
+            deposit_details_local(check_deposit_options, config).await?;
         }
         PaymentCommands::GenerateKey {
             generate_key_options,
@@ -487,7 +487,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     chain_id: chain_cfg.chain_id,
                     token_addr: token,
                     token_amount: amount_str,
-                    allocation_id: single_transfer_options.allocation_id,
+                    deposit_id: single_transfer_options.deposit_id,
                     use_internal: if single_transfer_options.use_internal {
                         1
                     } else {

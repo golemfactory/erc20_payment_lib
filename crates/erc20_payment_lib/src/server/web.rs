@@ -575,7 +575,7 @@ struct TransactionRequest {
     chain: i64,
     due_date: Option<String>,
     payment_id: Option<String>,
-    allocation_id: Option<String>,
+    deposit_id: Option<String>,
     use_internal: bool,
 }
 
@@ -626,7 +626,7 @@ async fn new_transfer(
         amount: U256::from_dec_str(&new_transfer.amount).unwrap(),
         payment_id,
         deadline: due_date,
-        allocation_id: new_transfer.allocation_id.clone(),
+        deposit_id: new_transfer.deposit_id.clone(),
         use_internal: new_transfer.use_internal,
     };
 

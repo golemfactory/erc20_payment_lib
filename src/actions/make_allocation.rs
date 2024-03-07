@@ -1,8 +1,8 @@
 use crate::actions::check_address_name;
 use erc20_payment_lib::config::Config;
-use erc20_payment_lib::eth::{allocation_id_from_nonce, check_allowance};
+use erc20_payment_lib::eth::{deposit_id_from_nonce, check_allowance};
 use erc20_payment_lib::process_allowance;
-use erc20_payment_lib::runtime::{make_allocation, MakeAllocationOptionsInt};
+use erc20_payment_lib::runtime::{make_deposit, MakeDepositOptionsInt};
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::utils::DecimalConvExt;
@@ -18,7 +18,7 @@ use web3::types::{Address, U256};
 
 #[derive(StructOpt)]
 #[structopt(about = "Allocate funds for use by payer")]
-pub struct MakeAllocationOptions {
+pub struct MakeDepositOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
@@ -63,10 +63,10 @@ pub struct MakeAllocationOptions {
     pub block_for: Option<u64>,
 
     #[structopt(
-        long = "allocation-nonce",
-        help = "Allocation nonce to use. If not specified, new allocation id will be generated"
+        long = "deposit-nonce",
+        help = "Deposit nonce to use. If not specified, new deposit id will be generated"
     )]
-    pub allocation_nonce: Option<u64>,
+    pub deposit_nonce: Option<u64>,
 
     #[structopt(
         long = "use-internal",
@@ -78,17 +78,17 @@ pub struct MakeAllocationOptions {
     pub skip_allowance: bool,
 }
 
-pub async fn make_allocation_local(
+pub async fn make_deposit_local(
     conn: SqlitePool,
-    make_allocation_options: MakeAllocationOptions,
+    make_deposit_options: MakeDepositOptions,
     config: Config,
     public_addrs: &[Address],
     signer: PrivateKeySigner,
 ) -> Result<(), PaymentError> {
-    log::info!("Making allocation...");
-    let public_addr = if let Some(address) = make_allocation_options.address {
+    log::info!("Making deposit...");
+    let public_addr = if let Some(address) = make_deposit_options.address {
         address
-    } else if let Some(account_no) = make_allocation_options.account_no {
+    } else if let Some(account_no) = make_deposit_options.account_no {
         *public_addrs
             .get(account_no)
             .expect("No public adss found with specified account_no")
@@ -97,23 +97,23 @@ pub async fn make_allocation_local(
     };
     let chain_cfg = config
         .chain
-        .get(&make_allocation_options.chain_name)
+        .get(&make_deposit_options.chain_name)
         .ok_or(err_custom_create!(
             "Chain {} not found in config file",
-            make_allocation_options.chain_name
+            make_deposit_options.chain_name
         ))?;
 
-    if make_allocation_options.block_for.is_some() && make_allocation_options.block_until.is_some() {
+    if make_deposit_options.block_for.is_some() && make_deposit_options.block_until.is_some() {
         return Err(err_custom_create!(
             "Cannot specify both block-for and block-until"
         ));
     }
 
-    let timestamp = if let Some(block_for) = make_allocation_options.block_for {
+    let timestamp = if let Some(block_for) = make_deposit_options.block_for {
         let now = Utc::now();
         let date_fut = now + chrono::Duration::seconds(block_for as i64);
         date_fut.timestamp() as u64
-    } else if let Some(block_until) = make_allocation_options.block_until {
+    } else if let Some(block_until) = make_deposit_options.block_until {
         block_until.timestamp() as u64
     } else {
         let now = Utc::now();
@@ -123,7 +123,7 @@ pub async fn make_allocation_local(
     let payment_setup = PaymentSetup::new_empty(&config)?;
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
 
-    if !make_allocation_options.skip_allowance {
+    if !make_deposit_options.skip_allowance {
         let allowance = check_allowance(
             web3.clone(),
             public_addr,
@@ -136,8 +136,8 @@ pub async fn make_allocation_local(
         )
         .await?;
 
-        if (make_allocation_options.fee_amount.unwrap_or_default()
-            + make_allocation_options.amount.unwrap_or_default())
+        if (make_deposit_options.fee_amount.unwrap_or_default()
+            + make_deposit_options.amount.unwrap_or_default())
         .to_u256_from_eth()
         .map_err(err_from!())?
             > allowance
@@ -173,15 +173,15 @@ pub async fn make_allocation_local(
         }
     }
 
-    let allocation_nonce = make_allocation_options.allocation_nonce.unwrap_or_else(|| {
+    let deposit_nonce = make_deposit_options.deposit_nonce.unwrap_or_else(|| {
         let mut rng = rand::thread_rng();
         rng.gen::<u64>()
     });
 
-    let spender = check_address_name(make_allocation_options.spender.as_str()).map_err(|err| {
+    let spender = check_address_name(make_deposit_options.spender.as_str()).map_err(|err| {
         err_custom_create!(
             "Cannot parse spender address {} {}",
-            make_allocation_options.spender.as_str(),
+            make_deposit_options.spender.as_str(),
             err
         )
     })?;
@@ -190,34 +190,34 @@ pub async fn make_allocation_local(
 
 
 
-    make_allocation(
+    make_deposit(
         web3,
         &conn,
         chain_cfg.chain_id as u64,
         public_addr,
         chain_cfg.token.address,
-        MakeAllocationOptionsInt {
+        MakeDepositOptionsInt {
             lock_contract_address: chain_cfg
                 .lock_contract
                 .clone()
                 .map(|c| c.address)
                 .expect("No lock contract found"),
             spender,
-            skip_balance_check: make_allocation_options.skip_balance_check,
-            amount: make_allocation_options.amount,
-            fee_amount: make_allocation_options.fee_amount,
-            allocate_all: make_allocation_options.allocate_all,
-            allocation_nonce,
+            skip_balance_check: make_deposit_options.skip_balance_check,
+            amount: make_deposit_options.amount,
+            fee_amount: make_deposit_options.fee_amount,
+            allocate_all: make_deposit_options.allocate_all,
+            deposit_nonce,
             timestamp,
         },
     )
     .await?;
 
-    let allocation_id = allocation_id_from_nonce(public_addr, allocation_nonce);
+    let deposit_id = deposit_id_from_nonce(public_addr, deposit_nonce);
     println!(
-        "make_allocation added to queue successfully nonce: {}, allocation_id: {:#x}",
-        allocation_nonce,
-        allocation_id
+        "make_deposit added to queue successfully nonce: {}, deposit_id: {:#x}",
+        deposit_nonce,
+        deposit_id
     );
     Ok(())
 }

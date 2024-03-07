@@ -1,6 +1,4 @@
-use crate::contracts::{
-    encode_erc20_allowance, encode_erc20_balance_of, encode_get_allocation_details,
-};
+use crate::contracts::{encode_erc20_allowance, encode_erc20_balance_of, encode_get_deposit_details};
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
 use erc20_payment_lib_common::utils::{datetime_from_u256_timestamp, U256ConvExt};
@@ -86,7 +84,7 @@ impl DepositView {
     }
 }
 
-pub fn allocation_id_from_nonce(
+pub fn deposit_id_from_nonce(
     funder: Address,
     nonce: u64
 ) -> U256 {
@@ -96,9 +94,9 @@ pub fn allocation_id_from_nonce(
     U256::from_big_endian(&slice)
 }
 
-pub async fn get_allocation_details(
+pub async fn get_deposit_details(
     web3: Arc<Web3RpcPool>,
-    allocation_id: U256,
+    deposit_id: U256,
     lock_contract_address: Address,
     block_number: Option<u64>,
 ) -> Result<DepositDetails, PaymentError> {
@@ -117,7 +115,7 @@ pub async fn get_allocation_details(
         .eth_call(
             CallRequest {
                 to: Some(lock_contract_address),
-                data: Some(encode_get_allocation_details(allocation_id).unwrap().into()),
+                data: Some(encode_get_deposit_details(deposit_id).unwrap().into()),
                 ..Default::default()
             },
             Some(BlockId::Number(BlockNumber::Number(U64::from(

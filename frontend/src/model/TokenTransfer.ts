@@ -7,7 +7,7 @@ interface TokenTransfer {
     tokenAddr: string | null;
     tokenAmount: string;
     useInternal: boolean;
-    allocationId: number | null;
+    depositId: number | null;
 }
 
 export default TokenTransfer;
