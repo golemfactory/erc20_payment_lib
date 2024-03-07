@@ -74,8 +74,8 @@ pub async fn cancel_allocation_local(
     )
     .await?;
     println!(
-        "cancel_allocation added to queue successfully allocation_id: {}",
-        allocation_id
+        "cancel_allocation added to queue successfully allocation id: {}",
+        allocation_id,
     );
     Ok(())
 }

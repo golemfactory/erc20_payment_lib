@@ -10,6 +10,7 @@ use serde::Serialize;
 use sha3::Digest;
 use sha3::Keccak256;
 use std::sync::Arc;
+use web3::ethabi;
 use web3::types::{Address, BlockId, BlockNumber, Bytes, CallRequest, U256, U64};
 
 #[derive(Clone, Debug, Serialize)]
@@ -32,6 +33,67 @@ pub struct DepositDetails {
     pub valid_to: chrono::DateTime<chrono::Utc>,
     pub current_block: u64,
     pub current_block_datetime: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+pub struct DepositView {
+    pub id: U256,
+    pub nonce: u64,
+    pub funder: Address,
+    pub spender: Address,
+    pub amount: u128,
+    pub fee_amount: u128,
+    pub valid_to: u64,
+}
+
+impl DepositView {
+    pub fn decode_from_bytes(bytes: &[u8]) -> Result<DepositView, PaymentError> {
+        if bytes.len() != 7 * 32 {
+            return Err(err_custom_create!(
+                "Invalid response length: {}, expected {}",
+                bytes.len(),
+                7 * 32
+            ));
+        }
+
+        let decoded = ethabi::decode(
+            &[
+                ethabi::ParamType::Uint(256),
+                ethabi::ParamType::Uint(64),
+                ethabi::ParamType::Address,
+                ethabi::ParamType::Address,
+                ethabi::ParamType::Uint(128),
+                ethabi::ParamType::Uint(128),
+                ethabi::ParamType::Uint(64),
+            ],
+            bytes,
+        )
+        .map_err(|err|err_custom_create!(
+            "Failed to decode deposit view from bytes, check if proper contract and contract method is called: {}",
+            err
+        ))?;
+
+        //these unwraps are safe because we know the types from the decode call
+        //be careful when changing types!
+        Ok(DepositView {
+            id: decoded[0].clone().into_uint().unwrap(),
+            nonce: decoded[1].clone().into_uint().unwrap().as_u64(),
+            funder: decoded[2].clone().into_address().unwrap(),
+            spender: decoded[3].clone().into_address().unwrap(),
+            amount: decoded[4].clone().into_uint().unwrap().as_u128(),
+            fee_amount: decoded[5].clone().into_uint().unwrap().as_u128(),
+            valid_to: decoded[6].clone().into_uint().unwrap().as_u64(),
+        })
+    }
+}
+
+pub fn allocation_id_from_nonce(
+    funder: Address,
+    nonce: u64
+) -> U256 {
+    let mut slice: [u8; 32] = [0; 32];
+    slice[0..20].copy_from_slice(funder.0.as_slice());
+    slice[24..32].copy_from_slice(&nonce.to_be_bytes());
+    U256::from_big_endian(&slice)
 }
 
 pub async fn get_allocation_details(
@@ -64,19 +126,15 @@ pub async fn get_allocation_details(
         )
         .await
         .map_err(err_from!())?;
-    if res.0.len() != 5 * 32 {
-        return Err(err_custom_create!(
-            "Invalid response length: {}, expected {}",
-            res.0.len(),
-            5 * 32
-        ));
-    }
-    let amount_u256 = U256::from(&res.0[(2 * 32)..(3 * 32)]);
-    let fee_amount_u256 = U256::from(&res.0[(3 * 32)..(4 * 32)]);
-    
+
+    let deposit_view = DepositView::decode_from_bytes(&res.0)?;
+
+    let amount_u256 = U256::from(deposit_view.amount);
+    let fee_amount_u256 = U256::from(deposit_view.fee_amount);
+
     Ok(DepositDetails {
-        funder: Address::from_slice(&res.0[12..32]),
-        spender: Address::from_slice(&res.0[(32 + 12)..(2 * 32)]),
+        funder: deposit_view.funder,
+        spender: deposit_view.spender,
         amount: amount_u256.to_string(),
         fee_amount: fee_amount_u256.to_string(),
         current_block: block_number,
@@ -188,7 +246,6 @@ pub async fn get_latest_block_info(web3: Arc<Web3RpcPool>) -> Result<Web3BlockIn
         block_date,
     })
 }
-
 
 pub(crate) async fn get_transaction_count(
     address: Address,

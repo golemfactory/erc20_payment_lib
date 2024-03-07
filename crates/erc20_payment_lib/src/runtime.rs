@@ -1,8 +1,5 @@
 use crate::signer::{Signer, SignerAccount};
-use crate::transaction::{
-    create_faucet_mint, create_free_allocation, create_make_allocation, create_token_transfer,
-    find_receipt_extended, FindReceiptParseResult,
-};
+use crate::transaction::{create_close_deposit, create_faucet_mint, create_make_allocation, create_token_transfer, find_receipt_extended, FindReceiptParseResult};
 use crate::{err_custom_create, err_from};
 use erc20_payment_lib_common::create_sqlite_connection;
 use erc20_payment_lib_common::ops::{
@@ -26,9 +23,7 @@ use sqlx::SqlitePool;
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
 use crate::contracts::CreateAllocationArgs;
-use crate::eth::{
-    get_eth_addr_from_secret, get_latest_block_info, DepositDetails,
-};
+use crate::eth::{get_eth_addr_from_secret, get_latest_block_info, DepositDetails};
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
@@ -1137,7 +1132,7 @@ pub async fn cancel_allocation(
     from: Address,
     opt: CancelAllocationOptionsInt,
 ) -> Result<(), PaymentError> {
-    let free_allocation_tx_id = create_free_allocation(
+    let free_allocation_tx_id = create_close_deposit(
         from,
         opt.lock_contract_address,
         chain_id,
@@ -1200,7 +1195,7 @@ pub struct MakeAllocationOptionsInt {
     pub fee_amount: Option<Decimal>,
     pub allocate_all: bool,
     pub allocation_nonce: u64,
-    pub timestamp: Option<u64>,
+    pub timestamp: u64,
 }
 
 pub async fn make_allocation(
@@ -1254,7 +1249,7 @@ pub async fn make_allocation(
             allocation_spender: opt.spender,
             allocation_amount: amount,
             allocation_fee_amount: fee_amount,
-            allocation_timestamp: opt.allocation_nonce,
+            allocation_timestamp: opt.timestamp,
         },
     )?;
 

@@ -135,8 +135,12 @@ pub fn encode_multi_indirect_packed(
     )
 }
 
-pub fn encode_free_allocation(allocation_id: U256) -> Result<Vec<u8>, web3::ethabi::Error> {
-    contract_encode(&LOCK_CONTRACT_TEMPLATE, "closeAllocation", (allocation_id,))
+pub fn encode_close_deposit(deposit_id: U256) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(&LOCK_CONTRACT_TEMPLATE, "closeDeposit", (deposit_id,))
+}
+
+pub fn encode_terminate_deposit(nonce: u64) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(&LOCK_CONTRACT_TEMPLATE, "terminateDeposit", (nonce,))
 }
 
 pub struct CreateAllocationArgs {

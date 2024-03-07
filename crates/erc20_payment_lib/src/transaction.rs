@@ -334,21 +334,21 @@ pub fn create_make_allocation(
     })
 }
 
-pub fn create_free_allocation(
+pub fn create_close_deposit(
     from: Address,
     lock_address: Address,
     chain_id: u64,
     gas_limit: Option<u64>,
-    allocation_id: U256,
+    deposit_id: U256,
 ) -> Result<TxDbObj, PaymentError> {
     Ok(TxDbObj {
-        method: "LOCK.closeAllocation".to_string(),
+        method: "LOCK.closeDeposit".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
         call_data: Some(hex::encode(
-            encode_free_allocation(allocation_id).map_err(err_from!())?,
+            encode_close_deposit(deposit_id).map_err(err_from!())?,
         )),
         ..Default::default()
     })

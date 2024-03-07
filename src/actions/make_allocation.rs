@@ -1,6 +1,6 @@
 use crate::actions::check_address_name;
 use erc20_payment_lib::config::Config;
-use erc20_payment_lib::eth::check_allowance;
+use erc20_payment_lib::eth::{allocation_id_from_nonce, check_allowance};
 use erc20_payment_lib::process_allowance;
 use erc20_payment_lib::runtime::{make_allocation, MakeAllocationOptionsInt};
 use erc20_payment_lib::setup::PaymentSetup;
@@ -12,6 +12,7 @@ use erc20_payment_lib_common::{err_custom_create, err_from};
 use rand::Rng;
 use sqlx::SqlitePool;
 use std::sync::Arc;
+use chrono::Utc;
 use structopt::StructOpt;
 use web3::types::{Address, U256};
 
@@ -52,12 +53,12 @@ pub struct MakeAllocationOptions {
     #[structopt(long = "skip-balance", help = "Skip balance check")]
     pub skip_balance_check: bool,
 
-    #[structopt(long = "block-no", help = "Block until specified block number")]
-    pub block_no: Option<u64>,
+    #[structopt(long = "block-until", help = "Block until specified date")]
+    pub block_until: Option<chrono::DateTime<Utc>>,
 
     #[structopt(
         long = "block-for",
-        help = "Block until block number estimated from now plus given time span"
+        help = "Block for number of seconds"
     )]
     pub block_for: Option<u64>,
 
@@ -101,6 +102,23 @@ pub async fn make_allocation_local(
             "Chain {} not found in config file",
             make_allocation_options.chain_name
         ))?;
+
+    if make_allocation_options.block_for.is_some() && make_allocation_options.block_until.is_some() {
+        return Err(err_custom_create!(
+            "Cannot specify both block-for and block-until"
+        ));
+    }
+
+    let timestamp = if let Some(block_for) = make_allocation_options.block_for {
+        let now = Utc::now();
+        let date_fut = now + chrono::Duration::seconds(block_for as i64);
+        date_fut.timestamp() as u64
+    } else if let Some(block_until) = make_allocation_options.block_until {
+        block_until.timestamp() as u64
+    } else {
+        let now = Utc::now();
+        now.timestamp() as u64
+    };
 
     let payment_setup = PaymentSetup::new_empty(&config)?;
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
@@ -167,6 +185,11 @@ pub async fn make_allocation_local(
             err
         )
     })?;
+
+
+
+
+
     make_allocation(
         web3,
         &conn,
@@ -185,13 +208,16 @@ pub async fn make_allocation_local(
             fee_amount: make_allocation_options.fee_amount,
             allocate_all: make_allocation_options.allocate_all,
             allocation_nonce,
-            timestamp: None,
+            timestamp,
         },
     )
     .await?;
+
+    let allocation_id = allocation_id_from_nonce(public_addr, allocation_nonce);
     println!(
-        "make_allocation added to queue successfully allocation_id: {}",
-        allocation_nonce
+        "make_allocation added to queue successfully nonce: {}, allocation_id: {:#x}",
+        allocation_nonce,
+        allocation_id
     );
     Ok(())
 }
