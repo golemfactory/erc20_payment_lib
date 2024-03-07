@@ -1,5 +1,8 @@
 use crate::signer::{Signer, SignerAccount};
-use crate::transaction::{create_close_deposit, create_faucet_mint, create_make_deposit, create_token_transfer, find_receipt_extended, FindReceiptParseResult};
+use crate::transaction::{
+    create_close_deposit, create_faucet_mint, create_make_deposit, create_token_transfer,
+    find_receipt_extended, FindReceiptParseResult,
+};
 use crate::{err_custom_create, err_from};
 use erc20_payment_lib_common::create_sqlite_connection;
 use erc20_payment_lib_common::ops::{
@@ -1147,10 +1150,7 @@ pub async fn cancel_deposit(
         if deposit_details.amount_decimal.is_zero() {
             log::error!("Deposit {} not found", opt.deposit_id);
 
-            return Err(err_custom_create!(
-                "Deposit {} not found",
-                opt.deposit_id
-            ));
+            return Err(err_custom_create!("Deposit {} not found", opt.deposit_id));
         }
         if deposit_details.funder != from {
             log::error!("You are not the owner of deposit {}", opt.deposit_id);

@@ -13,13 +13,14 @@ pub async fn deposit_details_local(
 ) -> Result<(), PaymentError> {
     log::info!("Deposit details local...");
     //let public_addr = public_addrs.first().expect("No public address found");
-    let chain_cfg = config
-        .chain
-        .get(&check_deposit_options.chain_name)
-        .ok_or(err_custom_create!(
-            "Chain {} not found in config file",
-            check_deposit_options.chain_name
-        ))?;
+    let chain_cfg =
+        config
+            .chain
+            .get(&check_deposit_options.chain_name)
+            .ok_or(err_custom_create!(
+                "Chain {} not found in config file",
+                check_deposit_options.chain_name
+            ))?;
 
     let payment_setup = PaymentSetup::new_empty(&config)?;
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;

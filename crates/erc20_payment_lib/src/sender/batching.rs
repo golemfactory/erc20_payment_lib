@@ -7,8 +7,8 @@ use crate::error::{AllowanceRequest, ErrorBag, PaymentError};
 
 use crate::transaction::{
     create_erc20_deposit_transfer, create_erc20_transfer, create_erc20_transfer_multi,
-    create_erc20_transfer_multi_deposit, create_eth_transfer, MultiTransferDepositArgs,
-    MultiTransferArgs,
+    create_erc20_transfer_multi_deposit, create_eth_transfer, MultiTransferArgs,
+    MultiTransferDepositArgs,
 };
 
 use crate::setup::PaymentSetup;

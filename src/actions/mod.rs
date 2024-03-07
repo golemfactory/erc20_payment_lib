@@ -2,10 +2,10 @@ use rustc_hex::FromHexError;
 use std::str::FromStr;
 use web3::types::Address;
 
-pub mod deposit_details;
 pub mod cancel_deposit;
 pub mod check_rpc;
 pub mod create_deposit;
+pub mod deposit_details;
 pub mod scan_chain;
 
 pub fn check_address_name(n: &str) -> Result<Address, FromHexError> {

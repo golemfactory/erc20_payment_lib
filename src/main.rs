@@ -24,11 +24,11 @@ use erc20_payment_lib::{
 use std::env;
 use std::str::FromStr;
 
-use crate::actions::deposit_details::deposit_details_local;
 use crate::actions::cancel_deposit::cancel_deposit_local;
 use crate::actions::check_address_name;
 use crate::actions::check_rpc::check_rpc_local;
 use crate::actions::create_deposit::make_deposit_local;
+use crate::actions::deposit_details::deposit_details_local;
 use crate::stats::{export_stats, run_stats};
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;

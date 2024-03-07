@@ -1,6 +1,7 @@
 use crate::actions::check_address_name;
+use chrono::Utc;
 use erc20_payment_lib::config::Config;
-use erc20_payment_lib::eth::{deposit_id_from_nonce, check_allowance};
+use erc20_payment_lib::eth::{check_allowance, deposit_id_from_nonce};
 use erc20_payment_lib::process_allowance;
 use erc20_payment_lib::runtime::{make_deposit, CreateDepositOptionsInt};
 use erc20_payment_lib::setup::PaymentSetup;
@@ -12,7 +13,6 @@ use erc20_payment_lib_common::{err_custom_create, err_from};
 use rand::Rng;
 use sqlx::SqlitePool;
 use std::sync::Arc;
-use chrono::Utc;
 use structopt::StructOpt;
 use web3::types::{Address, U256};
 
@@ -56,10 +56,7 @@ pub struct CreateDepositOptions {
     #[structopt(long = "block-until", help = "Block until specified date")]
     pub block_until: Option<chrono::DateTime<Utc>>,
 
-    #[structopt(
-        long = "block-for",
-        help = "Block for number of seconds"
-    )]
+    #[structopt(long = "block-for", help = "Block for number of seconds")]
     pub block_for: Option<u64>,
 
     #[structopt(
@@ -95,13 +92,14 @@ pub async fn make_deposit_local(
     } else {
         *public_addrs.first().expect("No public adss found")
     };
-    let chain_cfg = config
-        .chain
-        .get(&make_deposit_options.chain_name)
-        .ok_or(err_custom_create!(
-            "Chain {} not found in config file",
-            make_deposit_options.chain_name
-        ))?;
+    let chain_cfg =
+        config
+            .chain
+            .get(&make_deposit_options.chain_name)
+            .ok_or(err_custom_create!(
+                "Chain {} not found in config file",
+                make_deposit_options.chain_name
+            ))?;
 
     if make_deposit_options.block_for.is_some() && make_deposit_options.block_until.is_some() {
         return Err(err_custom_create!(
@@ -186,10 +184,6 @@ pub async fn make_deposit_local(
         )
     })?;
 
-
-
-
-
     make_deposit(
         web3,
         &conn,
@@ -216,8 +210,7 @@ pub async fn make_deposit_local(
     let deposit_id = deposit_id_from_nonce(public_addr, deposit_nonce);
     println!(
         "make_deposit added to queue successfully nonce: {}, deposit_id: {:#x}",
-        deposit_nonce,
-        deposit_id
+        deposit_nonce, deposit_id
     );
     Ok(())
 }

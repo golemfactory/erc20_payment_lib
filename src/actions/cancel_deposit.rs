@@ -43,13 +43,14 @@ pub async fn cancel_deposit_local(
     } else {
         *public_addrs.first().expect("No public adss found")
     };
-    let chain_cfg = config
-        .chain
-        .get(&cancel_deposit_options.chain_name)
-        .ok_or(err_custom_create!(
-            "Chain {} not found in config file",
-            cancel_deposit_options.chain_name
-        ))?;
+    let chain_cfg =
+        config
+            .chain
+            .get(&cancel_deposit_options.chain_name)
+            .ok_or(err_custom_create!(
+                "Chain {} not found in config file",
+                cancel_deposit_options.chain_name
+            ))?;
 
     let payment_setup = PaymentSetup::new_empty(&config)?;
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;

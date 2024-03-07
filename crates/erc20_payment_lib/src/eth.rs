@@ -1,4 +1,6 @@
-use crate::contracts::{encode_erc20_allowance, encode_erc20_balance_of, encode_get_deposit_details};
+use crate::contracts::{
+    encode_erc20_allowance, encode_erc20_balance_of, encode_get_deposit_details,
+};
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
 use erc20_payment_lib_common::utils::{datetime_from_u256_timestamp, U256ConvExt};
@@ -84,10 +86,7 @@ impl DepositView {
     }
 }
 
-pub fn deposit_id_from_nonce(
-    funder: Address,
-    nonce: u64
-) -> U256 {
+pub fn deposit_id_from_nonce(funder: Address, nonce: u64) -> U256 {
     let mut slice: [u8; 32] = [0; 32];
     slice[0..20].copy_from_slice(funder.0.as_slice());
     slice[24..32].copy_from_slice(&nonce.to_be_bytes());
