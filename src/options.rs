@@ -1,7 +1,7 @@
 use std::{fmt::Debug, path::PathBuf};
 
-use crate::actions::cancel_allocation::CancelDepositOptions;
-use crate::actions::make_allocation::MakeDepositOptions;
+use crate::actions::cancel_deposit::CancelDepositOptions;
+use crate::actions::create_deposit::MakeDepositOptions;
 use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
 use structopt::StructOpt;
 use web3::types::Address;
