@@ -22,18 +22,16 @@ pub struct GetBalanceResult {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AllocationDetails {
-    pub customer: Address,
+pub struct DepositDetails {
+    pub funder: Address,
     pub spender: Address,
     pub amount: String,
     pub fee_amount: String,
     pub amount_decimal: rust_decimal::Decimal,
     pub fee_amount_decimal: rust_decimal::Decimal,
-    pub block_limit: u64,
+    pub valid_to: chrono::DateTime<chrono::Utc>,
     pub current_block: u64,
     pub current_block_datetime: Option<chrono::DateTime<chrono::Utc>>,
-    pub estimated_time_left: Option<i64>,
-    pub estimated_time_left_str: Option<String>,
 }
 
 pub async fn get_allocation_details(
@@ -41,7 +39,7 @@ pub async fn get_allocation_details(
     allocation_id: U256,
     lock_contract_address: Address,
     block_number: Option<u64>,
-) -> Result<AllocationDetails, PaymentError> {
+) -> Result<DepositDetails, PaymentError> {
     let block_number = if let Some(block_number) = block_number {
         log::debug!("Checking balance for block number {}", block_number);
         block_number
@@ -75,23 +73,17 @@ pub async fn get_allocation_details(
     }
     let amount_u256 = U256::from(&res.0[(2 * 32)..(3 * 32)]);
     let fee_amount_u256 = U256::from(&res.0[(3 * 32)..(4 * 32)]);
-
-    let block_no = U256::from(&res.0[(4 * 32)..(5 * 32)]);
-    if block_no > U256::from(u32::MAX) {
-        return Err(err_custom_create!("Block number too big: {}", block_no));
-    }
-    Ok(AllocationDetails {
-        customer: Address::from_slice(&res.0[12..32]),
+    
+    Ok(DepositDetails {
+        funder: Address::from_slice(&res.0[12..32]),
         spender: Address::from_slice(&res.0[(32 + 12)..(2 * 32)]),
         amount: amount_u256.to_string(),
         fee_amount: fee_amount_u256.to_string(),
-        block_limit: block_no.as_u64(),
         current_block: block_number,
         amount_decimal: amount_u256.to_eth().map_err(err_from!())?,
         fee_amount_decimal: fee_amount_u256.to_eth().map_err(err_from!())?,
         current_block_datetime: None,
-        estimated_time_left: None,
-        estimated_time_left_str: None,
+        valid_to: Default::default(),
     })
 }
 
@@ -197,17 +189,6 @@ pub async fn get_latest_block_info(web3: Arc<Web3RpcPool>) -> Result<Web3BlockIn
     })
 }
 
-pub fn average_block_time(web3: &Web3RpcPool) -> Option<u32> {
-    if web3.chain_id == 1 || web3.chain_id == 5 || web3.chain_id == 17000 {
-        Some(12)
-    } else if web3.chain_id == 137 || web3.chain_id == 80001 {
-        Some(2)
-    } else if web3.chain_id == 987789 {
-        Some(5)
-    } else {
-        None
-    }
-}
 
 pub(crate) async fn get_transaction_count(
     address: Address,

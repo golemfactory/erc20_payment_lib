@@ -27,7 +27,7 @@ use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
 use crate::contracts::CreateAllocationArgs;
 use crate::eth::{
-    average_block_time, get_eth_addr_from_secret, get_latest_block_info, AllocationDetails,
+    get_eth_addr_from_secret, get_latest_block_info, DepositDetails,
 };
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
@@ -666,6 +666,26 @@ impl PaymentRuntime {
         .await
     }
 
+    pub async fn deposit_details(
+        &self,
+        chain_name: String,
+        allocation_id: U256,
+        lock_contract_address: Address,
+    ) -> Result<DepositDetails, PaymentError> {
+        let chain_cfg = self
+            .config
+            .chain
+            .get(&chain_name)
+            .ok_or(err_custom_create!(
+                "Chain {} not found in config file",
+                chain_name
+            ))?;
+
+        let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
+
+        allocation_details(web3, allocation_id, lock_contract_address).await
+    }
+
     pub async fn get_token_balance(
         &self,
         chain_name: String,
@@ -1086,7 +1106,7 @@ pub async fn allocation_details(
     web3: Arc<Web3RpcPool>,
     allocation_id: U256,
     lock_contract_address: Address,
-) -> Result<AllocationDetails, PaymentError> {
+) -> Result<DepositDetails, PaymentError> {
     let block_info = get_latest_block_info(web3.clone()).await?;
 
     let mut result = crate::eth::get_allocation_details(
@@ -1097,33 +1117,10 @@ pub async fn allocation_details(
     )
     .await?;
     result.current_block_datetime = Some(block_info.block_date);
-    if result.spender.is_zero() && result.customer.is_zero() {
+    if result.spender.is_zero() && result.funder.is_zero() {
         return Ok(result);
     }
-    if let Some(average_block_time) = average_block_time(&web3) {
-        result.estimated_time_left = Some(
-            (result.block_limit as i64 - result.current_block as i64) * average_block_time as i64,
-        );
-    } else {
-        log::info!("Unknown chain id: {} for estimation", web3.chain_id);
-    }
-    if let Some(estimated_time_left) = result.estimated_time_left {
-        if estimated_time_left <= 0 {
-            result.estimated_time_left_str = Some(format!(
-                "{} ago",
-                humantime::format_duration(std::time::Duration::from_secs(
-                    estimated_time_left.unsigned_abs()
-                ))
-            ));
-        } else {
-            result.estimated_time_left_str = Some(format!(
-                "in {} ",
-                humantime::format_duration(std::time::Duration::from_secs(
-                    estimated_time_left.unsigned_abs()
-                ))
-            ));
-        }
-    }
+
     Ok(result)
 }
 
@@ -1160,14 +1157,16 @@ pub async fn cancel_allocation(
                 opt.allocation_id
             ));
         }
-        if allocation_details.customer != from {
+        if allocation_details.funder != from {
             log::error!("You are not the owner of allocation {}", opt.allocation_id);
             return Err(err_custom_create!(
                 "You are not the owner of allocation {}",
                 opt.allocation_id
             ));
         }
-        if let Some(est_time_left) = allocation_details.estimated_time_left {
+        //TODO: check if allocation is not expired
+        /*
+        if let Some(est_time_left) = allocation_details.valid_to {
             if est_time_left > 10 {
                 log::error!(
                     "Allocation {} is not ready to be cancelled. Estimated time left: {}",
@@ -1180,7 +1179,7 @@ pub async fn cancel_allocation(
                     est_time_left
                 ));
             }
-        }
+        }*/
     }
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
