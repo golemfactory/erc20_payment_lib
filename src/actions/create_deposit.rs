@@ -2,7 +2,7 @@ use crate::actions::check_address_name;
 use erc20_payment_lib::config::Config;
 use erc20_payment_lib::eth::{deposit_id_from_nonce, check_allowance};
 use erc20_payment_lib::process_allowance;
-use erc20_payment_lib::runtime::{make_deposit, MakeDepositOptionsInt};
+use erc20_payment_lib::runtime::{make_deposit, CreateDepositOptionsInt};
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib::utils::DecimalConvExt;
@@ -18,7 +18,7 @@ use web3::types::{Address, U256};
 
 #[derive(StructOpt)]
 #[structopt(about = "Allocate funds for use by payer")]
-pub struct MakeDepositOptions {
+pub struct CreateDepositOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
@@ -80,7 +80,7 @@ pub struct MakeDepositOptions {
 
 pub async fn make_deposit_local(
     conn: SqlitePool,
-    make_deposit_options: MakeDepositOptions,
+    make_deposit_options: CreateDepositOptions,
     config: Config,
     public_addrs: &[Address],
     signer: PrivateKeySigner,
@@ -196,7 +196,7 @@ pub async fn make_deposit_local(
         chain_cfg.chain_id as u64,
         public_addr,
         chain_cfg.token.address,
-        MakeDepositOptionsInt {
+        CreateDepositOptionsInt {
             lock_contract_address: chain_cfg
                 .lock_contract
                 .clone()

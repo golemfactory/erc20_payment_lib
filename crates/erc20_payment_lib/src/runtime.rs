@@ -1187,7 +1187,7 @@ pub async fn cancel_deposit(
     Ok(())
 }
 
-pub struct MakeDepositOptionsInt {
+pub struct CreateDepositOptionsInt {
     pub lock_contract_address: Address,
     pub spender: Address,
     pub skip_balance_check: bool,
@@ -1204,7 +1204,7 @@ pub async fn make_deposit(
     chain_id: u64,
     from: Address,
     glm_address: Address,
-    opt: MakeDepositOptionsInt,
+    opt: CreateDepositOptionsInt,
 ) -> Result<(), PaymentError> {
     let amount = if let Some(amount) = opt.amount {
         amount.to_u256_from_eth().map_err(err_from!())?

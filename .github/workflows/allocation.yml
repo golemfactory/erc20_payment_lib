@@ -66,17 +66,11 @@ jobs:
         run: |
           [ $(erc20_processor balance | jq -r ".\"$ETH_ADDRESS_1\".tokenDecimal") == "1000" ]
 
-      - name: Deposit 800.0 GLM tokens
-        run: |
-          erc20_processor deposit --account-no 1 --amount 800
-          erc20_processor run
-          erc20_processor balance
-
       - name: Create deposit
         run: |
           set -x 
-          erc20_processor make-deposit --account-no 1 --amount 1 --fee-amount 0.1 --block-for 0 --spender $ETH_ADDRESS_2 --deposit-id $DEPOSIT_ID0 --use-internal
-          erc20_processor make-deposit --account-no 1 --amount 1 --fee-amount 0.1 --block-for 1000 --spender $ETH_ADDRESS_2 --deposit-id $DEPOSIT_ID1 --use-internal
+          erc20_processor create-deposit --account-no 1 --amount 1 --fee-amount 0.1 --block-for 0 --spender $ETH_ADDRESS_2 --deposit-id $DEPOSIT_ID0 --use-internal
+          erc20_processor create-deposit --account-no 1 --amount 1 --fee-amount 0.1 --block-for 1000 --spender $ETH_ADDRESS_2 --deposit-id $DEPOSIT_ID1 --use-internal
           erc20_processor run
 
       - name: Check token balance zero

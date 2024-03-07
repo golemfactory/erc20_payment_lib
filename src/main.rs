@@ -71,7 +71,7 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::CheckRpc { .. } => {}
         PaymentCommands::GetDevEth { .. } => {}
         PaymentCommands::MintTestTokens { .. } => {}
-        PaymentCommands::MakeDeposit { .. } => {}
+        PaymentCommands::CreateDeposit { .. } => {}
         PaymentCommands::CancelDeposit { .. } => {}
         PaymentCommands::CheckDeposit { .. } => {}
         PaymentCommands::Transfer { .. } => {}
@@ -350,7 +350,7 @@ async fn main_internal() -> Result<(), PaymentError> {
             )
             .await?;
         }
-        PaymentCommands::MakeDeposit {
+        PaymentCommands::CreateDeposit {
             make_deposit_options,
         } => {
             make_deposit_local(
