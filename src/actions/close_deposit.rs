@@ -23,7 +23,7 @@ pub struct CloseDepositOptions {
     #[structopt(long = "skip-check", help = "Skip check deposit")]
     pub skip_check: bool,
 
-    #[structopt(long = "deposit-id", help = "Deposit id to cancel.")]
+    #[structopt(long = "deposit-id", help = "Deposit id to close")]
     pub deposit_id: String,
 }
 

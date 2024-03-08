@@ -93,6 +93,12 @@ pub fn deposit_id_from_nonce(funder: Address, nonce: u64) -> U256 {
     U256::from_big_endian(&slice)
 }
 
+pub fn nonce_from_deposit_id(deposit_id: U256) -> u64 {
+    let mut slice: [u8; 32] = [0; 32];
+    deposit_id.to_big_endian(&mut slice);
+    u64::from_be_bytes(slice[24..32].try_into().unwrap())
+}
+
 pub async fn get_deposit_details(
     web3: Arc<Web3RpcPool>,
     deposit_id: U256,

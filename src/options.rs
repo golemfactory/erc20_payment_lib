@@ -2,6 +2,7 @@ use std::{fmt::Debug, path::PathBuf};
 
 use crate::actions::close_deposit::CloseDepositOptions;
 use crate::actions::create_deposit::CreateDepositOptions;
+use crate::actions::terminate_deposit::TerminateDepositOptions;
 use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
 use structopt::StructOpt;
 use web3::types::Address;
@@ -398,6 +399,10 @@ pub enum PaymentCommands {
     CloseDeposit {
         #[structopt(flatten)]
         close_deposit_options: CloseDepositOptions,
+    },
+    TerminateDeposit {
+        #[structopt(flatten)]
+        terminate_deposit_options: TerminateDepositOptions,
     },
     CheckDeposit {
         #[structopt(flatten)]

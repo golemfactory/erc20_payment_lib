@@ -27,7 +27,7 @@ use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
 use crate::contracts::CreateDepositArgs;
 use crate::eth::{
-    deposit_id_from_nonce, get_eth_addr_from_secret, get_latest_block_info, DepositDetails,
+    get_eth_addr_from_secret, get_latest_block_info, nonce_from_deposit_id, DepositDetails,
 };
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
@@ -1131,7 +1131,7 @@ pub struct CloseDepositOptionsInt {
 pub struct TerminateDepositOptionsInt {
     pub lock_contract_address: Address,
     pub skip_deposit_check: bool,
-    pub deposit_nonce: u64,
+    pub deposit_id: U256,
 }
 
 pub async fn close_deposit(
@@ -1184,17 +1184,9 @@ pub async fn terminate_deposit(
     from: Address,
     opt: TerminateDepositOptionsInt,
 ) -> Result<(), PaymentError> {
-    let free_deposit_tx_id = create_terminate_deposit(
-        from,
-        opt.lock_contract_address,
-        chain_id,
-        None,
-        opt.deposit_nonce,
-    )?;
-
     //let mut block_info: Option<Web3BlockInfo> = None;
     if !opt.skip_deposit_check {
-        let deposit_id = deposit_id_from_nonce(from, opt.deposit_nonce);
+        let deposit_id = opt.deposit_id;
         let deposit_details =
             deposit_details(web3.clone(), deposit_id, opt.lock_contract_address).await?;
         if deposit_details.amount_decimal.is_zero() {
@@ -1218,6 +1210,13 @@ pub async fn terminate_deposit(
             ));
         }
     }
+    let free_deposit_tx_id = create_terminate_deposit(
+        from,
+        opt.lock_contract_address,
+        chain_id,
+        None,
+        nonce_from_deposit_id(opt.deposit_id),
+    )?;
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
     let make_deposit_tx = insert_tx(&mut *db_transaction, &free_deposit_tx_id)

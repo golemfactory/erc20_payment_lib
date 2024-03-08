@@ -2,11 +2,12 @@ use rustc_hex::FromHexError;
 use std::str::FromStr;
 use web3::types::Address;
 
-pub mod close_deposit;
 pub mod check_rpc;
+pub mod close_deposit;
 pub mod create_deposit;
 pub mod deposit_details;
 pub mod scan_chain;
+pub mod terminate_deposit;
 
 pub fn check_address_name(n: &str) -> Result<Address, FromHexError> {
     match n {
