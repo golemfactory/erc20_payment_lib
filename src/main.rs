@@ -24,7 +24,7 @@ use erc20_payment_lib::{
 use std::env;
 use std::str::FromStr;
 
-use crate::actions::cancel_deposit::close_deposit_local;
+use crate::actions::close_deposit::close_deposit_local;
 use crate::actions::check_address_name;
 use crate::actions::check_rpc::check_rpc_local;
 use crate::actions::create_deposit::make_deposit_local;

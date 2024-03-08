@@ -1,6 +1,6 @@
 use std::{fmt::Debug, path::PathBuf};
 
-use crate::actions::cancel_deposit::CloseDepositOptions;
+use crate::actions::close_deposit::CloseDepositOptions;
 use crate::actions::create_deposit::CreateDepositOptions;
 use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
 use structopt::StructOpt;

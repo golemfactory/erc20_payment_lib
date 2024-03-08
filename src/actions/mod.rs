@@ -2,7 +2,7 @@ use rustc_hex::FromHexError;
 use std::str::FromStr;
 use web3::types::Address;
 
-pub mod cancel_deposit;
+pub mod close_deposit;
 pub mod check_rpc;
 pub mod create_deposit;
 pub mod deposit_details;
