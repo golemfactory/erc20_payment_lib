@@ -2,81 +2,13 @@
 pragma solidity ^0.8.24;
 
 /**
- * @dev Interface of the ERC20 standard as defined in the EIP.
+ * Out of the IERC20 interface, only the transfer and transferFrom functions are used.
  */
 interface IERC20 {
-    /**
-     * @dev Emitted when `value` tokens are moved from one account (`from`) to
-     * another (`to`).
-     *
-     * Note that `value` may be zero.
-     */
-    event Transfer(address indexed from, address indexed to, uint256 value);
-
-    /**
-     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
-     * a call to {approve}. `value` is the new allowance.
-     */
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-
-    /**
-     * @dev Returns the amount of tokens in existence.
-     */
-    function totalSupply() external view returns (uint256);
-
-    /**
-     * @dev Returns the amount of tokens owned by `account`.
-     */
-    function balanceOf(address account) external view returns (uint256);
-
-    /**
-     * @dev Moves `amount` tokens from the caller's account to `to`.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
+    //function balanceOf(address account) external view returns (uint256);
     function transfer(address to, uint256 amount) external returns (bool);
 
-    /**
-     * @dev Returns the remaining number of tokens that `spender` will be
-     * allowed to spend on behalf of `owner` through {transferFrom}. This is
-     * zero by default.
-     *
-     * This value changes when {approve} or {transferFrom} are called.
-     */
-    function allowance(address owner, address spender) external view returns (uint256);
-
-    /**
-     * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * IMPORTANT: Beware that changing an allowance with this method brings the risk
-     * that someone may use both the old and the new allowance by unfortunate
-     * transaction ordering. One possible solution to mitigate this race
-     * condition is to first reduce the spender's allowance to 0 and set the
-     * desired value afterwards:
-     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-     *
-     * Emits an {Approval} event.
-     */
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    /**
-     * @dev Moves `amount` tokens from `from` to `to` using the
-     * allowance mechanism. `amount` is then deducted from the caller's
-     * allowance.
-     *
-     * Returns a boolean value indicating whether the operation succeeded.
-     *
-     * Emits a {Transfer} event.
-     */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 amount
-    ) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
 }
 
 /**
@@ -144,7 +76,7 @@ contract LockPayment {
         return DepositView(id, nonceFromId(id), funderFromId(id), deposit.spender, deposit.amount, deposit.feeAmount, deposit.validTo);
     }
 
-    function getDeposit2(uint64 nonce, address funder) public view returns (DepositView memory) {
+    function getDepositByNonce(uint64 nonce, address funder) public view returns (DepositView memory) {
         uint256 id = idFromNonceAndFunder(nonce, funder);
         Deposit memory deposit = deposits[id];
         return DepositView(id, nonceFromId(id), funderFromId(id), deposit.spender, deposit.amount, deposit.feeAmount, deposit.validTo);
@@ -155,19 +87,24 @@ contract LockPayment {
     // id - unique id (build from Funder address and nonce)
     // spender - the address that is allowed to spend the funds regardless of time
     // amount - amount of GLM tokens to lock
-    // feeAmount - amount of GLM tokens given to spender (non-refundable). Fee is claimed by spender when called payoutSingle or payoutMultiple first time.
+    // constFeeAmount - amount of GLM tokens given to spender (non-refundable). Fee is claimed by spender when called payoutSingle or payoutMultiple first time.
+    // percentFee - percent fee as percent of amount (given in parts/per million), so 1000 gives 0.1 %.
+    //              if given negative it is deducted from constFeeAmount
+    //              IT IS NOT IMPLEMENTED IN THIS IMPLEMENTATION
     // blockNo - block number until which funds are guaranteed to be locked for spender.
     //           Spender still can use the funds after this block,
     //           but customer can request the funds to be returned clearing deposit after (or equal to) this block number.
-    function createDeposit(uint64 nonce, address spender, uint128 amount, uint128 feeAmount, uint64 validToTimestamp) public {
+    function createDeposit(uint64 nonce, address spender, uint128 amount, uint128 constFeeAmount, int64 percentFee, uint64 validToTimestamp) public returns (uint256) {
         //check if id is not used
         uint256 id = idFromNonce(nonce);
         require(deposits[id].amount == 0, "deposits[id].amount == 0");
         require(amount > 0, "amount > 0");
+        require(percentFee == 0, "percentFee == 0 for this contract");
         require(spender != address(0), "spender cannot be null address");
         require(msg.sender != spender, "spender cannot be funder");
-        require(GLM.transferFrom(msg.sender, address(this), amount + feeAmount), "transferFrom failed");
-        deposits[id] = Deposit(spender, amount, feeAmount, validToTimestamp);
+        require(GLM.transferFrom(msg.sender, address(this), amount + constFeeAmount), "transferFrom failed");
+        deposits[id] = Deposit(spender, amount, constFeeAmount, validToTimestamp);
+        return id;
     }
 
     function extendDeposit(uint64 nonce, uint128 extraAmount, uint128 extraFee, uint64 validToTimestamp) public {
@@ -208,6 +145,16 @@ contract LockPayment {
         deposits[id].feeAmount = 0;
     }
 
+    function depositSingleTransfer(uint256 id, address addr, uint128 amount) public {
+        Deposit memory deposit = deposits[id];
+        require(msg.sender == deposit.spender, "msg.sender == deposit.spender");
+        require(addr != deposit.spender, "cannot transfer to spender");
+        require(GLM.transferFrom(msg.sender, addr, amount), "transferFrom failed");
+        require(deposit.amount >= amount, "deposit.amount >= amount");
+        deposit.amount -= amount;
+        deposits[id].amount = deposit.amount;
+    }
+
     function depositTransfer(uint256 id, bytes32[] calldata payments) public {
         Deposit memory deposit = deposits[id];
         require(msg.sender == deposit.spender, "msg.sender == deposit.spender");
@@ -228,9 +175,13 @@ contract LockPayment {
         deposits[id].amount = deposit.amount;
     }
 
+    function depositSingleTransferAndClose(uint256 id, address addr, uint128 amount) public {
+        depositSingleTransfer(id, addr, amount);
+        closeDeposit(id);
+    }
+
     function depositTransferAndClose(uint256 id, bytes32[] calldata payments) public {
         depositTransfer(id, payments);
         closeDeposit(id);
     }
-
 }

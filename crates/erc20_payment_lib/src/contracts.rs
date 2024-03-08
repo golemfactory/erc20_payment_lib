@@ -83,13 +83,13 @@ pub fn encode_erc20_approve(
     contract_encode(&ERC20_CONTRACT_TEMPLATE, "approve", (spender, amount))
 }
 
-pub fn encode_payout_multiple_internal(
-    deposit_id: u32,
+pub fn encode_deposit_transfer(
+    deposit_id: U256,
     packed: Vec<[u8; 32]>,
 ) -> Result<Vec<u8>, web3::ethabi::Error> {
     contract_encode(
         &LOCK_CONTRACT_TEMPLATE,
-        "payoutMultipleInternal",
+        "depositTransfer",
         (deposit_id, packed),
     )
 }

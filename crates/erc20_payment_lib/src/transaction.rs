@@ -207,7 +207,7 @@ pub struct MultiTransferDepositArgs {
     pub erc20_amount: Vec<U256>,
     pub chain_id: u64,
     pub gas_limit: Option<u64>,
-    pub deposit_id: u32,
+    pub deposit_id: U256,
 }
 
 pub fn create_erc20_transfer_multi_deposit(
@@ -217,7 +217,7 @@ pub fn create_erc20_transfer_multi_deposit(
         pack_transfers_for_multi_contract(multi_args.erc20_to, multi_args.erc20_amount)?;
 
     let data =
-        encode_payout_multiple_internal(multi_args.deposit_id, packed).map_err(err_from!())?;
+        encode_deposit_transfer(multi_args.deposit_id, packed).map_err(err_from!())?;
     Ok(TxDbObj {
         method: "payoutMultipleInternal".to_string(),
         from_addr: format!("{:#x}", multi_args.from),
