@@ -2,6 +2,7 @@ use std::{fmt::Debug, path::PathBuf};
 
 use crate::actions::close_deposit::CloseDepositOptions;
 use crate::actions::create_deposit::CreateDepositOptions;
+use crate::actions::deposit_details::CheckDepositOptions;
 use crate::actions::terminate_deposit::TerminateDepositOptions;
 use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
 use structopt::StructOpt;
@@ -169,16 +170,6 @@ pub struct WithdrawTokensOptions {
 
     #[structopt(long = "skip-balance", help = "Skip balance check")]
     pub skip_balance_check: bool,
-}
-
-#[derive(StructOpt)]
-#[structopt(about = "Allocate funds for use by payer")]
-pub struct CheckDepositOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
-    pub chain_name: String,
-
-    #[structopt(long = "deposit-id", help = "Deposit id to use")]
-    pub deposit_id: String,
 }
 
 #[derive(StructOpt)]

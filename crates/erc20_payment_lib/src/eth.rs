@@ -24,6 +24,8 @@ pub struct GetBalanceResult {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DepositDetails {
+    pub deposit_id: String,
+    pub deposit_nonce: u64,
     pub funder: Address,
     pub spender: Address,
     pub amount: String,
@@ -136,6 +138,8 @@ pub async fn get_deposit_details(
     let fee_amount_u256 = U256::from(deposit_view.fee_amount);
 
     Ok(DepositDetails {
+        deposit_id: format!("{:#x}", deposit_view.id),
+        deposit_nonce: deposit_view.nonce,
         funder: deposit_view.funder,
         spender: deposit_view.spender,
         amount: amount_u256.to_string(),
