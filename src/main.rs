@@ -24,7 +24,7 @@ use erc20_payment_lib::{
 use std::env;
 use std::str::FromStr;
 
-use crate::actions::cancel_deposit::cancel_deposit_local;
+use crate::actions::cancel_deposit::close_deposit_local;
 use crate::actions::check_address_name;
 use crate::actions::check_rpc::check_rpc_local;
 use crate::actions::create_deposit::make_deposit_local;
@@ -72,7 +72,7 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::GetDevEth { .. } => {}
         PaymentCommands::MintTestTokens { .. } => {}
         PaymentCommands::CreateDeposit { .. } => {}
-        PaymentCommands::CancelDeposit { .. } => {}
+        PaymentCommands::CloseDeposit { .. } => {}
         PaymentCommands::CheckDeposit { .. } => {}
         PaymentCommands::Transfer { .. } => {}
         PaymentCommands::Balance { .. } => {}
@@ -362,12 +362,12 @@ async fn main_internal() -> Result<(), PaymentError> {
             )
             .await?;
         }
-        PaymentCommands::CancelDeposit {
-            cancel_deposit_options,
+        PaymentCommands::CloseDeposit {
+            close_deposit_options,
         } => {
-            cancel_deposit_local(
+            close_deposit_local(
                 conn.clone().unwrap(),
-                cancel_deposit_options,
+                close_deposit_options,
                 config,
                 &public_addrs,
             )

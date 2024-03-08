@@ -1,5 +1,5 @@
 use erc20_payment_lib::config::Config;
-use erc20_payment_lib::runtime::{cancel_deposit, CancelDepositOptionsInt};
+use erc20_payment_lib::runtime::{close_deposit, CloseDepositOptionsInt};
 use erc20_payment_lib::setup::PaymentSetup;
 use erc20_payment_lib_common::err_custom_create;
 use erc20_payment_lib_common::error::PaymentError;
@@ -10,7 +10,7 @@ use web3::types::{Address, U256};
 
 #[derive(StructOpt)]
 #[structopt(about = "Allocate funds for use by payer")]
-pub struct CancelDepositOptions {
+pub struct CloseDepositOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
@@ -27,16 +27,16 @@ pub struct CancelDepositOptions {
     pub deposit_id: String,
 }
 
-pub async fn cancel_deposit_local(
+pub async fn close_deposit_local(
     conn: SqlitePool,
-    cancel_deposit_options: CancelDepositOptions,
+    close_deposit_options: CloseDepositOptions,
     config: Config,
     public_addrs: &[Address],
 ) -> Result<(), PaymentError> {
     log::info!("Making deposit...");
-    let public_addr = if let Some(address) = cancel_deposit_options.address {
+    let public_addr = if let Some(address) = close_deposit_options.address {
         address
-    } else if let Some(account_no) = cancel_deposit_options.account_no {
+    } else if let Some(account_no) = close_deposit_options.account_no {
         *public_addrs
             .get(account_no)
             .expect("No public adss found with specified account_no")
@@ -46,36 +46,36 @@ pub async fn cancel_deposit_local(
     let chain_cfg =
         config
             .chain
-            .get(&cancel_deposit_options.chain_name)
+            .get(&close_deposit_options.chain_name)
             .ok_or(err_custom_create!(
                 "Chain {} not found in config file",
-                cancel_deposit_options.chain_name
+                close_deposit_options.chain_name
             ))?;
 
     let payment_setup = PaymentSetup::new_empty(&config)?;
     let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
 
-    let deposit_id = U256::from_str(&cancel_deposit_options.deposit_id)
+    let deposit_id = U256::from_str(&close_deposit_options.deposit_id)
         .map_err(|e| err_custom_create!("Invalid deposit id: {}", e))?;
 
-    cancel_deposit(
+    close_deposit(
         web3,
         &conn,
         chain_cfg.chain_id as u64,
         public_addr,
-        CancelDepositOptionsInt {
+        CloseDepositOptionsInt {
             lock_contract_address: chain_cfg
                 .lock_contract
                 .clone()
                 .map(|c| c.address)
                 .expect("No lock contract found"),
             deposit_id,
-            skip_deposit_check: cancel_deposit_options.skip_check,
+            skip_deposit_check: close_deposit_options.skip_check,
         },
     )
     .await?;
     println!(
-        "cancel_deposit added to queue successfully deposit id: {}",
+        "close_deposit added to queue successfully deposit id: {}",
         deposit_id,
     );
     Ok(())

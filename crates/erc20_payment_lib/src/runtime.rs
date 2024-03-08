@@ -1,7 +1,7 @@
 use crate::signer::{Signer, SignerAccount};
 use crate::transaction::{
-    create_close_deposit, create_faucet_mint, create_make_deposit, create_token_transfer,
-    find_receipt_extended, FindReceiptParseResult,
+    create_close_deposit, create_faucet_mint, create_make_deposit, create_terminate_deposit,
+    create_token_transfer, find_receipt_extended, FindReceiptParseResult,
 };
 use crate::{err_custom_create, err_from};
 use erc20_payment_lib_common::create_sqlite_connection;
@@ -26,7 +26,9 @@ use sqlx::SqlitePool;
 use crate::account_balance::{test_balance_loop, BalanceOptions2};
 use crate::config::AdditionalOptions;
 use crate::contracts::CreateDepositArgs;
-use crate::eth::{get_eth_addr_from_secret, get_latest_block_info, DepositDetails};
+use crate::eth::{
+    deposit_id_from_nonce, get_eth_addr_from_secret, get_latest_block_info, DepositDetails,
+};
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
@@ -1120,18 +1122,24 @@ pub async fn deposit_details(
     Ok(result)
 }
 
-pub struct CancelDepositOptionsInt {
+pub struct CloseDepositOptionsInt {
     pub lock_contract_address: Address,
     pub skip_deposit_check: bool,
     pub deposit_id: U256,
 }
 
-pub async fn cancel_deposit(
+pub struct TerminateDepositOptionsInt {
+    pub lock_contract_address: Address,
+    pub skip_deposit_check: bool,
+    pub deposit_nonce: u64,
+}
+
+pub async fn close_deposit(
     web3: Arc<Web3RpcPool>,
     conn: &SqlitePool,
     chain_id: u64,
     from: Address,
-    opt: CancelDepositOptionsInt,
+    opt: CloseDepositOptionsInt,
 ) -> Result<(), PaymentError> {
     let free_deposit_tx_id = create_close_deposit(
         from,
@@ -1157,22 +1165,6 @@ pub async fn cancel_deposit(
                 opt.deposit_id
             ));
         }
-        //TODO: check if deposit is not expired
-        /*
-        if let Some(est_time_left) = deposit_details.valid_to {
-            if est_time_left > 10 {
-                log::error!(
-                    "Deposit {} is not ready to be cancelled. Estimated time left: {}",
-                    opt.deposit_id,
-                    est_time_left
-                );
-                return Err(err_custom_create!(
-                    "Deposit {} is not ready to be cancelled. Estimated time left: {}",
-                    opt.deposit_id,
-                    est_time_left
-                ));
-            }
-        }*/
     }
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
@@ -1181,7 +1173,59 @@ pub async fn cancel_deposit(
         .map_err(err_from!())?;
     db_transaction.commit().await.map_err(err_from!())?;
 
-    log::info!("Free deposit added to queue: {}", make_deposit_tx.id);
+    log::info!("Close deposit added to queue: {}", make_deposit_tx.id);
+    Ok(())
+}
+
+pub async fn terminate_deposit(
+    web3: Arc<Web3RpcPool>,
+    conn: &SqlitePool,
+    chain_id: u64,
+    from: Address,
+    opt: TerminateDepositOptionsInt,
+) -> Result<(), PaymentError> {
+    let free_deposit_tx_id = create_terminate_deposit(
+        from,
+        opt.lock_contract_address,
+        chain_id,
+        None,
+        opt.deposit_nonce,
+    )?;
+
+    //let mut block_info: Option<Web3BlockInfo> = None;
+    if !opt.skip_deposit_check {
+        let deposit_id = deposit_id_from_nonce(from, opt.deposit_nonce);
+        let deposit_details =
+            deposit_details(web3.clone(), deposit_id, opt.lock_contract_address).await?;
+        if deposit_details.amount_decimal.is_zero() {
+            log::error!("Deposit {} not found", deposit_id);
+
+            return Err(err_custom_create!("Deposit {} not found", deposit_id));
+        }
+
+        let est_time_left = (deposit_details.valid_to - Utc::now()).num_seconds();
+
+        if est_time_left > 10 {
+            log::error!(
+                "Deposit {} is not ready to be cancelled. Estimated time left: {}",
+                deposit_id,
+                est_time_left
+            );
+            return Err(err_custom_create!(
+                "Deposit {} is not ready to be cancelled. Estimated time left: {}",
+                deposit_id,
+                est_time_left
+            ));
+        }
+    }
+
+    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
+    let make_deposit_tx = insert_tx(&mut *db_transaction, &free_deposit_tx_id)
+        .await
+        .map_err(err_from!())?;
+    db_transaction.commit().await.map_err(err_from!())?;
+
+    log::info!("Terminate deposit added to queue: {}", make_deposit_tx.id);
     Ok(())
 }
 
@@ -1247,6 +1291,7 @@ pub async fn make_deposit(
             deposit_spender: opt.spender,
             deposit_amount: amount,
             deposit_fee_amount: fee_amount,
+            deposit_fee_percent: 0,
             deposit_timestamp: opt.timestamp,
         },
     )?;

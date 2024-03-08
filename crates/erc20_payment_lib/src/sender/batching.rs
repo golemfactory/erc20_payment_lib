@@ -252,9 +252,8 @@ pub async fn gather_transactions_batch_multi(
                         "Lock contract address not set for chain id: {}",
                         token_transfer.chain_id
                     ))?;
-                let deposit_id = U256::from_str(deposit_id).map_err(
-                    |err| err_custom_create!("Invalid deposit id: {}", err),
-                )?;
+                let deposit_id = U256::from_str(deposit_id)
+                    .map_err(|err| err_custom_create!("Invalid deposit id: {}", err))?;
                 log::info!(
                     "Inserting transaction stub for ERC20 multi payment: {:?} for {} distinct transfers",
                     lock_contract_address,

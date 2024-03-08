@@ -216,8 +216,7 @@ pub fn create_erc20_transfer_multi_deposit(
     let (packed, _sum) =
         pack_transfers_for_multi_contract(multi_args.erc20_to, multi_args.erc20_amount)?;
 
-    let data =
-        encode_deposit_transfer(multi_args.deposit_id, packed).map_err(err_from!())?;
+    let data = encode_deposit_transfer(multi_args.deposit_id, packed).map_err(err_from!())?;
     Ok(TxDbObj {
         method: "payoutMultipleInternal".to_string(),
         from_addr: format!("{:#x}", multi_args.from),
@@ -336,6 +335,26 @@ pub fn create_close_deposit(
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
         call_data: Some(hex::encode(
             encode_close_deposit(deposit_id).map_err(err_from!())?,
+        )),
+        ..Default::default()
+    })
+}
+
+pub fn create_terminate_deposit(
+    from: Address,
+    lock_address: Address,
+    chain_id: u64,
+    gas_limit: Option<u64>,
+    deposit_nonce: u64,
+) -> Result<TxDbObj, PaymentError> {
+    Ok(TxDbObj {
+        method: "LOCK.terminateDeposit".to_string(),
+        from_addr: format!("{from:#x}"),
+        to_addr: format!("{lock_address:#x}"),
+        chain_id: chain_id as i64,
+        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
+        call_data: Some(hex::encode(
+            encode_terminate_deposit(deposit_nonce).map_err(err_from!())?,
         )),
         ..Default::default()
     })
