@@ -76,8 +76,8 @@ jobs:
       - name: Check token balance zero
         run: |
           set -x 
-          erc20_processor check-deposit --deposit-id $DEPOSIT_ID0
-          erc20_processor check-deposit --deposit-id $DEPOSIT_ID1
+          erc20_processor check-deposit --deposit-nonce $DEPOSIT_ID0 --deposit-funder $ETH_ADDRESS_1
+          erc20_processor check-deposit --deposit-nonce $DEPOSIT_ID1 --deposit-funder $ETH_ADDRESS_1
 
       - name: Make single transfer from deposit
         run: |
