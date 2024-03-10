@@ -96,11 +96,10 @@ chain_id = $5,
 token_addr = $6,
 token_amount = $7,
 deposit_id = $8,
-use_internal = $9,
-tx_id = $10,
-paid_date = $11,
-fee_paid = $12,
-error = $13
+tx_id = $9,
+paid_date = $10,
+fee_paid = $11,
+error = $12
 WHERE id = $1
 ",
     )

@@ -65,12 +65,6 @@ pub struct CreateDepositOptions {
     )]
     pub deposit_nonce: Option<u64>,
 
-    #[structopt(
-        long = "use-internal",
-        help = "Use tokens deposited to internal account"
-    )]
-    pub use_internal: bool,
-
     #[structopt(long = "skip-allowance", help = "Skip allowance check")]
     pub skip_allowance: bool,
 }
