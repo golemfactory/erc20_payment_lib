@@ -349,51 +349,47 @@ async fn main_internal() -> Result<(), PaymentError> {
             )
             .await?;
         }
-        PaymentCommands::Deposit {
-            deposit
-        } => {
-            match deposit {
-                DepositCommands::Create {
+        PaymentCommands::Deposit { deposit } => match deposit {
+            DepositCommands::Create {
+                make_deposit_options,
+            } => {
+                make_deposit_local(
+                    conn.clone().unwrap(),
                     make_deposit_options,
-                } => {
-                    make_deposit_local(
-                        conn.clone().unwrap(),
-                        make_deposit_options,
-                        config,
-                        &public_addrs,
-                        signer,
-                    )
-                        .await?;
-                }
-                DepositCommands::Close {
-                    close_deposit_options,
-                } => {
-                    close_deposit_local(
-                        conn.clone().unwrap(),
-                        close_deposit_options,
-                        config,
-                        &public_addrs,
-                    )
-                        .await?;
-                }
-                DepositCommands::Terminate {
-                    terminate_deposit_options,
-                } => {
-                    terminate_deposit_local(
-                        conn.clone().unwrap(),
-                        terminate_deposit_options,
-                        config,
-                        &public_addrs,
-                    )
-                        .await?;
-                }
-                DepositCommands::Check {
-                    check_deposit_options,
-                } => {
-                    deposit_details_local(check_deposit_options, config).await?;
-                }
+                    config,
+                    &public_addrs,
+                    signer,
+                )
+                .await?;
             }
-        }
+            DepositCommands::Close {
+                close_deposit_options,
+            } => {
+                close_deposit_local(
+                    conn.clone().unwrap(),
+                    close_deposit_options,
+                    config,
+                    &public_addrs,
+                )
+                .await?;
+            }
+            DepositCommands::Terminate {
+                terminate_deposit_options,
+            } => {
+                terminate_deposit_local(
+                    conn.clone().unwrap(),
+                    terminate_deposit_options,
+                    config,
+                    &public_addrs,
+                )
+                .await?;
+            }
+            DepositCommands::Check {
+                check_deposit_options,
+            } => {
+                deposit_details_local(check_deposit_options, config).await?;
+            }
+        },
 
         PaymentCommands::GenerateKey {
             generate_key_options,

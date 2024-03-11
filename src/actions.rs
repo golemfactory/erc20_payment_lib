@@ -3,8 +3,8 @@ use std::str::FromStr;
 use web3::types::Address;
 
 pub mod check_rpc;
-pub mod scan_chain;
 pub mod deposit;
+pub mod scan_chain;
 
 pub fn check_address_name(n: &str) -> Result<Address, FromHexError> {
     match n {

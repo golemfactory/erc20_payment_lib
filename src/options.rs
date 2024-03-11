@@ -376,7 +376,6 @@ pub enum DepositCommands {
     },
 }
 
-
 #[derive(StructOpt)]
 #[structopt(about = "Payment admin tool")]
 pub enum PaymentCommands {
