@@ -103,7 +103,8 @@ pub async fn make_deposit_local(
 
     let timestamp = if let Some(block_for) = make_deposit_options.block_for {
         let now = Utc::now();
-        let date_fut = now + chrono::Duration::seconds(block_for as i64);
+        let date_fut =
+            now + chrono::Duration::try_seconds(block_for as i64).expect("Invalid value block_for");
         date_fut.timestamp() as u64
     } else if let Some(block_until) = make_deposit_options.block_until {
         block_until.timestamp() as u64

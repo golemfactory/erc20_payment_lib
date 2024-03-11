@@ -50,7 +50,10 @@ async fn verify_endpoint_int(
             return VerifyEndpointResult::NoBlockInfo;
         };
         if let Some(max_head_behind_secs) = vep.allow_max_head_behind_secs {
-            if Utc::now() - date > Duration::seconds(max_head_behind_secs as i64) {
+            if Utc::now() - date
+                > Duration::try_seconds(max_head_behind_secs as i64)
+                    .expect("max_head_behind_secs invalid value")
+            {
                 log::warn!("Verify endpoint error - {name} error: Head behind");
                 return VerifyEndpointResult::HeadBehind(date);
             }
@@ -88,9 +91,10 @@ pub async fn verify_endpoint(chain_id: u64, m: Arc<RwLock<Web3RpcEndpoint>>, for
     if let Some(last_verified) = web3_rpc_info.last_verified {
         if !force
             && Utc::now() - last_verified
-                < Duration::seconds(
+                < Duration::try_seconds(
                     web3_rpc_params.web3_endpoint_params.verify_interval_secs as i64,
                 )
+                .expect("verify_interval_secs invalid value")
         {
             log::debug!("Verification skipped {}", last_verified);
             return;

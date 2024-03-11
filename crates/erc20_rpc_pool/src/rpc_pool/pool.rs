@@ -311,7 +311,7 @@ impl Web3RpcPool {
     }
 
     fn cleanup_sources_after_grace_period(&self) {
-        let grace_period = chrono::Duration::seconds(300);
+        let grace_period = chrono::Duration::try_seconds(300).unwrap();
         self.endpoints
             .try_lock_for(Duration::from_secs(5))
             .unwrap()
