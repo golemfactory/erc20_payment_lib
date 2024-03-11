@@ -35,9 +35,9 @@ jobs:
 
       - name: Create random deposit id
         run: |
-          echo DEPOSIT_ID0=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
-          echo DEPOSIT_ID1=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
-          echo DEPOSIT_ID2=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
+          echo DEPOSIT_NONCE0=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
+          echo DEPOSIT_NONCE1=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
+          echo DEPOSIT_NONCE2=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
 
       - name: Show created addresses
         run: |
@@ -69,15 +69,20 @@ jobs:
       - name: Create deposit
         run: |
           set -x 
-          erc20_processor create-deposit --account-no 1 --amount 1 --fee-amount 0.1 --block-for 0 --spender $ETH_ADDRESS_2 --deposit-nonce $DEPOSIT_ID0
-          erc20_processor create-deposit --account-no 1 --amount 1 --fee-amount 0.1 --block-for 1000 --spender $ETH_ADDRESS_2 --deposit-nonce $DEPOSIT_ID1
+          erc20_processor create-deposit --account-no 1 --amount 1 --fee-amount 0.1 --block-for 0 --spender $ETH_ADDRESS_2 --deposit-nonce $DEPOSIT_NONCE0
+          erc20_processor create-deposit --account-no 1 --amount 1 --fee-amount 0.1 --block-for 1000 --spender $ETH_ADDRESS_2 --deposit-nonce $DEPOSIT_NONCE1
           erc20_processor run
+
+      - name: Get Deposit ID from funder and nonce id
+        run: |
+          echo DEPOSIT_ID0=$(erc20_processor check-deposit --deposit-nonce $DEPOSIT_NONCE0 --deposit-funder=$ETH_ADDRESS_2 | jq -r ".depositId") >> $GITHUB_ENV
+          echo DEPOSIT_ID1=$(erc20_processor check-deposit --deposit-nonce $DEPOSIT_NONCE1 --deposit-funder=$ETH_ADDRESS_2 | jq -r ".depositId") >> $GITHUB_ENV
 
       - name: Check token balance zero
         run: |
           set -x 
-          erc20_processor check-deposit --deposit-nonce $DEPOSIT_ID0 --deposit-funder $ETH_ADDRESS_1
-          erc20_processor check-deposit --deposit-nonce $DEPOSIT_ID1 --deposit-funder $ETH_ADDRESS_1
+          erc20_processor check-deposit --deposit-nonce $DEPOSIT_NONCE0 --deposit-funder $ETH_ADDRESS_1
+          erc20_processor check-deposit --deposit-nonce $DEPOSIT_NONCE1 --deposit-funder $ETH_ADDRESS_1
 
       - name: Make single transfer from deposit
         run: |
@@ -118,7 +123,7 @@ jobs:
           erc20_processor run
 
       - name: Withdraw all tokens
-        run: |
+        run: | 
           set -x 
           erc20_processor withdraw --account-no 1 --all
           erc20_processor withdraw --account-no 2 --all
