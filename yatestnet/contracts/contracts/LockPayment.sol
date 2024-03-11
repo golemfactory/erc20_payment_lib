@@ -133,13 +133,14 @@ contract LockPayment {
         deposits[id].feeAmount = 0;
     }
 
-    // funder can terminate deposit after validTo date elapses
+    // Funder can terminate deposit after validTo date elapses
     function terminateDeposit(uint64 nonce) public {
         uint256 id = idFromNonce(nonce);
         Deposit memory deposit = deposits[id];
-        // customer cannot return funds before block_no
-        // sender can return funds at any time
-        require(deposit.validTo < block.timestamp);
+        //The following check is not needed (Funder is in id), but added for clarity
+        require(funderFromId(id) == msg.sender, "funderFromId(id) == msg.sender");
+        // Check for time condition
+        require(deposit.validTo < block.timestamp, "deposit.validTo < block.timestamp");
         require(GLM.transfer(msg.sender, deposit.amount + deposit.feeAmount), "transfer failed");
         deposits[id].amount = 0;
         deposits[id].feeAmount = 0;
@@ -149,7 +150,7 @@ contract LockPayment {
         Deposit memory deposit = deposits[id];
         require(msg.sender == deposit.spender, "msg.sender == deposit.spender");
         require(addr != deposit.spender, "cannot transfer to spender");
-        require(GLM.transferFrom(address(this), addr, amount), "transferFrom failed");
+        require(GLM.transfer(addr, amount), "transferFrom failed");
         require(deposit.amount >= amount, "deposit.amount >= amount");
         deposit.amount -= amount;
         deposits[id].amount = deposit.amount;
@@ -167,7 +168,7 @@ contract LockPayment {
             address addr = address(bytes20(payment));
             uint128 amount = uint128(uint256(payment) % 2 ** 96);
             require(addr != deposit.spender, "cannot transfer to spender");
-            require(GLM.transferFrom(address(this), addr, amount), "transferFrom failed");
+            require(GLM.transfer(addr, amount), "transferFrom failed");
             require(deposit.amount >= amount, "deposit.amount >= amount");
             deposit.amount -= amount;
         }
