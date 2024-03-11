@@ -356,6 +356,7 @@ pub struct CleanupOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Commands for deposit management")]
 pub enum DepositCommands {
     Create {
         #[structopt(flatten)]

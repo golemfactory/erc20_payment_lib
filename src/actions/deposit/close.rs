@@ -9,7 +9,7 @@ use structopt::StructOpt;
 use web3::types::{Address, U256};
 
 #[derive(StructOpt)]
-#[structopt(about = "Allocate funds for use by payer")]
+#[structopt(about = "Close deposit if you are spender")]
 pub struct CloseDepositOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
