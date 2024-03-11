@@ -177,7 +177,6 @@ pub fn create_erc20_transfer(
     })
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn create_erc20_deposit_transfer(
     from: Address,
     erc20_to: Address,
@@ -185,10 +184,10 @@ pub fn create_erc20_deposit_transfer(
     chain_id: u64,
     gas_limit: Option<u64>,
     lock_contract_address: Address,
-    deposit_id: u32,
+    deposit_id: U256,
 ) -> Result<TxDbObj, PaymentError> {
     Ok(TxDbObj {
-        method: "LOCK.payoutSingle".to_string(),
+        method: "LOCK.depositSingleTransfer".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_contract_address:#x}"),
         chain_id: chain_id as i64,
@@ -218,7 +217,7 @@ pub fn create_erc20_transfer_multi_deposit(
 
     let data = encode_deposit_transfer(multi_args.deposit_id, packed).map_err(err_from!())?;
     Ok(TxDbObj {
-        method: "payoutMultipleInternal".to_string(),
+        method: "LOCK.depositTransfer".to_string(),
         from_addr: format!("{:#x}", multi_args.from),
         to_addr: format!("{:#x}", multi_args.lock_contract),
         chain_id: multi_args.chain_id as i64,

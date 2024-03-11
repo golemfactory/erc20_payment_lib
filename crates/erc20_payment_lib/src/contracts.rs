@@ -169,13 +169,13 @@ pub fn encode_create_deposit(
     )
 }
 pub fn encode_payout_single(
-    id: u32,
+    id: U256,
     recipient: Address,
     amount: U256,
 ) -> Result<Vec<u8>, web3::ethabi::Error> {
     contract_encode(
         &LOCK_CONTRACT_TEMPLATE,
-        "payoutSingle",
+        "depositSingleTransfer",
         (id, recipient, amount),
     )
 }

@@ -226,7 +226,9 @@ pub async fn gather_transactions_batch_multi(
                             "Lock contract address not set for chain id: {}",
                             token_transfer.chain_id
                         ))?;
-                    let deposit_id = u32::from_str(deposit_id).map_err(err_from!())?;
+                    let deposit_id = U256::from_str(deposit_id).map_err(
+                        |err| err_custom_create!("Invalid deposit id: {}", err),
+                    )?;
                     create_erc20_deposit_transfer(
                         Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
                         erc20_to[0],
@@ -350,7 +352,9 @@ pub async fn gather_transactions_batch(
                     "Lock contract address not set for chain id: {}",
                     token_transfer.chain_id
                 ))?;
-            let deposit_id = u32::from_str(deposit_id).map_err(err_from!())?;
+            let deposit_id = U256::from_str(deposit_id).map_err(
+                |err| err_custom_create!("Invalid deposit id: {}", err),
+            )?;
             create_erc20_deposit_transfer(
                 Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
                 Address::from_str(&token_transfer.receiver_addr).map_err(err_from!())?,
