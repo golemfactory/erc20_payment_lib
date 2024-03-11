@@ -75,14 +75,8 @@ jobs:
 
       - name: Get Deposit ID from funder and nonce id
         run: |
-          echo DEPOSIT_ID0=$(erc20_processor check-deposit --deposit-nonce $DEPOSIT_NONCE0 --deposit-funder=$ETH_ADDRESS_2 | jq -r ".depositId") >> $GITHUB_ENV
-          echo DEPOSIT_ID1=$(erc20_processor check-deposit --deposit-nonce $DEPOSIT_NONCE1 --deposit-funder=$ETH_ADDRESS_2 | jq -r ".depositId") >> $GITHUB_ENV
-
-      - name: Check token balance zero
-        run: |
-          set -x 
-          erc20_processor check-deposit --deposit-nonce $DEPOSIT_NONCE0 --deposit-funder $ETH_ADDRESS_1
-          erc20_processor check-deposit --deposit-nonce $DEPOSIT_NONCE1 --deposit-funder $ETH_ADDRESS_1
+          echo DEPOSIT_ID0=$(erc20_processor check-deposit --deposit-nonce $DEPOSIT_NONCE0 --deposit-funder=$ETH_ADDRESS_1 | jq -r ".depositId") >> $GITHUB_ENV
+          echo DEPOSIT_ID1=$(erc20_processor check-deposit --deposit-nonce $DEPOSIT_NONCE1 --deposit-funder=$ETH_ADDRESS_1 | jq -r ".depositId") >> $GITHUB_ENV
 
       - name: Make single transfer from deposit
         run: |
