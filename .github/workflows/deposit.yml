@@ -111,9 +111,8 @@ jobs:
       - name: Free deposit
         run: |
           set -x 
-          erc20_processor terminate-deposit --deposit-id $DEPOSIT_ID0 --account-no 1
-          erc20_processor terminate-deposit --deposit-id $DEPOSIT_ID1 --account-no 1 || echo "Error expected (OK)"
-          erc20_processor terminate-deposit --deposit-id $DEPOSIT_ID1 --account-no 2 || echo "Error expected (OK)"
+          erc20_processor close-deposit --deposit-id $DEPOSIT_ID0 --account-no 2
+          erc20_processor close-deposit --deposit-id $DEPOSIT_ID1 --account-no 2
           erc20_processor run
 
       - name: Transfer all left ETH tokens
