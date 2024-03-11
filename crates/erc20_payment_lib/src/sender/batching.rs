@@ -139,7 +139,8 @@ pub async fn gather_transactions_batch_multi(
         if !payment_setup.skip_multi_contract_check {
             if token_transfer.deposit_id.is_some() {
                 //no allowance needed, because we are paying from locked deposit
-            } else if let Some(multi_contract_address) = chain_setup.multi_contract_address.as_ref() {
+            } else if let Some(multi_contract_address) = chain_setup.multi_contract_address.as_ref()
+            {
                 //this is some arbitrary number.
                 let minimum_allowance: U256 = U256::max_value() / U256::from(2);
 
@@ -228,9 +229,8 @@ pub async fn gather_transactions_batch_multi(
                             "Lock contract address not set for chain id: {}",
                             token_transfer.chain_id
                         ))?;
-                    let deposit_id = U256::from_str(deposit_id).map_err(
-                        |err| err_custom_create!("Invalid deposit id: {}", err),
-                    )?;
+                    let deposit_id = U256::from_str(deposit_id)
+                        .map_err(|err| err_custom_create!("Invalid deposit id: {}", err))?;
                     create_erc20_deposit_transfer(
                         Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
                         erc20_to[0],
@@ -354,9 +354,8 @@ pub async fn gather_transactions_batch(
                     "Lock contract address not set for chain id: {}",
                     token_transfer.chain_id
                 ))?;
-            let deposit_id = U256::from_str(deposit_id).map_err(
-                |err| err_custom_create!("Invalid deposit id: {}", err),
-            )?;
+            let deposit_id = U256::from_str(deposit_id)
+                .map_err(|err| err_custom_create!("Invalid deposit id: {}", err))?;
             create_erc20_deposit_transfer(
                 Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
                 Address::from_str(&token_transfer.receiver_addr).map_err(err_from!())?,
