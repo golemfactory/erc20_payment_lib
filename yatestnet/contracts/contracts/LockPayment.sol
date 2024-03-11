@@ -149,7 +149,7 @@ contract LockPayment {
         Deposit memory deposit = deposits[id];
         require(msg.sender == deposit.spender, "msg.sender == deposit.spender");
         require(addr != deposit.spender, "cannot transfer to spender");
-        require(GLM.transferFrom(msg.sender, addr, amount), "transferFrom failed");
+        require(GLM.transferFrom(address(this), addr, amount), "transferFrom failed");
         require(deposit.amount >= amount, "deposit.amount >= amount");
         deposit.amount -= amount;
         deposits[id].amount = deposit.amount;
@@ -167,7 +167,7 @@ contract LockPayment {
             address addr = address(bytes20(payment));
             uint128 amount = uint128(uint256(payment) % 2 ** 96);
             require(addr != deposit.spender, "cannot transfer to spender");
-            require(GLM.transferFrom(msg.sender, addr, amount), "transferFrom failed");
+            require(GLM.transferFrom(address(this), addr, amount), "transferFrom failed");
             require(deposit.amount >= amount, "deposit.amount >= amount");
             deposit.amount -= amount;
         }

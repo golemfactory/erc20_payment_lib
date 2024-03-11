@@ -137,7 +137,9 @@ pub async fn gather_transactions_batch_multi(
     log::debug!("Processing token transfer {:?}", token_transfer);
     if let Some(token_addr) = token_transfer.token_addr.as_ref() {
         if !payment_setup.skip_multi_contract_check {
-            if let Some(multi_contract_address) = chain_setup.multi_contract_address.as_ref() {
+            if token_transfer.deposit_id.is_some() {
+                //no allowance needed, because we are paying from locked deposit
+            } else if let Some(multi_contract_address) = chain_setup.multi_contract_address.as_ref() {
                 //this is some arbitrary number.
                 let minimum_allowance: U256 = U256::max_value() / U256::from(2);
 
