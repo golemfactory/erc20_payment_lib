@@ -1158,10 +1158,10 @@ pub async fn close_deposit(
 
             return Err(err_custom_create!("Deposit {} not found", opt.deposit_id));
         }
-        if deposit_details.funder != from {
-            log::error!("You are not the owner of deposit {}", opt.deposit_id);
+        if deposit_details.spender != from {
+            log::error!("You are not the spender of deposit {}", opt.deposit_id);
             return Err(err_custom_create!(
-                "You are not the owner of deposit {}",
+                "You are not the spender of deposit {}",
                 opt.deposit_id
             ));
         }
@@ -1194,17 +1194,23 @@ pub async fn terminate_deposit(
 
             return Err(err_custom_create!("Deposit {} not found", deposit_id));
         }
-
+        if deposit_details.funder != from {
+            log::error!("You are not the funder of deposit {}", opt.deposit_id);
+            return Err(err_custom_create!(
+                "You are not the funder of deposit {}",
+                opt.deposit_id
+            ));
+        }
         let est_time_left = (deposit_details.valid_to - Utc::now()).num_seconds();
 
         if est_time_left > 10 {
             log::error!(
-                "Deposit {} is not ready to be cancelled. Estimated time left: {}",
+                "Deposit {} is not ready to be terminated. Estimated time left: {}",
                 deposit_id,
                 est_time_left
             );
             return Err(err_custom_create!(
-                "Deposit {} is not ready to be cancelled. Estimated time left: {}",
+                "Deposit {} is not ready to be terminated. Estimated time left: {}",
                 deposit_id,
                 est_time_left
             ));
