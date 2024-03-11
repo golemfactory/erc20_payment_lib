@@ -1,9 +1,9 @@
 use std::{fmt::Debug, path::PathBuf};
 
-use crate::actions::close_deposit::CloseDepositOptions;
-use crate::actions::create_deposit::CreateDepositOptions;
-use crate::actions::deposit_details::CheckDepositOptions;
-use crate::actions::terminate_deposit::TerminateDepositOptions;
+use crate::actions::deposit::close::CloseDepositOptions;
+use crate::actions::deposit::create::CreateDepositOptions;
+use crate::actions::deposit::details::CheckDepositOptions;
+use crate::actions::deposit::terminate::TerminateDepositOptions;
 use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
 use structopt::StructOpt;
 use web3::types::Address;
@@ -356,6 +356,27 @@ pub struct CleanupOptions {
 }
 
 #[derive(StructOpt)]
+pub enum DepositCommands {
+    Create {
+        #[structopt(flatten)]
+        make_deposit_options: CreateDepositOptions,
+    },
+    Close {
+        #[structopt(flatten)]
+        close_deposit_options: CloseDepositOptions,
+    },
+    Terminate {
+        #[structopt(flatten)]
+        terminate_deposit_options: TerminateDepositOptions,
+    },
+    Check {
+        #[structopt(flatten)]
+        check_deposit_options: CheckDepositOptions,
+    },
+}
+
+
+#[derive(StructOpt)]
 #[structopt(about = "Payment admin tool")]
 pub enum PaymentCommands {
     Run {
@@ -383,21 +404,9 @@ pub enum PaymentCommands {
         #[structopt(flatten)]
         mint_test_tokens_options: MintTestTokensOptions,
     },
-    CreateDeposit {
+    Deposit {
         #[structopt(flatten)]
-        make_deposit_options: CreateDepositOptions,
-    },
-    CloseDeposit {
-        #[structopt(flatten)]
-        close_deposit_options: CloseDepositOptions,
-    },
-    TerminateDeposit {
-        #[structopt(flatten)]
-        terminate_deposit_options: TerminateDepositOptions,
-    },
-    CheckDeposit {
-        #[structopt(flatten)]
-        check_deposit_options: CheckDepositOptions,
+        deposit: DepositCommands,
     },
     Transfer {
         #[structopt(flatten)]
