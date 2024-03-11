@@ -112,7 +112,6 @@ pub fn dao_to_transaction(web3_tx_dao: &TxDbObj) -> Result<TransactionParameters
 }
 
 // token_addr NULL means standard (non ERC20) transfer of main chain currency (i.e ETH)
-#[allow(clippy::too_many_arguments)]
 pub fn create_token_transfer(
     from: Address,
     receiver: Address,
@@ -120,8 +119,7 @@ pub fn create_token_transfer(
     payment_id: Option<&str>,
     token_addr: Option<Address>,
     token_amount: U256,
-    allocation_id: Option<String>,
-    use_internal: bool,
+    deposit_id: Option<String>,
 ) -> TokenTransferDbObj {
     TokenTransferDbObj {
         id: 0,
@@ -131,9 +129,7 @@ pub fn create_token_transfer(
         chain_id,
         token_addr: token_addr.map(|addr| format!("{addr:#x}")),
         token_amount: token_amount.to_string(),
-        allocation_id,
-        // Information if using internal contract account 0 - false, 1 - true
-        use_internal: if use_internal { 1 } else { 0 },
+        deposit_id,
         create_date: Utc::now(),
         tx_id: None,
         paid_date: None,
@@ -181,58 +177,47 @@ pub fn create_erc20_transfer(
     })
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn create_erc20_allocation_transfer(
+pub fn create_erc20_deposit_transfer(
     from: Address,
     erc20_to: Address,
     erc20_amount: U256,
     chain_id: u64,
     gas_limit: Option<u64>,
     lock_contract_address: Address,
-    allocation_id: u32,
-    use_internal: bool,
+    deposit_id: U256,
 ) -> Result<TxDbObj, PaymentError> {
     Ok(TxDbObj {
-        method: if use_internal {
-            "LOCK.payoutSingleInternal".to_string()
-        } else {
-            "LOCK.payoutSingle".to_string()
-        },
+        method: "LOCK.depositSingleTransfer".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_contract_address:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        call_data: Some(hex::encode(if use_internal {
-            encode_payout_single_internal(allocation_id, erc20_to, erc20_amount)
-                .map_err(err_from!())?
-        } else {
-            encode_payout_single(allocation_id, erc20_to, erc20_amount).map_err(err_from!())?
-        })),
+        call_data: Some(hex::encode(
+            encode_payout_single(deposit_id, erc20_to, erc20_amount).map_err(err_from!())?,
+        )),
         ..Default::default()
     })
 }
 
-pub struct MultiTransferAllocationArgs {
+pub struct MultiTransferDepositArgs {
     pub from: Address,
     pub lock_contract: Address,
     pub erc20_to: Vec<Address>,
     pub erc20_amount: Vec<U256>,
     pub chain_id: u64,
     pub gas_limit: Option<u64>,
-    pub allocation_id: u32,
-    pub use_internal: bool,
+    pub deposit_id: U256,
 }
 
-pub fn create_erc20_transfer_multi_allocation(
-    multi_args: MultiTransferAllocationArgs,
+pub fn create_erc20_transfer_multi_deposit(
+    multi_args: MultiTransferDepositArgs,
 ) -> Result<TxDbObj, PaymentError> {
     let (packed, _sum) =
         pack_transfers_for_multi_contract(multi_args.erc20_to, multi_args.erc20_amount)?;
 
-    let data =
-        encode_payout_multiple_internal(multi_args.allocation_id, packed).map_err(err_from!())?;
+    let data = encode_deposit_transfer(multi_args.deposit_id, packed).map_err(err_from!())?;
     Ok(TxDbObj {
-        method: "payoutMultipleInternal".to_string(),
+        method: "LOCK.depositTransfer".to_string(),
         from_addr: format!("{:#x}", multi_args.from),
         to_addr: format!("{:#x}", multi_args.lock_contract),
         chain_id: multi_args.chain_id as i64,
@@ -314,149 +299,62 @@ pub fn create_faucet_mint(
     })
 }
 
-pub fn create_lock_deposit(
+pub fn create_make_deposit(
     from: Address,
     lock_address: Address,
     chain_id: u64,
     gas_limit: Option<u64>,
-    amount: U256,
+    deposit_args: CreateDepositArgs,
 ) -> Result<TxDbObj, PaymentError> {
     Ok(TxDbObj {
-        method: "LOCK.deposit".to_string(),
+        method: "LOCK.createDeposit".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
         call_data: Some(hex::encode(
-            encode_deposit_to_lock(amount).map_err(err_from!())?,
+            encode_create_deposit(deposit_args).map_err(err_from!())?,
         )),
         ..Default::default()
     })
 }
 
-pub fn create_make_allocation(
+pub fn create_close_deposit(
     from: Address,
     lock_address: Address,
     chain_id: u64,
     gas_limit: Option<u64>,
-    allocation_args: CreateAllocationArgs,
+    deposit_id: U256,
 ) -> Result<TxDbObj, PaymentError> {
     Ok(TxDbObj {
-        method: "LOCK.createAllocation".to_string(),
+        method: "LOCK.closeDeposit".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
         call_data: Some(hex::encode(
-            encode_create_allocation(allocation_args).map_err(err_from!())?,
+            encode_close_deposit(deposit_id).map_err(err_from!())?,
         )),
         ..Default::default()
     })
 }
 
-pub fn create_free_allocation(
+pub fn create_terminate_deposit(
     from: Address,
     lock_address: Address,
     chain_id: u64,
     gas_limit: Option<u64>,
-    allocation_id: u32,
+    deposit_nonce: u64,
 ) -> Result<TxDbObj, PaymentError> {
     Ok(TxDbObj {
-        method: "LOCK.freeAllocation".to_string(),
+        method: "LOCK.terminateDeposit".to_string(),
         from_addr: format!("{from:#x}"),
         to_addr: format!("{lock_address:#x}"),
         chain_id: chain_id as i64,
         gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
         call_data: Some(hex::encode(
-            encode_free_allocation(allocation_id).map_err(err_from!())?,
+            encode_terminate_deposit(deposit_nonce).map_err(err_from!())?,
         )),
-        ..Default::default()
-    })
-}
-
-pub fn create_free_allocation_internal(
-    from: Address,
-    lock_address: Address,
-    chain_id: u64,
-    gas_limit: Option<u64>,
-    allocation_id: u32,
-) -> Result<TxDbObj, PaymentError> {
-    Ok(TxDbObj {
-        method: "LOCK.freeAllocationInternal".to_string(),
-        from_addr: format!("{from:#x}"),
-        to_addr: format!("{lock_address:#x}"),
-        chain_id: chain_id as i64,
-        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        call_data: Some(hex::encode(
-            encode_free_allocation(allocation_id).map_err(err_from!())?,
-        )),
-        ..Default::default()
-    })
-}
-
-pub fn create_make_allocation_internal(
-    from: Address,
-    lock_address: Address,
-    chain_id: u64,
-    gas_limit: Option<u64>,
-    allocation_args: CreateAllocationInternalArgs,
-) -> Result<TxDbObj, PaymentError> {
-    Ok(TxDbObj {
-        method: "LOCK.createAllocationInternal".to_string(),
-        from_addr: format!("{from:#x}"),
-        to_addr: format!("{lock_address:#x}"),
-        chain_id: chain_id as i64,
-        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        call_data: Some(hex::encode(
-            encode_create_allocation_internal(allocation_args).map_err(err_from!())?,
-        )),
-        ..Default::default()
-    })
-}
-
-pub fn create_lock_withdraw(
-    from: Address,
-    lock_address: Address,
-    chain_id: u64,
-    gas_limit: Option<u64>,
-    amount: Option<U256>,
-) -> Result<TxDbObj, PaymentError> {
-    let method = if amount.is_some() {
-        "LOCK.withdraw".to_string()
-    } else {
-        "LOCK.withdrawAll".to_string()
-    };
-    let call_data = if let Some(amount) = amount {
-        Some(hex::encode(
-            withdraw_from_lock(amount).map_err(err_from!())?,
-        ))
-    } else {
-        Some(hex::encode(withdraw_all_from_lock().map_err(err_from!())?))
-    };
-    Ok(TxDbObj {
-        method,
-        from_addr: format!("{from:#x}"),
-        to_addr: format!("{lock_address:#x}"),
-        chain_id: chain_id as i64,
-        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        call_data,
-        ..Default::default()
-    })
-}
-
-pub fn create_lock_withdraw_all(
-    from: Address,
-    lock_address: Address,
-    chain_id: u64,
-    gas_limit: Option<u64>,
-) -> Result<TxDbObj, PaymentError> {
-    Ok(TxDbObj {
-        method: "LOCK.withdraw".to_string(),
-        from_addr: format!("{from:#x}"),
-        to_addr: format!("{lock_address:#x}"),
-        chain_id: chain_id as i64,
-        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        call_data: Some(hex::encode(withdraw_all_from_lock().map_err(err_from!())?)),
         ..Default::default()
     })
 }
@@ -855,15 +753,21 @@ pub async fn find_receipt(
     }
 }
 
+#[allow(clippy::large_enum_variant)]
+pub enum FindReceiptParseResult {
+    Success((ChainTxDbObj, Vec<ChainTransferDbObj>)),
+    Failure(String),
+}
+
 pub async fn find_receipt_extended(
     web3: Arc<Web3RpcPool>,
     tx_hash: H256,
     chain_id: i64,
     glm_address: Address,
-) -> Result<(ChainTxDbObj, Vec<ChainTransferDbObj>), PaymentError> {
+) -> Result<FindReceiptParseResult, PaymentError> {
     let mut chain_tx_dao = ChainTxDbObj {
         id: -1,
-        tx_hash: tx_hash.to_string(),
+        tx_hash: format!("{:#x}", tx_hash),
         method: "".to_string(),
         from_addr: "".to_string(),
         to_addr: "".to_string(),
@@ -1024,6 +928,11 @@ pub async fn find_receipt_extended(
             let from = Address::from_slice(&log.topics[1][12..]);
             let to = Address::from_slice(&log.topics[2][12..]);
             let amount = U256::from(log.data.0.as_slice());
+            println!(
+                "ERC20 transfer from {:#x} to {:#x} amount {:#x}",
+                from, to, amount
+            );
+
             if to == tx_to {
                 if let Some(tcf) = &transfered_to_contract_from {
                     if from != *tcf {
@@ -1064,6 +973,11 @@ pub async fn find_receipt_extended(
 
             if from == tx_to {
                 if Some(log.address) != transfered_to_contract_token {
+                    if transfered_to_contract_token.is_none() {
+                        return Ok(FindReceiptParseResult::Failure(
+                            "Transfer from contract without contract from".to_string(),
+                        ));
+                    }
                     return Err(err_custom_create!(
                         "Transfer from contract different token {:#x} != {:#x}",
                         log.address,
@@ -1103,7 +1017,7 @@ pub async fn find_receipt_extended(
         }
     }
 
-    Ok((chain_tx_dao, transfers))
+    Ok(FindReceiptParseResult::Success((chain_tx_dao, transfers)))
 }
 
 pub async fn get_erc20_logs(
@@ -1147,7 +1061,7 @@ pub struct ImportErc20TxsArgs {
 }
 
 pub async fn import_erc20_txs(import_args: ImportErc20TxsArgs) -> Result<Vec<H256>, PaymentError> {
-    let mut start_block = import_args.start_block;
+    let start_block = import_args.start_block;
     let option_address_to_option_h256 = |val: Option<Vec<Address>>| -> Option<Vec<H256>> {
         val.map(|accounts| {
             accounts
@@ -1173,43 +1087,46 @@ pub async fn import_erc20_txs(import_args: ImportErc20TxsArgs) -> Result<Vec<H25
         .as_u64() as i64;
 
     let mut txs = HashMap::<H256, u64>::new();
-    loop {
-        let end_block = std::cmp::min(
-            std::cmp::min(start_block + 1000, current_block),
-            import_args.scan_end_block,
+
+    let end_block = import_args.scan_end_block;
+    if start_block > end_block {
+        return Err(err_custom_create!("Start block is greater than end block"));
+    }
+    if end_block - start_block > import_args.blocks_at_once as i64 {
+        return Err(err_custom_create!("Too many blocks to scan"));
+    }
+    if start_block > current_block {
+        return Err(err_custom_create!(
+            "Start block is greater than current block"
+        ));
+    }
+    log::debug!("Scanning chain, blocks: {start_block} - {end_block}");
+    let logs = get_erc20_logs(
+        import_args.web3.clone(),
+        import_args.erc20_address,
+        topic_senders.clone(),
+        topic_receivers.clone(),
+        start_block,
+        end_block,
+    )
+    .await?;
+    for log in logs.into_iter() {
+        txs.insert(
+            log.transaction_hash
+                .ok_or(err_custom_create!("Log without transaction hash"))?,
+            log.block_number
+                .ok_or(err_custom_create!("Log without block number"))?
+                .as_u64(),
         );
-        if start_block > end_block {
-            break;
-        }
-        log::info!("Scanning chain, blocks: {start_block} - {end_block}");
-        let logs = get_erc20_logs(
-            import_args.web3.clone(),
-            import_args.erc20_address,
-            topic_senders.clone(),
-            topic_receivers.clone(),
-            start_block,
-            end_block,
-        )
-        .await?;
-        for log in logs.into_iter() {
-            txs.insert(
-                log.transaction_hash
-                    .ok_or(err_custom_create!("Log without transaction hash"))?,
-                log.block_number
-                    .ok_or(err_custom_create!("Log without block number"))?
-                    .as_u64(),
-            );
-            log::info!(
-                "Found matching log entry in block: {}, tx: {}",
-                log.block_number.unwrap(),
-                log.block_number.unwrap()
-            );
-        }
-        start_block += import_args.blocks_at_once as i64;
+        log::info!(
+            "Found matching log entry in block: {}, tx: {}",
+            log.block_number.unwrap(),
+            log.block_number.unwrap()
+        );
     }
 
     if txs.is_empty() {
-        log::info!("No logs found");
+        log::debug!("No logs found");
     } else {
         log::info!("Found {} transactions", txs.len());
     }

@@ -1,6 +1,5 @@
 use crate::contracts::{
-    encode_balance_of_lock, encode_erc20_allowance, encode_erc20_balance_of,
-    encode_get_allocation_details,
+    encode_erc20_allowance, encode_erc20_balance_of, encode_get_deposit_details,
 };
 use crate::error::*;
 use crate::{err_create, err_custom_create, err_from};
@@ -11,6 +10,7 @@ use serde::Serialize;
 use sha3::Digest;
 use sha3::Keccak256;
 use std::sync::Arc;
+use web3::ethabi;
 use web3::types::{Address, BlockId, BlockNumber, Bytes, CallRequest, U256, U64};
 
 #[derive(Clone, Debug, Serialize)]
@@ -18,73 +18,95 @@ use web3::types::{Address, BlockId, BlockNumber, Bytes, CallRequest, U256, U64};
 pub struct GetBalanceResult {
     pub gas_balance: Option<U256>,
     pub token_balance: Option<U256>,
-    pub deposit_balance: Option<U256>,
     pub block_number: u64,
-}
-
-pub(crate) async fn get_deposit_balance(
-    web3: Arc<Web3RpcPool>,
-    lock_address: Address,
-    address: Address,
-    block_number: Option<u64>,
-) -> Result<U256, PaymentError> {
-    log::debug!(
-        "Checking deposit balance for address {:#x}, lock address: {:#x}",
-        address,
-        lock_address,
-    );
-
-    let call_data = encode_balance_of_lock(address).map_err(err_from!())?;
-    let res = web3
-        .clone()
-        .eth_call(
-            CallRequest {
-                from: None,
-                to: Some(lock_address),
-                gas: None,
-                gas_price: None,
-                value: None,
-                data: Some(Bytes::from(call_data)),
-                transaction_type: None,
-                access_list: None,
-                max_fee_per_gas: None,
-                max_priority_fee_per_gas: None,
-            },
-            block_number.map(|bn| BlockId::Number(BlockNumber::Number(U64::from(bn)))),
-        )
-        .await
-        .map_err(err_from!())?;
-    if res.0.len() != 32 {
-        return Err(err_create!(TransactionFailedError::new(&format!(
-            "Invalid balance response: {:?}. Probably not a valid lock payments contract {:#x}",
-            res.0, lock_address
-        ))));
-    };
-    Ok(U256::from_big_endian(&res.0))
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AllocationDetails {
-    pub customer: Address,
+pub struct DepositDetails {
+    pub deposit_id: String,
+    pub deposit_nonce: u64,
+    pub funder: Address,
     pub spender: Address,
     pub amount: String,
     pub fee_amount: String,
     pub amount_decimal: rust_decimal::Decimal,
     pub fee_amount_decimal: rust_decimal::Decimal,
-    pub block_limit: u64,
+    pub valid_to: chrono::DateTime<chrono::Utc>,
     pub current_block: u64,
     pub current_block_datetime: Option<chrono::DateTime<chrono::Utc>>,
-    pub estimated_time_left: Option<i64>,
-    pub estimated_time_left_str: Option<String>,
 }
 
-pub async fn get_allocation_details(
+pub struct DepositView {
+    pub id: U256,
+    pub nonce: u64,
+    pub funder: Address,
+    pub spender: Address,
+    pub amount: u128,
+    pub fee_amount: u128,
+    pub valid_to: u64,
+}
+
+impl DepositView {
+    pub fn decode_from_bytes(bytes: &[u8]) -> Result<DepositView, PaymentError> {
+        if bytes.len() != 7 * 32 {
+            return Err(err_custom_create!(
+                "Invalid response length: {}, expected {}",
+                bytes.len(),
+                7 * 32
+            ));
+        }
+
+        let decoded = ethabi::decode(
+            &[
+                ethabi::ParamType::Uint(256),
+                ethabi::ParamType::Uint(64),
+                ethabi::ParamType::Address,
+                ethabi::ParamType::Address,
+                ethabi::ParamType::Uint(128),
+                ethabi::ParamType::Uint(128),
+                ethabi::ParamType::Uint(64),
+            ],
+            bytes,
+        )
+        .map_err(|err|err_custom_create!(
+            "Failed to decode deposit view from bytes, check if proper contract and contract method is called: {}",
+            err
+        ))?;
+
+        //these unwraps are safe because we know the types from the decode call
+        //be careful when changing types!
+        Ok(DepositView {
+            id: decoded[0].clone().into_uint().unwrap(),
+            nonce: decoded[1].clone().into_uint().unwrap().as_u64(),
+            funder: decoded[2].clone().into_address().unwrap(),
+            spender: decoded[3].clone().into_address().unwrap(),
+            amount: decoded[4].clone().into_uint().unwrap().as_u128(),
+            fee_amount: decoded[5].clone().into_uint().unwrap().as_u128(),
+            valid_to: decoded[6].clone().into_uint().unwrap().as_u64(),
+        })
+    }
+}
+
+pub fn deposit_id_from_nonce(funder: Address, nonce: u64) -> U256 {
+    let mut slice: [u8; 32] = [0; 32];
+    slice[0..20].copy_from_slice(funder.0.as_slice());
+    slice[24..32].copy_from_slice(&nonce.to_be_bytes());
+    U256::from_big_endian(&slice)
+}
+
+pub fn nonce_from_deposit_id(deposit_id: U256) -> u64 {
+    let mut slice: [u8; 32] = [0; 32];
+    deposit_id.to_big_endian(&mut slice);
+    u64::from_be_bytes(slice[24..32].try_into().unwrap())
+}
+
+pub async fn get_deposit_details(
     web3: Arc<Web3RpcPool>,
-    allocation_id: u32,
+    deposit_id: U256,
     lock_contract_address: Address,
     block_number: Option<u64>,
-) -> Result<AllocationDetails, PaymentError> {
+) -> Result<DepositDetails, PaymentError> {
     let block_number = if let Some(block_number) = block_number {
         log::debug!("Checking balance for block number {}", block_number);
         block_number
@@ -100,7 +122,7 @@ pub async fn get_allocation_details(
         .eth_call(
             CallRequest {
                 to: Some(lock_contract_address),
-                data: Some(encode_get_allocation_details(allocation_id).unwrap().into()),
+                data: Some(encode_get_deposit_details(deposit_id).unwrap().into()),
                 ..Default::default()
             },
             Some(BlockId::Number(BlockNumber::Number(U64::from(
@@ -109,39 +131,30 @@ pub async fn get_allocation_details(
         )
         .await
         .map_err(err_from!())?;
-    if res.0.len() != 5 * 32 {
-        return Err(err_custom_create!(
-            "Invalid response length: {}, expected {}",
-            res.0.len(),
-            5 * 32
-        ));
-    }
-    let amount_u256 = U256::from(&res.0[(2 * 32)..(3 * 32)]);
-    let fee_amount_u256 = U256::from(&res.0[(3 * 32)..(4 * 32)]);
 
-    let block_no = U256::from(&res.0[(4 * 32)..(5 * 32)]);
-    if block_no > U256::from(u32::MAX) {
-        return Err(err_custom_create!("Block number too big: {}", block_no));
-    }
-    Ok(AllocationDetails {
-        customer: Address::from_slice(&res.0[12..32]),
-        spender: Address::from_slice(&res.0[(32 + 12)..(2 * 32)]),
+    let deposit_view = DepositView::decode_from_bytes(&res.0)?;
+
+    let amount_u256 = U256::from(deposit_view.amount);
+    let fee_amount_u256 = U256::from(deposit_view.fee_amount);
+
+    Ok(DepositDetails {
+        deposit_id: format!("{:#x}", deposit_view.id),
+        deposit_nonce: deposit_view.nonce,
+        funder: deposit_view.funder,
+        spender: deposit_view.spender,
         amount: amount_u256.to_string(),
         fee_amount: fee_amount_u256.to_string(),
-        block_limit: block_no.as_u64(),
         current_block: block_number,
         amount_decimal: amount_u256.to_eth().map_err(err_from!())?,
         fee_amount_decimal: fee_amount_u256.to_eth().map_err(err_from!())?,
         current_block_datetime: None,
-        estimated_time_left: None,
-        estimated_time_left_str: None,
+        valid_to: Default::default(),
     })
 }
 
 pub async fn get_balance(
     web3: Arc<Web3RpcPool>,
     token_address: Option<Address>,
-    lock_contract_address: Option<Address>,
     address: Address,
     check_gas: bool,
     block_number: Option<u64>,
@@ -170,14 +183,6 @@ pub async fn get_balance(
                 .await
                 .map_err(err_from!())?,
         )
-    } else {
-        None
-    };
-
-    let deposit_balance = if let Some(lock_contract) = lock_contract_address {
-        get_deposit_balance(web3.clone(), lock_contract, address, Some(block_number))
-            .await
-            .map(Some)?
     } else {
         None
     };
@@ -216,7 +221,6 @@ pub async fn get_balance(
     Ok(GetBalanceResult {
         gas_balance,
         token_balance,
-        deposit_balance,
         block_number,
     })
 }
@@ -248,18 +252,6 @@ pub async fn get_latest_block_info(web3: Arc<Web3RpcPool>) -> Result<Web3BlockIn
         block_number,
         block_date,
     })
-}
-
-pub fn average_block_time(web3: &Web3RpcPool) -> Option<u32> {
-    if web3.chain_id == 1 || web3.chain_id == 5 || web3.chain_id == 17000 {
-        Some(12)
-    } else if web3.chain_id == 137 || web3.chain_id == 80001 {
-        Some(2)
-    } else if web3.chain_id == 987789 {
-        Some(5)
-    } else {
-        None
-    }
 }
 
 pub(crate) async fn get_transaction_count(

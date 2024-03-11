@@ -65,7 +65,7 @@ impl ExternalSourceResolver {
         let pool = pool.clone();
         let self_clone = self.clone();
         Some(tokio::spawn(async move {
-            log::info!("Starting external resolver for chain id: {}", pool.chain_id);
+            log::debug!("Starting external resolver for chain id: {}", pool.chain_id);
             self_clone.resolve_external_addresses_int(pool).await;
         }))
     }

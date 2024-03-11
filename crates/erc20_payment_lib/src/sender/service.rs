@@ -395,8 +395,9 @@ fn get_next_gather_time(
     last_gather_time: chrono::DateTime<chrono::Utc>,
     gather_transactions_interval: i64,
 ) -> chrono::DateTime<chrono::Utc> {
-    let next_gather_time =
-        last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
+    let next_gather_time = last_gather_time
+        + chrono::Duration::try_seconds(gather_transactions_interval)
+            .expect("Invalid gather interval");
 
     if let Some(external_gather_time) = *account.external_gather_time.lock().unwrap() {
         std::cmp::min(external_gather_time, next_gather_time)
@@ -412,8 +413,9 @@ fn get_next_gather_time_and_clear_if_success(
 ) -> Option<chrono::DateTime<chrono::Utc>> {
     let mut external_gather_time_guard = account.external_gather_time.lock().unwrap();
 
-    let next_gather_time =
-        last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
+    let next_gather_time = last_gather_time
+        + chrono::Duration::try_seconds(gather_transactions_interval)
+            .expect("Invalid gather transactions interval");
 
     let next_gather_time = if let Some(external_gather_time) = *external_gather_time_guard {
         std::cmp::min(external_gather_time, next_gather_time)
@@ -475,7 +477,9 @@ pub async fn service_loop(
 ) {
     let gather_transactions_interval = payment_setup.gather_interval as i64;
     let mut last_gather_time = if payment_setup.gather_at_start {
-        chrono::Utc::now() - chrono::Duration::seconds(gather_transactions_interval)
+        chrono::Utc::now()
+            - chrono::Duration::try_seconds(gather_transactions_interval)
+                .expect("Invalid gather interval")
     } else {
         chrono::Utc::now()
     };

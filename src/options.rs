@@ -1,7 +1,9 @@
 use std::{fmt::Debug, path::PathBuf};
 
-use crate::actions::cancel_allocation::CancelAllocationOptions;
-use crate::actions::make_allocation::MakeAllocationOptions;
+use crate::actions::close_deposit::CloseDepositOptions;
+use crate::actions::create_deposit::CreateDepositOptions;
+use crate::actions::deposit_details::CheckDepositOptions;
+use crate::actions::terminate_deposit::TerminateDepositOptions;
 use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
 use structopt::StructOpt;
 use web3::types::Address;
@@ -171,16 +173,6 @@ pub struct WithdrawTokensOptions {
 }
 
 #[derive(StructOpt)]
-#[structopt(about = "Allocate funds for use by payer")]
-pub struct CheckAllocationOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
-    pub chain_name: String,
-
-    #[structopt(long = "allocation-id", help = "Allocation id to use")]
-    pub allocation_id: u32,
-}
-
-#[derive(StructOpt)]
 #[structopt(about = "Single transfer options")]
 pub struct TransferOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
@@ -208,11 +200,8 @@ pub struct TransferOptions {
     )]
     pub amount: Option<rust_decimal::Decimal>,
 
-    #[structopt(long = "allocation-id")]
-    pub allocation_id: Option<String>,
-
-    #[structopt(long = "use-internal")]
-    pub use_internal: bool,
+    #[structopt(long = "deposit-id")]
+    pub deposit_id: Option<String>,
 }
 
 #[derive(StructOpt)]
@@ -227,11 +216,11 @@ pub struct ImportOptions {
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Scan blockchain options")]
 pub struct ScanBlockchainOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
     #[structopt(short = "b", long = "from-block")]
-    pub from_block: u64,
+    pub from_block: Option<u64>,
 
     #[structopt(long = "start-new-scan")]
     pub start_new_scan: bool,
@@ -249,18 +238,27 @@ pub struct ScanBlockchainOptions {
     pub blocks_behind: Option<u64>,
 
     #[structopt(
+        long = "forward-scan-buffer",
+        help = "How much blocks behind scanner should stop",
+        default_value = "40"
+    )]
+    pub forward_scan_buffer: u64,
+
+    #[structopt(
         long = "blocks-at-once",
         default_value = "1000",
         help = "Limit how much block to process at once. If too much web3 endpoint can return error"
     )]
     pub blocks_at_once: u64,
 
-    #[structopt(
-        short = "a",
-        long = "address",
-        default_value = "0x09e4F0aE44D5E60D44A8928Af7531e6A862290bC"
-    )]
-    pub sender: String,
+    #[structopt(long = "import-balances")]
+    pub import_balances: bool,
+
+    #[structopt(short = "a", long = "address")]
+    pub sender: Option<String>,
+
+    #[structopt(long = "auto")]
+    pub auto: bool,
 }
 
 #[derive(StructOpt)]
@@ -273,7 +271,7 @@ pub struct CheckWeb3RpcOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Export history stats")]
 pub struct ExportHistoryStatsOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "polygon")]
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
     pub chain_name: String,
 
     #[structopt(
@@ -385,25 +383,21 @@ pub enum PaymentCommands {
         #[structopt(flatten)]
         mint_test_tokens_options: MintTestTokensOptions,
     },
-    Deposit {
+    CreateDeposit {
         #[structopt(flatten)]
-        deposit_tokens_options: DepositTokensOptions,
+        make_deposit_options: CreateDepositOptions,
     },
-    Withdraw {
+    CloseDeposit {
         #[structopt(flatten)]
-        withdraw_tokens_options: WithdrawTokensOptions,
+        close_deposit_options: CloseDepositOptions,
     },
-    MakeAllocation {
+    TerminateDeposit {
         #[structopt(flatten)]
-        make_allocation_options: MakeAllocationOptions,
+        terminate_deposit_options: TerminateDepositOptions,
     },
-    CancelAllocation {
+    CheckDeposit {
         #[structopt(flatten)]
-        cancel_allocation_options: CancelAllocationOptions,
-    },
-    CheckAllocation {
-        #[structopt(flatten)]
-        check_allocation_options: CheckAllocationOptions,
+        check_deposit_options: CheckDepositOptions,
     },
     Transfer {
         #[structopt(flatten)]

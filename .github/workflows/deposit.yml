@@ -1,0 +1,123 @@
+name: Deposit tests
+
+on:
+  push:
+  workflow_dispatch:
+  schedule:
+    - cron: "42 3 * * *"
+
+jobs:
+  test_deposit:
+    name: Test Deposit
+    timeout-minutes: 20
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: "dev-build-cache"
+
+      - name: Build
+        run: |
+          cargo build
+          cp target/debug/erc20_processor /usr/local/bin/erc20_processor
+          [ $(which erc20_processor) == "/usr/local/bin/erc20_processor" ]
+
+      - name: Generate ethereum accounts
+        run: |
+          erc20_processor generate-key -n 5 > .env
+          cat .env | grep ETH_ADDRESS | sed "s/#\s//g" | sed "s/:\s/=/g" > $GITHUB_ENV
+
+      - name: Create random deposit id
+        run: |
+          echo DEPOSIT_NONCE0=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
+          echo DEPOSIT_NONCE1=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
+          echo DEPOSIT_NONCE2=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
+
+      - name: Show created addresses
+        run: |
+          echo "Eth address 0: $ETH_ADDRESS_0"
+          echo "Eth address 1: $ETH_ADDRESS_1"
+          echo "Eth address 2: $ETH_ADDRESS_2"
+          echo "Eth address 3: $ETH_ADDRESS_3"
+          echo "Eth address 4: $ETH_ADDRESS_4"
+
+      - name: Get ETH from faucet for account 1 and 2
+        run: |
+          erc20_processor get-dev-eth --account-no 1
+          erc20_processor get-dev-eth --account-no 2
+
+      - name: Check ETH balance after getting funds from faucet (should be 0.01)
+        run: |
+          x=1; while [ $(erc20_processor balance | jq -r ".\"$ETH_ADDRESS_1\".gasDecimal") != "0.01" ]; do echo "Waiting for funds for $x seconds"; sleep 5; x=$(( x + 5 )); done 
+          while [ $(erc20_processor balance | jq -r ".\"$ETH_ADDRESS_2\".gasDecimal") != "0.01" ]; do echo "Waiting for funds for $x seconds"; sleep 5; x=$(( x + 5 )); done 
+
+      - name: Mint tokens
+        run: |
+          erc20_processor mint-test-tokens --account-no 1
+          erc20_processor run
+
+      - name: Check token balance
+        run: |
+          [ $(erc20_processor balance | jq -r ".\"$ETH_ADDRESS_1\".tokenDecimal") == "1000" ]
+
+      - name: Create deposit
+        run: |
+          set -x 
+          erc20_processor create-deposit --account-no 1 --amount 1 --fee-amount 0.1 --block-for 0 --spender $ETH_ADDRESS_2 --deposit-nonce $DEPOSIT_NONCE0
+          erc20_processor create-deposit --account-no 1 --amount 1 --fee-amount 0.1 --block-for 1000 --spender $ETH_ADDRESS_2 --deposit-nonce $DEPOSIT_NONCE1
+          erc20_processor run
+
+      - name: Get Deposit ID from funder and nonce id
+        run: |
+          echo DEPOSIT_ID0=$(erc20_processor check-deposit --deposit-nonce $DEPOSIT_NONCE0 --deposit-funder=$ETH_ADDRESS_1 | jq -r ".depositId") >> $GITHUB_ENV
+          echo DEPOSIT_ID1=$(erc20_processor check-deposit --deposit-nonce $DEPOSIT_NONCE1 --deposit-funder=$ETH_ADDRESS_1 | jq -r ".depositId") >> $GITHUB_ENV
+
+      - name: Make single transfer from deposit
+        run: |
+          set -x 
+          erc20_processor transfer --deposit-id $DEPOSIT_ID0 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_4
+          erc20_processor run
+
+      - name: Make single transfer without deposit
+        run: |
+          set -x 
+          erc20_processor transfer --account-no 1 --amount 0.0001 --recipient $ETH_ADDRESS_4
+          erc20_processor run
+
+      - name: Make multiple transfers from deposit
+        run: |
+          set -x 
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_0
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_3
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_4
+          erc20_processor run
+          erc20_processor balance
+
+      - name: Make multiple transfer without deposit
+        run: |
+          set -x 
+          erc20_processor transfer --account-no 1 --amount 0.0001 --recipient $ETH_ADDRESS_0
+          erc20_processor transfer --account-no 1 --amount 0.0001 --recipient $ETH_ADDRESS_3
+          erc20_processor transfer --account-no 1 --amount 0.0001 --recipient $ETH_ADDRESS_4
+          erc20_processor run
+          erc20_processor balance
+
+      - name: Free deposit
+        run: |
+          set -x 
+          erc20_processor close-deposit --deposit-id $DEPOSIT_ID0 --account-no 2
+          erc20_processor close-deposit --deposit-id $DEPOSIT_ID1 --account-no 2
+          erc20_processor run
+
+      - name: Transfer all left ETH tokens
+        run: |
+          set -x 
+          erc20_processor transfer --account-no 1 --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
+          erc20_processor transfer --account-no 2 --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
+          erc20_processor run
