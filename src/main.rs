@@ -11,7 +11,8 @@ use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib_common::create_sqlite_connection;
 use erc20_payment_lib_common::error::*;
 use erc20_payment_lib_common::ops::{
-    get_next_transactions_to_process, insert_token_transfer, update_token_transfer,
+    get_next_transactions_to_process, insert_token_transfer,
+    insert_token_transfer_with_deposit_check, update_token_transfer,
 };
 use erc20_payment_lib_common::*;
 
@@ -439,9 +440,9 @@ async fn main_internal() -> Result<(), PaymentError> {
                     .get(account_no)
                     .expect("No public adss found with specified account_no")
             } else {
-                *public_addrs.first().expect("No public adss found")
+                *public_addrs.first().expect("No public address found")
             };
-            let mut db_transaction = conn.clone().unwrap().begin().await.unwrap();
+            //let mut db_transaction = conn.clone().unwrap().begin().await.unwrap();
 
             let amount_str = if let Some(amount) = single_transfer_options.amount {
                 amount.to_u256_from_eth().unwrap().to_string()
@@ -490,8 +491,8 @@ async fn main_internal() -> Result<(), PaymentError> {
             };
             let amount_decimal = amount_str.to_eth().unwrap();
 
-            let mut tt = insert_token_transfer(
-                &mut *db_transaction,
+            let mut tt = insert_token_transfer_with_deposit_check(
+                &conn.clone().unwrap(),
                 &TokenTransferDbObj {
                     id: 0,
                     payment_id: None,
@@ -501,6 +502,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     token_addr: token,
                     token_amount: amount_str,
                     deposit_id: single_transfer_options.deposit_id,
+                    deposit_final: 0,
                     create_date: Default::default(),
                     tx_id: None,
                     paid_date: None,
@@ -513,11 +515,10 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let payment_id = format!("{}_transfer_{}", single_transfer_options.token, tt.id);
             tt.payment_id = Some(payment_id.clone());
-            update_token_transfer(&mut *db_transaction, &tt)
+            update_token_transfer(&conn.clone().unwrap(), &tt)
                 .await
                 .unwrap();
 
-            db_transaction.commit().await.unwrap();
             log::info!(
                 "Transfer added to db amount: {}, payment id: {}",
                 amount_decimal,

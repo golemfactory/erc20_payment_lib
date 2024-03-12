@@ -7,8 +7,8 @@ use crate::{err_custom_create, err_from};
 use erc20_payment_lib_common::create_sqlite_connection;
 use erc20_payment_lib_common::ops::{
     cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx,
-    get_transaction_chain, get_transactions, get_unpaid_token_transfers, insert_token_transfer,
-    insert_tx,
+    get_transaction_chain, get_transactions, get_unpaid_token_transfers,
+    insert_token_transfer_with_deposit_check, insert_tx,
 };
 use std::collections::BTreeMap;
 use std::ops::DerefMut;
@@ -921,9 +921,7 @@ impl PaymentRuntime {
             transfer_args.deposit_id,
         );
 
-        insert_token_transfer(&self.conn, &token_transfer)
-            .await
-            .map_err(err_from!())?;
+        insert_token_transfer_with_deposit_check(&self.conn, &token_transfer).await?;
 
         if !self.setup.ignore_deadlines {
             if let Some(deadline) = transfer_args.deadline {
