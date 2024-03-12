@@ -35,9 +35,9 @@ jobs:
 
       - name: Create random deposit id
         run: |
-          echo DEPOSIT_NONCE0=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
-          echo DEPOSIT_NONCE1=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
-          echo DEPOSIT_NONCE2=$(shuf -i 0-2000000000 -n 1) >> $GITHUB_ENV
+          echo DEPOSIT_NONCE0=$(shuf -i 0-2000000000000000000 -n 1) >> $GITHUB_ENV
+          echo DEPOSIT_NONCE1=$(shuf -i 0-2000000000000000000 -n 1) >> $GITHUB_ENV
+          echo DEPOSIT_NONCE2=$(shuf -i 0-2000000000000000000 -n 1) >> $GITHUB_ENV
 
       - name: Show created addresses
         run: |
