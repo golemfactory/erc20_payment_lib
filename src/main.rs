@@ -2,7 +2,7 @@ mod actions;
 mod options;
 mod stats;
 
-use crate::options::{PaymentCommands, PaymentOptions};
+use crate::options::{DepositCommands, PaymentCommands, PaymentOptions};
 use actix_web::Scope;
 use actix_web::{web, App, HttpServer};
 use csv::ReaderBuilder;
@@ -26,10 +26,10 @@ use std::str::FromStr;
 
 use crate::actions::check_address_name;
 use crate::actions::check_rpc::check_rpc_local;
-use crate::actions::close_deposit::close_deposit_local;
-use crate::actions::create_deposit::make_deposit_local;
-use crate::actions::deposit_details::deposit_details_local;
-use crate::actions::terminate_deposit::terminate_deposit_local;
+use crate::actions::deposit::close::close_deposit_local;
+use crate::actions::deposit::create::make_deposit_local;
+use crate::actions::deposit::details::deposit_details_local;
+use crate::actions::deposit::terminate::terminate_deposit_local;
 use crate::stats::{export_stats, run_stats};
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
@@ -72,10 +72,7 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::CheckRpc { .. } => {}
         PaymentCommands::GetDevEth { .. } => {}
         PaymentCommands::MintTestTokens { .. } => {}
-        PaymentCommands::CreateDeposit { .. } => {}
-        PaymentCommands::CloseDeposit { .. } => {}
-        PaymentCommands::TerminateDeposit { .. } => {}
-        PaymentCommands::CheckDeposit { .. } => {}
+        PaymentCommands::Deposit { .. } => {}
         PaymentCommands::Transfer { .. } => {}
         PaymentCommands::Balance { .. } => {}
         PaymentCommands::ImportPayments { .. } => {}
@@ -352,45 +349,48 @@ async fn main_internal() -> Result<(), PaymentError> {
             )
             .await?;
         }
-        PaymentCommands::CreateDeposit {
-            make_deposit_options,
-        } => {
-            make_deposit_local(
-                conn.clone().unwrap(),
+        PaymentCommands::Deposit { deposit } => match deposit {
+            DepositCommands::Create {
                 make_deposit_options,
-                config,
-                &public_addrs,
-                signer,
-            )
-            .await?;
-        }
-        PaymentCommands::CloseDeposit {
-            close_deposit_options,
-        } => {
-            close_deposit_local(
-                conn.clone().unwrap(),
+            } => {
+                make_deposit_local(
+                    conn.clone().unwrap(),
+                    make_deposit_options,
+                    config,
+                    &public_addrs,
+                    signer,
+                )
+                .await?;
+            }
+            DepositCommands::Close {
                 close_deposit_options,
-                config,
-                &public_addrs,
-            )
-            .await?;
-        }
-        PaymentCommands::TerminateDeposit {
-            terminate_deposit_options,
-        } => {
-            terminate_deposit_local(
-                conn.clone().unwrap(),
+            } => {
+                close_deposit_local(
+                    conn.clone().unwrap(),
+                    close_deposit_options,
+                    config,
+                    &public_addrs,
+                )
+                .await?;
+            }
+            DepositCommands::Terminate {
                 terminate_deposit_options,
-                config,
-                &public_addrs,
-            )
-            .await?;
-        }
-        PaymentCommands::CheckDeposit {
-            check_deposit_options,
-        } => {
-            deposit_details_local(check_deposit_options, config).await?;
-        }
+            } => {
+                terminate_deposit_local(
+                    conn.clone().unwrap(),
+                    terminate_deposit_options,
+                    config,
+                    &public_addrs,
+                )
+                .await?;
+            }
+            DepositCommands::Check {
+                check_deposit_options,
+            } => {
+                deposit_details_local(check_deposit_options, config).await?;
+            }
+        },
+
         PaymentCommands::GenerateKey {
             generate_key_options,
         } => {
