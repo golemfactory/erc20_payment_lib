@@ -65,9 +65,10 @@ pub async fn insert_token_transfer_with_deposit_check(
 ) -> Result<TokenTransferDbObj, PaymentError> {
     if let Some(deposit_id) = token_transfer.deposit_id.as_ref() {
         let mut transaction = conn.begin().await.map_err(err_from!())?;
-        let is_finished = check_if_deposit_closed(&mut *transaction, token_transfer.chain_id, deposit_id)
-            .await
-            .map_err(err_from!())?;
+        let is_finished =
+            check_if_deposit_closed(&mut *transaction, token_transfer.chain_id, deposit_id)
+                .await
+                .map_err(err_from!())?;
         if is_finished {
             return Err(err_custom_create!(
                 "Cannot add token_transfer to already finished deposit"
@@ -219,8 +220,8 @@ pub async fn get_token_transfers_by_deposit_id<'c, E>(
     chain_id: i64,
     deposit_id: &str,
 ) -> Result<Vec<TokenTransferDbObj>, sqlx::Error>
-    where
-        E: Executor<'c, Database = Sqlite>,
+where
+    E: Executor<'c, Database = Sqlite>,
 {
     let rows = sqlx::query_as::<_, TokenTransferDbObj>(
         r"SELECT * FROM token_transfer WHERE chain_id = $1 AND deposit_id = $2 ORDER by id DESC",

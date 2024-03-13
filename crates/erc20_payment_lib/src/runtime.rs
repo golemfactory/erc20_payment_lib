@@ -1,11 +1,16 @@
 use crate::signer::{Signer, SignerAccount};
 use crate::transaction::{
-    create_faucet_mint, create_make_deposit, create_terminate_deposit,
-    create_token_transfer, find_receipt_extended, FindReceiptParseResult,
+    create_faucet_mint, create_make_deposit, create_terminate_deposit, create_token_transfer,
+    find_receipt_extended, FindReceiptParseResult,
 };
 use crate::{err_custom_create, err_from};
 use erc20_payment_lib_common::create_sqlite_connection;
-use erc20_payment_lib_common::ops::{cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx, get_token_transfers_by_deposit_id, get_transaction_chain, get_transactions, get_unpaid_token_transfers, insert_token_transfer, insert_token_transfer_with_deposit_check, insert_tx, update_token_transfer};
+use erc20_payment_lib_common::ops::{
+    cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx,
+    get_token_transfers_by_deposit_id, get_transaction_chain, get_transactions,
+    get_unpaid_token_transfers, insert_token_transfer, insert_token_transfer_with_deposit_check,
+    insert_tx, update_token_transfer,
+};
 use std::collections::BTreeMap;
 use std::ops::DerefMut;
 use std::path::PathBuf;
@@ -28,6 +33,7 @@ use crate::eth::{
 use crate::sender::service_loop;
 use crate::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
 use chrono::{DateTime, Utc};
+use erc20_payment_lib_common::model::TokenTransferDbObj;
 use erc20_payment_lib_common::{
     DriverEvent, DriverEventContent, FaucetData, SharedInfoTx, StatusProperty,
     TransactionFailedReason, TransactionStuckReason, Web3RpcPoolContent,
@@ -41,7 +47,6 @@ use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify};
 use tokio::task::{JoinError, JoinHandle};
 use web3::types::{Address, H256, U256};
-use erc20_payment_lib_common::model::TokenTransferDbObj;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedState {
@@ -1137,7 +1142,6 @@ pub async fn close_deposit(
     from: Address,
     opt: CloseDepositOptionsInt,
 ) -> Result<(), PaymentError> {
-
     //let mut block_info: Option<Web3BlockInfo> = None;
     if !opt.skip_deposit_check {
         let deposit_details =
@@ -1158,14 +1162,20 @@ pub async fn close_deposit(
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
 
-
-    let current_token_transfers = get_token_transfers_by_deposit_id(&mut *db_transaction, chain_id as i64, &format!("{:#x}", opt.deposit_id))
-        .await
-        .map_err(err_from!())?;
+    let current_token_transfers = get_token_transfers_by_deposit_id(
+        &mut *db_transaction,
+        chain_id as i64,
+        &format!("{:#x}", opt.deposit_id),
+    )
+    .await
+    .map_err(err_from!())?;
 
     for tt in &current_token_transfers {
         if tt.deposit_finish > 0 {
-            return Err(err_custom_create!("Deposit {} already being closed or closed", opt.deposit_id));
+            return Err(err_custom_create!(
+                "Deposit {} already being closed or closed",
+                opt.deposit_id
+            ));
         }
     }
     let mut candidate_for_mark_close: Option<&TokenTransferDbObj> = None;
@@ -1186,7 +1196,9 @@ pub async fn close_deposit(
     if let Some(tt) = candidate_for_mark_close {
         let mut tt = tt.clone();
         tt.deposit_finish = 1;
-        update_token_transfer(&mut *db_transaction, &tt).await.map_err(err_from!())?;
+        update_token_transfer(&mut *db_transaction, &tt)
+            .await
+            .map_err(err_from!())?;
     } else {
         //empty transfer is just a marker that we need deposit to be closed
         let new_tt = TokenTransferDbObj {
@@ -1205,9 +1217,10 @@ pub async fn close_deposit(
             fee_paid: None,
             error: None,
         };
-        insert_token_transfer(&mut *db_transaction, &new_tt).await.map_err(err_from!())?;
+        insert_token_transfer(&mut *db_transaction, &new_tt)
+            .await
+            .map_err(err_from!())?;
     }
-
 
     //let mut db_transaction = conn.begin().await.map_err(err_from!())?;
     //let make_deposit_tx = insert_tx(&mut *db_transaction, &free_deposit_tx_id)
