@@ -5,11 +5,7 @@ use erc20_payment_lib_common::ops::*;
 
 use crate::error::{AllowanceRequest, ErrorBag, PaymentError};
 
-use crate::transaction::{
-    create_erc20_deposit_transfer, create_erc20_transfer, create_erc20_transfer_multi,
-    create_erc20_transfer_multi_deposit, create_eth_transfer, MultiTransferArgs,
-    MultiTransferDepositArgs,
-};
+use crate::transaction::{create_close_deposit, create_erc20_deposit_transfer, create_erc20_transfer, create_erc20_transfer_multi, create_erc20_transfer_multi_deposit, create_eth_transfer, MultiTransferArgs, MultiTransferDepositArgs};
 
 use crate::setup::PaymentSetup;
 use crate::{err_create, err_custom_create, err_from};
@@ -51,7 +47,7 @@ pub struct TokenTransferMultiOrder {
 pub async fn gather_transactions_pre(
     account: &SignerAccount,
     conn: &SqlitePool,
-    _payment_setup: &PaymentSetup,
+    payment_setup: &PaymentSetup,
 ) -> Result<TokenTransferMap, PaymentError> {
     let mut transfer_map = TokenTransferMap::new();
 
@@ -78,6 +74,45 @@ pub async fn gather_transactions_pre(
             Err(_err) => {
                 f.error = Some("Invalid from address".to_string());
                 update_token_transfer(conn, f).await.map_err(err_from!())?;
+                continue;
+            }
+        }
+        if let Some(deposit_id) = f.deposit_id.as_ref() {
+            if f.deposit_finish > 0 {
+                log::info!("Creating close deposit transaction for deposit id: {}", deposit_id);
+
+                let deposit_id_u256 = U256::from_str(deposit_id).map_err(
+                    |err| err_custom_create!("Invalid deposit id: {}", deposit_id),
+                )?;
+
+                let lock_contract_address = payment_setup.chain_setup.get(&f.chain_id).ok_or(err_custom_create!(
+                        "No setup found for chain id: {}",
+                        f.chain_id
+                    ))?.lock_contract_address.ok_or(err_custom_create!(
+                        "Lock contract address not set for chain id: {}",
+                        f.chain_id
+                    ))?;
+
+                let from_addr = Address::from_str(&f.from_addr).map_err(err_from!())?;
+
+
+                let close_deposit_tx_id = create_close_deposit(
+                    from_addr,
+                    lock_contract_address,
+                    f.chain_id as u64,
+                    None,
+                    deposit_id_u256,
+                )?;
+
+                let mut transaction = conn.begin().await.map_err(err_from!())?;
+
+                let new_tx = insert_tx(&mut *transaction, &close_deposit_tx_id).await.map_err(err_from!())?;
+
+                let mut tt = f.clone();
+                tt.tx_id = Some(new_tx.id);
+                update_token_transfer(&mut *transaction, &tt).await.map_err(err_from!())?;
+
+                transaction.commit().await.map_err(err_from!())?;
                 continue;
             }
         }
@@ -356,6 +391,7 @@ pub async fn gather_transactions_batch(
                 ))?;
             let deposit_id = U256::from_str(deposit_id)
                 .map_err(|err| err_custom_create!("Invalid deposit id: {}", err))?;
+
             create_erc20_deposit_transfer(
                 Address::from_str(&token_transfer.from_addr).map_err(err_from!())?,
                 Address::from_str(&token_transfer.receiver_addr).map_err(err_from!())?,

@@ -502,7 +502,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                     token_addr: token,
                     token_amount: amount_str,
                     deposit_id: single_transfer_options.deposit_id,
-                    deposit_final: 0,
+                    deposit_finish: 0,
                     create_date: Default::default(),
                     tx_id: None,
                     paid_date: None,

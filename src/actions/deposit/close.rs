@@ -71,6 +71,8 @@ pub async fn close_deposit_local(
                 .expect("No lock contract found"),
             deposit_id,
             skip_deposit_check: close_deposit_options.skip_check,
+            token_address: chain_cfg
+                .token.address,
         },
     )
     .await?;

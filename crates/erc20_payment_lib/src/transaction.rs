@@ -130,7 +130,7 @@ pub fn create_token_transfer(
         token_addr: token_addr.map(|addr| format!("{addr:#x}")),
         token_amount: token_amount.to_string(),
         deposit_id,
-        deposit_final: 0,
+        deposit_finish: 0,
         create_date: Utc::now(),
         tx_id: None,
         paid_date: None,

@@ -13,7 +13,7 @@ pub struct TokenTransferDbObj {
     pub token_amount: String,
     /// If set payment done from internal deposit
     pub deposit_id: Option<String>,
-    pub deposit_final: i64,
+    pub deposit_finish: i64,
     /// The time when the record is inserted into the database
     /// It is override when inserting new entry to db
     pub create_date: DateTime<Utc>,

@@ -1,15 +1,11 @@
 use crate::signer::{Signer, SignerAccount};
 use crate::transaction::{
-    create_close_deposit, create_faucet_mint, create_make_deposit, create_terminate_deposit,
+    create_faucet_mint, create_make_deposit, create_terminate_deposit,
     create_token_transfer, find_receipt_extended, FindReceiptParseResult,
 };
 use crate::{err_custom_create, err_from};
 use erc20_payment_lib_common::create_sqlite_connection;
-use erc20_payment_lib_common::ops::{
-    cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx,
-    get_transaction_chain, get_transactions, get_unpaid_token_transfers,
-    insert_token_transfer_with_deposit_check, insert_tx,
-};
+use erc20_payment_lib_common::ops::{cleanup_allowance_tx, cleanup_token_transfer_tx, delete_tx, get_last_unsent_tx, get_token_transfers_by_deposit_id, get_transaction_chain, get_transactions, get_unpaid_token_transfers, insert_token_transfer, insert_token_transfer_with_deposit_check, insert_tx, update_token_transfer};
 use std::collections::BTreeMap;
 use std::ops::DerefMut;
 use std::path::PathBuf;
@@ -45,6 +41,7 @@ use std::time::Duration;
 use tokio::sync::{broadcast, mpsc, Mutex, Notify};
 use tokio::task::{JoinError, JoinHandle};
 use web3::types::{Address, H256, U256};
+use erc20_payment_lib_common::model::TokenTransferDbObj;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SharedState {
@@ -1124,6 +1121,7 @@ pub struct CloseDepositOptionsInt {
     pub lock_contract_address: Address,
     pub skip_deposit_check: bool,
     pub deposit_id: U256,
+    pub token_address: Address,
 }
 
 pub struct TerminateDepositOptionsInt {
@@ -1139,13 +1137,6 @@ pub async fn close_deposit(
     from: Address,
     opt: CloseDepositOptionsInt,
 ) -> Result<(), PaymentError> {
-    let free_deposit_tx_id = create_close_deposit(
-        from,
-        opt.lock_contract_address,
-        chain_id,
-        None,
-        opt.deposit_id,
-    )?;
 
     //let mut block_info: Option<Web3BlockInfo> = None;
     if !opt.skip_deposit_check {
@@ -1166,12 +1157,65 @@ pub async fn close_deposit(
     }
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-    let make_deposit_tx = insert_tx(&mut *db_transaction, &free_deposit_tx_id)
+
+
+    let current_token_transfers = get_token_transfers_by_deposit_id(&mut *db_transaction, chain_id as i64, &format!("{:#x}", opt.deposit_id))
         .await
         .map_err(err_from!())?;
+
+    for tt in &current_token_transfers {
+        if tt.deposit_finish > 0 {
+            return Err(err_custom_create!("Deposit {} already being closed or closed", opt.deposit_id));
+        }
+    }
+    let mut candidate_for_mark_close: Option<&TokenTransferDbObj> = None;
+    for tt in &current_token_transfers {
+        if tt.tx_id.is_none() {
+            if let Some(old_tx) = candidate_for_mark_close {
+                if old_tx.id < tt.id {
+                    candidate_for_mark_close = Some(tt);
+                } else {
+                    candidate_for_mark_close = Some(old_tx);
+                }
+            } else {
+                candidate_for_mark_close = Some(tt);
+            }
+        }
+    }
+
+    if let Some(tt) = candidate_for_mark_close {
+        let mut tt = tt.clone();
+        tt.deposit_finish = 1;
+        update_token_transfer(&mut *db_transaction, &tt).await.map_err(err_from!())?;
+    } else {
+        //empty transfer is just a marker that we need deposit to be closed
+        let new_tt = TokenTransferDbObj {
+            id: 0,
+            payment_id: Some(format!("close_deposit_{:#x}", opt.deposit_id)),
+            from_addr: format!("{:#x}", from),
+            receiver_addr: format!("{:#x}", Address::zero()),
+            chain_id: chain_id as i64,
+            token_addr: Some(format!("{:#x}", opt.token_address)),
+            token_amount: "0".to_string(),
+            deposit_id: Some(format!("{:#x}", opt.deposit_id)),
+            deposit_finish: 1,
+            create_date: chrono::Utc::now(),
+            tx_id: None,
+            paid_date: None,
+            fee_paid: None,
+            error: None,
+        };
+        insert_token_transfer(&mut *db_transaction, &new_tt).await.map_err(err_from!())?;
+    }
+
+
+    //let mut db_transaction = conn.begin().await.map_err(err_from!())?;
+    //let make_deposit_tx = insert_tx(&mut *db_transaction, &free_deposit_tx_id)
+    //    .await
+    //    .map_err(err_from!())?;
     db_transaction.commit().await.map_err(err_from!())?;
 
-    log::info!("Close deposit added to queue: {}", make_deposit_tx.id);
+    //log::info!("Close deposit added to queue: {}", make_deposit_tx.id);
     Ok(())
 }
 
