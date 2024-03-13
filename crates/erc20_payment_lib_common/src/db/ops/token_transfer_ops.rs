@@ -241,6 +241,7 @@ pub async fn get_pending_token_transfers(
 WHERE tx_id is null
 AND error is null
 AND from_addr = $1
+ORDER by id ASC
 ",
     )
     .bind(format!("{:#x}", account))
