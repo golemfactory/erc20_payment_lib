@@ -47,13 +47,10 @@ jobs:
           echo "Eth address 3: $ETH_ADDRESS_3"
           echo "Eth address 4: $ETH_ADDRESS_4"
 
-      - name: Get ETH from faucet for account 0
+      - name: Get ETH from faucet for account 1 and 2
         run: |
-          erc20_processor get-dev-eth --account-no 0
-
-      - name: Get ETH from faucet for account 0
-        run: |
-          erc20_processor get-dev-eth --account-no 0
+          erc20_processor get-dev-eth --account-no 1
+          erc20_processor get-dev-eth --account-no 2
 
       - name: Check ETH balance after getting funds from faucet (should be 0.01)
         run: |
