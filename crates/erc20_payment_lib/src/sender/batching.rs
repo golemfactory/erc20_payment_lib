@@ -48,8 +48,6 @@ pub struct TokenTransferMultiOrder {
     token_transfers: Vec<TokenTransferDbObj>,
 }
 
-
-
 pub async fn gather_transactions_pre(
     account: &SignerAccount,
     conn: &SqlitePool,
@@ -84,9 +82,10 @@ pub async fn gather_transactions_pre(
             }
         }
         if let Some(deposit_id) = f.deposit_id.as_ref() {
-            if f.deposit_finish > 0 &&
-                Address::from_str(&f.receiver_addr).ok() == Some(Address::zero())
-                && U256::from_dec_str(&f.token_amount).ok() == Some(U256::zero()) {
+            if f.deposit_finish > 0
+                && Address::from_str(&f.receiver_addr).ok() == Some(Address::zero())
+                && U256::from_dec_str(&f.token_amount).ok() == Some(U256::zero())
+            {
                 log::info!(
                     "Creating close deposit transaction for deposit id: {}",
                     deposit_id
