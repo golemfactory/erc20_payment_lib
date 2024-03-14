@@ -52,6 +52,7 @@ pub async fn gather_transactions_pre(
     account: &SignerAccount,
     conn: &SqlitePool,
     payment_setup: &PaymentSetup,
+    process_tx_needed: &mut bool,
 ) -> Result<TokenTransferMap, PaymentError> {
     let mut transfer_map = TokenTransferMap::new();
 
@@ -130,6 +131,7 @@ pub async fn gather_transactions_pre(
                     .map_err(err_from!())?;
 
                 transaction.commit().await.map_err(err_from!())?;
+                *process_tx_needed = true;
                 continue;
             }
         }
