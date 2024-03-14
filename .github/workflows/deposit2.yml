@@ -1,4 +1,4 @@
-name: Deposit tests
+name: Deposit tests 2
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   test_deposit:
-    name: Test Deposit
+    name: Test Deposit 2
     timeout-minutes: 20
 
     runs-on: ubuntu-latest
@@ -87,30 +87,27 @@ jobs:
       - name: Make single transfer without deposit
         run: |
           set -x 
-          erc20_processor transfer --account-no 1 --amount 0.0001 --recipient $ETH_ADDRESS_4
           erc20_processor run
 
       - name: Make multiple transfers from deposit
         run: |
           set -x 
-          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_0
-          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_3
-          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001 --recipient $ETH_ADDRESS_4
-          erc20_processor run
-          erc20_processor balance
-
-      - name: Make multiple transfer without deposit
-        run: |
-          set -x 
-          erc20_processor transfer --account-no 1 --amount 0.0001 --recipient $ETH_ADDRESS_0
-          erc20_processor transfer --account-no 1 --amount 0.0001 --recipient $ETH_ADDRESS_3
           erc20_processor transfer --account-no 1 --amount 0.0001 --recipient $ETH_ADDRESS_4
-          erc20_processor run
-          erc20_processor balance
-
-      - name: Close deposit
-        run: |
-          set -x 
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.000134   --recipient $ETH_ADDRESS_0
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001632   --recipient $ETH_ADDRESS_3
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001724   --recipient $ETH_ADDRESS_4
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.000163   --recipient random
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001235   --recipient random
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001634 --recipient random
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.000173   --recipient random
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001346   --recipient random
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.0001346   --recipient random
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.000136   --recipient random
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.000145   --recipient random
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.00016    --recipient random
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.000173   --recipient random
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.000145   --recipient random
+          erc20_processor transfer --deposit-id $DEPOSIT_ID1 --account-no 2 --amount 0.000164   --recipient random
           erc20_processor deposit close --deposit-id $DEPOSIT_ID0 --account-no 2
           erc20_processor deposit close --deposit-id $DEPOSIT_ID1 --account-no 2
           erc20_processor run

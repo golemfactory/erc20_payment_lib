@@ -94,6 +94,17 @@ pub fn encode_deposit_transfer(
     )
 }
 
+pub fn encode_deposit_transfer_and_close(
+    deposit_id: U256,
+    packed: Vec<[u8; 32]>,
+) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(
+        &LOCK_CONTRACT_TEMPLATE,
+        "depositTransferAndClose",
+        (deposit_id, packed),
+    )
+}
+
 pub fn encode_multi_direct(
     recipients: Vec<Address>,
     amounts: Vec<U256>,
@@ -176,6 +187,18 @@ pub fn encode_payout_single(
     contract_encode(
         &LOCK_CONTRACT_TEMPLATE,
         "depositSingleTransfer",
+        (id, recipient, amount),
+    )
+}
+
+pub fn encode_payout_single_and_close(
+    id: U256,
+    recipient: Address,
+    amount: U256,
+) -> Result<Vec<u8>, web3::ethabi::Error> {
+    contract_encode(
+        &LOCK_CONTRACT_TEMPLATE,
+        "depositSingleTransferAndClose",
         (id, recipient, amount),
     )
 }

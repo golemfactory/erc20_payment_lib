@@ -573,25 +573,33 @@ pub async fn service_loop(
                 continue;
             }
         }
+
         metrics::counter!(metric_label_gather_pre, 1);
 
         log::debug!("Gathering payments...");
-        let mut token_transfer_map =
-            match gather_transactions_pre(&signer_account, conn, payment_setup).await {
-                Ok(token_transfer_map) => token_transfer_map,
-                Err(e) => {
-                    metrics::counter!(metric_label_gather_pre_error, 1);
-                    log::error!(
+
+        let mut token_transfer_map = match gather_transactions_pre(
+            &signer_account,
+            conn,
+            payment_setup,
+            &mut process_tx_needed,
+        )
+        .await
+        {
+            Ok(token_transfer_map) => token_transfer_map,
+            Err(e) => {
+                metrics::counter!(metric_label_gather_pre_error, 1);
+                log::error!(
                     "Error in gather transactions, driver will be stuck, Fix DB to continue {:?}",
                     e
                 );
-                    tokio::time::sleep(std::time::Duration::from_secs(
-                        payment_setup.process_interval_after_error,
-                    ))
-                    .await;
-                    continue;
-                }
-            };
+                tokio::time::sleep(std::time::Duration::from_secs(
+                    payment_setup.process_interval_after_error,
+                ))
+                .await;
+                continue;
+            }
+        };
         metrics::counter!(metric_label_gather_post, 1);
 
         match gather_transactions_post(

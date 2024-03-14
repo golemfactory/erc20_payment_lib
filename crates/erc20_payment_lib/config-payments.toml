@@ -122,13 +122,13 @@ https://rpc.ankr.com/eth_goerli,
 priority = 0
 max-timeout-ms = 5000
 verify-interval-secs = 60
-allowed-head-behind-secs = 60
+allowed-head-behind-secs = 12000
 
 [[chain.goerli.rpc-endpoints]]
 priority = 0
 max-timeout-ms = 5000
 verify-interval-secs = 60
-allowed-head-behind-secs = 120
+allowed-head-behind-secs = 12000
 dns-source = "goerli.rpc-node.dev.golem.network."
 
 
@@ -137,7 +137,7 @@ chain-name = "Holesky"
 chain-id = 17000
 currency-symbol = "tETH"
 priority-fee = 0.000001
-max-fee-per-gas = 10.0
+max-fee-per-gas = 20.0
 transaction-timeout = 100
 token = { address = "0x8888888815bf4DB87e57B609A50f938311EEd068", symbol = "tGLM" }
 multi-contract = { address = "0xAaAAAaA00E1841A63342db7188abA84BDeE236c7", max-at-once = 10 }

@@ -130,6 +130,7 @@ pub fn create_token_transfer(
         token_addr: token_addr.map(|addr| format!("{addr:#x}")),
         token_amount: token_amount.to_string(),
         deposit_id,
+        deposit_finish: 0,
         create_date: Utc::now(),
         tx_id: None,
         paid_date: None,
@@ -177,26 +178,55 @@ pub fn create_erc20_transfer(
     })
 }
 
+pub struct SingleTransferDepositArgs {
+    pub from: Address,
+    pub lock_contract: Address,
+    pub erc20_to: Address,
+    pub erc20_amount: U256,
+    pub chain_id: u64,
+    pub gas_limit: Option<u64>,
+    pub deposit_id: U256,
+    pub deposit_finish: bool,
+}
+
 pub fn create_erc20_deposit_transfer(
-    from: Address,
-    erc20_to: Address,
-    erc20_amount: U256,
-    chain_id: u64,
-    gas_limit: Option<u64>,
-    lock_contract_address: Address,
-    deposit_id: U256,
+    single_args: SingleTransferDepositArgs,
 ) -> Result<TxDbObj, PaymentError> {
-    Ok(TxDbObj {
-        method: "LOCK.depositSingleTransfer".to_string(),
-        from_addr: format!("{from:#x}"),
-        to_addr: format!("{lock_contract_address:#x}"),
-        chain_id: chain_id as i64,
-        gas_limit: gas_limit.map(|gas_limit| gas_limit as i64),
-        call_data: Some(hex::encode(
-            encode_payout_single(deposit_id, erc20_to, erc20_amount).map_err(err_from!())?,
-        )),
-        ..Default::default()
-    })
+    if !single_args.deposit_finish {
+        Ok(TxDbObj {
+            method: "LOCK.depositSingleTransfer".to_string(),
+            from_addr: format!("{:#x}", single_args.from),
+            to_addr: format!("{:#x}", single_args.lock_contract),
+            chain_id: single_args.chain_id as i64,
+            gas_limit: single_args.gas_limit.map(|gas_limit| gas_limit as i64),
+            call_data: Some(hex::encode(
+                encode_payout_single(
+                    single_args.deposit_id,
+                    single_args.erc20_to,
+                    single_args.erc20_amount,
+                )
+                .map_err(err_from!())?,
+            )),
+            ..Default::default()
+        })
+    } else {
+        Ok(TxDbObj {
+            method: "LOCK.depositSingleTransferAndClose".to_string(),
+            from_addr: format!("{:#x}", single_args.from),
+            to_addr: format!("{:#x}", single_args.lock_contract),
+            chain_id: single_args.chain_id as i64,
+            gas_limit: single_args.gas_limit.map(|gas_limit| gas_limit as i64),
+            call_data: Some(hex::encode(
+                encode_payout_single_and_close(
+                    single_args.deposit_id,
+                    single_args.erc20_to,
+                    single_args.erc20_amount,
+                )
+                .map_err(err_from!())?,
+            )),
+            ..Default::default()
+        })
+    }
 }
 
 pub struct MultiTransferDepositArgs {
@@ -207,6 +237,7 @@ pub struct MultiTransferDepositArgs {
     pub chain_id: u64,
     pub gas_limit: Option<u64>,
     pub deposit_id: U256,
+    pub deposit_finish: bool,
 }
 
 pub fn create_erc20_transfer_multi_deposit(
@@ -215,16 +246,30 @@ pub fn create_erc20_transfer_multi_deposit(
     let (packed, _sum) =
         pack_transfers_for_multi_contract(multi_args.erc20_to, multi_args.erc20_amount)?;
 
-    let data = encode_deposit_transfer(multi_args.deposit_id, packed).map_err(err_from!())?;
-    Ok(TxDbObj {
-        method: "LOCK.depositTransfer".to_string(),
-        from_addr: format!("{:#x}", multi_args.from),
-        to_addr: format!("{:#x}", multi_args.lock_contract),
-        chain_id: multi_args.chain_id as i64,
-        gas_limit: multi_args.gas_limit.map(|gas_limit| gas_limit as i64),
-        call_data: Some(hex::encode(data)),
-        ..Default::default()
-    })
+    if !multi_args.deposit_finish {
+        let data = encode_deposit_transfer(multi_args.deposit_id, packed).map_err(err_from!())?;
+        Ok(TxDbObj {
+            method: "LOCK.depositTransfer".to_string(),
+            from_addr: format!("{:#x}", multi_args.from),
+            to_addr: format!("{:#x}", multi_args.lock_contract),
+            chain_id: multi_args.chain_id as i64,
+            gas_limit: multi_args.gas_limit.map(|gas_limit| gas_limit as i64),
+            call_data: Some(hex::encode(data)),
+            ..Default::default()
+        })
+    } else {
+        let data = encode_deposit_transfer_and_close(multi_args.deposit_id, packed)
+            .map_err(err_from!())?;
+        Ok(TxDbObj {
+            method: "LOCK.depositTransferAndClose".to_string(),
+            from_addr: format!("{:#x}", multi_args.from),
+            to_addr: format!("{:#x}", multi_args.lock_contract),
+            chain_id: multi_args.chain_id as i64,
+            gas_limit: multi_args.gas_limit.map(|gas_limit| gas_limit as i64),
+            call_data: Some(hex::encode(data)),
+            ..Default::default()
+        })
+    }
 }
 
 pub struct MultiTransferArgs {
