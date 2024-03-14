@@ -573,9 +573,11 @@ pub async fn service_loop(
                 continue;
             }
         }
+
         metrics::counter!(metric_label_gather_pre, 1);
 
         log::debug!("Gathering payments...");
+
         let mut token_transfer_map =
             match gather_transactions_pre(&signer_account, conn, payment_setup).await {
                 Ok(token_transfer_map) => token_transfer_map,
