@@ -942,6 +942,33 @@ impl PaymentRuntime {
         Ok(())
     }
 
+    pub async fn distribute_gas(
+        &self,
+        chain_name: &str,
+        from: Address,
+    ) -> Result<(), PaymentError> {
+        let chain_cfg = self.config.chain.get(chain_name).ok_or(err_custom_create!(
+            "Chain {} not found in config file",
+            chain_name
+        ))?;
+        let golem_address = chain_cfg.token.address;
+        let web3 = self.setup.get_provider(chain_cfg.chain_id)?;
+
+        let res = mint_golem_token(
+            web3,
+            &self.conn,
+            chain_cfg.chain_id as u64,
+            from,
+            golem_address,
+            chain_cfg.mint_contract.clone().map(|c| c.address),
+            false,
+        )
+            .await;
+        self.wake.notify_one();
+        res
+    }
+
+
     pub async fn mint_golem_token(
         &self,
         chain_name: &str,
@@ -1027,6 +1054,25 @@ impl VerifyTransactionResult {
     pub fn rejected(&self) -> bool {
         matches!(self, Self::Rejected { .. })
     }
+}
+
+pub async fn distribute_gas(
+    web3: Arc<Web3RpcPool>,
+    conn: &SqlitePool,
+    chain_id: u64,
+    from: Address,
+    faucet_contract_address: Option<Address>,
+    skip_balance_check: bool,
+) -> Result<(), PaymentError> {
+    let faucet_contract_address = if let Some(faucet_contract_address) = faucet_contract_address {
+        faucet_contract_address
+    } else {
+        return Err(err_custom_create!(
+            "Faucet/mint contract address unknown. If not sure try on holesky network"
+        ));
+    };
+
+
 }
 
 pub async fn mint_golem_token(
@@ -1365,6 +1411,7 @@ pub async fn make_deposit(
     log::info!("Make deposit added to queue: {}", make_deposit_tx.id);
     Ok(())
 }
+
 
 pub async fn get_token_balance(
     web3: Arc<Web3RpcPool>,

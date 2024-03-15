@@ -111,7 +111,7 @@ impl Web3RpcPool {
                                 }
                                 return Err(web3::Error::Rpc(e));
                             } else {
-                                log::warn!("Unknown RPC error: {}", e);
+                                log::warn!("Unknown RPC error when calling {} from endpoint {}: {}", EthMethodCall::METHOD, self.get_name(idx),e);
                                 self.mark_rpc_error(
                                     idx,
                                     EthMethodCall::METHOD.to_string(),

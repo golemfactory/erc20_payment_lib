@@ -75,6 +75,7 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::MintTestTokens { .. } => {}
         PaymentCommands::Deposit { .. } => {}
         PaymentCommands::Transfer { .. } => {}
+        PaymentCommands::Distribute { .. } => {}
         PaymentCommands::Balance { .. } => {}
         PaymentCommands::ImportPayments { .. } => {}
         PaymentCommands::ScanBlockchain { .. } => {}
@@ -275,6 +276,40 @@ async fn main_internal() -> Result<(), PaymentError> {
             check_web3_rpc_options,
         } => {
             check_rpc_local(check_web3_rpc_options, config).await?;
+        }
+        PaymentCommands::Distribute {
+            distribute_options
+        } => {
+            let public_addr = if let Some(address) = distribute_options.address {
+                address
+            } else if let Some(account_no) = distribute_options.account_no {
+                *public_addrs
+                    .get(account_no)
+                    .expect("No public adss found with specified account_no")
+            } else {
+                *public_addrs.first().expect("No public adss found")
+            };
+            let chain_cfg = config
+                .chain
+                .get(&distribute_options.chain_name)
+                .ok_or(err_custom_create!(
+                    "Chain {} not found in config file",
+                    distribute_options.chain_name
+                ))?;
+
+            let payment_setup = PaymentSetup::new_empty(&config)?;
+            let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
+
+            distribute_gas(
+                web3,
+                &conn.clone().unwrap(),
+                chain_cfg.chain_id as u64,
+                public_addr,
+                chain_cfg.token.address,
+                chain_cfg.mint_contract.clone().map(|c| c.address),
+                true,
+            )
+                .await?;
         }
         PaymentCommands::GetDevEth {
             get_dev_eth_options,

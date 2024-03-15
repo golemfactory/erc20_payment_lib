@@ -26,6 +26,8 @@ lazy_static! {
     };
     pub static ref LOCK_CONTRACT_TEMPLATE: Contract<Http> =
         prepare_contract_template(include_bytes!("../contracts/lock_payments.json")).unwrap();
+    pub static ref DISTRIBUTOR_CONTRACT_TEMPLATE: Contract<Http> =
+        prepare_contract_template(include_bytes!("../contracts/distributor.json")).unwrap();
 }
 
 pub fn prepare_contract_template(json_abi: &[u8]) -> Result<Contract<Http>, PaymentError> {

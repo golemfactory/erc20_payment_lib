@@ -91,6 +91,12 @@ pub struct LockContractSettings {
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "kebab-case")]
+pub struct DistributorContractSettings {
+    pub address: Address,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct FaucetClientSettings {
     pub max_eth_allowed: Decimal,
     pub faucet_srv: String,
@@ -128,6 +134,7 @@ pub struct Chain {
     pub multi_contract: Option<MultiContractSettings>,
     pub mint_contract: Option<MintContractSettings>,
     pub lock_contract: Option<LockContractSettings>,
+    pub distributor_contract: Option<DistributorContractSettings>,
     pub faucet_client: Option<FaucetClientSettings>,
     pub transaction_timeout: u64,
     pub confirmation_blocks: u64,
