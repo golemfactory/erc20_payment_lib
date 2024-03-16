@@ -35,8 +35,8 @@ use crate::stats::{export_stats, run_stats};
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::runtime::{
-    get_token_balance, mint_golem_token, remove_last_unsent_transactions, remove_transaction_force,
-    PaymentRuntimeArgs,
+    distribute_gas, get_token_balance, mint_golem_token, remove_last_unsent_transactions,
+    remove_transaction_force, PaymentRuntimeArgs,
 };
 use erc20_payment_lib::server::web::{runtime_web_scope, ServerData};
 use erc20_payment_lib::setup::PaymentSetup;
@@ -277,9 +277,7 @@ async fn main_internal() -> Result<(), PaymentError> {
         } => {
             check_rpc_local(check_web3_rpc_options, config).await?;
         }
-        PaymentCommands::Distribute {
-            distribute_options
-        } => {
+        PaymentCommands::Distribute { distribute_options } => {
             let public_addr = if let Some(address) = distribute_options.address {
                 address
             } else if let Some(account_no) = distribute_options.account_no {
@@ -289,27 +287,54 @@ async fn main_internal() -> Result<(), PaymentError> {
             } else {
                 *public_addrs.first().expect("No public adss found")
             };
-            let chain_cfg = config
-                .chain
-                .get(&distribute_options.chain_name)
-                .ok_or(err_custom_create!(
-                    "Chain {} not found in config file",
-                    distribute_options.chain_name
-                ))?;
+            let chain_cfg =
+                config
+                    .chain
+                    .get(&distribute_options.chain_name)
+                    .ok_or(err_custom_create!(
+                        "Chain {} not found in config file",
+                        distribute_options.chain_name
+                    ))?;
 
             let payment_setup = PaymentSetup::new_empty(&config)?;
             let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
+
+            let mut recipients = Vec::with_capacity(distribute_options.recipients.len());
+
+            for recipient in distribute_options.recipients.split(';') {
+                let recipient = recipient.trim();
+                recipients.push(check_address_name(recipient).map_err(|e| {
+                    err_custom_create!("Invalid recipient address {}, {}", recipient, e)
+                })?);
+            }
+
+            let amounts = distribute_options
+                .amounts
+                .split(';')
+                .map(|s| {
+                    let s = s.trim();
+                    Decimal::from_str(s)
+                        .map_err(|e| err_custom_create!("Invalid amount {}, {}", s, e))
+                })
+                .collect::<Result<Vec<Decimal>, PaymentError>>()?;
+
+            if amounts.len() != recipients.len() {
+                return Err(err_custom_create!(
+                    "Number of recipients and amounts must be the same"
+                ));
+            }
 
             distribute_gas(
                 web3,
                 &conn.clone().unwrap(),
                 chain_cfg.chain_id as u64,
                 public_addr,
-                chain_cfg.token.address,
-                chain_cfg.mint_contract.clone().map(|c| c.address),
-                true,
+                chain_cfg.distributor_contract.clone().map(|c| c.address),
+                false,
+                &recipients,
+                &amounts,
             )
-                .await?;
+            .await?;
         }
         PaymentCommands::GetDevEth {
             get_dev_eth_options,

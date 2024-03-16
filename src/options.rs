@@ -184,15 +184,19 @@ pub struct DistributeOptions {
     #[structopt(long = "account-no", help = "Address by index (for convenience)")]
     pub account_no: Option<usize>,
 
-    #[structopt(short = "r", long = "recipients", help = "Recipient")]
+    #[structopt(
+        short = "r",
+        long = "recipients",
+        help = "Recipient (semicolon separated)"
+    )]
     pub recipients: String,
 
     #[structopt(
         short = "a",
-        long = "amount",
-        help = "Amount (decimal, full precision, i.e. 0.01)"
+        long = "amounts",
+        help = "Amounts (decimal, full precision, i.e. 0.01;0.002, separate by semicolon)"
     )]
-    pub amounts: Vec<rust_decimal::Decimal>,
+    pub amounts: String,
 }
 
 #[derive(StructOpt)]
