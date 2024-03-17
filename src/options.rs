@@ -173,6 +173,33 @@ pub struct WithdrawTokensOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Distribute token (gas) options")]
+pub struct DistributeOptions {
+    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    pub chain_name: String,
+
+    #[structopt(long = "address", help = "Address (has to have private key)")]
+    pub address: Option<Address>,
+
+    #[structopt(long = "account-no", help = "Address by index (for convenience)")]
+    pub account_no: Option<usize>,
+
+    #[structopt(
+        short = "r",
+        long = "recipients",
+        help = "Recipient (semicolon separated)"
+    )]
+    pub recipients: String,
+
+    #[structopt(
+        short = "a",
+        long = "amounts",
+        help = "Amounts (decimal, full precision, i.e. 0.01;0.002, separate by semicolon)"
+    )]
+    pub amounts: String,
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Single transfer options")]
 pub struct TransferOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
@@ -411,6 +438,10 @@ pub enum PaymentCommands {
     Transfer {
         #[structopt(flatten)]
         single_transfer_options: TransferOptions,
+    },
+    Distribute {
+        #[structopt(flatten)]
+        distribute_options: DistributeOptions,
     },
     Balance {
         #[structopt(flatten)]
