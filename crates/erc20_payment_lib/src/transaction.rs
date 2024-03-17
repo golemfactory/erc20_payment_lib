@@ -335,6 +335,7 @@ pub fn create_distribute_transaction(
     recipients: &[Address],
     amounts: &[U256],
 ) -> Result<TxDbObj, PaymentError> {
+    let sum_amounts = amounts.iter().fold(U256::zero(), |acc, x| acc + x);
     Ok(TxDbObj {
         method: "DISTRIBUTOR.distribute".to_string(),
         from_addr: format!("{from:#x}"),
@@ -344,6 +345,7 @@ pub fn create_distribute_transaction(
         call_data: Some(hex::encode(
             encode_distribute(recipients, amounts).map_err(err_from!())?,
         )),
+        val: sum_amounts.to_string(),
         ..Default::default()
     })
 }
