@@ -20,8 +20,10 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
+use chrono::{DateTime, Utc};
 use tokio::sync::Mutex;
 use web3::types::{Address, BlockId, BlockNumber, U256};
+use erc20_payment_lib_common::model::ChainTransferDbObj;
 
 pub struct ServerData {
     pub shared_state: Arc<std::sync::Mutex<SharedState>>,
@@ -662,6 +664,112 @@ async fn new_transfer(
     Ok("success".to_string())
 }
 
+#[derive(Deserialize)]
+struct StatsTransferRequest {
+    account: Option<String>,
+    from: Option<String>,
+    chain: Option<String>
+}
+
+
+#[derive(Debug, Serialize)]
+struct StatsTransferResult {
+    transfers: Vec<ChainTransferRespObj>,
+}
+
+
+#[derive(Serialize, sqlx::FromRow, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ChainTransferRespObj {
+    pub id: i64,
+    pub from_addr: String,
+    pub receiver_addr: String,
+    pub chain_id: i64,
+    pub token_addr: Option<String>,
+    pub token_amount: String,
+    pub tx_hash: String,
+    pub block_number: i64,
+    pub fee_paid: Option<String>,
+    pub block_date: DateTime<Utc>,
+    pub block_timestamp: i64,
+}
+
+
+pub async fn stats_transfers(
+    data: Data<Box<ServerData>>,
+    info: web::Query<StatsTransferRequest>
+) -> actix_web::Result<web::Json<StatsTransferResult>> {
+    let account = Address::from_str(
+        &info.account.clone().ok_or(actix_web::error::ErrorBadRequest("account not found"))?,
+    )
+    .map_err(|err| {
+        actix_web::error::ErrorBadRequest(format!("account has to be valid address {err}"))
+    })?;
+
+    let from = chrono::DateTime::from_timestamp(
+        i64::from_str(&info.from.clone().ok_or(actix_web::error::ErrorBadRequest("From not found"))?).map_err(
+            |err| actix_web::error::ErrorBadRequest(format!("From is not a valid timestamp {err}"))
+        )?, 0
+    )
+        .ok_or(
+        actix_web::error::ErrorBadRequest(format!("From is not a valid timestamp."))
+    )?;
+    let chain_id =
+        i64::from_str(&info.chain.clone().ok_or(actix_web::error::ErrorBadRequest("Chain id not found"))?).map_err(
+            |err| actix_web::error::ErrorBadRequest(format!("Chain id a valid {err}"))
+        )?;
+
+
+    let conn = data.db_connection.lock().await.clone();
+    let transf = get_all_chain_transfers(&conn, None).await;
+    let transf = transf.map_err(|err| {
+        actix_web::error::ErrorBadRequest(format!("Unknown server error: {}", err))
+    })?;
+
+    let txs = get_chain_txs_by_chain_id(&conn, chain_id, None).await
+        .map_err(
+            |err| actix_web::error::ErrorBadRequest(format!("Unknown server error: {}", err))
+        )?;
+    let map_txs = txs.iter().map(|tx| (tx.id, tx.clone())).collect::<BTreeMap<_, _>>();
+
+
+    let account_str = format!("{:#x}", account);
+    let mut resp = Vec::new();
+    for trans in transf.iter() {
+        let Some(blockchain_date) = trans.blockchain_date else {
+            continue;
+        };
+
+        if blockchain_date < from {
+            continue;
+        }
+        if trans.receiver_addr != account_str {
+            continue;
+        }
+
+        let tx = map_txs.get(&trans.chain_tx_id).map(|tx| tx.clone());
+        let Some(tx) = tx else {
+            continue;
+        };
+        resp.push(ChainTransferRespObj {
+            id: trans.id,
+            from_addr: trans.from_addr.clone(),
+            receiver_addr: trans.receiver_addr.clone(),
+            chain_id: trans.chain_id,
+            token_addr: trans.token_addr.clone(),
+            token_amount: trans.token_amount.clone(),
+            tx_hash: tx.tx_hash,
+            block_number: tx.block_number,
+            fee_paid: trans.fee_paid.clone(),
+            block_date: blockchain_date.clone(),
+            block_timestamp: blockchain_date.timestamp()
+        })
+    }
+
+    //serialize
+    Ok(web::Json(StatsTransferResult { transfers: resp }))
+}
+
 pub async fn transfers(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Responder {
     let tx_id = req
         .match_info()
@@ -1088,6 +1196,7 @@ pub fn runtime_web_scope(
         .route("/rpc_pool", web::get().to(rpc_pool))
         .route("/rpc_pool/metrics", web::get().to(rpc_pool_metrics))
         .route("/config", web::get().to(config_endpoint))
+        .route("/stats/transfers", web::get().to(stats_transfers))
         .route("/transactions", web::get().to(transactions))
         .route("/transactions/count", web::get().to(transactions_count))
         .route("/transactions/next", web::get().to(transactions_next))

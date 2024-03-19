@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use serde::Serialize;
+use serde::{Serialize};
 
 #[derive(Serialize, sqlx::FromRow, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -14,6 +14,8 @@ pub struct ChainTransferDbObj {
     pub fee_paid: Option<String>,
     pub blockchain_date: Option<DateTime<Utc>>,
 }
+
+
 /*
 #[derive(Serialize, sqlx::FromRow, Debug, Clone)]
 #[serde(rename_all = "camelCase")]

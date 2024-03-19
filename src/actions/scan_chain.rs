@@ -111,6 +111,7 @@ async fn scan_auto_step(
         (start_block, end_block, true)
     } else {
         if scan_info.start_block <= scan_blockchain_options.from_block.unwrap_or(1) as i64 {
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
             return Ok(());
         }
 
@@ -127,7 +128,6 @@ async fn scan_auto_step(
             );
             return Ok(());
         }
-
     };
 
     log::info!(
