@@ -408,6 +408,7 @@ impl PaymentRuntime {
     fn start_service_loop(
         &self,
         signer_address: Address,
+        netr
         notify: Arc<Notify>,
         extra_testing: Option<ExtraOptionsForTesting>,
         options: AdditionalOptions,
