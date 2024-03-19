@@ -651,6 +651,7 @@ impl PaymentRuntime {
             return false;
         }
         for chain_id in self.chains() {
+            log::info!("Starting service loop for account: {} and chain id: {}", payment_account.address, chain_id);
             let jh = self.start_service_loop(
                 payment_account.address,
                 chain_id,
@@ -1082,7 +1083,7 @@ pub async fn mint_golem_token(
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
     let filter = "method=\"FAUCET.create\" AND fee_paid is NULL";
 
-    let tx_existing = get_transactions(&mut *db_transaction, Some(from), Some(filter), None, None)
+    let tx_existing = get_transactions(&mut *db_transaction, Some(from), Some(filter), None, None, Some(chain_id as i64))
         .await
         .map_err(err_from!())?;
 
@@ -1468,7 +1469,7 @@ pub async fn deposit_funds(
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
     let filter = "method=\"LOCK.deposit\" AND fee_paid is NULL";
-    let tx_existing = get_transactions(&mut *db_transaction, Some(from), Some(filter), None, None)
+    let tx_existing = get_transactions(&mut *db_transaction, Some(from), Some(filter), None, None, Some(chain_id as i64))
         .await
         .map_err(err_from!())?;
 

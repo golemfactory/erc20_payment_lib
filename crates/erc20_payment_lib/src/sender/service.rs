@@ -266,12 +266,12 @@ pub async fn process_transactions(
 
     let mut current_wait_time_no_gas_token: f64 = 0.0;
     loop {
-        let mut trans_option =
-            get_next_transaction(conn, chain_id, &format!("{:#x}", signer_account.address))
+        let mut transactions =
+            get_next_transactions_to_process(conn, Some(signer_account.address), 1, chain_id)
                 .await
                 .map_err(err_from!())?;
 
-        let Some(tx) = trans_option.as_mut() else {
+        let Some(tx) = transactions.get_mut(0) else {
             log::debug!("No transactions to process, breaking from loop");
             break;
         };
@@ -499,7 +499,7 @@ pub async fn service_loop(
     let mut process_tx_needed;
     let mut last_stats_time: Option<Instant> = None;
     loop {
-        log::debug!("Sender service loop - start loop");
+        log::info!("Sender service loop - start loop chain id: {} - account: {:#x}", chain_id, account);
         metrics::counter!(metric_label_start, 1);
         let signer_account = match shared_state
             .lock()
