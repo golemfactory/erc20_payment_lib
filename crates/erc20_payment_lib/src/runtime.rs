@@ -591,9 +591,9 @@ impl PaymentRuntime {
 
         for account in lock_shared_state.accounts.iter() {
             for jh in account.jh.lock().unwrap().iter().flatten() {
-                    if !jh.is_finished() {
-                        return true;
-                    }
+                if !jh.is_finished() {
+                    return true;
+                }
             }
         }
         false
@@ -659,7 +659,6 @@ impl PaymentRuntime {
                 options.clone(),
             );
             payment_account.jh.lock().as_mut().unwrap().push(Some(jh));
-
         }
         sh.accounts.push(payment_account);
 

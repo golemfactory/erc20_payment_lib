@@ -49,7 +49,7 @@ impl SignerAccount {
                 if !jh.is_finished() {
                     return true;
                 }
-             }
+            }
         }
         false
     }
