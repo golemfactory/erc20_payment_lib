@@ -408,7 +408,7 @@ impl PaymentRuntime {
     fn start_service_loop(
         &self,
         signer_address: Address,
-        netr
+        chain_id: i64,
         notify: Arc<Notify>,
         extra_testing: Option<ExtraOptionsForTesting>,
         options: AdditionalOptions,
@@ -463,6 +463,7 @@ impl PaymentRuntime {
             } else {
                 service_loop(
                     shared_state_clone,
+                    chain_id,
                     signer_address,
                     notify,
                     &conn,
@@ -570,31 +571,45 @@ impl PaymentRuntime {
     }
 
     fn get_and_remove_tasks(&self) -> Vec<JoinHandle<()>> {
-        self.shared_state
-            .lock()
-            .unwrap()
-            .accounts
-            .iter_mut()
-            .filter_map(|a| a.jh.lock().unwrap().take())
-            .collect()
+        let mut task_handles = Vec::new();
+        let mut lock_shared_state = self.shared_state.lock().unwrap();
+
+        //this shouldn't end in deadlock. It just extracts all handles and removes them from the lists
+        for account in lock_shared_state.accounts.iter_mut() {
+            for jh in account.jh.lock().unwrap().iter_mut() {
+                if let Some(jh) = jh.take() {
+                    task_handles.push(jh);
+                }
+            }
+        }
+
+        task_handles
     }
 
     pub fn is_any_task_running(&self) -> bool {
-        self.shared_state.lock().unwrap().accounts.iter().any(|a| {
-            a.jh.lock()
-                .unwrap()
-                .as_ref()
-                .is_some_and(|jh| !jh.is_finished())
-        })
+        let lock_shared_state = self.shared_state.lock().unwrap();
+
+        for account in lock_shared_state.accounts.iter() {
+            for jh in account.jh.lock().unwrap().iter().flatten() {
+                    if !jh.is_finished() {
+                        return true;
+                    }
+            }
+        }
+        false
     }
 
     pub fn is_any_task_finished(&self) -> bool {
-        self.shared_state.lock().unwrap().accounts.iter().any(|a| {
-            a.jh.lock()
-                .unwrap()
-                .as_ref()
-                .is_some_and(|jh| jh.is_finished())
-        })
+        let lock_shared_state = self.shared_state.lock().unwrap();
+
+        for account in lock_shared_state.accounts.iter() {
+            for jh in account.jh.lock().unwrap().iter().flatten() {
+                if jh.is_finished() {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     pub async fn join_tasks(&self) -> Result<(), JoinError> {
@@ -635,13 +650,17 @@ impl PaymentRuntime {
             log::error!("Account already added: {}", payment_account);
             return false;
         }
-        let jh = self.start_service_loop(
-            payment_account.address,
-            self.wake.clone(),
-            extra_testing,
-            options,
-        );
-        *payment_account.jh.lock().unwrap() = Some(jh);
+        for chain_id in self.chains() {
+            let jh = self.start_service_loop(
+                payment_account.address,
+                chain_id,
+                self.wake.clone(),
+                extra_testing.clone(),
+                options.clone(),
+            );
+            payment_account.jh.lock().as_mut().unwrap().push(Some(jh));
+
+        }
         sh.accounts.push(payment_account);
 
         true

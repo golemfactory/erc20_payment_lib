@@ -13,6 +13,26 @@ pub const TRANSACTION_ORDER_BY_ID_AND_REPLACEMENT_ID: &str = "orig_tx_id DESC,id
 pub const TRANSACTION_ORDER_BY_CREATE_DATE: &str = "created_date ASC";
 pub const TRANSACTION_ORDER_BY_FIRST_PROCESSED_DATE_DESC: &str = "first_processed DESC";
 
+pub async fn get_next_transaction<'c, E>(
+    executor: E,
+    chain_id: i64,
+    account: &str,
+) -> Result<Option<TxDbObj>, sqlx::Error>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let res = sqlx::query_as::<_, TxDbObj>(
+        r"SELECT * FROM tx
+        WHERE chain_id = $1 AND from_addr = $2 AND processing > 0 AND first_processed IS NULL
+        ORDER BY id ASC LIMIT 1",
+    )
+    .bind(chain_id)
+    .bind(account)
+    .fetch_optional(executor)
+    .await?;
+    Ok(res)
+}
+
 pub async fn get_transactions<'c, E>(
     executor: E,
     account: Option<Address>,
