@@ -52,12 +52,13 @@ pub struct TokenTransferMultiOrder {
 
 pub async fn gather_transactions_pre(
     account: &SignerAccount,
+    chain_id: i64,
     conn: &SqlitePool,
     _payment_setup: &PaymentSetup,
 ) -> Result<TokenTransferMap, PaymentError> {
     let mut transfer_map = TokenTransferMap::new();
 
-    let mut token_transfers = get_pending_token_transfers(conn, account.address)
+    let mut token_transfers = get_pending_token_transfers(conn, account.address, chain_id)
         .await
         .map_err(err_from!())?;
 

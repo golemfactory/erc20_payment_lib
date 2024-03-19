@@ -576,7 +576,7 @@ pub async fn service_loop(
 
         log::debug!("Gathering payments...");
         let mut token_transfer_map =
-            match gather_transactions_pre(&signer_account, conn, payment_setup).await {
+            match gather_transactions_pre(&signer_account, chain_id, conn, payment_setup).await {
                 Ok(token_transfer_map) => token_transfer_map,
                 Err(e) => {
                     metrics::counter!(metric_label_gather_pre_error, 1);
