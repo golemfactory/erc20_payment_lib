@@ -9,6 +9,7 @@ use actix_web::http::header::HeaderValue;
 use actix_web::http::{header, StatusCode};
 use actix_web::web::Data;
 use actix_web::{web, HttpRequest, HttpResponse, Responder, Scope};
+use chrono::{DateTime, Utc};
 use erc20_payment_lib_common::ops::*;
 use erc20_payment_lib_common::utils::datetime_from_u256_timestamp;
 use erc20_payment_lib_common::{export_metrics_to_prometheus, FaucetData};
@@ -20,7 +21,6 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
-use chrono::{DateTime, Utc};
 use tokio::sync::Mutex;
 use web3::types::{Address, BlockId, BlockNumber, U256};
 
@@ -665,18 +665,17 @@ async fn new_transfer(
 
 #[derive(Deserialize)]
 pub struct StatsTransferRequest {
-    account: Option<String>,
+    receiver: Option<String>,
     from: Option<String>,
     to: Option<String>,
-    chain: Option<String>
+    chain: Option<String>,
 }
-
 
 #[derive(Debug, Serialize)]
 pub struct StatsTransferResult {
+    request_time: f64,
     transfers: Vec<ChainTransferRespObj>,
 }
-
 
 #[derive(Serialize, sqlx::FromRow, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -694,60 +693,80 @@ pub struct ChainTransferRespObj {
     pub block_timestamp: i64,
 }
 
-
 pub async fn stats_transfers(
     data: Data<Box<ServerData>>,
-    info: web::Query<StatsTransferRequest>
+    info: web::Query<StatsTransferRequest>,
 ) -> actix_web::Result<web::Json<StatsTransferResult>> {
-    let account = if info.account.clone() == Some("all".to_string()) {
+    let time_start = std::time::Instant::now();
+    let receiver = if info.receiver.clone() == Some("all".to_string()) {
         None
     } else {
         let account = Address::from_str(
-            &info.account.clone().ok_or(actix_web::error::ErrorBadRequest("account not found"))?,
+            &info
+                .receiver
+                .clone()
+                .ok_or(actix_web::error::ErrorBadRequest("account not found"))?,
         )
-            .map_err(|err| {
-                actix_web::error::ErrorBadRequest(format!("account has to be valid address {err}"))
-            })?;
+        .map_err(|err| {
+            actix_web::error::ErrorBadRequest(format!("account has to be valid address {err}"))
+        })?;
         Some(account)
     };
-    let account_str =account.map(|account| format!("{:#x}", account));
-
+    let account_str = receiver.map(|account| format!("{:#x}", account));
 
     let from = chrono::DateTime::from_timestamp(
-        i64::from_str(&info.from.clone().ok_or(actix_web::error::ErrorBadRequest("From not found"))?).map_err(
-            |err| actix_web::error::ErrorBadRequest(format!("From is not a valid timestamp {err}"))
-        )?, 0
+        i64::from_str(
+            &info
+                .from
+                .clone()
+                .ok_or(actix_web::error::ErrorBadRequest("From not found"))?,
+        )
+        .map_err(|err| {
+            actix_web::error::ErrorBadRequest(format!("From is not a valid timestamp {err}"))
+        })?,
+        0,
     )
-        .ok_or(
-        actix_web::error::ErrorBadRequest("From is not a valid timestamp.")
-    )?;
+    .ok_or(actix_web::error::ErrorBadRequest(
+        "From is not a valid timestamp.",
+    ))?;
     let to = chrono::DateTime::from_timestamp(
-        i64::from_str(&info.to.clone().ok_or(actix_web::error::ErrorBadRequest("To not found"))?).map_err(
-            |err| actix_web::error::ErrorBadRequest(format!("To is not a valid timestamp {err}"))
-        )?, 0
+        i64::from_str(
+            &info
+                .to
+                .clone()
+                .ok_or(actix_web::error::ErrorBadRequest("To not found"))?,
+        )
+        .map_err(|err| {
+            actix_web::error::ErrorBadRequest(format!("To is not a valid timestamp {err}"))
+        })?,
+        0,
     )
-        .ok_or(
-            actix_web::error::ErrorBadRequest("To is not a valid timestamp.")
-        )?;
+    .ok_or(actix_web::error::ErrorBadRequest(
+        "To is not a valid timestamp.",
+    ))?;
 
-    let chain_id =
-        i64::from_str(&info.chain.clone().ok_or(actix_web::error::ErrorBadRequest("Chain id not found"))?).map_err(
-            |err| actix_web::error::ErrorBadRequest(format!("Chain id a valid {err}"))
-        )?;
-
+    let chain_id = i64::from_str(
+        &info
+            .chain
+            .clone()
+            .ok_or(actix_web::error::ErrorBadRequest("Chain id not found"))?,
+    )
+    .map_err(|err| actix_web::error::ErrorBadRequest(format!("Chain id a valid {err}")))?;
 
     let conn = data.db_connection.lock().await.clone();
-    let transf = get_all_chain_transfers(&conn, chain_id, from, to, None).await;
-    let transf = transf.map_err(|err| {
-        actix_web::error::ErrorBadRequest(format!("Unknown server error: {}", err))
-    })?;
-
-    let txs = get_chain_txs_by_chain_id_and_dates(&conn, chain_id, from, to, None).await
-        .map_err(
-            |err| actix_web::error::ErrorBadRequest(format!("Unknown server error: {}", err))
-        )?;
-    let map_txs = txs.iter().map(|tx| (tx.id, tx.clone())).collect::<BTreeMap<_, _>>();
-
+    let transf = if let Some(receiver) = account_str.as_ref() {
+        let transf =
+            get_all_chain_transfers_by_receiver_ext(&conn, chain_id, from, to, receiver, None)
+                .await;
+        transf.map_err(|err| {
+            actix_web::error::ErrorBadRequest(format!("Unknown server error: {}", err))
+        })?
+    } else {
+        let transf = get_all_chain_transfers_ext(&conn, chain_id, from, to, None).await;
+        transf.map_err(|err| {
+            actix_web::error::ErrorBadRequest(format!("Unknown server error: {}", err))
+        })?
+    };
 
     let mut resp = Vec::new();
     for trans in transf.iter() {
@@ -764,10 +783,6 @@ pub async fn stats_transfers(
             }
         }
 
-        let tx = map_txs.get(&trans.chain_tx_id).cloned();
-        let Some(tx) = tx else {
-            continue;
-        };
         resp.push(ChainTransferRespObj {
             id: trans.id,
             from_addr: trans.from_addr.clone(),
@@ -775,16 +790,20 @@ pub async fn stats_transfers(
             chain_id: trans.chain_id,
             token_addr: trans.token_addr.clone(),
             token_amount: trans.token_amount.clone(),
-            tx_hash: tx.tx_hash,
-            block_number: tx.block_number,
+            tx_hash: trans.tx_hash.clone(),
+            block_number: trans.block_number,
             fee_paid: trans.fee_paid.clone(),
             block_date: blockchain_date,
-            block_timestamp: blockchain_date.timestamp()
+            block_timestamp: blockchain_date.timestamp(),
         })
     }
 
+    let time_end = time_start.elapsed().as_secs_f64();
     //serialize
-    Ok(web::Json(StatsTransferResult { transfers: resp }))
+    Ok(web::Json(StatsTransferResult {
+        request_time: time_end,
+        transfers: resp,
+    }))
 }
 
 pub async fn transfers(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Responder {

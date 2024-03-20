@@ -321,7 +321,6 @@ pub async fn scan_blockchain_local(
             }
         }
 
-
         scan_int(
             conn.clone(),
             &scan_blockchain_options,

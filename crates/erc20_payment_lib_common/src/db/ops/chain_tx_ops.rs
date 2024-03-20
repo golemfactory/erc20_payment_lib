@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use super::model::ChainTxDbObj;
+use chrono::{DateTime, Utc};
 use sqlx::Executor;
 use sqlx::Sqlite;
 use sqlx::SqlitePool;
@@ -51,10 +51,10 @@ pub async fn get_chain_txs_by_chain_id(
     let rows = sqlx::query_as::<_, ChainTxDbObj>(
         r"SELECT * FROM chain_tx WHERE chain_id = $1 ORDER by id DESC LIMIT $2",
     )
-        .bind(chain_id)
-        .bind(limit)
-        .fetch_all(conn)
-        .await?;
+    .bind(chain_id)
+    .bind(limit)
+    .fetch_all(conn)
+    .await?;
     Ok(rows)
 }
 
