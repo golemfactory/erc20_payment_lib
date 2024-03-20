@@ -29,4 +29,5 @@ pub struct ChainTransferDbObjExt {
     pub blockchain_date: Option<DateTime<Utc>>,
     pub tx_hash: String,
     pub block_number: i64,
+    pub to_addr: String,
 }

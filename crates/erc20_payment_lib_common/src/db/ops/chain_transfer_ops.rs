@@ -39,7 +39,7 @@ pub async fn get_all_chain_transfers_ext(
 ) -> Result<Vec<ChainTransferDbObjExt>, sqlx::Error> {
     let limit = limit.unwrap_or(i64::MAX);
     let rows = sqlx::query_as::<_, ChainTransferDbObjExt>(
-        r"SELECT ct.*, cx.tx_hash, cx.block_number FROM chain_transfer as ct JOIN chain_tx as cx ON ct.chain_tx_id = cx.id WHERE ct.chain_id = $1 AND ct.blockchain_date >= $2 AND ct.blockchain_date <= $3 ORDER by id DESC LIMIT $4",
+        r"SELECT ct.*, cx.tx_hash, cx.block_number, cx.to_addr FROM chain_transfer as ct JOIN chain_tx as cx ON ct.chain_tx_id = cx.id WHERE ct.chain_id = $1 AND ct.blockchain_date >= $2 AND ct.blockchain_date <= $3 ORDER by id DESC LIMIT $4",
     )
         .bind(chain_id)
         .bind(from)
@@ -60,7 +60,7 @@ pub async fn get_all_chain_transfers_by_receiver_ext(
 ) -> Result<Vec<ChainTransferDbObjExt>, sqlx::Error> {
     let limit = limit.unwrap_or(i64::MAX);
     let rows = sqlx::query_as::<_, ChainTransferDbObjExt>(
-        r"SELECT ct.*, cx.tx_hash, cx.block_number FROM chain_transfer as ct JOIN chain_tx as cx ON ct.chain_tx_id = cx.id WHERE ct.chain_id = $1 AND ct.blockchain_date >= $2 AND ct.blockchain_date <= $3 AND ct.receiver_addr = $4 ORDER by id DESC LIMIT $5",
+        r"SELECT ct.*, cx.tx_hash, cx.block_number, cx.to_addr FROM chain_transfer as ct JOIN chain_tx as cx ON ct.chain_tx_id = cx.id WHERE ct.chain_id = $1 AND ct.blockchain_date >= $2 AND ct.blockchain_date <= $3 AND ct.receiver_addr = $4 ORDER by id DESC LIMIT $5",
     )
         .bind(chain_id)
         .bind(from)
