@@ -499,7 +499,7 @@ pub async fn service_loop(
     let mut process_tx_needed;
     let mut last_stats_time: Option<Instant> = None;
     loop {
-        log::info!(
+        log::debug!(
             "Sender service loop - start loop chain id: {} - account: {:#x}",
             chain_id,
             account

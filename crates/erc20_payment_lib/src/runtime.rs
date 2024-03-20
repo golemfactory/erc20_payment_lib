@@ -624,7 +624,7 @@ impl PaymentRuntime {
         extra_testing: Option<ExtraOptionsForTesting>,
         options: AdditionalOptions,
     ) -> bool {
-        log::info!("Adding account: {}", payment_account);
+        log::debug!("Adding account: {}", payment_account);
         let mut sh = self.shared_state.lock().unwrap();
 
         if sh
@@ -636,7 +636,7 @@ impl PaymentRuntime {
             return false;
         }
         for chain_id in self.chains() {
-            log::info!(
+            log::debug!(
                 "Starting service loop for account: {} and chain id: {}",
                 payment_account.address,
                 chain_id
