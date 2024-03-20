@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use super::model::ChainTransferDbObj;
 use sqlx::Executor;
 use sqlx::Sqlite;
@@ -31,12 +32,18 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
 
 pub async fn get_all_chain_transfers(
     conn: &SqlitePool,
+    chain_id: i64,
+    from: DateTime<Utc>,
+    to: DateTime<Utc>,
     limit: Option<i64>,
 ) -> Result<Vec<ChainTransferDbObj>, sqlx::Error> {
     let limit = limit.unwrap_or(i64::MAX);
     let rows = sqlx::query_as::<_, ChainTransferDbObj>(
-        r"SELECT * FROM chain_transfer ORDER by id DESC LIMIT $1",
+        r"SELECT * FROM chain_transfer WHERE chain_id = $1 AND blockchain_date >= $2 AND blockchain_date <= $3 ORDER by id DESC LIMIT $4",
     )
+        .bind(chain_id)
+    .bind(from)
+    .bind(to)
     .bind(limit)
     .fetch_all(conn)
     .await?;

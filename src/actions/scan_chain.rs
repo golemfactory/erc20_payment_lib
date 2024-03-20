@@ -14,7 +14,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 use web3::types::Address;
 
-#[allow(clippy::too_many_arguments)]
 async fn scan_int(
     conn: SqlitePool,
     scan_blockchain_options: &ScanBlockchainOptions,
@@ -22,7 +21,6 @@ async fn scan_int(
     web3: Arc<Web3RpcPool>,
     start_block: i64,
     end_block: i64,
-    current_block: i64,
     sender: Option<Address>,
 ) -> Result<(), PaymentError> {
     let txs = import_erc20_txs(ImportErc20TxsArgs {
@@ -144,7 +142,6 @@ async fn scan_auto_step(
         web3.clone(),
         start_block,
         end_block,
-        current_block,
         sender,
     )
     .await?;
@@ -324,12 +321,7 @@ pub async fn scan_blockchain_local(
             }
         }
 
-        let current_end_block = std::cmp::min(
-            end_block,
-            start_block + scan_blockchain_options.blocks_at_once as i64,
-        );
 
-        let mut scan_info = scan_info.clone();
         scan_int(
             conn.clone(),
             &scan_blockchain_options,
@@ -337,7 +329,6 @@ pub async fn scan_blockchain_local(
             web3.clone(),
             start_block,
             end_block,
-            current_end_block,
             sender,
         )
         .await?;
