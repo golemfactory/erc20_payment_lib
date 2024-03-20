@@ -691,6 +691,8 @@ pub struct ChainTransferRespObj {
     pub fee_paid: Option<String>,
     pub block_date: DateTime<Utc>,
     pub block_timestamp: i64,
+    pub to_addr: String,
+    pub caller_addr: String,
 }
 
 pub async fn stats_transfers(
@@ -769,7 +771,7 @@ pub async fn stats_transfers(
     };
 
     let mut resp = Vec::new();
-    for trans in transf.iter() {
+    for trans in transf.into_iter() {
         let Some(blockchain_date) = trans.blockchain_date else {
             continue;
         };
@@ -785,16 +787,18 @@ pub async fn stats_transfers(
 
         resp.push(ChainTransferRespObj {
             id: trans.id,
-            from_addr: trans.from_addr.clone(),
-            receiver_addr: trans.receiver_addr.clone(),
+            from_addr: trans.from_addr,
+            receiver_addr: trans.receiver_addr,
             chain_id: trans.chain_id,
-            token_addr: trans.token_addr.clone(),
-            token_amount: trans.token_amount.clone(),
-            tx_hash: trans.tx_hash.clone(),
+            token_addr: trans.token_addr,
+            token_amount: trans.token_amount,
+            tx_hash: trans.tx_hash,
             block_number: trans.block_number,
-            fee_paid: trans.fee_paid.clone(),
+            fee_paid: trans.fee_paid,
             block_date: blockchain_date,
             block_timestamp: blockchain_date.timestamp(),
+            to_addr: trans.to_addr,
+            caller_addr: trans.caller_addr,
         })
     }
 

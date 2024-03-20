@@ -30,4 +30,5 @@ pub struct ChainTransferDbObjExt {
     pub tx_hash: String,
     pub block_number: i64,
     pub to_addr: String,
+    pub caller_addr: String,
 }
