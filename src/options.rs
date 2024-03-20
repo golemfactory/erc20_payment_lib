@@ -357,7 +357,7 @@ pub struct CleanupOptions {
     pub remove_tx_unsafe: bool,
 
     #[structopt(long = "chain-id", help = "Chain id to use")]
-    pub chain_id: i64,
+    pub chain_id: Option<i64>,
 }
 
 #[derive(StructOpt)]

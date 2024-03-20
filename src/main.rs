@@ -953,7 +953,9 @@ async fn main_internal() -> Result<(), PaymentError> {
                     &conn.clone().unwrap(),
                     None,
                     1,
-                    cleanup_options.chain_id,
+                    cleanup_options.chain_id.ok_or(err_custom_create!(
+                        "Chain id not specified for stuck tx removal"
+                    ))?,
                 )
                 .await
                 .map_err(err_from!())?;
@@ -988,7 +990,9 @@ async fn main_internal() -> Result<(), PaymentError> {
                     &conn.clone().unwrap(),
                     None,
                     1,
-                    cleanup_options.chain_id,
+                    cleanup_options.chain_id.ok_or(err_custom_create!(
+                        "Chain id not specified for unsafe tx removal"
+                    ))?,
                 )
                 .await
                 .map_err(err_from!())?;
