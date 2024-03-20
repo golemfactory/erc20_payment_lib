@@ -167,7 +167,7 @@ AND chain_id = $2
 ",
     )
     .bind(format!("{:#x}", account))
-        .bind(chain_id)
+    .bind(chain_id)
     .fetch_all(conn)
     .await?;
     Ok(rows)

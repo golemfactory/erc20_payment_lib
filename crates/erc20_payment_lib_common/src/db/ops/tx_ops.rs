@@ -39,7 +39,7 @@ pub async fn get_transactions<'c, E>(
     filter: Option<&str>,
     limit: Option<i64>,
     order: Option<&str>,
-    chain_id: Option<i64>
+    chain_id: Option<i64>,
 ) -> Result<Vec<TxDbObj>, sqlx::Error>
 where
     E: Executor<'c, Database = Sqlite>,
@@ -170,7 +170,7 @@ pub async fn get_next_transactions_to_process(
     conn: &SqlitePool,
     account: Option<Address>,
     limit: i64,
-    chain_id: i64
+    chain_id: i64,
 ) -> Result<Vec<TxDbObj>, sqlx::Error> {
     get_transactions(
         conn,
@@ -178,7 +178,7 @@ pub async fn get_next_transactions_to_process(
         Some(TRANSACTION_FILTER_TO_PROCESS),
         Some(limit),
         Some(TRANSACTION_ORDER_BY_ID_AND_REPLACEMENT_ID),
-        Some(chain_id)
+        Some(chain_id),
     )
     .await
 }

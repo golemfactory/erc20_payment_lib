@@ -499,7 +499,11 @@ pub async fn service_loop(
     let mut process_tx_needed;
     let mut last_stats_time: Option<Instant> = None;
     loop {
-        log::info!("Sender service loop - start loop chain id: {} - account: {:#x}", chain_id, account);
+        log::info!(
+            "Sender service loop - start loop chain id: {} - account: {:#x}",
+            chain_id,
+            account
+        );
         metrics::counter!(metric_label_start, 1);
         let signer_account = match shared_state
             .lock()

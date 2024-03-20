@@ -949,10 +949,14 @@ async fn main_internal() -> Result<(), PaymentError> {
                 }
             }
             if cleanup_options.remove_tx_stuck {
-                let mut transactions =
-                    get_next_transactions_to_process(&conn.clone().unwrap(), None, 1, cleanup_options.chain_id)
-                        .await
-                        .map_err(err_from!())?;
+                let mut transactions = get_next_transactions_to_process(
+                    &conn.clone().unwrap(),
+                    None,
+                    1,
+                    cleanup_options.chain_id,
+                )
+                .await
+                .map_err(err_from!())?;
 
                 let Some(tx) = transactions.get_mut(0) else {
                     println!("No transactions found to remove");
@@ -980,10 +984,14 @@ async fn main_internal() -> Result<(), PaymentError> {
                 }
             }
             if cleanup_options.remove_tx_unsafe {
-                let mut transactions =
-                    get_next_transactions_to_process(&conn.clone().unwrap(), None, 1, cleanup_options.chain_id)
-                        .await
-                        .map_err(err_from!())?;
+                let mut transactions = get_next_transactions_to_process(
+                    &conn.clone().unwrap(),
+                    None,
+                    1,
+                    cleanup_options.chain_id,
+                )
+                .await
+                .map_err(err_from!())?;
 
                 let Some(tx) = transactions.get_mut(0) else {
                     println!("No transactions found to remove");
