@@ -83,7 +83,6 @@ async fn test_transfer_stuck() -> Result<(), anyhow::Error> {
                 None,
                 U256::from(0_u128),
                 None,
-                false
             )
         ).await?;
 

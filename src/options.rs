@@ -1,7 +1,9 @@
 use std::{fmt::Debug, path::PathBuf};
 
-use crate::actions::cancel_allocation::CancelAllocationOptions;
-use crate::actions::make_allocation::MakeAllocationOptions;
+use crate::actions::deposit::close::CloseDepositOptions;
+use crate::actions::deposit::create::CreateDepositOptions;
+use crate::actions::deposit::details::CheckDepositOptions;
+use crate::actions::deposit::terminate::TerminateDepositOptions;
 use erc20_payment_lib_extra::{BalanceOptions, GenerateOptions};
 use structopt::StructOpt;
 use web3::types::Address;
@@ -171,16 +173,6 @@ pub struct WithdrawTokensOptions {
 }
 
 #[derive(StructOpt)]
-#[structopt(about = "Allocate funds for use by payer")]
-pub struct CheckAllocationOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
-    pub chain_name: String,
-
-    #[structopt(long = "allocation-id", help = "Allocation id to use")]
-    pub allocation_id: u32,
-}
-
-#[derive(StructOpt)]
 #[structopt(about = "Single transfer options")]
 pub struct TransferOptions {
     #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
@@ -208,11 +200,8 @@ pub struct TransferOptions {
     )]
     pub amount: Option<rust_decimal::Decimal>,
 
-    #[structopt(long = "allocation-id")]
-    pub allocation_id: Option<String>,
-
-    #[structopt(long = "use-internal")]
-    pub use_internal: bool,
+    #[structopt(long = "deposit-id")]
+    pub deposit_id: Option<String>,
 }
 
 #[derive(StructOpt)]
@@ -367,6 +356,27 @@ pub struct CleanupOptions {
 }
 
 #[derive(StructOpt)]
+#[structopt(about = "Commands for deposit management")]
+pub enum DepositCommands {
+    Create {
+        #[structopt(flatten)]
+        make_deposit_options: CreateDepositOptions,
+    },
+    Close {
+        #[structopt(flatten)]
+        close_deposit_options: CloseDepositOptions,
+    },
+    Terminate {
+        #[structopt(flatten)]
+        terminate_deposit_options: TerminateDepositOptions,
+    },
+    Check {
+        #[structopt(flatten)]
+        check_deposit_options: CheckDepositOptions,
+    },
+}
+
+#[derive(StructOpt)]
 #[structopt(about = "Payment admin tool")]
 pub enum PaymentCommands {
     Run {
@@ -396,23 +406,7 @@ pub enum PaymentCommands {
     },
     Deposit {
         #[structopt(flatten)]
-        deposit_tokens_options: DepositTokensOptions,
-    },
-    Withdraw {
-        #[structopt(flatten)]
-        withdraw_tokens_options: WithdrawTokensOptions,
-    },
-    MakeAllocation {
-        #[structopt(flatten)]
-        make_allocation_options: MakeAllocationOptions,
-    },
-    CancelAllocation {
-        #[structopt(flatten)]
-        cancel_allocation_options: CancelAllocationOptions,
-    },
-    CheckAllocation {
-        #[structopt(flatten)]
-        check_allocation_options: CheckAllocationOptions,
+        deposit: DepositCommands,
     },
     Transfer {
         #[structopt(flatten)]

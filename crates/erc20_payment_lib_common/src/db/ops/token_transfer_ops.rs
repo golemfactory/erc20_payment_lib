@@ -1,8 +1,8 @@
 use super::model::TokenTransferDbObj;
 use crate::db::ops::get_chain_transfers_by_chain_id;
-use crate::err_from;
 use crate::error::PaymentError;
 use crate::error::*;
+use crate::{err_custom_create, err_from};
 use chrono::{DateTime, Duration, Utc};
 use sqlx::Executor;
 use sqlx::Sqlite;
@@ -11,6 +11,24 @@ use std::collections::{BTreeMap, HashSet};
 use std::ops::AddAssign;
 use std::str::FromStr;
 use web3::types::{Address, U256};
+
+pub async fn check_if_deposit_closed<'c, E>(
+    executor: E,
+    chain_id: i64,
+    deposit_id: &str,
+) -> Result<bool, sqlx::Error>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let finished_count = sqlx::query_as::<_, (i64,)>(
+        "SELECT COUNT(*) FROM token_transfer WHERE chain_id=$1 AND deposit_id=$2 AND deposit_finish=1",
+    )
+    .bind(chain_id)
+    .bind(deposit_id)
+    .fetch_one(executor)
+    .await?;
+    Ok(finished_count.0 > 0)
+}
 
 pub async fn insert_token_transfer<'c, E>(
     executor: E,
@@ -21,7 +39,7 @@ where
 {
     sqlx::query_as::<_, TokenTransferDbObj>(
         r"INSERT INTO token_transfer
-(payment_id, from_addr, receiver_addr, chain_id, token_addr, token_amount, allocation_id, use_internal, create_date, tx_id, paid_date, fee_paid, error)
+(payment_id, from_addr, receiver_addr, chain_id, token_addr, token_amount, deposit_id, deposit_finish, create_date, tx_id, paid_date, fee_paid, error)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, strftime('%Y-%m-%dT%H:%M:%f', 'now'), $9, $10, $11, $12) RETURNING *;
 ",
     )
@@ -31,14 +49,58 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, strftime('%Y-%m-%dT%H:%M:%f', 'now'), $9
     .bind(token_transfer.chain_id)
     .bind(&token_transfer.token_addr)
     .bind(&token_transfer.token_amount)
-    .bind(&token_transfer.allocation_id)
-    .bind(token_transfer.use_internal)
+    .bind(&token_transfer.deposit_id)
+    .bind(token_transfer.deposit_finish)
     .bind(token_transfer.tx_id)
     .bind(token_transfer.paid_date)
     .bind(&token_transfer.fee_paid)
     .bind(&token_transfer.error)
     .fetch_one(executor)
     .await
+}
+
+pub async fn insert_token_transfer_with_deposit_check(
+    conn: &SqlitePool,
+    token_transfer: &TokenTransferDbObj,
+) -> Result<TokenTransferDbObj, PaymentError> {
+    if let Some(deposit_id) = token_transfer.deposit_id.as_ref() {
+        let mut transaction = conn.begin().await.map_err(err_from!())?;
+        let is_finished =
+            check_if_deposit_closed(&mut *transaction, token_transfer.chain_id, deposit_id)
+                .await
+                .map_err(err_from!())?;
+        if is_finished {
+            return Err(err_custom_create!(
+                "Cannot add token_transfer to already finished deposit"
+            ));
+        }
+        let res = sqlx::query_as::<_, TokenTransferDbObj>(
+            r"INSERT INTO token_transfer
+(payment_id, from_addr, receiver_addr, chain_id, token_addr, token_amount, deposit_id, deposit_finish, create_date, tx_id, paid_date, fee_paid, error)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, strftime('%Y-%m-%dT%H:%M:%f', 'now'), $9, $10, $11, $12) RETURNING *;
+",
+        )
+            .bind(&token_transfer.payment_id)
+            .bind(&token_transfer.from_addr)
+            .bind(&token_transfer.receiver_addr)
+            .bind(token_transfer.chain_id)
+            .bind(&token_transfer.token_addr)
+            .bind(&token_transfer.token_amount)
+            .bind(&token_transfer.deposit_id)
+            .bind(token_transfer.deposit_finish)
+            .bind(token_transfer.tx_id)
+            .bind(token_transfer.paid_date)
+            .bind(&token_transfer.fee_paid)
+            .bind(&token_transfer.error)
+            .fetch_one(&mut *transaction)
+            .await.map_err(err_from!())?;
+        transaction.commit().await.map_err(err_from!())?;
+        Ok(res)
+    } else {
+        insert_token_transfer(conn, token_transfer)
+            .await
+            .map_err(err_from!())
+    }
 }
 
 pub async fn remap_token_transfer_tx<'c, E>(
@@ -96,8 +158,8 @@ receiver_addr = $4,
 chain_id = $5,
 token_addr = $6,
 token_amount = $7,
-allocation_id = $8,
-use_internal = $9,
+deposit_id = $8,
+deposit_finish = $9,
 tx_id = $10,
 paid_date = $11,
 fee_paid = $12,
@@ -112,8 +174,8 @@ WHERE id = $1
     .bind(token_transfer.chain_id)
     .bind(&token_transfer.token_addr)
     .bind(&token_transfer.token_amount)
-    .bind(&token_transfer.allocation_id)
-    .bind(token_transfer.use_internal)
+    .bind(&token_transfer.deposit_id)
+    .bind(token_transfer.deposit_finish)
     .bind(token_transfer.tx_id)
     .bind(token_transfer.paid_date)
     .bind(&token_transfer.fee_paid)
@@ -153,6 +215,24 @@ pub async fn get_token_transfers_by_chain_id(
     Ok(rows)
 }
 
+pub async fn get_token_transfers_by_deposit_id<'c, E>(
+    conn: E,
+    chain_id: i64,
+    deposit_id: &str,
+) -> Result<Vec<TokenTransferDbObj>, sqlx::Error>
+where
+    E: Executor<'c, Database = Sqlite>,
+{
+    let rows = sqlx::query_as::<_, TokenTransferDbObj>(
+        r"SELECT * FROM token_transfer WHERE chain_id = $1 AND deposit_id = $2 ORDER by id DESC",
+    )
+    .bind(chain_id)
+    .bind(deposit_id)
+    .fetch_all(conn)
+    .await?;
+    Ok(rows)
+}
+
 pub async fn get_pending_token_transfers(
     conn: &SqlitePool,
     account: Address,
@@ -162,6 +242,7 @@ pub async fn get_pending_token_transfers(
 WHERE tx_id is null
 AND error is null
 AND from_addr = $1
+ORDER by id ASC
 ",
     )
     .bind(format!("{:#x}", account))

@@ -576,8 +576,7 @@ struct TransactionRequest {
     chain: i64,
     due_date: Option<String>,
     payment_id: Option<String>,
-    allocation_id: Option<String>,
-    use_internal: bool,
+    deposit_id: Option<String>,
 }
 
 async fn new_transfer(
@@ -627,8 +626,7 @@ async fn new_transfer(
         amount: U256::from_dec_str(&new_transfer.amount).unwrap(),
         payment_id,
         deadline: due_date,
-        allocation_id: new_transfer.allocation_id.clone(),
-        use_internal: new_transfer.use_internal,
+        deposit_id: new_transfer.deposit_id.clone(),
     };
 
     let account = match data
@@ -871,7 +869,6 @@ struct AccountBalanceResponse {
     account: String,
     gas_balance: String,
     token_balance: String,
-    deposit_balance: Option<String>,
     block_number: u64,
     block_date: chrono::DateTime<chrono::Utc>,
 }
@@ -926,7 +923,6 @@ async fn account_balance(
     let balance = get_balance(
         chain.provider.clone(),
         Some(chain.glm_address),
-        chain.lock_contract_address,
         account,
         true,
         Some(block_number.as_u64()),
@@ -947,7 +943,6 @@ async fn account_balance(
             .token_balance
             .map(|b| b.to_string())
             .unwrap_or("0".to_string()),
-        deposit_balance: balance.deposit_balance.map(|b| b.to_string()),
         block_number: block_number.as_u64(),
         block_date,
     }))
@@ -1187,7 +1182,6 @@ pub async fn faucet(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Respo
                 None,
                 faucet_eth_amount,
                 None,
-                false,
             );
             let db_conn = data.db_connection.lock().await;
             return_on_error!(insert_token_transfer(&*db_conn, &tt).await)
@@ -1201,7 +1195,6 @@ pub async fn faucet(data: Data<Box<ServerData>>, req: HttpRequest) -> impl Respo
                 Some(glm_address),
                 faucet_glm_amount,
                 None,
-                false,
             );
             let db_conn = data.db_connection.lock().await;
             return_on_error!(insert_token_transfer(&*db_conn, &tt).await)

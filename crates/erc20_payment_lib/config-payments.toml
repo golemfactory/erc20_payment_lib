@@ -122,13 +122,13 @@ https://rpc.ankr.com/eth_goerli,
 priority = 0
 max-timeout-ms = 5000
 verify-interval-secs = 60
-allowed-head-behind-secs = 60
+allowed-head-behind-secs = 12000
 
 [[chain.goerli.rpc-endpoints]]
 priority = 0
 max-timeout-ms = 5000
 verify-interval-secs = 60
-allowed-head-behind-secs = 120
+allowed-head-behind-secs = 12000
 dns-source = "goerli.rpc-node.dev.golem.network."
 
 
@@ -137,12 +137,12 @@ chain-name = "Holesky"
 chain-id = 17000
 currency-symbol = "tETH"
 priority-fee = 0.000001
-max-fee-per-gas = 10.0
+max-fee-per-gas = 20.0
 transaction-timeout = 100
 token = { address = "0x8888888815bf4DB87e57B609A50f938311EEd068", symbol = "tGLM" }
 multi-contract = { address = "0xAaAAAaA00E1841A63342db7188abA84BDeE236c7", max-at-once = 10 }
 mint-contract = { address = "0xFACe100969FF47EB58d2CF603321B581A84bcEaC", max-glm-allowed = 400 }
-lock-contract = { address = "0xAca2C77b0CbeB83AB0D3BbF6Fe185cc8c18934fb" }
+lock-contract = { address = "0xfe1B27Bac0e3Ad39d55C9459ae59894De847dcbf" }
 faucet-client = { max-eth-allowed = 0.009, faucet-srv = "_holesky-faucet._tcp", faucet-host = "faucet.testnet.golem.network", faucet-lookup-domain = "dev.golem.network", faucet-srv-port = 4002 }
 confirmation-blocks = 0
 block-explorer-url = "https://holesky.etherscan.io"
@@ -177,7 +177,6 @@ max-timeout-ms = 5000
 verify-interval-secs = 60
 allowed-head-behind-secs = 120
 dns-source = "holesky.rpc-node.dev.golem.network."
-
 
 [chain.mumbai]
 chain-name = "Mumbai testnet"

@@ -88,7 +88,6 @@ pub fn generate_transaction_batch<'a>(
                 token_addr,
                 amount,
                 None,
-                false,
             );
             Ok((transfer_no, token_transfer))
         }
