@@ -84,7 +84,7 @@ async fn scan_auto_step(
         .as_u64() as i64;
 
     let scan_behind_needed =
-        scan_info.start_block <= scan_blockchain_options.from_block.unwrap_or(1) as i64;
+        scan_info.start_block < scan_blockchain_options.from_block.unwrap_or(1) as i64;
 
     let (start_block, end_block, is_forward) = if scan_behind_needed {
         if current_block - scan_info.last_block
@@ -274,7 +274,10 @@ pub async fn scan_blockchain_local(
                 Ok(wait) => {
                     log::info!("Scan step done");
                     if wait {
-                        tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
+                        tokio::time::sleep(std::time::Duration::from_secs(
+                            scan_blockchain_options.scan_interval,
+                        ))
+                        .await;
                     }
                 }
                 Err(e) => {
