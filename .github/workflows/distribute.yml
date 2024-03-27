@@ -28,9 +28,14 @@ jobs:
           cp target/debug/erc20_processor /usr/local/bin/erc20_processor
           [ $(which erc20_processor) == "/usr/local/bin/erc20_processor" ]
 
+      - name: Generate ethereum accounts
+        run: |
+          erc20_processor generate-key -n 5 > .env
+          cat .env | grep ETH_ADDRESS | sed "s/#\s//g" | sed "s/:\s/=/g" > $GITHUB_ENV
+
       - name: Distribute ETH
         run: |
-          erc20_processor distribute --amounts "0.0001;0.0001;0.0001;0.0001" --recipients "0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f;0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f;0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f;0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f"
+          erc20_processor distribute --amounts "0.0001;0.0001;0.0001;0.0001;0.0001" --recipients "$ETH_ADDRESS_0,$ETH_ADDRESS_1,$ETH_ADDRESS_2,$ETH_ADDRESS_3,$ETH_ADDRESS_4"
           erc20_processor run
         env:
           ETH_PRIVATE_KEYS: ${{ secrets.HOLESKY_FUND_ENV }}
