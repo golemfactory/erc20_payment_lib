@@ -30,7 +30,7 @@ jobs:
 
       - name: Distribute ETH
         run: |
-          echo ${{ secrets.HOLESKY_FUND_ENV }} > .env
-          cat .env
           erc20_processor distribute --amounts "0.0001;0.0001;0.0001;0.0001" --recipients "0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f;0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f;0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f;0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f"
           erc20_processor run
+        env:
+          ETH_PRIVATE_KEYS: ${{ secrets.HOLESKY_FUND_ENV }}
