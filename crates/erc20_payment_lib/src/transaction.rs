@@ -940,6 +940,13 @@ pub async fn find_receipt_extended(
     chain_tx_dao.priority_fee = tx.max_priority_fee_per_gas.map(|x| x.to_string());
     chain_tx_dao.fee_paid = (gas_used * effective_gas_price).to_string();
 
+    chain_tx_dao.method = if tx.input.0.len() >= 4 {
+        // extract method
+        format!("0x{}", hex::encode(&tx.input.0[0..4]))
+    } else {
+        "N/A".to_string()
+    };
+
     //todo: move to lazy static
     let erc20_transfer_event_signature: H256 =
         H256::from_str("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")

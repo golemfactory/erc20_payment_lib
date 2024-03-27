@@ -251,6 +251,13 @@ pub struct ScanBlockchainOptions {
     )]
     pub blocks_at_once: u64,
 
+    #[structopt(
+        long = "scan-interval",
+        default_value = "2",
+        help = "How often check for newest blocks"
+    )]
+    pub scan_interval: u64,
+
     #[structopt(long = "import-balances")]
     pub import_balances: bool,
 
