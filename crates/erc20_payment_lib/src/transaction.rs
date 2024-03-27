@@ -344,7 +344,7 @@ pub fn create_faucet_mint(
     })
 }
 
-pub fn create_make_deposit(
+pub fn create_create_deposit(
     from: Address,
     lock_address: Address,
     chain_id: u64,

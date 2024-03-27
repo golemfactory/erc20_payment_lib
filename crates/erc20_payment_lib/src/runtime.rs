@@ -1,6 +1,6 @@
 use crate::signer::{Signer, SignerAccount};
 use crate::transaction::{
-    create_faucet_mint, create_make_deposit, create_terminate_deposit, create_token_transfer,
+    create_create_deposit, create_faucet_mint, create_terminate_deposit, create_token_transfer,
     find_receipt_extended, FindReceiptParseResult,
 };
 use crate::{err_custom_create, err_from};
@@ -1377,7 +1377,7 @@ pub async fn make_deposit(
         ));
     }
 
-    let deposit_tx = create_lock_deposit(
+    let deposit_tx = create_create_deposit(
         from,
         opt.lock_contract_address,
         chain_id,
@@ -1393,12 +1393,12 @@ pub async fn make_deposit(
     )?;
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
-    let make_deposit_tx = insert_tx(&mut *db_transaction, &make_deposit_tx)
+    let deposit_tx = insert_tx(&mut *db_transaction, &deposit_tx)
         .await
         .map_err(err_from!())?;
     db_transaction.commit().await.map_err(err_from!())?;
 
-    log::info!("Make deposit added to queue: {}", make_deposit_tx.id);
+    log::info!("Create deposit added to queue: {}", deposit_tx.id);
     Ok(())
 }
 

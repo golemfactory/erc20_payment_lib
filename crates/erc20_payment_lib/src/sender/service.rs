@@ -587,6 +587,7 @@ pub async fn service_loop(
 
         let mut token_transfer_map = match gather_transactions_pre(
             &signer_account,
+            chain_id,
             conn,
             payment_setup,
             &mut process_tx_needed,
