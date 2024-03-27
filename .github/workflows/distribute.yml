@@ -39,3 +39,13 @@ jobs:
           erc20_processor run
         env:
           ETH_PRIVATE_KEYS: ${{ secrets.HOLESKY_FUND_ENV }}
+
+      - name: Transfer all left ETH tokens
+        run: |
+          set -x 
+          erc20_processor transfer --account-no 0 --recipient 0x0079dce233830c7b0cd41116214e17b93c64e030 --token eth --all
+          erc20_processor transfer --account-no 1 --recipient 0x0079dce233830c7b0cd41116214e17b93c64e030 --token eth --all
+          erc20_processor transfer --account-no 2 --recipient 0x0079dce233830c7b0cd41116214e17b93c64e030 --token eth --all
+          erc20_processor transfer --account-no 3 --recipient 0x0079dce233830c7b0cd41116214e17b93c64e030 --token eth --all
+          erc20_processor transfer --account-no 4 --recipient 0x0079dce233830c7b0cd41116214e17b93c64e030 --token eth --all
+          erc20_processor run
