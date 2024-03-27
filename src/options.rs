@@ -471,6 +471,7 @@ pub enum PaymentCommands {
         #[structopt(flatten)]
         cleanup_options: CleanupOptions,
     },
+    ShowConfig,
 }
 
 #[derive(StructOpt)]

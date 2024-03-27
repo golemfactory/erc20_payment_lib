@@ -83,6 +83,7 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::ExportHistory { .. } => {}
         PaymentCommands::DecryptKeyStore { .. } => {}
         PaymentCommands::Cleanup { .. } => {}
+        PaymentCommands::ShowConfig { .. } => {}
     }
 
     let (private_keys, public_addrs) = if private_key_load_needed {
@@ -774,6 +775,14 @@ async fn main_internal() -> Result<(), PaymentError> {
                     }
                 }
             }
+        }
+        PaymentCommands::ShowConfig => {
+            println!(
+                "{}",
+                toml::to_string_pretty(&config).map_err(|err| err_custom_create!(
+                    "Something went wrong when serializing to json {err}"
+                ))?
+            );
         }
     }
 
