@@ -2,7 +2,7 @@ mod actions;
 mod options;
 mod stats;
 
-use crate::options::{PaymentCommands, PaymentOptions};
+use crate::options::{DepositCommands, PaymentCommands, PaymentOptions};
 use actix_web::Scope;
 use actix_web::{web, App, HttpServer};
 use csv::ReaderBuilder;
@@ -11,61 +11,43 @@ use erc20_payment_lib::signer::PrivateKeySigner;
 use erc20_payment_lib_common::create_sqlite_connection;
 use erc20_payment_lib_common::error::*;
 use erc20_payment_lib_common::ops::{
-    delete_scan_info, get_next_transactions_to_process, get_scan_info, insert_token_transfer,
-    update_token_transfer, upsert_scan_info,
+    get_next_transactions_to_process, insert_token_transfer,
+    insert_token_transfer_with_deposit_check, update_token_transfer,
 };
 use erc20_payment_lib_common::*;
 
+use crate::actions::scan_chain::scan_blockchain_local;
 use erc20_payment_lib::{
     config,
     misc::{display_private_keys, load_private_keys},
-    process_allowance,
     runtime::PaymentRuntime,
 };
-
 use std::env;
 use std::str::FromStr;
 
-use crate::actions::allocation_details::allocation_details_local;
-use crate::actions::cancel_allocation::cancel_allocation_local;
+use crate::actions::check_address_name;
 use crate::actions::check_rpc::check_rpc_local;
-use crate::actions::make_allocation::make_allocation_local;
-use crate::actions::withdraw::withdraw_funds_local;
+use crate::actions::deposit::close::close_deposit_local;
+use crate::actions::deposit::create::make_deposit_local;
+use crate::actions::deposit::details::deposit_details_local;
+use crate::actions::deposit::terminate::terminate_deposit_local;
 use crate::stats::{export_stats, run_stats};
-use erc20_payment_lib::eth::check_allowance;
 use erc20_payment_lib::faucet_client::faucet_donate;
 use erc20_payment_lib::misc::gen_private_keys;
 use erc20_payment_lib::runtime::{
-    deposit_funds, get_token_balance, mint_golem_token, remove_last_unsent_transactions,
-    remove_transaction_force, PaymentRuntimeArgs,
+    get_token_balance, mint_golem_token, remove_last_unsent_transactions, remove_transaction_force,
+    PaymentRuntimeArgs,
 };
 use erc20_payment_lib::server::web::{runtime_web_scope, ServerData};
-use erc20_payment_lib::service::transaction_from_chain_and_into_db;
 use erc20_payment_lib::setup::PaymentSetup;
-use erc20_payment_lib::transaction::{import_erc20_txs, ImportErc20TxsArgs};
 use erc20_payment_lib_common::init_metrics;
-use erc20_payment_lib_common::model::{ScanDaoDbObj, TokenTransferDbObj};
-use erc20_payment_lib_common::utils::{DecimalConvExt, StringConvExt, U256ConvExt};
+use erc20_payment_lib_common::model::TokenTransferDbObj;
+use erc20_payment_lib_common::utils::{DecimalConvExt, StringConvExt};
 use erc20_payment_lib_extra::{account_balance, generate_test_payments};
 use rust_decimal::Decimal;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::sync::{broadcast, Mutex};
-use web3::ethabi::ethereum_types::Address;
-use web3::types::U256;
-
-fn check_address_name(n: &str) -> String {
-    match n {
-        "funds" => "0x333dFEa0C940Dc9971C32C69837aBE14207F9097".to_string(),
-        "dead" => "0x000000000000000000000000000000000000dEaD".to_string(),
-        "null" => "0x0000000000000000000000000000000000000000".to_string(),
-        "random" => format!(
-            "{:#x}",
-            Address::from(rand::Rng::gen::<[u8; 20]>(&mut rand::thread_rng()))
-        ),
-        _ => n.to_string(),
-    }
-}
 
 async fn main_internal() -> Result<(), PaymentError> {
     dotenv::dotenv().ok();
@@ -92,10 +74,6 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::GetDevEth { .. } => {}
         PaymentCommands::MintTestTokens { .. } => {}
         PaymentCommands::Deposit { .. } => {}
-        PaymentCommands::Withdraw { .. } => {}
-        PaymentCommands::MakeAllocation { .. } => {}
-        PaymentCommands::CancelAllocation { .. } => {}
-        PaymentCommands::CheckAllocation { .. } => {}
         PaymentCommands::Transfer { .. } => {}
         PaymentCommands::Balance { .. } => {}
         PaymentCommands::ImportPayments { .. } => {}
@@ -372,147 +350,48 @@ async fn main_internal() -> Result<(), PaymentError> {
             )
             .await?;
         }
-        PaymentCommands::Withdraw {
-            withdraw_tokens_options,
-        } => {
-            withdraw_funds_local(
-                conn.clone().unwrap(),
-                withdraw_tokens_options,
-                config,
-                &public_addrs,
-            )
-            .await?;
-        }
-        PaymentCommands::MakeAllocation {
-            make_allocation_options,
-        } => {
-            make_allocation_local(
-                conn.clone().unwrap(),
-                make_allocation_options,
-                config,
-                &public_addrs,
-            )
-            .await?;
-        }
-        PaymentCommands::CancelAllocation {
-            cancel_allocation_options,
-        } => {
-            cancel_allocation_local(
-                conn.clone().unwrap(),
-                cancel_allocation_options,
-                config,
-                &public_addrs,
-            )
-            .await?;
-        }
-        PaymentCommands::CheckAllocation {
-            check_allocation_options,
-        } => {
-            allocation_details_local(check_allocation_options, config).await?;
-        }
-        PaymentCommands::Deposit {
-            deposit_tokens_options,
-        } => {
-            log::info!("Generating test tokens...");
-            let public_addr = if let Some(address) = deposit_tokens_options.address {
-                address
-            } else if let Some(account_no) = deposit_tokens_options.account_no {
-                *public_addrs
-                    .get(account_no)
-                    .expect("No public adss found with specified account_no")
-            } else {
-                *public_addrs.first().expect("No public adss found")
-            };
-            let chain_cfg =
-                config
-                    .chain
-                    .get(&deposit_tokens_options.chain_name)
-                    .ok_or(err_custom_create!(
-                        "Chain {} not found in config file",
-                        deposit_tokens_options.chain_name
-                    ))?;
-
-            let payment_setup = PaymentSetup::new_empty(&config)?;
-            let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
-
-            if !deposit_tokens_options.skip_allowance {
-                let allowance = check_allowance(
-                    web3.clone(),
-                    public_addr,
-                    chain_cfg.token.address,
-                    chain_cfg
-                        .lock_contract
-                        .clone()
-                        .map(|c| c.address)
-                        .expect("No lock contract found"),
+        PaymentCommands::Deposit { deposit } => match deposit {
+            DepositCommands::Create {
+                make_deposit_options,
+            } => {
+                make_deposit_local(
+                    conn.clone().unwrap(),
+                    make_deposit_options,
+                    config,
+                    &public_addrs,
+                    signer,
                 )
                 .await?;
-
-                let amount = if let Some(amount) = deposit_tokens_options.amount {
-                    amount
-                } else if deposit_tokens_options.deposit_all {
-                    let payment_setup = PaymentSetup::new_empty(&config)?;
-                    get_token_balance(
-                        payment_setup.get_provider(chain_cfg.chain_id)?,
-                        chain_cfg.token.address,
-                        public_addr,
-                        None,
-                    )
-                    .await?
-                    .to_eth_saturate()
-                } else {
-                    return Err(err_custom_create!("No amount specified"));
-                };
-
-                if amount.to_u256_from_eth().map_err(err_from!())? > allowance {
-                    let allowance_request = AllowanceRequest {
-                        owner: format!("{:#x}", public_addr),
-                        token_addr: format!("{:#x}", chain_cfg.token.address),
-                        spender_addr: format!(
-                            "{:#x}",
-                            chain_cfg
-                                .lock_contract
-                                .clone()
-                                .map(|c| c.address)
-                                .expect("No mint contract")
-                        ),
-                        chain_id: chain_cfg.chain_id,
-                        amount: U256::MAX,
-                    };
-
-                    let _ = process_allowance(
-                        &conn.clone().unwrap(),
-                        &payment_setup,
-                        &allowance_request,
-                        Arc::new(Box::new(signer)),
-                        None,
-                    )
-                    .await;
-                    /*return Err(err_custom_create!(
-                        "Not enough allowance, required: {}, available: {}",
-                        deposit_tokens_options.amount.unwrap(),
-                        allowance
-                    ));*/
-                }
             }
+            DepositCommands::Close {
+                close_deposit_options,
+            } => {
+                close_deposit_local(
+                    conn.clone().unwrap(),
+                    close_deposit_options,
+                    config,
+                    &public_addrs,
+                )
+                .await?;
+            }
+            DepositCommands::Terminate {
+                terminate_deposit_options,
+            } => {
+                terminate_deposit_local(
+                    conn.clone().unwrap(),
+                    terminate_deposit_options,
+                    config,
+                    &public_addrs,
+                )
+                .await?;
+            }
+            DepositCommands::Check {
+                check_deposit_options,
+            } => {
+                deposit_details_local(check_deposit_options, config).await?;
+            }
+        },
 
-            deposit_funds(
-                web3,
-                &conn.clone().unwrap(),
-                chain_cfg.chain_id as u64,
-                public_addr,
-                chain_cfg.token.address,
-                chain_cfg
-                    .lock_contract
-                    .clone()
-                    .map(|c| c.address)
-                    .expect("No mint contract"),
-                true,
-                deposit_tokens_options.amount,
-                deposit_tokens_options.deposit_all,
-            )
-            .await?;
-        }
         PaymentCommands::GenerateKey {
             generate_key_options,
         } => {
@@ -552,8 +431,7 @@ async fn main_internal() -> Result<(), PaymentError> {
                 ));
             };
 
-            let recipient =
-                Address::from_str(&check_address_name(&single_transfer_options.recipient)).unwrap();
+            let recipient = check_address_name(&single_transfer_options.recipient).unwrap();
 
             let public_addr = if let Some(address) = single_transfer_options.address {
                 address
@@ -562,9 +440,9 @@ async fn main_internal() -> Result<(), PaymentError> {
                     .get(account_no)
                     .expect("No public adss found with specified account_no")
             } else {
-                *public_addrs.first().expect("No public adss found")
+                *public_addrs.first().expect("No public address found")
             };
-            let mut db_transaction = conn.clone().unwrap().begin().await.unwrap();
+            //let mut db_transaction = conn.clone().unwrap().begin().await.unwrap();
 
             let amount_str = if let Some(amount) = single_transfer_options.amount {
                 amount.to_u256_from_eth().unwrap().to_string()
@@ -613,8 +491,8 @@ async fn main_internal() -> Result<(), PaymentError> {
             };
             let amount_decimal = amount_str.to_eth().unwrap();
 
-            let mut tt = insert_token_transfer(
-                &mut *db_transaction,
+            let mut tt = insert_token_transfer_with_deposit_check(
+                &conn.clone().unwrap(),
                 &TokenTransferDbObj {
                     id: 0,
                     payment_id: None,
@@ -623,12 +501,8 @@ async fn main_internal() -> Result<(), PaymentError> {
                     chain_id: chain_cfg.chain_id,
                     token_addr: token,
                     token_amount: amount_str,
-                    allocation_id: single_transfer_options.allocation_id,
-                    use_internal: if single_transfer_options.use_internal {
-                        1
-                    } else {
-                        0
-                    },
+                    deposit_id: single_transfer_options.deposit_id,
+                    deposit_finish: 0,
                     create_date: Default::default(),
                     tx_id: None,
                     paid_date: None,
@@ -641,11 +515,10 @@ async fn main_internal() -> Result<(), PaymentError> {
 
             let payment_id = format!("{}_transfer_{}", single_transfer_options.token, tt.id);
             tt.payment_id = Some(payment_id.clone());
-            update_token_transfer(&mut *db_transaction, &tt)
+            update_token_transfer(&conn.clone().unwrap(), &tt)
                 .await
                 .unwrap();
 
-            db_transaction.commit().await.unwrap();
             log::info!(
                 "Transfer added to db amount: {}, payment id: {}",
                 amount_decimal,
@@ -694,168 +567,7 @@ async fn main_internal() -> Result<(), PaymentError> {
         } => run_stats(conn.clone().unwrap(), payment_stats_options, &config).await?,
         PaymentCommands::ScanBlockchain {
             scan_blockchain_options,
-        } => {
-            log::info!("Scanning blockchain {}", scan_blockchain_options.chain_name);
-
-            let payment_setup = PaymentSetup::new_empty(&config)?;
-            let chain_cfg = config
-                .chain
-                .get(&scan_blockchain_options.chain_name)
-                .ok_or(err_custom_create!(
-                    "Chain {} not found in config file",
-                    scan_blockchain_options.chain_name
-                ))?;
-            let web3 = payment_setup.get_provider(chain_cfg.chain_id)?;
-
-            let sender = Address::from_str(&scan_blockchain_options.sender).unwrap();
-
-            let scan_info = ScanDaoDbObj {
-                id: 0,
-                chain_id: chain_cfg.chain_id,
-                filter: format!("{sender:#x}"),
-                start_block: -1,
-                last_block: -1,
-            };
-            let scan_info_from_db = get_scan_info(
-                &conn.clone().unwrap(),
-                chain_cfg.chain_id,
-                &scan_info.filter,
-            )
-            .await
-            .map_err(err_from!())?;
-
-            let mut scan_info = if scan_blockchain_options.start_new_scan {
-                log::warn!("Starting new scan - removing old scan info from db");
-                delete_scan_info(
-                    &conn.clone().unwrap(),
-                    scan_info.chain_id,
-                    &scan_info.filter,
-                )
-                .await
-                .map_err(err_from!())?;
-                scan_info
-            } else if let Some(scan_info_from_db) = scan_info_from_db {
-                log::debug!("Found scan info from db: {:?}", scan_info_from_db);
-                scan_info_from_db
-            } else {
-                scan_info
-            };
-
-            let current_block = web3
-                .clone()
-                .eth_block_number()
-                .await
-                .map_err(err_from!())?
-                .as_u64() as i64;
-
-            //start around 30 days ago
-            let mut start_block = std::cmp::max(1, scan_blockchain_options.from_block as i64);
-
-            if scan_blockchain_options.from_block > current_block as u64 {
-                log::warn!(
-                    "From block {} is higher than current block {}, no newer data on blockchain",
-                    scan_blockchain_options.from_block,
-                    current_block
-                );
-                return Ok(());
-            }
-
-            if current_block < scan_info.last_block {
-                log::warn!("Current block {} is lower than last block from db {}, no newer data on blockchain", current_block, scan_info.last_block);
-                return Ok(());
-            }
-
-            if scan_info.last_block > start_block {
-                log::info!(
-                    "Start block from db is higher than start block from cli {}, using start block from db {}",
-                    start_block,
-                    scan_info.last_block
-                );
-                start_block = scan_info.last_block;
-            } else if scan_info.last_block != -1 {
-                log::error!(
-                    "There is old entry in db, remove it to start new scan or give proper block range: start block: {}, last block {}",
-                    start_block,
-                    scan_info.last_block
-                );
-                return Err(err_custom_create!(
-                    "There is old entry in db, remove it to start new scan or give proper block range: start block: {}, last block {}",
-                    start_block,
-                    scan_info.last_block
-                ));
-            }
-
-            let mut end_block =
-                if let Some(max_block_range) = scan_blockchain_options.max_block_range {
-                    start_block + max_block_range as i64
-                } else {
-                    current_block
-                };
-
-            if let Some(blocks_behind) = scan_blockchain_options.blocks_behind {
-                if end_block > current_block - blocks_behind as i64 {
-                    log::info!(
-                        "End block {} is too close to current block {}, using current block - blocks_behind: {}",
-                        end_block,
-                        current_block,
-                        current_block - blocks_behind as i64
-                    );
-                    end_block = current_block - blocks_behind as i64;
-                }
-            }
-
-            let txs = import_erc20_txs(ImportErc20TxsArgs {
-                web3: web3.clone(),
-                erc20_address: chain_cfg.token.address,
-                chain_id: chain_cfg.chain_id,
-                filter_by_senders: Some([sender].to_vec()),
-                filter_by_receivers: None,
-                start_block,
-                scan_end_block: end_block,
-                blocks_at_once: scan_blockchain_options.blocks_at_once,
-            })
-            .await
-            .unwrap();
-
-            let mut max_block_from_tx = None;
-            for tx in &txs {
-                match transaction_from_chain_and_into_db(
-                    web3.clone(),
-                    &conn.clone().unwrap(),
-                    chain_cfg.chain_id,
-                    &format!("{tx:#x}"),
-                    chain_cfg.token.address,
-                )
-                .await
-                {
-                    Ok(Some(chain_tx)) => {
-                        if chain_tx.block_number > max_block_from_tx.unwrap_or(0) {
-                            max_block_from_tx = Some(chain_tx.block_number);
-                        }
-                    }
-                    Ok(None) => {}
-                    Err(e) => {
-                        log::error!("Error when getting transaction from chain: {}", e);
-                        continue;
-                    }
-                }
-            }
-
-            if scan_info.start_block == -1 {
-                scan_info.start_block = start_block;
-            }
-
-            //last blocks may be missing so we subtract 100 blocks from current to be sure
-            scan_info.last_block = std::cmp::min(end_block, current_block - 100);
-            log::info!(
-                "Updating db scan entry {} - {}",
-                scan_info.start_block,
-                scan_info.last_block
-            );
-            upsert_scan_info(&conn.clone().unwrap(), &scan_info)
-                .await
-                .map_err(err_from!())?;
-        }
+        } => scan_blockchain_local(conn.clone().unwrap(), scan_blockchain_options, config).await?,
         PaymentCommands::ImportPayments { import_options } => {
             log::info!("importing payments from file: {}", import_options.file);
             if !cli.sqlite_read_only {

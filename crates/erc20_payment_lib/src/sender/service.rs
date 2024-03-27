@@ -396,8 +396,9 @@ fn get_next_gather_time(
     last_gather_time: chrono::DateTime<chrono::Utc>,
     gather_transactions_interval: i64,
 ) -> chrono::DateTime<chrono::Utc> {
-    let next_gather_time =
-        last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
+    let next_gather_time = last_gather_time
+        + chrono::Duration::try_seconds(gather_transactions_interval)
+            .expect("Invalid gather interval");
 
     if let Some(external_gather_time) = *account.external_gather_time.lock().unwrap() {
         std::cmp::min(external_gather_time, next_gather_time)
@@ -413,8 +414,9 @@ fn get_next_gather_time_and_clear_if_success(
 ) -> Option<chrono::DateTime<chrono::Utc>> {
     let mut external_gather_time_guard = account.external_gather_time.lock().unwrap();
 
-    let next_gather_time =
-        last_gather_time + chrono::Duration::seconds(gather_transactions_interval);
+    let next_gather_time = last_gather_time
+        + chrono::Duration::try_seconds(gather_transactions_interval)
+            .expect("Invalid gather transactions interval");
 
     let next_gather_time = if let Some(external_gather_time) = *external_gather_time_guard {
         std::cmp::min(external_gather_time, next_gather_time)
@@ -477,7 +479,9 @@ pub async fn service_loop(
 ) {
     let gather_transactions_interval = payment_setup.gather_interval as i64;
     let mut last_gather_time = if payment_setup.gather_at_start {
-        chrono::Utc::now() - chrono::Duration::seconds(gather_transactions_interval)
+        chrono::Utc::now()
+            - chrono::Duration::try_seconds(gather_transactions_interval)
+                .expect("Invalid gather interval")
     } else {
         chrono::Utc::now()
     };
@@ -576,25 +580,34 @@ pub async fn service_loop(
                 continue;
             }
         }
+
         metrics::counter!(metric_label_gather_pre, 1);
 
         log::debug!("Gathering payments...");
-        let mut token_transfer_map =
-            match gather_transactions_pre(&signer_account, chain_id, conn, payment_setup).await {
-                Ok(token_transfer_map) => token_transfer_map,
-                Err(e) => {
-                    metrics::counter!(metric_label_gather_pre_error, 1);
-                    log::error!(
+
+        let mut token_transfer_map = match gather_transactions_pre(
+            &signer_account,
+            chain_id,
+            conn,
+            payment_setup,
+            &mut process_tx_needed,
+        )
+        .await
+        {
+            Ok(token_transfer_map) => token_transfer_map,
+            Err(e) => {
+                metrics::counter!(metric_label_gather_pre_error, 1);
+                log::error!(
                     "Error in gather transactions, driver will be stuck, Fix DB to continue {:?}",
                     e
                 );
-                    tokio::time::sleep(std::time::Duration::from_secs(
-                        payment_setup.process_interval_after_error,
-                    ))
-                    .await;
-                    continue;
-                }
-            };
+                tokio::time::sleep(std::time::Duration::from_secs(
+                    payment_setup.process_interval_after_error,
+                ))
+                .await;
+                continue;
+            }
+        };
         metrics::counter!(metric_label_gather_post, 1);
 
         match gather_transactions_post(

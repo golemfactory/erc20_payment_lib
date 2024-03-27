@@ -4,7 +4,7 @@ use std::sync::Arc;
 use crate::error::{ErrorBag, PaymentError};
 use erc20_payment_lib_common::ops::*;
 
-use crate::transaction::find_receipt_extended;
+use crate::transaction::{find_receipt_extended, FindReceiptParseResult};
 use crate::utils::{ConversionError, U256ConvExt};
 
 use crate::err_from;
@@ -73,106 +73,116 @@ pub async fn transaction_from_chain_and_into_db(
     chain_id: i64,
     tx_hash: &str,
     glm_address: Address,
+    get_balances: bool,
 ) -> Result<Option<ChainTxDbObj>, PaymentError> {
-    println!("tx_hash: {tx_hash}");
+    log::debug!("tx_hash: {tx_hash}");
     let tx_hash = web3::types::H256::from_str(tx_hash)
         .map_err(|_err| ConversionError::from("Cannot parse tx_hash".to_string()))
         .map_err(err_from!())?;
 
-    if let Some(chain_tx) = get_chain_tx_hash(conn, tx_hash.to_string())
+    if let Some(chain_tx) = get_chain_tx_hash(conn, format!("{:#x}", tx_hash))
         .await
         .map_err(err_from!())?
     {
-        log::info!("Transaction already in DB: {}, skipping...", chain_tx.id);
+        log::warn!("Transaction already in DB: {}, skipping...", chain_tx.id);
         return Ok(Some(chain_tx));
     }
 
     let (mut chain_tx_dao, transfers) =
-        find_receipt_extended(web3.clone(), tx_hash, chain_id, glm_address).await?;
+        match find_receipt_extended(web3.clone(), tx_hash, chain_id, glm_address).await? {
+            FindReceiptParseResult::Success((c, t)) => (c, t),
+            FindReceiptParseResult::Failure(str) => {
+                log::warn!("Transaction cannot be parsed: {}", str);
+                return Ok(None);
+            }
+        };
 
     if chain_tx_dao.chain_status != 1 {
         return Ok(None);
     }
 
-    let mut loop_no = 0;
-    let balance = loop {
-        loop_no += 1;
-        match web3
-            .clone()
-            .eth_balance(
-                Address::from_str(&chain_tx_dao.from_addr).unwrap(),
-                Some(BlockNumber::Number(chain_tx_dao.block_number.into())),
-            )
-            .await
-        {
-            Ok(v) => break Some(v),
-            Err(e) => {
-                log::debug!("Error getting balance: {}", e);
-                if loop_no > 1000 {
-                    break None;
+    if get_balances {
+        let mut loop_no = 0;
+
+        let balance = loop {
+            loop_no += 1;
+            match web3
+                .clone()
+                .eth_balance(
+                    Address::from_str(&chain_tx_dao.from_addr).unwrap(),
+                    Some(BlockNumber::Number(chain_tx_dao.block_number.into())),
+                )
+                .await
+            {
+                Ok(v) => break Some(v),
+                Err(e) => {
+                    log::debug!("Error getting balance: {}", e);
+                    if loop_no > 1000 {
+                        break None;
+                    }
                 }
-            }
+            };
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         };
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    };
 
-    log::info!(
-        "Balance: {:.5} for block {}",
-        balance.unwrap_or_default().to_eth().unwrap(),
-        chain_tx_dao.block_number
-    );
+        log::debug!(
+            "Balance: {:.5} for block {}",
+            balance.unwrap_or_default().to_eth().unwrap(),
+            chain_tx_dao.block_number
+        );
 
-    loop_no = 0;
-    let token_balance = loop {
-        let call_data =
-            encode_erc20_balance_of(Address::from_str(&chain_tx_dao.from_addr).unwrap())
-                .map_err(err_from!())?;
-        match web3
-            .clone()
-            .eth_call(
-                CallRequest {
-                    from: None,
-                    to: Some(glm_address),
-                    gas: None,
-                    gas_price: None,
-                    value: None,
-                    data: Some(web3::types::Bytes::from(call_data)),
-                    transaction_type: None,
-                    access_list: None,
-                    max_fee_per_gas: None,
-                    max_priority_fee_per_gas: None,
-                },
-                Some(web3::types::BlockId::Number(BlockNumber::Number(
-                    chain_tx_dao.block_number.into(),
-                ))),
-            )
-            .await
-        {
-            Ok(v) => {
-                if v.0.len() == 32 {
-                    break Some(U256::from_big_endian(&v.0));
+        loop_no = 0;
+        let token_balance = loop {
+            let call_data =
+                encode_erc20_balance_of(Address::from_str(&chain_tx_dao.from_addr).unwrap())
+                    .map_err(err_from!())?;
+            match web3
+                .clone()
+                .eth_call(
+                    CallRequest {
+                        from: None,
+                        to: Some(glm_address),
+                        gas: None,
+                        gas_price: None,
+                        value: None,
+                        data: Some(web3::types::Bytes::from(call_data)),
+                        transaction_type: None,
+                        access_list: None,
+                        max_fee_per_gas: None,
+                        max_priority_fee_per_gas: None,
+                    },
+                    Some(web3::types::BlockId::Number(BlockNumber::Number(
+                        chain_tx_dao.block_number.into(),
+                    ))),
+                )
+                .await
+            {
+                Ok(v) => {
+                    if v.0.len() == 32 {
+                        break Some(U256::from_big_endian(&v.0));
+                    }
                 }
+                Err(e) => {
+                    log::debug!("Error getting token balance: {}", e);
+                }
+            };
+            if loop_no > 1000 {
+                break None;
             }
-            Err(e) => {
-                log::debug!("Error getting token balance: {}", e);
-            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
         };
-        if loop_no > 1000 {
-            break None;
-        }
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-    };
 
-    log::info!(
-        "Token balance: {:.5} for block {}",
-        token_balance
-            .map(|v| v.to_eth().unwrap())
-            .unwrap_or_default(),
-        chain_tx_dao.block_number
-    );
+        log::info!(
+            "Token balance: {:.5} for block {}",
+            token_balance
+                .map(|v| v.to_eth().unwrap())
+                .unwrap_or_default(),
+            chain_tx_dao.block_number
+        );
 
-    chain_tx_dao.balance_eth = balance.map(|b| b.to_string());
-    chain_tx_dao.balance_glm = token_balance.map(|v| v.to_string());
+        chain_tx_dao.balance_eth = balance.map(|b| b.to_string());
+        chain_tx_dao.balance_glm = token_balance.map(|v| v.to_string());
+    }
 
     let mut db_transaction = conn.begin().await.map_err(err_from!())?;
 
@@ -218,7 +228,7 @@ pub async fn transaction_from_chain_and_into_db(
     }
 
     db_transaction.commit().await.map_err(err_from!())?;
-    log::info!("Transaction found and parsed successfully: {}", tx.id);
+    log::debug!("Transaction found and parsed successfully: {}", tx.id);
     Ok(Some(tx))
 }
 

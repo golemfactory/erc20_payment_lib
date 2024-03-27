@@ -49,9 +49,6 @@ pub struct BalanceResult {
     pub token: Option<String>,
     pub token_decimal: Option<String>,
     pub token_human: Option<String>,
-    pub deposit: Option<String>,
-    pub deposit_decimal: Option<String>,
-    pub deposit_human: Option<String>,
 }
 
 pub async fn account_balance(
@@ -105,8 +102,6 @@ pub async fn account_balance(
         RateLimitOptions::empty()
     };
 
-    let lock_contract_address = chain_cfg.clone().lock_contract.map(|v| v.address);
-
     stream::iter(0..jobs.len())
         .rate_limit(rate_limit_options)
         .for_each_concurrent(account_balance_options.tasks, |i| {
@@ -115,20 +110,13 @@ pub async fn account_balance(
             let web3 = web3.clone();
             async move {
                 log::debug!("Getting balance for account: {:#x}", job);
-                let balance = get_balance(
-                    web3,
-                    token,
-                    lock_contract_address,
-                    job,
-                    !account_balance_options.hide_gas,
-                    None,
-                )
-                .await
-                .unwrap();
+                let balance =
+                    get_balance(web3, token, job, !account_balance_options.hide_gas, None)
+                        .await
+                        .unwrap();
 
                 let gas_balance = balance.gas_balance.map(|b| b.to_string());
                 let token_balance = balance.token_balance.map(|b| b.to_string());
-                let deposit_balance = balance.deposit_balance.map(|b| b.to_string());
                 log::debug!("{:#x} gas: {:?}", job, gas_balance);
                 log::debug!("{:#x} token: {:?}", job, token_balance);
                 let gas_balance_decimal = balance
@@ -136,9 +124,6 @@ pub async fn account_balance(
                     .map(|v| v.to_eth().unwrap_or_default().to_string());
                 let token_balance_decimal = balance
                     .token_balance
-                    .map(|v| v.to_eth().unwrap_or_default().to_string());
-                let deposit_balance_decimal = balance
-                    .deposit_balance
                     .map(|v| v.to_eth().unwrap_or_default().to_string());
                 let gas_balance_human = gas_balance_decimal.clone().map(|v| {
                     format!(
@@ -154,13 +139,6 @@ pub async fn account_balance(
                         &chain_cfg.token.symbol
                     )
                 });
-                let deposit_balance_human = deposit_balance_decimal.clone().map(|v| {
-                    format!(
-                        "{:.03} {}",
-                        (f64::from_str(&v).unwrap_or(0.0) * 1000.0).floor() / 1000.0,
-                        &chain_cfg.token.symbol
-                    )
-                });
                 result_map.borrow_mut().insert(
                     format!("{:#x}", job),
                     BalanceResult {
@@ -170,9 +148,6 @@ pub async fn account_balance(
                         token: token_balance,
                         token_decimal: token_balance_decimal,
                         token_human: token_balance_human,
-                        deposit: deposit_balance,
-                        deposit_decimal: deposit_balance_decimal,
-                        deposit_human: deposit_balance_human,
                     },
                 );
             }

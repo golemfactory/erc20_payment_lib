@@ -89,7 +89,7 @@ const CreateTransferBox = (props: CreateTransferBoxProps) => {
                     token: inputUseGas == "gas" ? null : config.chainSetup[parseInt(props.selectedChain)].glmAddress,
                     dueDate: dueDateString ? DateTime.fromISO(dueDateString).toISO() : null,
                     useInternal: false,
-                    allocationId: null,
+                    depositId: null,
                 }),
             });
             //sleep for one seconds
