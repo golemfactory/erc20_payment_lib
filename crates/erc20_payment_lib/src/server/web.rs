@@ -392,7 +392,7 @@ pub async fn transactions(data: Data<Box<ServerData>>, _req: HttpRequest) -> imp
     //todo: add limits
     let txs = {
         let db_conn = data.db_connection.lock().await;
-        return_on_error!(get_transactions(&*db_conn, None, None, None, None).await)
+        return_on_error!(get_transactions(&*db_conn, None, None, None, None, None).await)
     };
     web::Json(json!({
         "txs": txs,
@@ -440,7 +440,8 @@ pub async fn transactions_next(data: Data<Box<ServerData>>, req: HttpRequest) ->
                 None,
                 Some(TRANSACTION_FILTER_QUEUED),
                 limit,
-                Some(TRANSACTION_ORDER_BY_CREATE_DATE)
+                Some(TRANSACTION_ORDER_BY_CREATE_DATE),
+                None
             )
             .await
         )
@@ -462,7 +463,8 @@ pub async fn transactions_current(
                 None,
                 Some(TRANSACTION_FILTER_PROCESSING),
                 None,
-                Some(TRANSACTION_ORDER_BY_CREATE_DATE)
+                Some(TRANSACTION_ORDER_BY_CREATE_DATE),
+                None
             )
             .await
         )
@@ -490,7 +492,8 @@ pub async fn transactions_last_processed(
                 None,
                 Some(TRANSACTION_FILTER_DONE),
                 limit,
-                Some(TRANSACTION_ORDER_BY_FIRST_PROCESSED_DATE_DESC)
+                Some(TRANSACTION_ORDER_BY_FIRST_PROCESSED_DATE_DESC),
+                None
             )
             .await
         )
@@ -520,7 +523,8 @@ pub async fn transactions_feed(data: Data<Box<ServerData>>, req: HttpRequest) ->
                 None,
                 Some(TRANSACTION_FILTER_DONE),
                 limit_prev,
-                Some(TRANSACTION_ORDER_BY_FIRST_PROCESSED_DATE_DESC)
+                Some(TRANSACTION_ORDER_BY_FIRST_PROCESSED_DATE_DESC),
+                None
             )
             .await
         );
@@ -530,7 +534,8 @@ pub async fn transactions_feed(data: Data<Box<ServerData>>, req: HttpRequest) ->
                 None,
                 Some(TRANSACTION_FILTER_PROCESSING),
                 None,
-                Some(TRANSACTION_ORDER_BY_CREATE_DATE)
+                Some(TRANSACTION_ORDER_BY_CREATE_DATE),
+                None
             )
             .await
         );
@@ -540,7 +545,8 @@ pub async fn transactions_feed(data: Data<Box<ServerData>>, req: HttpRequest) ->
                 None,
                 Some(TRANSACTION_FILTER_QUEUED),
                 limit_next,
-                Some(TRANSACTION_ORDER_BY_CREATE_DATE)
+                Some(TRANSACTION_ORDER_BY_CREATE_DATE),
+                None
             )
             .await
         );
