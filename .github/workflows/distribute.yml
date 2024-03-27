@@ -28,44 +28,8 @@ jobs:
           cp target/debug/erc20_processor /usr/local/bin/erc20_processor
           [ $(which erc20_processor) == "/usr/local/bin/erc20_processor" ]
 
-      - name: Generate ethereum accounts
+      - name: Distribute ETH
         run: |
-          erc20_processor generate-key -n 5 > .env
-          cat .env | grep ETH_ADDRESS | sed "s/#\s//g" | sed "s/:\s/=/g" > $GITHUB_ENV
-
-      - name: Create random deposit id
-        run: |
-          echo DEPOSIT_NONCE0=$(shuf -i 0-2000000000000000000 -n 1) >> $GITHUB_ENV
-          echo DEPOSIT_NONCE1=$(shuf -i 0-2000000000000000000 -n 1) >> $GITHUB_ENV
-          echo DEPOSIT_NONCE2=$(shuf -i 0-2000000000000000000 -n 1) >> $GITHUB_ENV
-
-      - name: Show created addresses
-        run: |
-          echo "Eth address 0: $ETH_ADDRESS_0"
-          echo "Eth address 1: $ETH_ADDRESS_1"
-          echo "Eth address 2: $ETH_ADDRESS_2"
-          echo "Eth address 3: $ETH_ADDRESS_3"
-          echo "Eth address 4: $ETH_ADDRESS_4"
-
-      - name: Get ETH from faucet for account 0
-        run: |
-          erc20_processor get-dev-eth
-
-      - name: Check ETH balance after getting funds from faucet (should be 0.01)
-        run: |
-          x=1; while [ $(erc20_processor balance | jq -r ".\"$ETH_ADDRESS_0\".gasDecimal") != "0.01" ]; do echo "Waiting for funds for $x seconds"; sleep 5; x=$(( x + 5 )); done 
-
-      - name: Distribute ETH to accounts 1, 2, 3, 4
-        run: |
-          erc20_processor distribute --amounts "0.001;0.001;0.001;0.001" --recipients "$ETH_ADDRESS_1;$ETH_ADDRESS_2;$ETH_ADDRESS_3;$ETH_ADDRESS_4"
-          erc20_processor run
-
-      - name: Transfer all left ETH tokens
-        run: |
-          set -x 
-          erc20_processor transfer --account-no 0 --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
-          erc20_processor transfer --account-no 1 --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
-          erc20_processor transfer --account-no 2 --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
-          erc20_processor transfer --account-no 3 --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
-          erc20_processor transfer --account-no 4 --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
+          echo ${{ secrets.HOLESKY_FUND_ENV }} > .env
+          erc20_processor distribute --amounts "0.0001;0.0001;0.0001;0.0001" --recipients "0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f;0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f;0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f;0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f"
           erc20_processor run
