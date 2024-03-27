@@ -1392,7 +1392,6 @@ pub async fn make_deposit(
         },
     )?;
 
-    let mut db_transaction = conn.begin().await.map_err(err_from!())?;
     let deposit_tx = insert_tx(&mut *db_transaction, &deposit_tx)
         .await
         .map_err(err_from!())?;
