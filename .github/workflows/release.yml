@@ -15,7 +15,7 @@ on:
         required: true
         default: 'pre-rel-v'
   schedule:
-    - cron: '44 1 * * *'
+    - cron: '44 1 1 * *'
 
 
 permissions:
