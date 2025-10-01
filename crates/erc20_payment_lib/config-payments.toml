@@ -349,4 +349,42 @@ allowed-head-behind-secs = 120
 dns-source = "polygon.rpc-node.dev.golem.network."
 
 
+[chain.hoodi]
+chain-name = "Hoodi"
+chain-id = 560048
+currency-symbol = "tETH"
+priority-fee = 0.000001
+max-fee-per-gas = 20.0
+transaction-timeout = 100
+wrapper-contract = { address = "0x7E69E00E00293D80F0f3E7e0Db5eab6D5d4E0EfF" }
+token = { address = "0x55555555555556AcFf9C332Ed151758858bd7a26", symbol = "tGLM" }
+multi-contract = { address = "0x222222222220C9269Cfb43eD434888F604d1dC21", max-at-once = 10 }
+mint-contract = { address = "0x500F965199C63865A3E666cA3fF55B64F1c8Bc8b", max-glm-allowed = 400 }
+distributor-contract = { address = "0x16684CcBC9b5c250D927d32f8F937fbbd058837A" }
+faucet-client = { max-eth-allowed = 0.009, faucet-srv = "_hoodi-faucet._tcp", faucet-host = "faucet.testnet.golem.network", faucet-lookup-domain = "dev.golem.network", faucet-srv-port = 4004 }
+confirmation-blocks = 0
+block-explorer-url = "https://hoodi.etherscan.io"
+external-source-check-interval = 300
+
+[[chain.hoodi.rpc-endpoints]]
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 300
+allowed-head-behind-secs = 120
+dns-source = "hoodi.rpc-node.dev.golem.network."
+
+[[chain.hoodi.rpc-endpoints]]
+names = """
+    hoodi.rpc-node.dev.golem.network
+"""
+
+endpoints = """
+    https://hoodi.rpc-node.dev.golem.network/
+"""
+priority = 0
+max-timeout-ms = 5000
+verify-interval-secs = 60
+allowed-head-behind-secs = 120
+
+
 

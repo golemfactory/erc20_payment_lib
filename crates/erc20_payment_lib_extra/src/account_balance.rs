@@ -19,7 +19,7 @@ use web3::types::Address;
 #[derive(Clone, StructOpt)]
 #[structopt(about = "Payment statistics options")]
 pub struct BalanceOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    #[structopt(short = "c", long = "chain-name", default_value = "hoodi")]
     pub chain_name: String,
 
     ///list of accounts separated by comma

@@ -4,7 +4,6 @@ use crate::error::ErrorBag;
 use crate::error::PaymentError;
 use crate::runtime::SharedState;
 use crate::setup::PaymentSetup;
-use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::sync::Arc;
 use structopt::StructOpt;
@@ -22,17 +21,6 @@ pub struct BalanceOptions2 {
         help = "Run forever in loop (for RPC testing) or active balance monitoring. Set number of desired iterations. 0 means forever."
     )]
     pub debug_loop: Option<u64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BalanceResult2 {
-    pub gas: Option<String>,
-    pub gas_decimal: Option<String>,
-    pub gas_human: Option<String>,
-    pub token: Option<String>,
-    pub token_decimal: Option<String>,
-    pub token_human: Option<String>,
 }
 
 pub async fn test_balance_loop(

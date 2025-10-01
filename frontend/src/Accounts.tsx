@@ -13,7 +13,7 @@ const Accounts = () => {
     const [accounts, setAccounts] = React.useState<SenderAccounts | null>(null);
     const { backendSettings } = useContext(BackendSettingsContext);
     const [selectedAccount, setSelectedAccount] = React.useState<string | null>(null);
-    const [selectedChain, setSelectedChain] = React.useState<string | null>("17000");
+    const [selectedChain, setSelectedChain] = React.useState<string | null>("560048");
     const config = useConfig();
 
     const loadTxCount = useCallback(async () => {

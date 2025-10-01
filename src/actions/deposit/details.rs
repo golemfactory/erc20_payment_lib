@@ -13,7 +13,7 @@ use web3::types::{Address, U256};
 #[derive(StructOpt)]
 #[structopt(about = "Show details of given deposit")]
 pub struct CheckDepositOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    #[structopt(short = "c", long = "chain-name", default_value = "hoodi")]
     pub chain_name: String,
 
     #[structopt(long = "deposit-id", help = "Deposit id to use")]

@@ -86,7 +86,7 @@ async fn main_internal() -> Result<(), PaymentError> {
         PaymentCommands::ExportHistory { .. } => {}
         PaymentCommands::DecryptKeyStore { .. } => {}
         PaymentCommands::Cleanup { .. } => {}
-        PaymentCommands::ShowConfig { .. } => {}
+        PaymentCommands::ShowConfig => {}
         PaymentCommands::Attestation { .. } => {
             private_key_load_needed = false;
         }
