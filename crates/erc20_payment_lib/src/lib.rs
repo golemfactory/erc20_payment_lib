@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 mod account_balance;
 pub mod config;
 mod contracts;
