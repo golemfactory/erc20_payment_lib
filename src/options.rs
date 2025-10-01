@@ -89,7 +89,7 @@ pub struct GenerateKeyOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Get dev eth options if faucet is accessible")]
 pub struct GetDevEthOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    #[structopt(short = "c", long = "chain-name", default_value = "hoodi")]
     pub chain_name: String,
 
     #[structopt(long = "address", help = "Address to get funds for")]
@@ -103,7 +103,7 @@ pub struct GetDevEthOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Mint test token options")]
 pub struct MintTestTokensOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    #[structopt(short = "c", long = "chain-name", default_value = "hoodi")]
     pub chain_name: String,
 
     #[structopt(long = "address", help = "Address (has to have private key)")]
@@ -116,7 +116,7 @@ pub struct MintTestTokensOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Distribute token (gas) options")]
 pub struct DistributeOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    #[structopt(short = "c", long = "chain-name", default_value = "hoodi")]
     pub chain_name: String,
 
     #[structopt(long = "address", help = "Address (has to have private key)")]
@@ -143,7 +143,7 @@ pub struct DistributeOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Single transfer options")]
 pub struct TransferOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    #[structopt(short = "c", long = "chain-name", default_value = "hoodi")]
     pub chain_name: String,
 
     #[structopt(short = "r", long = "recipient", help = "Recipient")]
@@ -190,7 +190,7 @@ pub struct ImportOptions {
 #[derive(Debug, StructOpt)]
 #[structopt(about = "Scan blockchain options")]
 pub struct ScanBlockchainOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    #[structopt(short = "c", long = "chain-name", default_value = "hoodi")]
     pub chain_name: String,
 
     #[structopt(short = "b", long = "from-block")]
@@ -245,14 +245,14 @@ pub struct ScanBlockchainOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Check web3 RPC")]
 pub struct CheckWeb3RpcOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    #[structopt(short = "c", long = "chain-name", default_value = "hoodi")]
     pub chain_name: String,
 }
 
 #[derive(StructOpt)]
 #[structopt(about = "Export history stats")]
 pub struct ExportHistoryStatsOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    #[structopt(short = "c", long = "chain-name", default_value = "hoodi")]
     pub chain_name: String,
 
     #[structopt(
@@ -266,7 +266,7 @@ pub struct ExportHistoryStatsOptions {
 #[derive(StructOpt)]
 #[structopt(about = "Payment statistics options")]
 pub struct PaymentStatsOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    #[structopt(short = "c", long = "chain-name", default_value = "hoodi")]
     pub chain_name: String,
 
     #[structopt(

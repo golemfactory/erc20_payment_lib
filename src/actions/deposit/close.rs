@@ -12,7 +12,7 @@ use web3::types::{Address, U256};
 #[derive(StructOpt)]
 #[structopt(about = "Close deposit if you are spender")]
 pub struct CloseDepositOptions {
-    #[structopt(short = "c", long = "chain-name", default_value = "holesky")]
+    #[structopt(short = "c", long = "chain-name", default_value = "hoodi")]
     pub chain_name: String,
 
     #[structopt(long = "address", help = "Address (has to have private key)")]
