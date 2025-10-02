@@ -282,7 +282,7 @@ jobs:
       - name: Reopen db cleaning wal logs
         run: cargo run --profile=release-fast -- --sqlite-db-file erc20lib.sqlite --sqlite-journal delete cleanup
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: erc20lib_custom
           path: erc20lib.sqlite
