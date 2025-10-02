@@ -2,7 +2,7 @@
 name = "erc20_payment_lib"
 description = "Payment processor for ERC20 tokens"
 authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 license = "MIT"
 
@@ -13,7 +13,6 @@ actix-web = { workspace = true }
 actix-web-actors = { workspace = true }
 awc = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
-dotenv = { workspace = true }
 fastrand = { workspace = true }
 futures = { workspace = true }
 futures-util = { workspace = true }
@@ -25,14 +24,12 @@ metrics = { workspace = true }
 rand = { workspace = true }
 regex = { workspace = true }
 rust_decimal = { workspace = true }
-rustc-hex = { workspace = true }
 secp256k1 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha3 = { workspace = true }
 sqlx = { workspace = true }
 structopt = { workspace = true }
-thunderdome = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 toml = { workspace = true }
