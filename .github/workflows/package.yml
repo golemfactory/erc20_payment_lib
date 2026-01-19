@@ -1,8 +1,8 @@
-name: CI
+name: Docker Build & Push
 
 on:
   push:
-    branches: [ main ]
+    branches: [ dev ]
   workflow_dispatch:
   schedule:
     - cron: "42 3 * * 2"
