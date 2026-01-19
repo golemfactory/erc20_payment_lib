@@ -25,13 +25,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Install musl tools
         run: |
           sudo apt-get update
@@ -51,19 +44,33 @@ jobs:
 
       - name: Prepare Docker context
         run: |
-          mkdir -p docker
-          cp target/x86_64-unknown-linux-musl/release-lto/erc20_processor docker/
+          mkdir docker
+          cp target/x86_64-unknown-linux-musl/release-lto/erc20-processor docker/
+
+          cat <<'EOF' > docker/Dockerfile
+          FROM alpine:latest
+          COPY erc20-processor /usr/local/bin/erc20-processor
+          ENTRYPOINT ["erc20-processor"]
+          EOF
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ghcr.io/${{ github.repository }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: docker
+          file: docker/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
