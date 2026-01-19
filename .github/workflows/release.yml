@@ -213,7 +213,7 @@ jobs:
         run: |
           cargo binstall cross -y
 
-      - name: Build binary target/${{ matrix.target }}/release/erc20_processor
+      - name: Build binary target/${{ matrix.target }}/release/erc20-processor
         run: |
           ${{ matrix.build-with }} build --profile release-lto --target ${{ matrix.target }}
 
@@ -221,7 +221,7 @@ jobs:
         if: matrix.os == 'linux' && matrix.cpu == 'x86_64'
         run: |
           ${{ matrix.build-with }} build -p web3_test_proxy --profile release-lto --target ${{ matrix.target }}
-          cp target/${{ matrix.target }}/release-lto/erc20_processor build/docker/erc20_processor
+          cp target/${{ matrix.target }}/release-lto/erc20-processor build/docker/erc20-processor
           cp target/${{ matrix.target }}/release-lto/web3_test_proxy build/docker/web3_test_proxy
           
           # login to ghcr.io
@@ -232,28 +232,28 @@ jobs:
             --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.description=Erc20 payment processor binary in docker alpine" \
             --label "org.opencontainers.image.licenses=MIT" \
-            -t ghcr.io/golemfactory/erc20_processor:latest \
+            -t ghcr.io/golemfactory/erc20-processor:latest \
             build/docker
           
           # tag image with the same tag as the release 
           docker tag \
-            ghcr.io/golemfactory/erc20_processor:latest \
-            ghcr.io/golemfactory/erc20_processor:${{ steps.version.outputs.version-full }}
+            ghcr.io/golemfactory/erc20-processor:latest \
+            ghcr.io/golemfactory/erc20-processor:${{ steps.version.outputs.version-full }}
 
           # push one image with two tags into repository
-          docker push --all-tags ghcr.io/golemfactory/erc20_processor
+          docker push --all-tags ghcr.io/golemfactory/erc20-processor
 
       - name: Compress binaries
         run: |
-          # mv target/${{ matrix.target }}/release-lto/erc20_processor${{ matrix.exe }} target/${{ matrix.target }}/release-lto/erc20_processor${{ matrix.exe }}
-          tar -cf - -C target/${{ matrix.target }}/release-lto/ erc20_processor${{ matrix.exe }} | xz -9 > erc20_processor.tar.xz
+          # mv target/${{ matrix.target }}/release-lto/erc20-processor${{ matrix.exe }} target/${{ matrix.target }}/release-lto/erc20-processor${{ matrix.exe }}
+          tar -cf - -C target/${{ matrix.target }}/release-lto/ erc20-processor${{ matrix.exe }} | xz -9 > erc20-processor.tar.xz
 
       - name: Upload
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: erc20_processor.tar.xz
-          asset_name: erc20_processor-${{ matrix.os }}-${{ matrix.cpu }}.tar.xz
+          file: erc20-processor.tar.xz
+          asset_name: erc20-processor-${{ matrix.os }}-${{ matrix.cpu }}.tar.xz
           tag: ${{ steps.version.outputs.version-full }}
           overwrite: true
           body: "Release ${{ steps.version.outputs.version-full }}"

@@ -1,7 +1,7 @@
 services:
   looper:
-    image: ghcr.io/golemfactory/erc20_processor:latest
-    command: erc20_processor run --http-addr 0.0.0.0 --http-port 9350 --http --keep-running --balance-check-loop 0
+    image: ghcr.io/golemfactory/erc20-processor:latest
+    command: erc20-processor run --http-addr 0.0.0.0 --http-port 9350 --http --keep-running --balance-check-loop 0
     working_dir: /looper
     volumes:
       - ../config-payments-ethereum.toml:/looper/config-payments-local.toml

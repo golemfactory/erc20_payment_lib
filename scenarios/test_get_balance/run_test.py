@@ -2,7 +2,7 @@ import os
 import json
 import subprocess
 
-erc20_proc = "../../target/debug/erc20_processor"
+erc20_proc = "../../target/debug/erc20-processor"
 if os.name == "nt":
     erc20_proc = erc20_proc.replace("/", "\\") + ".exe"
 

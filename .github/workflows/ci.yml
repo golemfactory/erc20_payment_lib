@@ -35,7 +35,7 @@ jobs:
       - name: Clippy all
         run: cargo clippy --all-targets --all-features --all -- -D warnings
 
-  erc20_processor:
+  erc20-processor:
     name: ERC20 processor build only
     timeout-minutes: 20
 

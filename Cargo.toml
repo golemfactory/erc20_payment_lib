@@ -11,11 +11,11 @@ members = [
 ]
 
 [[bin]]
-name = "erc20_processor"
+name = "erc20-processor"
 path = "src/main.rs"
 
 [package]
-name = "erc20_processor"
+name = "erc20-processor"
 description = "Payment processor for ERC20 tokens"
 authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
 version = "0.5.1"
