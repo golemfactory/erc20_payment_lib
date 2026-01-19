@@ -25,6 +25,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install musl tools
         run: |
           sudo apt-get update
@@ -45,14 +52,7 @@ jobs:
       - name: Prepare Docker context
         run: |
           mkdir -p docker
-          cp target/x86_64-unknown-linux-musl/release-lto/erc20-processor docker/
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          cp target/x86_64-unknown-linux-musl/release-lto/erc20_processor docker/
 
       - name: Extract Docker metadata
         id: meta
