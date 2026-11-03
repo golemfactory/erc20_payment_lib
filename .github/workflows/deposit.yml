@@ -1,10 +1,7 @@
 name: Deposit tests
 
 on:
-  push:
-  workflow_dispatch:
-  schedule:
-    - cron: "42 3 * * 2"
+  workflow_call:
 
 jobs:
   test_deposit:
