@@ -1,10 +1,10 @@
 use crate::err_custom_create;
 use crate::error::PaymentError;
+use hickory_resolver::config::{ResolverConfig, ResolverOpts};
+use hickory_resolver::{name_server::TokioConnectionProvider, TokioResolver};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
-use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
-use trust_dns_resolver::TokioAsyncResolver;
 use url::Url;
 use web3::types::H160;
 
@@ -41,8 +41,12 @@ async fn resolve_faucet_url(
 
 pub async fn resolve_srv_record(record: &str) -> std::io::Result<String> {
     log::debug!("resolve_srv_record: {}", record);
-    let resolver: TokioAsyncResolver =
-        TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default());
+    let resolver: TokioResolver = TokioResolver::builder_with_config(
+        ResolverConfig::google(),
+        TokioConnectionProvider::default(),
+    )
+    .with_options(ResolverOpts::default())
+    .build();
     let lookup = resolver.srv_lookup(record).await?;
     let srv = lookup
         .iter()
@@ -72,7 +76,12 @@ pub async fn resolve_dns_record(request_url: &str) -> Result<String, PaymentErro
 }
 
 pub async fn resolve_dns_record_host(host: &str) -> Result<String, PaymentError> {
-    let resolver = TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default());
+    let resolver = TokioResolver::builder_with_config(
+        ResolverConfig::google(),
+        TokioConnectionProvider::default(),
+    )
+    .with_options(ResolverOpts::default())
+    .build();
 
     let response = resolver
         .lookup_ip(host)

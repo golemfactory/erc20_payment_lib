@@ -8,14 +8,14 @@ use crate::rpc_pool::VerifyEndpointResult;
 use crate::Web3RpcInfo;
 use chrono::Utc;
 use erc20_payment_lib_common::DriverEvent;
+use hickory_resolver::config::{ResolverConfig, ResolverOpts};
+use hickory_resolver::{name_server::TokioConnectionProvider, TokioResolver};
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Duration;
 use thunderdome::{Arena, Index};
-use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
-use trust_dns_resolver::TokioAsyncResolver;
 use uuid::Uuid;
 use web3::transports::Http;
 use web3::Web3;
@@ -123,8 +123,12 @@ pub struct Web3RpcPool {
 }
 
 pub async fn resolve_txt_record_to_string_array(record: &str) -> std::io::Result<Vec<String>> {
-    let resolver: TokioAsyncResolver =
-        TokioAsyncResolver::tokio(ResolverConfig::google(), ResolverOpts::default());
+    let resolver: TokioResolver = TokioResolver::builder_with_config(
+        ResolverConfig::google(),
+        TokioConnectionProvider::default(),
+    )
+    .with_options(ResolverOpts::default())
+    .build();
 
     Ok(resolver
         .txt_lookup(record)
