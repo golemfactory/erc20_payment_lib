@@ -1,7 +1,7 @@
 use crate::err_custom_create;
 use crate::error::PaymentError;
 use hickory_resolver::config::{ResolverConfig, ResolverOpts};
-use hickory_resolver::{name_server::TokioConnectionProvider, TokioResolver};
+use hickory_resolver::{net::runtime::TokioRuntimeProvider, TokioResolver};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
@@ -42,20 +42,28 @@ async fn resolve_faucet_url(
 pub async fn resolve_srv_record(record: &str) -> std::io::Result<String> {
     log::debug!("resolve_srv_record: {}", record);
     let resolver: TokioResolver = TokioResolver::builder_with_config(
-        ResolverConfig::google(),
-        TokioConnectionProvider::default(),
+        ResolverConfig::udp_and_tcp(&hickory_resolver::config::GOOGLE),
+        TokioRuntimeProvider::default(),
     )
     .with_options(ResolverOpts::default())
-    .build();
-    let lookup = resolver.srv_lookup(record).await?;
+    .build()
+    .map_err(std::io::Error::other)?;
+    let lookup = resolver
+        .srv_lookup(record)
+        .await
+        .map_err(std::io::Error::other)?;
     let srv = lookup
+        .answers()
         .iter()
-        .next()
+        .find_map(|record| match &record.data {
+            hickory_resolver::proto::rr::RData::SRV(value) => Some(value),
+            _ => None,
+        })
         .ok_or_else(|| IoError::from(IoErrorKind::NotFound))?;
     let addr = format!(
         "{}:{}",
-        srv.target().to_string().trim_end_matches('.'),
-        srv.port()
+        srv.target.to_string().trim_end_matches('.'),
+        srv.port
     );
     log::debug!("Resolved address: {}", addr);
     Ok(addr)
@@ -77,11 +85,12 @@ pub async fn resolve_dns_record(request_url: &str) -> Result<String, PaymentErro
 
 pub async fn resolve_dns_record_host(host: &str) -> Result<String, PaymentError> {
     let resolver = TokioResolver::builder_with_config(
-        ResolverConfig::google(),
-        TokioConnectionProvider::default(),
+        ResolverConfig::udp_and_tcp(&hickory_resolver::config::GOOGLE),
+        TokioRuntimeProvider::default(),
     )
     .with_options(ResolverOpts::default())
-    .build();
+    .build()
+    .map_err(|err| err_custom_create!("error when building DNS resolver {err}"))?;
 
     let response = resolver
         .lookup_ip(host)

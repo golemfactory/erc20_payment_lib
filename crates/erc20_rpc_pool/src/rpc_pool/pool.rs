@@ -9,7 +9,7 @@ use crate::Web3RpcInfo;
 use chrono::Utc;
 use erc20_payment_lib_common::DriverEvent;
 use hickory_resolver::config::{ResolverConfig, ResolverOpts};
-use hickory_resolver::{name_server::TokioConnectionProvider, TokioResolver};
+use hickory_resolver::{net::runtime::TokioRuntimeProvider, TokioResolver};
 use parking_lot::{Mutex, RwLock};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -124,16 +124,23 @@ pub struct Web3RpcPool {
 
 pub async fn resolve_txt_record_to_string_array(record: &str) -> std::io::Result<Vec<String>> {
     let resolver: TokioResolver = TokioResolver::builder_with_config(
-        ResolverConfig::google(),
-        TokioConnectionProvider::default(),
+        ResolverConfig::udp_and_tcp(&hickory_resolver::config::GOOGLE),
+        TokioRuntimeProvider::default(),
     )
     .with_options(ResolverOpts::default())
-    .build();
+    .build()
+    .map_err(std::io::Error::other)?;
 
     Ok(resolver
         .txt_lookup(record)
-        .await?
+        .await
+        .map_err(std::io::Error::other)?
+        .answers()
         .iter()
+        .filter_map(|record| match &record.data {
+            hickory_resolver::proto::rr::RData::TXT(value) => Some(value),
+            _ => None,
+        })
         .map(|entry| entry.to_string().trim().to_string())
         .filter(|entry| !entry.is_empty())
         .map(|entry| entry.to_string())

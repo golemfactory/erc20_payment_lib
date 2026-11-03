@@ -71,7 +71,7 @@ thunderdome = "0.6"
 tokio = { version = "^1.21", features = ["macros", "rt-multi-thread"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 toml = "0.8.8" # need some refactor to update
-hickory-resolver = "0.25.2"
+hickory-resolver = "0.26.3"
 url = "2.4"
 uuid = { version = "1.2", features = ["serde", "v4"] }
 web3 = { git = "https://github.com/golemfactory/rust-web3.git", rev = "11a5525a501f63fc06a8acabee00546a33e2353c", default-features = false, features = [
