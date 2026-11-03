@@ -24,7 +24,7 @@ async fn get_awc_response(url: &str) -> Result<Web3ExternalEndpointList, Box<dyn
         .await
         .map_err(|e| format!("Error getting response from {} {}", url, e))?;
     Ok(serde_json::from_str::<Web3ExternalEndpointList>(&response)
-        .map_err(|e| format!("Error parsing json: {} {}", e, &response))?)
+        .map_err(|e| format!("Error parsing json: {} {}", e, response))?)
 }
 
 impl Default for ExternalSourceResolver {
