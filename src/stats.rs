@@ -282,12 +282,8 @@ pub async fn run_stats(
     let mut per_receiver: Vec<(H160, TransferStatsPart)> = per_receiver.into_iter().collect();
     if payment_stats_options.order_by == "payment_delay" {
         per_receiver.sort_by(|r, b| {
-            let left =
-                r.1.max_payment_delay
-                    .unwrap_or(chrono::Duration::max_value());
-            let right =
-                b.1.max_payment_delay
-                    .unwrap_or(chrono::Duration::max_value());
+            let left = r.1.max_payment_delay.unwrap_or(chrono::Duration::MAX);
+            let right = b.1.max_payment_delay.unwrap_or(chrono::Duration::MAX);
             right.cmp(&left)
         });
     } else if payment_stats_options.order_by == "token_sent" {

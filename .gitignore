@@ -14,7 +14,8 @@
 /*.sqlite-wal
 /*.zip
 /*.txt
-/.cargo
+/.cargo/*
+!/.cargo/audit.toml
 /config-payments-local.toml
 /nodes.json
 /config-payments.toml

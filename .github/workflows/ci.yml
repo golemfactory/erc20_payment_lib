@@ -29,6 +29,9 @@ jobs:
       - name: Fmt
         run: cargo fmt -- --check
 
+      - name: Verify RSA advisory exception
+        run: python3 .github/scripts/check_no_rsa.py
+
       - name: Clippy
         run: cargo clippy -- -D warnings
 

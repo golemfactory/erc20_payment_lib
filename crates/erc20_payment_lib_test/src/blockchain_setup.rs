@@ -1,11 +1,10 @@
 use anyhow::anyhow;
-use bollard::container::StopContainerOptions;
-use bollard::models::{PortBinding, PortMap};
-use bollard::{container, image, service::HostConfig, Docker};
+use bollard::models::{ContainerCreateBody, HostConfig, PortBinding, PortMap};
+use bollard::query_parameters::{CreateImageOptionsBuilder, StopContainerOptionsBuilder};
+use bollard::Docker;
 use erc20_payment_lib_common::utils::*;
 use futures_util::TryStreamExt;
 use lazy_static::lazy_static;
-use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::runtime::Handle;
 
@@ -226,7 +225,10 @@ impl Drop for GethContainer {
             tokio::task::block_in_place(move || {
                 Handle::current().block_on(async move {
                     docker
-                        .stop_container(container_id.as_str(), Some(StopContainerOptions { t: 0 }))
+                        .stop_container(
+                            container_id.as_str(),
+                            Some(StopContainerOptionsBuilder::default().t(0).build()),
+                        )
                         .await
                         .unwrap();
                 });
@@ -237,7 +239,10 @@ impl Drop for GethContainer {
 impl GethContainer {
     pub async fn stop(&mut self) -> anyhow::Result<()> {
         self.docker
-            .stop_container(&self.container_id, Some(StopContainerOptions { t: 0 }))
+            .stop_container(
+                &self.container_id,
+                Some(StopContainerOptionsBuilder::default().t(0).build()),
+            )
             .await?;
         self.container_stopped = true;
         Ok(())
@@ -255,6 +260,7 @@ impl GethContainer {
                 return Err(anyhow::anyhow!("Failed to connect to docker: {}", err));
             }
         };
+        let docker = docker.negotiate_version().await?;
         match docker.version().await {
             Ok(version) => {
                 log::debug!(
@@ -286,11 +292,12 @@ impl GethContainer {
             );
             match docker
                 .create_image(
-                    Some(image::CreateImageOptions {
-                        from_image: image_name.as_str(),
-                        tag: &tag_from_image_name,
-                        ..Default::default()
-                    }),
+                    Some(
+                        CreateImageOptionsBuilder::default()
+                            .from_image(&image_name)
+                            .tag(&tag_from_image_name)
+                            .build(),
+                    ),
                     None,
                     None,
                 )
@@ -364,14 +371,12 @@ impl GethContainer {
                 host_port: Some(web3_proxy_port.to_string()),
             }]),
         );
-        let mut exposed_ports = HashMap::new();
-        exposed_ports.insert("8544/tcp".to_string(), HashMap::<(), ()>::new());
-        exposed_ports.insert("8545/tcp".to_string(), HashMap::<(), ()>::new());
+        let exposed_ports = vec!["8544/tcp".to_string(), "8545/tcp".to_string()];
 
         let container = docker
-            .create_container::<String, String>(
+            .create_container(
                 None,
-                container::Config {
+                ContainerCreateBody {
                     image: Some(image_id.clone()),
                     host_config: Some(HostConfig {
                         auto_remove: Some(true),
@@ -390,9 +395,7 @@ impl GethContainer {
 
         log::debug!(" -- Container id: {}", &container_id[0..12]);
 
-        docker
-            .start_container::<String>(&container_id, None)
-            .await?;
+        docker.start_container(&container_id, None).await?;
 
         log::info!(
             "Container from image {} started in {:.2}s, web3_proxy port: {}, geth rpc port: {}",
