@@ -3,7 +3,7 @@
 macro_rules! err_create {
     ($t:expr) => {
         PaymentError {
-            inner: ErrorBag::from($t),
+            inner: Box::new(ErrorBag::from($t)),
             msg: None,
             file: file!(),
             line: line!(),
@@ -17,7 +17,7 @@ macro_rules! err_create {
 macro_rules! err_custom_create {
     ($($t:tt)*) => {
         PaymentError {
-            inner: $crate::error::ErrorBag::from($crate::error::CustomError::from_owned_string(format!($($t)*))),
+            inner: Box::new($crate::error::ErrorBag::from($crate::error::CustomError::from_owned_string(format!($($t)*)))),
             msg: None,
             file: file!(),
             line: line!(),
@@ -31,7 +31,7 @@ macro_rules! err_custom_create {
 macro_rules! err_from {
     () => {
         |e| PaymentError {
-            inner: ErrorBag::from(e),
+            inner: Box::new(ErrorBag::from(e)),
             msg: None,
             file: file!(),
             line: line!(),
@@ -46,7 +46,7 @@ macro_rules! err_from {
 macro_rules! err_from_msg {
     ($($t:tt)*) => {{
         |e| PaymentError {
-            inner: ErrorBag::from(e),
+            inner: Box::new(ErrorBag::from(e)),
             msg: Some(format!($($t)*)),
             file: file!(),
             line: line!(),

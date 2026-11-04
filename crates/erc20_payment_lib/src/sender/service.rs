@@ -298,7 +298,7 @@ pub async fn process_transactions(
             .await
             {
                 Ok((tx_dao, process_result)) => (tx_dao, process_result),
-                Err(err) => match err.inner {
+                Err(err) => match *err.inner {
                     ErrorBag::TransactionFailedError(err2) => {
                         shared_state
                             .lock()
@@ -636,7 +636,7 @@ pub async fn service_loop(
                 }
             }
             Err(e) => {
-                match &e.inner {
+                match e.inner.as_ref() {
                     ErrorBag::NoAllowanceFound(allowance_request) => {
                         log::info!(
                             "No allowance found for contract {} to spend token {} for owner: {}",

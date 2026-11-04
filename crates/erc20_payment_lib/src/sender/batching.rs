@@ -479,7 +479,7 @@ pub async fn gather_transactions_post(
                         inserted_tx_count += 1;
                     }
                     Err(e) => {
-                        match &e.inner {
+                        match e.inner.as_ref() {
                             ErrorBag::NoAllowanceFound(_allowance_request) => {
                                 //pass allowance error up
                                 return Err(e);
@@ -551,7 +551,7 @@ pub async fn gather_transactions_post(
                     inserted_tx_count += 1;
                 }
                 Err(e) => {
-                    match &e.inner {
+                    match e.inner.as_ref() {
                         ErrorBag::NoAllowanceFound(_allowance_request) => {
                             //pass allowance error up
                             return Err(e);

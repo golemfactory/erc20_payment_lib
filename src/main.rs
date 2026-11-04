@@ -1,6 +1,3 @@
-// Keep the shared PaymentError public API consistent with erc20_payment_lib.
-#![allow(clippy::result_large_err)]
-
 mod actions;
 mod options;
 mod stats;
@@ -107,7 +104,7 @@ async fn main_internal() -> Result<(), PaymentError> {
 
     let mut config = match config::Config::load("config-payments.toml").await {
         Ok(c) => c,
-        Err(err) => match err.inner {
+        Err(err) => match *err.inner {
             ErrorBag::IoError(_) => {
                 log::info!("No local config found, using default config");
                 config::Config::default_config()

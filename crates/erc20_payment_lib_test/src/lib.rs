@@ -1,6 +1,3 @@
-// Keep the shared PaymentError public API consistent with erc20_payment_lib.
-#![allow(clippy::result_large_err)]
-
 mod accounts;
 mod blockchain_setup;
 mod config_setup;
