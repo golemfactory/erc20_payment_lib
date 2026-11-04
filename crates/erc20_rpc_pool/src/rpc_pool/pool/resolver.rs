@@ -13,7 +13,7 @@ pub struct ExternalSourceResolver {
     last_check: Arc<Mutex<Option<std::time::Instant>>>,
 }
 
-async fn get_awc_response(url: &str) -> Result<Web3ExternalEndpointList, Box<dyn Error>> {
+async fn get_http_response(url: &str) -> Result<Web3ExternalEndpointList, Box<dyn Error>> {
     let client = Client::new();
     let response = client
         .get(url)
@@ -119,7 +119,7 @@ impl ExternalSourceResolver {
                 pool.chain_id,
                 json_source.url
             );
-            let res = match get_awc_response(&json_source.url).await {
+            let res = match get_http_response(&json_source.url).await {
                 Ok(res) => res,
                 Err(e) => {
                     log::error!("Error getting response: {}", e);

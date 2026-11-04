@@ -10,7 +10,6 @@ license = "MIT"
 actix-files = { workspace = true }
 actix-web = { workspace = true }
 anyhow = { workspace = true }
-awc = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 dotenv = { workspace = true }
 env_logger = { workspace = true }

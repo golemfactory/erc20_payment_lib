@@ -135,9 +135,11 @@ pub async fn faucet_donate(
     address: H160,
 ) -> Result<(), PaymentError> {
     // TODO: Reduce timeout to 20-30 seconds when transfer is used.
-    let client = awc::Client::builder()
+    let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(120))
-        .finish();
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|e| err_custom_create!("Error building HTTP client {}", e))?;
 
     let faucet_url = resolve_faucet_url(
         faucet_srv_prefix,
@@ -154,7 +156,7 @@ pub async fn faucet_donate(
         .send()
         .await
         .map_err(|e| err_custom_create!("Error getting response from faucet {}", e))?
-        .body()
+        .bytes()
         .await
         .map_err(|e| err_custom_create!("Error getting payload from faucet {}", e))?;
     let response = String::from_utf8_lossy(response.as_ref());

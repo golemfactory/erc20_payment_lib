@@ -362,16 +362,23 @@ pub async fn web3(
         is_response_type_json = true;
         StatusCode::OK
     } else {
-        let client = awc::Client::new();
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(5))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("build proxy HTTP client");
         let res = client
             .post(&server_data.options.target_addr)
-            .send_json(&body_json)
+            .header("Content-Type", "application/json")
+            .body(body_json.to_string())
+            .send()
             .await;
         log::debug!("res: {:?}", res);
 
         match res {
-            Ok(mut cr) => {
-                let body_res = cr.body().await;
+            Ok(cr) => {
+                let response_status = StatusCode::from_u16(cr.status().as_u16()).unwrap();
+                let body_res = cr.bytes().await;
                 match body_res {
                     Ok(body) => match String::from_utf8(body.to_vec()) {
                         Ok(body_str) => {
@@ -397,11 +404,11 @@ pub async fn web3(
                                 );
                                 response_body_str =
                                     Some(body_str[0..body_str.len() / 2].to_string());
-                                cr.status()
+                                response_status
                             } else {
                                 //normal path return the response
                                 response_body_str = Some(body_str);
-                                cr.status()
+                                response_status
                             }
                         }
                         Err(err) => {
