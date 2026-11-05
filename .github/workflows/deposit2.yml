@@ -129,6 +129,6 @@ jobs:
       - name: Transfer all left ETH tokens
         run: |
           set -x 
-          erc20-processor transfer --account-no 1 --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
-          erc20-processor transfer --account-no 2 --recipient 0x5b984629E2Cc7570cBa7dD745b83c3dD23Ba6d0f --token eth --all
+          erc20-processor transfer --account-no 1 --recipient 0x0079dce233830c7b0cd41116214e17b93c64e030 --token eth --all
+          erc20-processor transfer --account-no 2 --recipient 0x0079dce233830c7b0cd41116214e17b93c64e030 --token eth --all
           erc20-processor run
