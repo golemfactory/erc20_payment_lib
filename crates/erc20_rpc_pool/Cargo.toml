@@ -10,7 +10,6 @@ license = "MIT"
 actix-files = { workspace = true }
 actix-web = { workspace = true }
 anyhow = { workspace = true }
-awc = { workspace = true }
 chrono = { workspace = true, features = ["serde"] }
 dotenv = { workspace = true }
 env_logger = { workspace = true }
@@ -36,7 +35,7 @@ structopt = { workspace = true }
 thunderdome = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
-trust-dns-resolver = { workspace = true }
+hickory-resolver = { workspace = true }
 uuid = { workspace = true }
 web3 = { workspace = true }
 # local dependencies

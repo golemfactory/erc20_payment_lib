@@ -12,7 +12,7 @@ pub async fn list_transactions_human(proxy_url_base: &str, proxy_key: &str) -> V
         .expect("Expected calls");
     let mut results: Vec<String> = Vec::new();
 
-    calls.calls.sort_by(|a, b| a.date.cmp(&b.date));
+    calls.calls.sort_by_key(|a| a.date);
     let first_time = calls.calls.first().unwrap().date;
     for (no, call) in calls.calls.into_iter().enumerate() {
         let c = call

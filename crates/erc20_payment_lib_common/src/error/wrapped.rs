@@ -5,7 +5,7 @@ use std::error::Error;
 /// Note that only creating via macro is possible to catch line and file
 #[derive(Debug)]
 pub struct PaymentError {
-    pub inner: ErrorBag,
+    pub inner: Box<ErrorBag>,
     pub msg: Option<String>,
     pub file: &'static str,
     pub line: u32,
@@ -14,7 +14,7 @@ pub struct PaymentError {
 
 impl Error for PaymentError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        Some(&self.inner)
+        Some(self.inner.as_ref())
     }
 }
 
@@ -49,5 +49,21 @@ impl std::fmt::Display for PaymentError {
                 self.inner, file_loc, self.line, self.column
             )
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn boxed_inner_preserves_error_source_type() {
+        let error = crate::err_custom_create!("test failure");
+        let source = error.source().unwrap();
+        assert!(matches!(
+            source.downcast_ref::<ErrorBag>(),
+            Some(ErrorBag::CustomError(_))
+        ));
+        assert_eq!(source.to_string(), "CustomError: test failure");
     }
 }

@@ -1150,6 +1150,6 @@ pub async fn import_erc20_txs(import_args: ImportErc20TxsArgs) -> Result<Vec<H25
 
     //return transactions sorted by block number
     let mut vec = txs.into_iter().collect::<Vec<(H256, u64)>>();
-    vec.sort_by(|a, b| a.1.cmp(&b.1));
+    vec.sort_by_key(|a| a.1);
     Ok(vec.into_iter().map(|(tx, _)| tx).collect())
 }

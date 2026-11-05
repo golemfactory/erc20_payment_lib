@@ -376,11 +376,11 @@ dns-source = "hoodi.rpc-node.dev.golem.network."
 
 [[chain.hoodi.rpc-endpoints]]
 names = """
-    hoodi.rpc-node.dev.golem.network
+    hoodi.rpc-node.dev.golem.network,ethereum-hoodi-rpc.publicnode.com
 """
 
 endpoints = """
-    https://hoodi.rpc-node.dev.golem.network/
+    https://hoodi.rpc-node.dev.golem.network/,https://ethereum-hoodi-rpc.publicnode.com
 """
 priority = 0
 max-timeout-ms = 5000

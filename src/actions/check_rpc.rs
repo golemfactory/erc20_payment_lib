@@ -117,16 +117,18 @@ pub async fn check_rpc_local(
                 });
             }
         } else if let Some(json_source) = &rpc_settings.json_source {
-            let client = awc::Client::builder()
+            let client = reqwest::Client::builder()
                 .timeout(std::time::Duration::from_secs(120))
-                .finish();
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .map_err(|e| err_custom_create!("Error building HTTP client {}", e))?;
 
             let response = client
                 .get(json_source)
                 .send()
                 .await
                 .map_err(|e| err_custom_create!("Error getting response from faucet {}", e))?
-                .body()
+                .bytes()
                 .await
                 .map_err(|e| err_custom_create!("Error getting payload from faucet {}", e))?;
 

@@ -46,7 +46,7 @@ pub async fn process_allowance(
             None => {
                 log::info!(
                     "Checking allowance on chain owner: {}",
-                    &allowance_request.owner
+                    allowance_request.owner
                 );
                 let allowance = check_allowance(
                     web3,

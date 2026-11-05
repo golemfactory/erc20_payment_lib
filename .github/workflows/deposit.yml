@@ -1,10 +1,7 @@
 name: Deposit tests
 
 on:
-  push:
-  workflow_dispatch:
-  schedule:
-    - cron: "42 3 * * 2"
+  workflow_call:
 
 jobs:
   test_deposit:
@@ -47,15 +44,32 @@ jobs:
           echo "Eth address 3: $ETH_ADDRESS_3"
           echo "Eth address 4: $ETH_ADDRESS_4"
 
-      - name: Get ETH from faucet for account 1 and 2
+      - name: Fund deposit test accounts
         run: |
-          erc20-processor get-dev-eth --account-no 1
-          erc20-processor get-dev-eth --account-no 2
+          erc20-processor distribute --amounts "0.01;0.01" --recipients "$ETH_ADDRESS_1;$ETH_ADDRESS_2"
+          erc20-processor run
+        env:
+          ETH_PRIVATE_KEYS: ${{ secrets.HOLESKY_FUND_ENV }}
 
-      - name: Check ETH balance after getting funds from faucet (should be 0.01)
+      - name: Wait for funded balances
+        timeout-minutes: 3
         run: |
-          x=1; while [ $(erc20-processor balance | jq -r ".\"$ETH_ADDRESS_1\".gasDecimal") != "0.01" ]; do echo "Waiting for funds for $x seconds"; sleep 5; x=$(( x + 5 )); done 
-          while [ $(erc20-processor balance | jq -r ".\"$ETH_ADDRESS_2\".gasDecimal") != "0.01" ]; do echo "Waiting for funds for $x seconds"; sleep 5; x=$(( x + 5 )); done 
+          for address in "$ETH_ADDRESS_1" "$ETH_ADDRESS_2"; do
+            funded=false
+            for attempt in {1..12}; do
+              balances=$(erc20-processor balance --accounts "$address" --hide-token)
+              if jq -e --arg address "$address" '.[$address].gasDecimal == "0.01"' <<< "$balances" > /dev/null; then
+                funded=true
+                break
+              fi
+              echo "Waiting for funds for $address (attempt $attempt/12)"
+              sleep 5
+            done
+            if [ "$funded" != true ]; then
+              echo "::error::Expected 0.01 ETH for $address; last balance: $balances"
+              exit 1
+            fi
+          done
 
       - name: Mint tokens
         run: |

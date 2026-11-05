@@ -153,14 +153,14 @@ pub async fn account_balance(
                     format!(
                         "{:.03} {}",
                         (f64::from_str(&v).unwrap_or(0.0) * 1000.0).floor() / 1000.0,
-                        &chain_cfg.currency_symbol
+                        chain_cfg.currency_symbol
                     )
                 });
                 let token_balance_human = token_balance_decimal.clone().map(|v| {
                     format!(
                         "{:.03} {}",
                         (f64::from_str(&v).unwrap_or(0.0) * 1000.0).floor() / 1000.0,
-                        &chain_cfg.token.symbol
+                        chain_cfg.token.symbol
                     )
                 });
                 result_map.borrow_mut().insert(

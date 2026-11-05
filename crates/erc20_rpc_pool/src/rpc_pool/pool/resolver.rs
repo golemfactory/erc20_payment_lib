@@ -13,7 +13,7 @@ pub struct ExternalSourceResolver {
     last_check: Arc<Mutex<Option<std::time::Instant>>>,
 }
 
-async fn get_awc_response(url: &str) -> Result<Web3ExternalEndpointList, Box<dyn Error>> {
+async fn get_http_response(url: &str) -> Result<Web3ExternalEndpointList, Box<dyn Error>> {
     let client = Client::new();
     let response = client
         .get(url)
@@ -24,7 +24,7 @@ async fn get_awc_response(url: &str) -> Result<Web3ExternalEndpointList, Box<dyn
         .await
         .map_err(|e| format!("Error getting response from {} {}", url, e))?;
     Ok(serde_json::from_str::<Web3ExternalEndpointList>(&response)
-        .map_err(|e| format!("Error parsing json: {} {}", e, &response))?)
+        .map_err(|e| format!("Error parsing json: {} {}", e, response))?)
 }
 
 impl Default for ExternalSourceResolver {
@@ -83,7 +83,7 @@ impl ExternalSourceResolver {
             let urls = match resolve_txt_record_to_string_array(&dns_source.dns_url).await {
                 Ok(record) => record,
                 Err(e) => {
-                    log::warn!("Error resolving dns entry {}: {}", &dns_source.dns_url, e);
+                    log::warn!("Error resolving dns entry {}: {}", dns_source.dns_url, e);
                     continue;
                 }
             };
@@ -119,7 +119,7 @@ impl ExternalSourceResolver {
                 pool.chain_id,
                 json_source.url
             );
-            let res = match get_awc_response(&json_source.url).await {
+            let res = match get_http_response(&json_source.url).await {
                 Ok(res) => res,
                 Err(e) => {
                     log::error!("Error getting response: {}", e);

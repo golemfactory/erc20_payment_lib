@@ -1,0 +1,6 @@
+[advisories]
+# RSA is retained in Cargo.lock through SQLx's optional MySQL backend.
+# Only SQLite is enabled; RSA is not compiled for any workspace target.
+# CI enforces this with .github/scripts/check_no_rsa.py. Remove this exception
+# before enabling any feature or dependency that compiles RSA.
+ignore = ["RUSTSEC-2023-0071"]

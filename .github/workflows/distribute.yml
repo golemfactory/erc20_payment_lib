@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: "42 3 * * 2"
 
+# All three scenarios use the same funding account and must not race its nonce.
+concurrency:
+  group: hoodi-funded-tests
+  cancel-in-progress: false
+
 jobs:
   test_deposit:
     name: Test Distribute
@@ -55,3 +60,14 @@ jobs:
           erc20-processor transfer --account-no 3 --recipient 0x0079dce233830c7b0cd41116214e17b93c64e030 --token eth --all
           erc20-processor transfer --account-no 4 --recipient 0x0079dce233830c7b0cd41116214e17b93c64e030 --token eth --all
           erc20-processor run
+
+
+  deposit:
+    needs: test_deposit
+    uses: ./.github/workflows/deposit.yml
+    secrets: inherit
+
+  deposit2:
+    needs: deposit
+    uses: ./.github/workflows/deposit2.yml
+    secrets: inherit

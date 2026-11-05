@@ -183,7 +183,7 @@ pub async fn generate_test_payments(
         Ok(_) => {
             log::info!("All transactions generated successfully");
         }
-        Err(err) => match err.inner {
+        Err(err) => match *err.inner {
             ErrorBag::TimeLimitReached(d) => {
                 log::info!("Time limit reached: {} seconds, exiting", d.as_secs_f64());
             }

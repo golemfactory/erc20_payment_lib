@@ -21,7 +21,7 @@ pub enum ErrorBag {
     Web3Error(web3::Error),
     ConversionError(ConversionError),
     FromHexError(FromHexError),
-    NoAllowanceFound(AllowanceRequest),
+    NoAllowanceFound(Box<AllowanceRequest>),
     FromDecStrErr(FromDecStrErr),
     TimeLimitReached(std::time::Duration),
 }
@@ -112,7 +112,7 @@ impl From<FromHexError> for ErrorBag {
 
 impl From<AllowanceRequest> for ErrorBag {
     fn from(err: AllowanceRequest) -> Self {
-        ErrorBag::NoAllowanceFound(err)
+        ErrorBag::NoAllowanceFound(Box::new(err))
     }
 }
 

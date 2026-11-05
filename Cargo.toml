@@ -23,18 +23,19 @@ edition = "2021"
 license = "MIT"
 
 [workspace.dependencies]
+# Libraries leave the TLS backend and certificate roots to the consuming application.
 actix = "0.13"
 actix-cors = "0.7"
 actix-files = "0.6"
 actix-web-httpauth = "0.8"
 actix-web = { version = "4", default-features = false, features = [
     "macros",
+    "ws",
 ] }
 actix-web-actors = { version = "4", default-features = false }
 anyhow = "1"
-awc = { version = "3.1", features = ["rustls"] }
 base64 = "0.22"
-bollard = "0.14"
+bollard = "0.21.1"
 chrono = { version = "0.4", features = ["serde"] }
 csv = "1.2"
 dotenv = "0.15"
@@ -55,7 +56,7 @@ mime_guess = "2.0.3"
 parking_lot = "0.12"
 rand = "0.8.5"
 regex = "1.10.2"
-reqwest = { version = "0.11", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.12.28", default-features = false }
 rust-embed = "6.8"
 rust_decimal = "1.26"
 rustc-hex = "2.1"
@@ -63,7 +64,7 @@ secp256k1 = "0.27" # version has to match web3
 serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 sha3 = "0.10.6"
-sqlx = { version = "0.7", features = ["sqlite", "chrono", "runtime-tokio"] }
+sqlx = { version = "0.8", default-features = false, features = ["sqlite", "chrono", "runtime-tokio", "macros", "migrate"] }
 stream-rate-limiter = "0.4"
 structopt = "0.3"
 thiserror = "1.0"
@@ -71,12 +72,12 @@ thunderdome = "0.6"
 tokio = { version = "^1.21", features = ["macros", "rt-multi-thread"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
 toml = "0.8.8" # need some refactor to update
-trust-dns-resolver = "0.23"
+hickory-resolver = "0.26.3"
 url = "2.4"
 uuid = { version = "1.2", features = ["serde", "v4"] }
-web3 = { version = "0.19", default-features = false, features = [
+web3 = { git = "https://github.com/golemfactory/rust-web3.git", rev = "11a5525a501f63fc06a8acabee00546a33e2353c", default-features = false, features = [
     "signing",
-    "http-rustls-tls",
+    "http",
 ] }
 # local dependencies
 erc20_rpc_pool = { path = "crates/erc20_rpc_pool", version = "=0.5.1" }
@@ -90,7 +91,6 @@ actix-cors = { workspace = true }
 actix-files = { workspace = true }
 actix-web = { workspace = true }
 anyhow = { workspace = true }
-awc = { workspace = true }
 chrono = { workspace = true }
 csv = { workspace = true }
 dotenv = { workspace = true }
@@ -106,6 +106,7 @@ log = { workspace = true }
 metrics = { workspace = true }
 metrics-runtime = { workspace = true }
 rand = { workspace = true }
+reqwest = { workspace = true, features = ["rustls-tls"] }
 regex = { workspace = true }
 rust_decimal = { workspace = true }
 rustc-hex = { workspace = true }
@@ -119,7 +120,7 @@ structopt = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 toml = { workspace = true }
-trust-dns-resolver = { workspace = true }
+hickory-resolver = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true }
 web3 = { workspace = true }
@@ -133,7 +134,6 @@ erc20_payment_lib_extra = { workspace = true }
 bollard = { workspace = true }
 erc20_payment_lib_test = { path = "crates/erc20_payment_lib_test" }
 web3_test_proxy_client = { path = "crates/web3_test_proxy_client" }
-awc = { workspace = true }
 # please do not use this library. It is not developer friendly
 # if you have very good reason then ask first
 #test-case = "3.1.0"
