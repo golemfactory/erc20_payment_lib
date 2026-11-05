@@ -1102,7 +1102,7 @@ checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
 
 [[package]]
 name = "erc20-processor"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "actix-cors",
  "actix-files",
@@ -1152,7 +1152,7 @@ dependencies = [
 
 [[package]]
 name = "erc20_payment_lib"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "actix",
  "actix-files",
@@ -1190,7 +1190,7 @@ dependencies = [
 
 [[package]]
 name = "erc20_payment_lib_common"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "actix-files",
  "actix-web",
@@ -1229,7 +1229,7 @@ dependencies = [
 
 [[package]]
 name = "erc20_payment_lib_extra"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "actix-files",
  "actix-web",
@@ -1264,7 +1264,7 @@ dependencies = [
 
 [[package]]
 name = "erc20_payment_lib_test"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "actix-files",
  "actix-web",
@@ -1302,7 +1302,7 @@ dependencies = [
 
 [[package]]
 name = "erc20_rpc_pool"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "actix-files",
  "actix-web",
@@ -4720,7 +4720,7 @@ dependencies = [
 
 [[package]]
 name = "web3_test_proxy"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "actix-cors",
  "actix-files",
@@ -4749,7 +4749,7 @@ dependencies = [
 
 [[package]]
 name = "web3_test_proxy_client"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "chrono",

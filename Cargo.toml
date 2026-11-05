@@ -18,7 +18,7 @@ path = "src/main.rs"
 name = "erc20-processor"
 description = "Payment processor for ERC20 tokens"
 authors = ["Sieciech Czajka <sieciech.czajka@golem.network>"]
-version = "0.5.1"
+version = "0.6.0"
 edition = "2021"
 license = "MIT"
 
@@ -80,11 +80,11 @@ web3 = { git = "https://github.com/golemfactory/rust-web3.git", rev = "11a5525a5
     "http",
 ] }
 # local dependencies
-erc20_rpc_pool = { path = "crates/erc20_rpc_pool", version = "=0.5.1" }
-erc20_payment_lib = { path = "crates/erc20_payment_lib", version = "=0.5.1" }
-erc20_payment_lib_common = { path = "crates/erc20_payment_lib_common", version = "=0.5.1" }
-erc20_payment_lib_extra = { path = "crates/erc20_payment_lib_extra", version = "=0.5.1" }
-web3_test_proxy_client = { path = "crates/web3_test_proxy_client", version = "=0.5.1" }
+erc20_rpc_pool = { path = "crates/erc20_rpc_pool", version = "=0.6.0" }
+erc20_payment_lib = { path = "crates/erc20_payment_lib", version = "=0.6.0" }
+erc20_payment_lib_common = { path = "crates/erc20_payment_lib_common", version = "=0.6.0" }
+erc20_payment_lib_extra = { path = "crates/erc20_payment_lib_extra", version = "=0.6.0" }
+web3_test_proxy_client = { path = "crates/web3_test_proxy_client", version = "=0.6.0" }
 
 [dependencies]
 actix-cors = { workspace = true }
